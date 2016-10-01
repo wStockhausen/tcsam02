@@ -1194,14 +1194,14 @@ PRELIMINARY_CALCS_SECTION
         
         {cout<<"writing model results to R"<<endl;
             rpt::echo<<"writing initial model report to R"<<endl;
-            ofstream echo1; echo1.open("ModelInitReport.rep", ios::trunc);
+            ofstream echo1; echo1.open("tcsam02.init.rep", ios::trunc);
             ReportToR(echo1,1,cout);
         }
         
         {cout<<"writing model sim data to file"<<endl;
             rpt::echo<<"writing model sim data to file"<<endl;
             createSimData(1,rpt::echo,0,ptrSimMDS);//deterministic
-            ofstream echo1; echo1.open("ModelSimData0.dat", ios::trunc);
+            ofstream echo1; echo1.open("tcsam02.SimData.init.dat", ios::trunc);
             writeSimData(echo1,0,rpt::echo,ptrSimMDS);
         }
         cout<<"#finished PRELIMINARY_CALCS_SECTION"<<endl;
