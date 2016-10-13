@@ -3,6 +3,51 @@
 #include "ModelConstants.hpp"
 #include "SummaryFunctions.hpp"
     
+    
+/**
+ * Calculate biomass (1000's t) associated with abundance array.
+ * 
+ * @param n_xmsz - abundance array (millions)
+ * @param w_xmz - individual weight-at-size by sex, maturity state (kg)
+ * @return associated biomass as d4_array (1000's t)
+ */
+d4_array tcsam::calcBiomass(const d4_array& n_xmsz, const d3_array& w_xmz){
+    d4_array b_xmsz = n_xmsz;
+    for (int x=n_xmsz.indexmin();x<=n_xmsz.indexmax();x++){
+        for (int m=n_xmsz(x).indexmin();m<=n_xmsz(x).indexmax();m++){
+            for (int s=n_xmsz(x,m).indexmin();s<=n_xmsz(x,m).indexmax();s++) 
+                b_xmsz(x,m,s) = elem_prod(w_xmz(x,m),n_xmsz(x,m,s));
+        }
+    }
+    return b_xmsz;
+}
+
+/**
+ * Calculate biomass (1000's t) associated with abundance array.
+ * 
+ * @param n_yxmsz - abundance array (millions)
+ * @param w_xmz - individual weight-at-size by sex, maturity state (kg)
+ * @return associated biomass as d5_array (1000's t)
+ */
+d5_array tcsam::calcBiomass(const d5_array& n_yxmsz, const d3_array& w_xmz){
+    d5_array b_yxmsz = n_yxmsz;
+    for (int y=n_yxmsz.indexmin();y<=n_yxmsz.indexmax();y++) b_yxmsz(y) = calcBiomass(n_yxmsz(y),w_xmz);
+    return b_yxmsz;
+}
+
+/**
+ * Calculate biomass (1000's t) associated with abundance array.
+ * 
+ * @param n_fyxmsz - abundance array (millions)
+ * @param w_xmz - individual weight-at-size by sex, maturity state (kg)
+ * @return associated biomass as d6_array (1000's t)
+ */
+d6_array tcsam::calcBiomass(const d6_array& n_fyxmsz, const d3_array& w_xmz){
+    d6_array b_fyxmsz = n_fyxmsz;
+    for (int f=n_fyxmsz.indexmin();f<=n_fyxmsz.indexmax();f++) b_fyxmsz(f) = calcBiomass(n_fyxmsz(f),w_xmz);
+    return b_fyxmsz;
+}
+
 /**
  * Compute marginal weighted sums over last dimension.
  * 

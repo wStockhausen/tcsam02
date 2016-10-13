@@ -11,6 +11,33 @@
 namespace tcsam {
     
     /**
+     * Calculate biomass (1000's t) associated with abundance array.
+     * 
+     * @param n_xmsz - abundance array (millions)
+     * @param w_xmz - individual weight-at-size by sex, maturity state (kg)
+     * @return associated biomass as d4_array (1000's t)
+     */
+    d4_array calcBiomass(const d4_array& n_xmsz, const d3_array& w_xmz);
+    
+    /**
+     * Calculate biomass (1000's t) associated with abundance array.
+     * 
+     * @param n_yxmsz - abundance array (millions)
+     * @param w_xmz - individual weight-at-size by sex, maturity state (kg)
+     * @return associated biomass as d5_array (1000's t)
+     */
+    d5_array calcBiomass(const d5_array& n_yxmsz, const d3_array& w_xmz);
+    
+    /**
+     * Calculate biomass (1000's t) associated with abundance array.
+     * 
+     * @param n_fyxmsz - abundance array (millions)
+     * @param w_xmz - individual weight-at-size by sex, maturity state (kg)
+     * @return associated biomass as d6_array (1000's t)
+     */
+    d6_array calcBiomass(const d6_array& n_fyxmsz, const d3_array& w_xmz);
+    
+    /**
      * Compute marginal weighted sums over last dimension.
      * 
      * @param  n_ij - dmatrix
