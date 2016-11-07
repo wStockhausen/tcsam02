@@ -171,7 +171,7 @@ GLOBALS_SECTION
     ModelOptions*        ptrMOs;//ptr to model options object
     ModelDatasets*       ptrMDS;//ptr to model datasets object
     ModelDatasets*       ptrSimMDS;//ptr to simulated model datasets object
-    OFLResults*          ptrOFL;   //pointer to OFL results object for MCMC calculations
+    OFLResults           oflResults;//OFL results object for MCMC calculations
         
     //dimensions for R output
     adstring yDms;
@@ -857,9 +857,6 @@ DATA_SECTION
     //fisheries info
     imatrix hasF_fy(1,nFsh,mnYr,mxYr);//flags indicating fishery activity
     
-    //create OFL results object
-    !!ptrOFL = new OFLResults();
-    
     //counters for PROCEDURE_SECTION calls
     int ctrProcCalls;       //all calls
     int ctrProcCallsInPhase;//within phase
@@ -1174,9 +1171,11 @@ PRELIMINARY_CALCS_SECTION
         
         if (doOFL&&debugOFL){
             cout<<"Test OFL calculations"<<endl;
-            ofstream echoOFL; echoOFL.open("calcOFL.txt", ios::trunc);
+            ofstream echoOFL; echoOFL.open("calcOFL.init.txt", ios::trunc);
             echoOFL<<"----Testing calcOFL()"<<endl;
-            calcOFL(mxYr,debugOFL,echoOFL);//updates ptrOFL
+            calcOFL(mxYr+1,debugOFL,echoOFL);//updates oflResults
+            oflResults.writeCSVHeader(echoOFL);
+            oflResults.writeToCSV(echoOFL);
             echoOFL<<"----Finished testing calcOFL()!"<<endl;
             echoOFL.close();
             cout<<"Finished testing OFL calculations!"<<endl;
@@ -1254,7 +1253,6 @@ PROCEDURE_SECTION
     
     if (mceval_phase()){
         updateMPI(0, cout);
-        if (doOFL) calcOFL(mxYr,0,cout);//update ptrOFL
         writeMCMCtoR(mcmc);
     }
 
@@ -1400,7 +1398,8 @@ FUNCTION void writeMCMCtoR(ofstream& mcmc)
         mcmc<<"MB_xy="; wts::writeToR(mcmc,trans(value(spB_yx)),xDms,yDms); 
         if (doOFL){
             mcmc<<cc<<endl;
-            ptrOFL->writeToR(mcmc,"oflResults",0);//mcm<<cc<<endl;
+            calcOFL(mxYr+1,0,cout);//updates oflresults
+            oflResults.writeToR(mcmc,"oflResults",0);//mcm<<cc<<endl;
         }
         
     mcmc<<")"<<cc<<endl;
@@ -1809,33 +1808,38 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
     if (debug) {
         cout<<endl<<endl<<"#------------------------"<<endl;
         cout<<"starting calcOFL(yr,debug,cout)"<<endl;
+        cout<<"year for projection = "<<yr<<endl;
     }
     //get initial population for "upcoming" year, yr
     d4_array n_xmsz = wts::value(n_yxmsz(yr));
+    if (debug) {cout<<"  males_msz:"<<endl; wts::print(n_xmsz(  MALE),cout,1);}
+    if (debug) {cout<<"females_msz:"<<endl; wts::print(n_xmsz(FEMALE),cout,1);}
     
-    //NOW set yr back one year to get population rates, etc.
-    yr = yr - 1;
+    //set yr back one year (if necessary) to get population rates, etc.
+    yr = wts::ifelse(yr<=mxYr, yr, yr - 1);//don't have pop rates, etc. for mxYr+1
+    if (debug) cout<<"year for pop rates = "<<yr<<endl;
     
     //1. Determine population rates for next year, using yr
-    double dtF = dtF_y(yr);
-    double dtM = dtM_y(yr);
+    double dtF = dtF_y(yr);//time at which fisheries occur
+    double dtM = dtM_y(yr);//time at which mating occurs
     
-    PopDyInfo* pPIM = new PopDyInfo(nZBs);//  males info
+    PopDyInfo* pPIM = new PopDyInfo(nZBs,dtM);//  males info
     pPIM->R_z   = value(R_yz(yr));
     pPIM->w_mz  = ptrMDS->ptrBio->wAtZ_xmz(MALE);
     pPIM->M_msz = value(M_yxmsz(yr,MALE));
     pPIM->T_szz = value(prGr_yxszz(yr,MALE));
     for (int s=1;s<=nSCs;s++) pPIM->Th_sz(s) = value(prM2M_yxz(yr,MALE));
     
-    PopDyInfo* pPIF = new PopDyInfo(nZBs);//females info
+    PopDyInfo* pPIF = new PopDyInfo(nZBs,dtM);//females info
     pPIF->R_z   = value(R_yz(yr));
     pPIF->w_mz  = ptrMDS->ptrBio->wAtZ_xmz(FEMALE);
     pPIF->M_msz = value(M_yxmsz(yr,FEMALE));
     pPIF->T_szz = value(prGr_yxszz(yr,FEMALE));
     for (int s=1;s<=nSCs;s++) pPIF->Th_sz(s) = value(prM2M_yxz(yr,FEMALE));
+    if (debug) cout<<"calculated pPIM, pPIF."<<endl;
     
     //2. Determine fishery conditions for next year based on averages for recent years
-        int oflAvgPeriodYrs = 5;
+        int oflAvgPeriodYrs = 1;
         //assumption here is that ALL fisheries EXCEPT the first are bycatch fisheries
         //a. Calculate average handling mortality, retention curves and capture rates
         int ny;   //number of years fishery is active
@@ -1851,131 +1855,160 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
         }
         if (debug) cout<<"avgHm_f = "<<avgHM_f<<endl;
 
-        d5_array avgRFcn_fxmsz(1,nFsh,1,nSXs,1,nMSs,1,nSCs,1,nZBs);//averaged retention function
-        d5_array avgCapF_fxmsz(1,nFsh,1,nSXs,1,nMSs,1,nSCs,1,nZBs);//averaged capture mortality
-        avgRFcn_fxmsz.initialize();
-        avgCapF_fxmsz.initialize();
-        for (int f=1;f<=nFsh;f++){
-            for (int x=1;x<=nSXs;x++){
+        d5_array avgCapF_xfmsz(1,nSXs,1,nFsh,1,nMSs,1,nSCs,1,nZBs);//averaged capture mortality
+        d5_array avgRFcn_xfmsz(1,nSXs,1,nFsh,1,nMSs,1,nSCs,1,nZBs);//averaged retention function
+        avgCapF_xfmsz.initialize();
+        avgRFcn_xfmsz.initialize();
+        for (int x=1;x<=nSXs;x++){
+            for (int f=1;f<=nFsh;f++){
                 for (int m=1;m<=nMSs;m++){
                     for (int s=1;s<=nSCs;s++) {
                         for (int z=1;z<=nZBs;z++){
                             ny = 0;
                             for (int y=(yr-oflAvgPeriodYrs+1);y<=yr;y++) {
                                 ny += hasF_fy(f,y);
-                                avgRFcn_fxmsz(f,x,m,s,z) += value(ret_fyxmsz(f,y,x,m,s,z));
-                                avgCapF_fxmsz(f,x,m,s,z) += value(cpF_fyxmsz(f,y,x,m,s,z));
+                                avgCapF_xfmsz(x,f,m,s,z) += value(cpF_fyxmsz(f,y,x,m,s,z));
+                                avgRFcn_xfmsz(x,f,m,s,z) += value(ret_fyxmsz(f,y,x,m,s,z));
                             }
-                            avgCapF_fxmsz(f,x,m,s,z) /= 1.0*ny;
-                            avgRFcn_fxmsz(f,x,m,s,z) /= 1.0*ny;
+                            avgCapF_xfmsz(x,f,m,s,z) /= 1.0*ny;
+                            avgRFcn_xfmsz(x,f,m,s,z) /= 1.0*ny;
                         }
                     }
                 }
             }
         }
         if (debug){
-            cout<<"avgCapF_fxmsz(1,MALE,MATURE,NEW_SHELL) = "<<avgCapF_fxmsz(1,MALE,MATURE,NEW_SHELL)<<endl;
-            cout<<"avgRFcn_fxmsz(1,MALE,MATURE,NEW_SHELL) = "<<avgRFcn_fxmsz(1,MALE,MATURE,NEW_SHELL)<<endl;
+            for (int f=1;f<=nFsh;f++){
+                cout<<"avgCapF_xfmsz(  MALE,"<<f<<",MATURE,NEW_SHELL) = "<<endl<<tb<<avgCapF_xfmsz(  MALE,f,MATURE,NEW_SHELL)<<endl;
+                cout<<"avgRFcn_xfmsz(  MALE,"<<f<<",MATURE,NEW_SHELL) = "<<endl<<tb<<avgRFcn_xfmsz(  MALE,f,MATURE,NEW_SHELL)<<endl;
+                cout<<"avgCapF_xfmsz(FEMALE,"<<f<<",MATURE,NEW_SHELL) = "<<endl<<tb<<avgCapF_xfmsz(FEMALE,f,MATURE,NEW_SHELL)<<endl;
+                cout<<"avgRFcn_xfmsz(FEMALE,"<<f<<",MATURE,NEW_SHELL) = "<<endl<<tb<<avgRFcn_xfmsz(FEMALE,f,MATURE,NEW_SHELL)<<endl;
+            }
         }
         
-        CatchInfo* pCIM = new CatchInfo(nZBs,nFsh);//male catch info
-        pCIM->setCaptureRates(MALE, avgCapF_fxmsz);
-        pCIM->setRetentionFcns(MALE, avgRFcn_fxmsz);
+        CatchInfo* pCIM = new CatchInfo(nZBs,nFsh,dtF);//male catch info
+        pCIM->setCaptureRates(avgCapF_xfmsz(MALE));
+        pCIM->setRetentionFcns(avgRFcn_xfmsz(MALE));
         pCIM->setHandlingMortality(avgHM_f);
         double maxCapF = pCIM->findMaxTargetCaptureRate(cout);
         if (debug) cout<<"maxCapF = "<<maxCapF<<endl;
         
-        CatchInfo* pCIF = new CatchInfo(nZBs,nFsh);//female catch info
-        pCIF->setCaptureRates(FEMALE, avgCapF_fxmsz);
-        pCIF->setRetentionFcns(FEMALE, avgRFcn_fxmsz);
+        CatchInfo* pCIF = new CatchInfo(nZBs,nFsh,dtF);//female catch info
+        pCIF->setCaptureRates(avgCapF_xfmsz(FEMALE));
+        pCIF->setRetentionFcns(avgRFcn_xfmsz(FEMALE));
         pCIF->setHandlingMortality(avgHM_f);
         pCIF->maxF = maxCapF;//need to set this for females
         
-    //3. Determine TIER LEVEL
+    //3. Create PopProjectors
+        PopProjector* pPPM = new PopProjector(pPIM,pCIM);
+        PopProjector* pPPF = new PopProjector(pPIF,pCIF);
+        if (debug) cout<<"created pPPM, pPPF."<<endl;
+        
+    //4. Create Equilibrium_Calculator
+        Equilibrium_Calculator* pEC = new Equilibrium_Calculator(pPPM);
+        if (debug) cout<<"created pEC."<<endl;
+        
+    //5. Determine TIER LEVEL
         int tier = 3;
         
-    //4. Determine mean recruitment
-        dvector avgRec_x(1,nSXs);
-        for (int x=1;x<=nSXs;x++) 
-            avgRec_x(x)= value(mean(elem_prod(R_y(1982,mxYr),column(R_yx,x)(1982,mxYr))));
-        if (debug) {
-            cout<<"R_y(1982,mxYr) = "<<R_y(1982,mxYr)<<endl;
-            cout<<"R_yx((1982:mxYr,MALE) = "<<column(R_yx,MALE)(1982,mxYr)<<endl;
-            cout<<"Average recruitment = "<<avgRec_x<<endl;
-        }
+        OFL_Calculator*  pOC;
+        if (debug) cout<<"declared pOC."<<endl;
         
-    //5. Determine Fmsy and Bmsy
-        Tier3_Calculator* pT3C = new Tier3_Calculator(nZBs,nFsh);
-        pT3C->dtF = dtF;
-        pT3C->dtM = dtM;
-        pT3C->pPI = pPIM;//male pop dy info
-        pT3C->pCI = pCIM;//male catch info
-        
-        double B100 = pT3C->calcB100(avgRec_x(MALE),cout);
-        double Bmsy = pT3C->calcBmsy(avgRec_x(MALE),cout);
-        double Fmsy = pT3C->calcFmsy(avgRec_x(MALE),cout);
-        
-        if (debug){
-            d3_array tmp0_msz = pT3C->calcEqNatZF0(avgRec_x(MALE),cout);
-            double tmpMMB0 = pT3C->pPI->calcMatureBiomass(tmp0_msz,cout);
-            d3_array tmp1_msz = pT3C->calcEqNatZFM(avgRec_x(MALE),Fmsy,cout);
-            double tmpMMB = pT3C->pPI->calcMatureBiomass(tmp1_msz,cout);
-            cout<<"B100 = "<<B100<<endl;
-            cout<<"Bmsy = "<<Bmsy<<endl;
-            cout<<"Fmsy = "<<Fmsy<<endl<<endl<<endl;
-            cout<<"Unfished equilibrium size distribution:"<<endl;
-            wts::print(tmp0_msz,cout,2);
-            cout<<"MMB100 = "<<tmpMMB0<<endl;
-            cout<<"Fmsy equilibrium size distribution:"<<endl;
-            wts::print(tmp1_msz,cout,2);
-            cout<<"MMBmsy = "<<tmpMMB<<endl;
-            cout<<"------------------------------------------"<<endl<<endl;
-        }
-        
-    //6. Determine Fofl and OFL    
-        //population projector for males
-        PopProjector* pPPM = new PopProjector(nZBs,nFsh);
-        pPPM->dtF = dtF;
-        pPPM->dtM = dtM;
-        pPPM->pPI = pPIM;//male pop dy info
-        pPPM->pCI = pCIM;//male catch info
-        
-        //population projector for females
-        PopProjector* pPPF = new PopProjector(nZBs,nFsh);
-        pPPF->dtF = dtF;
-        pPPF->dtM = dtM;
-        pPPF->pPI = pPIF;//female pop dy info
-        pPPF->pCI = pCIF;//female catch info
-        
-        //OFL calculator
-        OFL_Calculator* pOC = new OFL_Calculator(nFsh);
-        pOC->pT3C = pT3C;
-        pOC->pPrjM = pPPM;
-        pOC->pPrjF = pPPF;
-        
-        //calculate Fofl
-        double Fofl = pOC->calcFofl(Bmsy,Fmsy,n_xmsz(MALE),cout);
-        if (debug) cout<<"Fofl = "<<Fofl<<endl;
-        //calculate OFL
-        double OFL = pOC->calcOFL(Fofl,n_xmsz,cout);
-        if (debug) {
-            cout<<"OFL = "<<OFL<<endl;
-            cout<<"retained catch:"<<tb<<pOC->ofl_fx(0,MALE)<<endl;
-            for (int f=1;f<=nFsh;f++){
-                cout<<"fishery "<<f<<":"<<tb<<pOC->ofl_fx(f,MALE)<<tb<<pOC->ofl_fx(f,FEMALE)<<endl;
+        if (tier==3){
+            //4. Determine mean recruitment
+            dvector avgRec_x(1,nSXs);
+            for (int x=1;x<=nSXs;x++) 
+                avgRec_x(x)= value(mean(elem_prod(R_y(1982,mxYr),column(R_yx,x)(1982,mxYr))));
+            if (debug) {
+                cout<<"R_y(1982,mxYr) = "<<R_y(1982,mxYr)<<endl;
+                cout<<"R_yx((1982:mxYr,MALE) = "<<column(R_yx,MALE)(1982,mxYr)<<endl;
+                cout<<"Average recruitment = "<<avgRec_x<<endl;
             }
-        }
-        //calculate projected ("current") MMB
-        double prjMMB = pOC->calcPrjMMB(Fofl,n_xmsz(MALE),cout);
-        if (debug) cout<<"prjMMB = "<<prjMMB<<endl;
-        
-    //encapsulate results
-    ptrOFL->B100 = B100;
-    ptrOFL->Bmsy = Bmsy;
-    ptrOFL->Fmsy = Fmsy;
-    ptrOFL->Fofl = Fofl;
-    ptrOFL->OFL  = OFL;
-    ptrOFL->prjB = prjMMB;
+
+            //5. Determine Fmsy and Bmsy
+            Tier3_Calculator* pT3C = new Tier3_Calculator(0.35,pEC);
+            if (debug) cout<<"created pT3C."<<endl;
+            pOC = new OFL_Calculator(pT3C,pPPF);
+            if (debug) {
+                cout<<"created pOC."<<endl;
+                OFL_Calculator::debug=1;
+                Tier3_Calculator::debug=1;
+                Equilibrium_Calculator::debug=0;
+            }
+            oflResults = pOC->calcOFLResults(avgRec_x,n_xmsz,cout);
+            if (debug) cout<<"calculated oflResults."<<endl;
+            
+            if (debug){
+                oflResults.writeCSVHeader(cout); cout<<endl;
+                oflResults.writeToCSV(cout); cout<<endl;
+            }
+        }//Tier 3 calculation
+//
+//            double B100 = pT3C->calcB100(avgRec_x(MALE),cout);
+//            double Bmsy = pT3C->calcBmsy(avgRec_x(MALE),cout);
+//            double Fmsy = pT3C->calcFmsy(avgRec_x(MALE),cout);
+//
+//            if (debug){
+//                d3_array tmp0_msz = pT3C->calcEqNatZF0(avgRec_x(MALE),cout);
+//                double tmpMMB0 = pT3C->pPI->calcMatureBiomass(tmp0_msz,cout);
+//                d3_array tmp1_msz = pT3C->calcEqNatZFM(avgRec_x(MALE),Fmsy,cout);
+//                double tmpMMB = pT3C->pPI->calcMatureBiomass(tmp1_msz,cout);
+//                cout<<"B100 = "<<B100<<endl;
+//                cout<<"Bmsy = "<<Bmsy<<endl;
+//                cout<<"Fmsy = "<<Fmsy<<endl<<endl<<endl;
+//                cout<<"Unfished equilibrium size distribution:"<<endl;
+//                wts::print(tmp0_msz,cout,2);
+//                cout<<"MMB100 = "<<tmpMMB0<<endl;
+//                cout<<"Fmsy equilibrium size distribution:"<<endl;
+//                wts::print(tmp1_msz,cout,2);
+//                cout<<"MMBmsy = "<<tmpMMB<<endl;
+//                cout<<"------------------------------------------"<<endl<<endl;
+//            }
+//        
+//    //6. Determine Fofl and OFL    
+//        //population projector for males
+//        PopProjector* pPPM = new PopProjector(nZBs,nFsh);
+//        pPPM->dtF = dtF;
+//        pPPM->dtM = dtM;
+//        pPPM->pPI = pPIM;//male pop dy info
+//        pPPM->pCI = pCIM;//male catch info
+//        
+//        //population projector for females
+//        PopProjector* pPPF = new PopProjector(nZBs,nFsh);
+//        pPPF->dtF = dtF;
+//        pPPF->dtM = dtM;
+//        pPPF->pPI = pPIF;//female pop dy info
+//        pPPF->pCI = pCIF;//female catch info
+//        
+//        //OFL calculator
+//        OFL_Calculator* pOC = new OFL_Calculator(nFsh);
+//        pOC->pT3C = pT3C;
+//        pOC->pPrjM = pPPM;
+//        pOC->pPrjF = pPPF;
+//        
+//        //calculate Fofl
+//        double Fofl = pOC->calcFofl(Bmsy,Fmsy,n_xmsz(MALE),cout);
+//        if (debug) cout<<"Fofl = "<<Fofl<<endl;
+//        //calculate OFL
+//        double OFL = pOC->calcOFL(Fofl,n_xmsz,cout);
+//        if (debug) {
+//            cout<<"OFL = "<<OFL<<endl;
+//            cout<<"retained catch:"<<tb<<pOC->ofl_fx(0,MALE)<<endl;
+//            for (int f=1;f<=nFsh;f++){
+//                cout<<"fishery "<<f<<":"<<tb<<pOC->ofl_fx(f,MALE)<<tb<<pOC->ofl_fx(f,FEMALE)<<endl;
+//            }
+//        }
+//        //calculate projected ("current") MMB
+//        double prjMMB = pOC->calcPrjMMB(Fofl,n_xmsz(MALE),cout);
+//        if (debug) cout<<"prjMMB = "<<prjMMB<<endl;
+//        
+//    //encapsulate results
+//    ptrOFL->B100 = B100;
+//    ptrOFL->Bmsy = Bmsy;
+//    ptrOFL->Fmsy = Fmsy;
+//    ptrOFL->Fofl = Fofl;
+//    ptrOFL->OFL  = OFL;
+//    ptrOFL->prjB = prjMMB;
     
     if (debug) {
         cout<<"finished calcOFL(yr,debug,cout)"<<endl;
@@ -4608,9 +4641,15 @@ FUNCTION void ReportToR(ostream& os, int debug, ostream& cout)
         
         //do OFL calculations
         if (doOFL){
+            cout<<"ReportToR: starting OFL calculations"<<endl;
+            ofstream echoOFL; echoOFL.open("calcOFL.final.txt", ios::trunc);
+            calcOFL(mxYr+1,1,echoOFL);//updates oflResults
+            oflResults.writeCSVHeader(echoOFL);
+            oflResults.writeToCSV(echoOFL);
+            echoOFL.close();
             os<<","<<endl;
-            calcOFL(mxYr,debug,cout);//updates ptrOFL
-            ptrOFL->writeToR(os,"oflResults",0);
+            oflResults.writeToR(os,"oflResults",0);
+            cout<<"ReportToR: finished OFL calculations"<<endl;
         }
 
     os<<")"<<endl;

@@ -17,6 +17,7 @@ class PopDyInfo {
         int nMSs;//number of maturity states
         int nSCs;//number of shell conditions
         int nZBs;//number of size bins
+        double dtM; //time at which mating occurs (as fraction of year)
         
     public:
         dvector  R_z;      //recruitment size distribution
@@ -30,8 +31,9 @@ class PopDyInfo {
          * Class constructor.
          * 
          * @param npZBs - number of size bins
+         * @params dtMp - time at which mating occurs (as fraction of year)
          */
-        PopDyInfo(int npZBs);
+        PopDyInfo(int npZBs, double dtMp);
         /**
          * Class destructor.
          */
@@ -42,7 +44,7 @@ class PopDyInfo {
          * @param n_msz - single-sex population abundance
          * @param cout - stream for writing debug info
          * 
-         * @return mature biomass (units??)
+         * @return mature single-sex biomass (units??)
          */
         double calcMatureBiomass(d3_array& n_msz, ostream& cout);
         /**
@@ -51,7 +53,7 @@ class PopDyInfo {
          * @param n_msz - single-sex population abundance
          * @param cout - stream for writing debug info
          * 
-         * @return total biomass (units??)
+         * @return total single-sex biomass (units??)
          */
         double calcTotalBiomass(d3_array& n_msz, ostream& cout);
         /**
@@ -65,28 +67,39 @@ class PopDyInfo {
          */
         d3_array calcSurvival(double dt, ostream& cout);
         /**
-         * Calculate effects of natural mortality on population abundance.
+         * Calculate effects of natural mortality on population abundance for single sex.
          * 
          * @param dt - time interval (fraction of year)
          * @param n_msz - initial population abundance
          * @param cout - stream for writing debug info
          * 
-         * @return final population abundance (after applying natural mortality)
+         * @return final single-sex population abundance (after applying natural mortality)
          */
         d3_array applyNM(double dt, d3_array& n_msz, ostream& cout);
         /**
-         * Calculate effects of molting/growth on population abundance.
+         * Calculate effects of molting/growth on population abundance for single sex.
          * 
          * @param n_msz - initial population abundance
          * @param cout - stream for writing debug info
          * 
-         * @return final population abundance (after applying molting/growth)
+         * @return final single-sex population abundance (after applying molting/growth)
          */
         d3_array applyMG(d3_array& n_msz, ostream& cout);
+        
+        /**
+         * Calculate population abundance after recruitment for single sex.
+         * 
+         * @param R - single-sex recruitment
+         * @param n_msz - initial population abundance
+         * @param cout - stream for writing debug info
+         * 
+         * @return final single-sex population abundance after applying recruitment
+         */
+        d3_array addRecruitment(double R, d3_array& n_msz, ostream& cout);
 };//PopDyInfo
 
 /**
- * Class to facilitate fishery catch calculations for one sex.
+ * Class to facilitate fishery single-sex catch calculations.
  */
 class CatchInfo {
     public:
@@ -95,6 +108,7 @@ class CatchInfo {
         int nSCs;//number of shell conditions
         int nZBs;//number of size bins
         int nFsh;//number of fisheries
+        double dtF; //time at which fisheries occur (as fraction of year)
         
     public:
         double   maxF;     //maximum capture rate in target fishery
@@ -103,7 +117,8 @@ class CatchInfo {
         dvector  hm_f;     //discard mortality rates
         
     public:
-        d3_array ct_msz; //catch mortality (abundance)
+        d3_array cp_msz; //total captured (abundance)
+        d3_array cm_msz; //catch mortality (abundance)
         d4_array rm_fmsz;//retained mortality (abundance)
         d4_array dm_fmsz;//discard mortality (abundance)
         
@@ -113,8 +128,9 @@ class CatchInfo {
          * 
          * @param npZBs - number of size bins
          * @param npFsh - number of fisheries
+         * @param dtFp - time at which fisheries occur (as fraction of year)
          */
-        CatchInfo(int npZBs, int npFsh);
+        CatchInfo(int npZBs, int npFsh, double dtFp);
         /**
          * Class destructor.
          */
@@ -155,19 +171,17 @@ class CatchInfo {
          */
         d3_array calcSurvival(double dirF, ostream& cout);
         /**
-         * Set sex-specific fishery capture rates.
+         * Set single-sex fishery capture rates.
          * 
-         * @param x - sex to select
-         * @param capF_fxmsz - input capture rates
+         * @param capFp_fmsz - input capture rates
          */
-        void setCaptureRates(int x, d5_array& capF_fxmsz);
+        void setCaptureRates(d4_array& capFp_fmsz);
         /**
-         * Set sex-specific retention functions.
+         * Set single-sex retention functions.
          * 
-         * @param x - sex to select
-         * @param retF_fxmsz - input retention functions
+         * @param retFp_fxmsz - input retention functions
          */
-        void setRetentionFcns(int x, d5_array& retF_fxmsz);
+        void setRetentionFcns(d4_array& retFp_fmsz);
         /**
          * Set handling mortality rates, by fishery.
          * 
@@ -175,123 +189,6 @@ class CatchInfo {
          */
         void setHandlingMortality(dvector& pHM_f);
 };//CatchInfo
-
-class Tier3_Calculator {
-    public:
-        static int debug;
-        int nMSs;//number of maturity states
-        int nSCs;//number of shell conditions
-        int nZBs;//number of size bins
-        int nFsh;//number of fisheries
-        double dtF; //time to fisheries
-        double dtM; //time to molting/growth
-        
-    public:
-        PopDyInfo* pPI;//pointer to PopDyInfo object for males
-        CatchInfo* pCI;//pointer to CatchInfo object for males
-    public:
-        double XX;  //SPR level for Fmsy, Bmsy
-        double B100;//unfished MMB
-        double Fmsy;//=FXX; directed fishery capture F resulting in MSY
-        double Bmsy;//=XX*B100; longterm B resulting from directed fishing at F
-        
-    public:
-        /**
-         * Class constructor.
-         * 
-         * @param npZBs - number of size bins
-         * @param npFsh - number of fisheries
-         */
-        Tier3_Calculator(int npZBs, int npFsh);
-        /**
-         * Class destructor.
-         */
-        ~Tier3_Calculator(){delete pPI; delete pCI;}
-        /**
-         * Calculate B100, which is equilibrium mature male biomass (MMB)
-         * for an unfished stock.
-         * 
-         * @param R - longterm (average) recruitment (male-only, millions)
-         * @param cout - output stream for debug info
-         * 
-         * @return MMB for unfished population (1000's t)
-         */
-        double calcB100(double R, ostream& cout);
-        /**
-         * Calculate equilibrium spawning biomass (as MMB) when directed fishery
-         * is fished at longterm capture rate Fmsy. For a Tier 3 stock, 
-         * Bmsy = B35% = 0.35*B100.
-         * 
-         * @param R - longterm (average) recruitment (male-only, millions)
-         * @param cout - output stream for debug info
-         * 
-         * @return equilibrium MMB for population fished at Fmsy (1000's t)
-         */
-        double calcBmsy(double R, ostream& cout);
-        /**
-         * Calculate directed fishery capture rate, Fmsy, that results in 
-         * equilibrium (longterm) MMB = Bmsy. For a Tier 3 stock, Fmsy and 
-         * Bmsy are given by SPR-based proxies F35% nd B35%, where F35% is
-         * the directed fishery capture rate that results in equilibrium
-         * MMB = B35% = 0.35*MMB.
-         * 
-         * @param R - longterm (average) recruitment (male-only)
-         * @param cout - output stream for debug info
-         * 
-         * @return Fmsy
-         */
-        double calcFmsy(double R, ostream& cout);
-        
-    public:
-        /**
-         * Calculate equilibrium (longterm) population abundance on July 1.
-         * 
-         * @param R_z - longterm recruitment at size
-         * @param S1_msz - survival prior to molting/growth
-         * @param Th_sz - pr(molt-to-maturity|size) for immature crab
-         * @param T_szz - growth transition matrix for molting crab
-         * @param S2_msz - survival following molting/growth
-         * @param cout - output stream for debug info
-         * 
-         * @return equlibrium (longterm) population abundance on July 1 (as d3_array)
-         */
-        d3_array calcEqNatZ(dvector& R_z,d3_array& S1_msz, 
-                            dmatrix& Th_sz, d3_array& T_szz, 
-                            d3_array& S2_msz, ostream& cout);
-        /**
-         * Calculate equilibrium unfished abundance on July 1 when 
-         * longterm (average) male recruitment is R.
-         * 
-         * @param R - longterm (average) male recruitment
-         * @param cout - output stream for debug info
-         * 
-         * @return equilibrium (male) population abundance on July 1
-         */
-        d3_array calcEqNatZF0(double R, ostream& cout);
-        /**
-         * Calculate equilibrium abundance on July 1 when dirF is the 
-         * directed fishery capture rate and the longterm (average) 
-         * male recruitment is R.
-         * 
-         * @param R - longterm (average) male recruitment
-         * @param dirF - directed fishery capture rate
-         * @param cout - output stream for debug info
-         * 
-         * @return equilibrium (male) population abundance on July 1
-         */
-        d3_array calcEqNatZFM(double R, double dirF, ostream& cout);
-        /**
-         * Calculate equilibrium MMB when dirF is the directed fishery capture
-         * rate and longterm (average) male recruitment is R.
-         * 
-         * @param R - longterm (average) male recruitment
-         * @param dirF - directed fishery capture rate
-         * @param cout - output stream for debug info
-         * 
-         * @return equilibrium MMB 
-         */
-        double   calcEqMMBatF(double R, double dirF, ostream& cout);
-};
 
 /**
  * Class to enable sex-specific population projections.
@@ -317,38 +214,54 @@ class PopProjector{
         /**
          * Class constructor.
          * 
-         * @param npZBs - number of size bins
-         * @param npFsh - number of fisheries
+         * @param pPIp - pointer to single sex PopDyInfo object
+         * @param pCIp - pointer to single sex CatchInfo object
          */
-        PopProjector(int npZBs, int npFsh);
+        PopProjector(PopDyInfo* pPIp, CatchInfo* pCIp);
+        /**
+         * Class destructor
+         */
         ~PopProjector(){delete pPI; delete pCI;}
         /**
-         * Project sex-specific population abundance forward one year,
-         * based on sex-specific population abundance on July 1.
+         * Project single-sex population abundance forward one year,
+         * based on single-sex population abundance on July 1. Recruitment
+         * is NOT added in.
+         * 
          * Also calculates:
          *      spB - spawning (mature) biomass at mating time
-         *      ct_msz - total fishing mortality (abundance)
+         *      cp_msz - total fishery captures (abundance)
+         *      cm_msz - total fishing mortality (abundance)
          *      rm_fmsz - retained mortality, by fishery
          *      dm_fmsz - discard mortality, by fishery
          * 
-         * @param n_msz - initial abundance
          * @param dirF - multiplier on fishing mortality rate in directed fishery
+         * @param n_msz - initial abundance
          * @param cout - output stream for debug info
          * 
-         * @return final sex-specific abundance
+         * @return final sex-specific abundance, without recruitment
          */
         d3_array project(double dirF, d3_array& n_msz, ostream& cout);
         /**
-         * Calculate mature biomass based on single-sex population
+         * Add single-sex recruitment to population abundance for one sex.
+         * 
+         * @param R - total single-sex recruitment
+         * @param n_msz - initial abundance
+         * @param cout - output stream for debug info
+         * 
+         * @return final single-sex abundance with recruitment
+         */
+        d3_array addRecruitment(double R, d3_array& n_msz, ostream& cout);
+        /**
+         * Calculate mature biomass-at-mating based on single-sex population
          * abundance on July 1.
          * 
          * @param dirF - multiplier on fishing mortality rate in directed fishery
          * @param n_msz - initial abundance
          * @param cout - output stream for debug info
          * 
-         * @return mature biomass (units??)
+         * @return mature biomass-at-mating (1000's t)
          */
-        double projectMatureBiomass(double dirF, d3_array& n_msz, ostream& cout);
+        double projectMatureBiomassAtMating(double dirF, d3_array& n_msz, ostream& cout);
         /**
          * Project sex-specific population abundance forward by time interval "dt", 
          * applying only natural mortality.
@@ -383,58 +296,314 @@ class PopProjector{
         d3_array applyMG(d3_array& n_msz, ostream& cout);
 };
 
+class Equilibrium_Calculator {
+    public:
+        static int debug;
+        
+    public:
+        PopProjector* pPP;//pointer to single-sex population projector
+        
+    public:
+        /**
+         * Class constructor.
+         * 
+         * @param pPPp - pointer to a PopProjector object to base equilibrium calculations on
+         */
+        Equilibrium_Calculator(PopProjector* pPPp){pPP = pPPp;}
+        /**
+         * Class destructor.
+         */
+        ~Equilibrium_Calculator(){delete pPP;}
+        /**
+         * Calculate equilibrium (longterm) population single-sex abundance on July 1.
+         * 
+         * @param R_z - longterm single-sex recruitment at size
+         * @param S1_msz - survival prior to molting/growth
+         * @param Th_sz - pr(molt-to-maturity|size) for immature crab
+         * @param T_szz - growth transition matrix for molting crab
+         * @param S2_msz - survival following molting/growth
+         * @param cout - output stream for debug info
+         * 
+         * @return equilibrium (longterm) population single-sex abundance on July 1 (as d3_array)
+         */
+        d3_array calcEqNatZ(dvector& R_z,d3_array& S1_msz, 
+                            dmatrix& Th_sz, d3_array& T_szz, 
+                            d3_array& S2_msz, ostream& cout);
+        /**
+         * Calculate equilibrium unfished single-sex abundance on July 1 when 
+         * longterm (average) single-sex recruitment is R.
+         * 
+         * @param R - longterm (average) male recruitment
+         * @param cout - output stream for debug info
+         * 
+         * @return equilibrium population single-sex abundance on July 1
+         */
+        d3_array calcEqNatZF0(double R, ostream& cout);
+        /**
+         * Calculate equilibrium single-sex abundance on July 1 when dirF is the 
+         * directed fishery capture rate and the longterm (average) 
+         * single-sex recruitment is R.
+         * 
+         * @param R - longterm (average) single-sex recruitment
+         * @param dirF - directed fishery capture rate
+         * @param cout - output stream for debug info
+         * 
+         * @return equilibrium population single-sex abundance on July 1
+         */
+        d3_array calcEqNatZFM(double R, double dirF, ostream& cout);
+        /**
+         * Calculate single-sex equilibrium mature biomass-at-mating
+         * for an unfished stock.
+         * 
+         * @param R - longterm (average) recruitment (male-only, millions)
+         * @param cout - output stream for debug info
+         * 
+         * @return mature biomass-at-mating for unfished population (1000's t)
+         */
+        double calcEqMatureBiomassAtMatingF0(double R, ostream& cout);
+        /**
+         * Calculate equilibrium single-sex mature biomass-at-mating, 
+         * when dirF is the directed fishery capture rate
+         * and longterm (average) male recruitment is R.
+         * 
+         * @param R - longterm (average) male recruitment
+         * @param dirF - directed fishery capture rate
+         * @param cout - output stream for debug info
+         * 
+         * @return equilibrium spawning biomass-at-mating 
+         */
+        double calcEqMatureBiomassAtMatingFM(double R, double dirF, ostream& cout);
+};
+
+/**
+ * Base class for Tier calculations to determine B0, Bmsy, and Fmsy prior to
+ * OFL calculations.
+ */
+class Tier_Calculator {
+    public:
+        Equilibrium_Calculator* pEC;//pointer to Equilibrium_Calculator object for males
+        
+    public:
+        double B0;//unfished MMB
+        double Fmsy;//=FXX; directed fishery capture F resulting in MSY
+        double Bmsy;//=XX*B100; longterm B resulting from directed fishing at F
+        
+    public:
+        /**
+         * Class constructor.
+         * 
+         * @param pEC - pointer to Equilibrium_Calculator object
+         */
+        Tier_Calculator(Equilibrium_Calculator* pECp){pEC = pECp;}
+        /**
+         * Class destructor.
+         */
+        virtual ~Tier_Calculator(){delete pEC;}
+        /**
+         * Calculate B0, which is equilibrium mature male biomass (MMB)
+         * for an unfished stock.
+         * 
+         * @param R - longterm (average) recruitment (male-only, millions)
+         * @param cout - output stream for debug info
+         * 
+         * @return MMB for unfished population (1000's t)
+         */
+        virtual double calcB0(double R, ostream& cout)=0;
+        /**
+         * Calculate equilibrium spawning biomass (as MMB) when directed fishery
+         * is fished at longterm capture rate Fmsy.
+         * 
+         * @param R - longterm (average) recruitment (male-only, millions)
+         * @param cout - output stream for debug info
+         * 
+         * @return Bmsy for population fished at Fmsy (1000's t)
+         */
+        virtual double calcBmsy(double R, ostream& cout)=0;
+        /**
+         * Calculate directed fishery capture rate, Fmsy, that results in 
+         * equilibrium (longterm) MMB = Bmsy.
+         * 
+         * @param R - longterm (average) recruitment (male-only)
+         * @param cout - output stream for debug info
+         * 
+         * @return Fmsy
+         */
+        virtual double calcFmsy(double R, ostream& cout)=0;
+};
+
+/**
+ * Tier_Calculator class to do Tier 3 calculations for B0, Bmsy, and Fmsy
+ * based on SPR considerations (B0=B100, Bmsy=B35, Fmsy=F35).
+ */
+class Tier3_Calculator : public Tier_Calculator {
+    public:
+        static int debug;
+    public:
+        double XX;  //SPR level for Fmsy, Bmsy
+        double B100;//unfished MMB
+        
+    public:
+        /**
+         * Class constructor.
+         * 
+         * @params XX - target SPR rate for MSY calculations
+         * @param pEC - pointer to Equilibrium_Calculator object
+         */
+        Tier3_Calculator(double XX, Equilibrium_Calculator* pECp);
+        /**
+         * Class destructor
+         */
+        ~Tier3_Calculator(){Tier_Calculator::~Tier_Calculator();}
+        /**
+         * Calculate B0, which is equilibrium mature male biomass (MMB)
+         * for an unfished stock.
+         * 
+         * @param R - longterm (average) recruitment (male-only, millions)
+         * @param cout - output stream for debug info
+         * 
+         * @return MMB for unfished population (1000's t)
+         */
+        double calcB0(double R, ostream& cout){return calcB100(R,cout);}
+        /**
+         * Calculate B100, which is equilibrium mature male biomass (MMB)
+         * for an unfished stock.
+         * 
+         * @param R - longterm (average) recruitment (male-only, millions)
+         * @param cout - output stream for debug info
+         * 
+         * @return MMB for unfished population (1000's t)
+         */
+        double calcB100(double R, ostream& cout);
+        /**
+         * Calculate equilibrium spawning biomass (as MMB) when directed fishery
+         * is fished at longterm capture rate Fmsy. For a Tier 3 stock, 
+         * Bmsy = B35% = 0.35*B100.
+         * 
+         * @param R - longterm (average) recruitment (male-only, millions)
+         * @param cout - output stream for debug info
+         * 
+         * @return equilibrium MMB for population fished at Fmsy (1000's t)
+         */
+        double calcBmsy(double R, ostream& cout);
+        /**
+         * Calculate directed fishery capture rate, Fmsy, that results in 
+         * equilibrium (longterm) MMB = Bmsy. For a Tier 3 stock, Fmsy and 
+         * Bmsy are given by SPR-based proxies F35% nd B35%, where F35% is
+         * the directed fishery capture rate that results in equilibrium
+         * MMB = B35% = 0.35*MMB.
+         * 
+         * @param R - longterm (average) recruitment (male-only)
+         * @param cout - output stream for debug info
+         * 
+         * @return Fmsy
+         */
+        double calcFmsy(double R, ostream& cout);
+};
+
+
+/**
+ * Convenience class encapsulating OFL results for one model (MCMC) instance
+ */
+class OFLResults {
+    public:
+        dvector avgRec_x; //average recruitment, by sex
+        double B0;       //equilibrium MMB for unfished population
+        double Fmsy;     //equilibrium F on directed fishery for males resulting in MSY
+        double Bmsy;     //equilibrium MMB when fished at Fmsy 
+        double Fofl;     //F on directed fishery for males resulting in the OFL
+        double OFL;      //total OFL (1000's t)
+        //dmatrix OFL_fx; //fishery mortality components to OFL (f=0 is retained catch, f>0 is total catch mortality)
+        double prjB;     //projected MMB for coming year when current population fished at Fofl.
+        
+    public:
+        OFLResults(){}
+        ~OFLResults(){}
+        
+    public:
+        /**
+         * Write csv header for OFL results to output stream
+         *  
+         * @param os - output stream to write to
+         */
+        void writeCSVHeader(ostream& os);
+        /**
+         * Write values in csv format to output stream
+         * 
+         * @param os - output stream to write to
+         */
+        void writeToCSV(ostream& os);
+        /**
+         * Write values as R list to output stream
+         * 
+         * @param os - output stream to write to
+         * @param name - name for R list
+         * @param debug - flag to print debugging info
+         */
+        void writeToR(ostream& os, adstring name, int debug);
+};//OFLResults
+/**
+ * Class to calculate OFL results.
+ */
 class OFL_Calculator{
     public:
         static int debug;
-        int nSXs;//number of sexes
-        int nFsh;//number of fisheries
 
     public:
+        int tier;     //Tier for status determination and OFL calculation
         double alpha; //HCR intercept on (B/Bmsy) axis
         double beta;  //(B/Bmsy) limit below which the directed fishery is closed
 
     public:
         double prjMMB;  //projected ("current") MMB when OFL is taken
-        dmatrix ofl_fx; //catch by fishery/sex when OFL is taken
+        dmatrix ofl_xf; //catch by sex/fishery when OFL is taken
         
     public:
-        Tier3_Calculator* pT3C;//pointer to a Tier3_Calculator
-        PopProjector*     pPrjM;//pointer to PopProjector for males
+        Tier_Calculator*  pTC;  //pointer to a Tier_Calculator object
         PopProjector*     pPrjF;//pointer to PopProjector for females
     public:
         /**
-         * Class constructor.
+         * Constructor.
          * 
-         * @param npFsh - number of fisheries
+         * @param pTC   - pointer to a Tier_Calculator object
+         * @param pPrjF - pointer to PopProjector for females
          */
-        OFL_Calculator(int npFsh);
+        OFL_Calculator(Tier_Calculator* pTC, PopProjector* pPrjF);
         /**
          * Class destructor.
          */
-        ~OFL_Calculator(){delete pT3C;delete pPrjM;delete pPrjF;}
+        ~OFL_Calculator(){delete pTC; delete pPrjF;}
+        /**
+         * Calculate Fofl using the Harvest Control Rule (HCR).
+         * 
+         * @param currMMB - "current" MMB used to determine B/Bmsy
+         * @param Bmsy - Bmsy
+         * @param Fmsy - Fmsy
+         * @param cout - output stream for debug info
+         * 
+         * @return Fofl derived from HCR
+         */
+        double calcHCR(double currMMB, double Bmsy, double Fmsy, ostream& cout);
         /**
          * Calculate the Bmsy. For crab stocks, Bmsy is the longterm average
          * MMB (mature male biomass) obtained when the capture rate for males 
          * in the directed fishery is Fmsy.
          *  
-         * @param tier - stock Tier level for status determination and OFL setting
          * @param R - longterm (average) MALE-only recruitment
          * @param cout - output stream for debug info
          * 
          * @return Bmsy
          */
-        double calcBmsy(int tier, double R, ostream& cout);
+        double calcBmsy(double R, ostream& cout){return pTC->calcBmsy(R,cout);}
         /**
          * Calculate Fmsy, the directed fishery male capture rate, based on the 
          * stock Tier level and the longterm male-only recruitment level (R). 
          * 
-         * @param tier - stock Tier level for status determination and OFL setting
          * @param R - longterm (average) MALE-only recruitment
          * @param cout - output stream for debug info
          * 
          * @return the F that yields MSY
          */
-        double calcFmsy(int tier, double R, ostream& cout);
+        double calcFmsy(double R, ostream& cout){return pTC->calcFmsy(R,cout);}
         /**
          * Calculate Fofl using the Harvest Control Rule (HCR), based on Bmsy,
          * Fmsy, and the initial (July 1) male abundance n_msz. This is an 
@@ -477,57 +646,16 @@ class OFL_Calculator{
          */
         double calcPrjMMB(double Fofl, d3_array& n_msz, ostream& cout);
         /**
-         * Calculate Fofl using Harvest Control Rule (HCR).
+         * Calculate all results associated with the OFL.
          * 
-         * @param currMMB - "current" MMB used to determine B/Bmsy
-         * @param Bmsy - Bmsy
-         * @param Fmsy - Fmsy
+         * @param R - assumed equilibrium recruitment, by sex
+         * @param n_xmsz - d4_array with initial population abundance
          * @param cout - output stream for debug info
          * 
-         * @return Fofl derived from HCR
+         * @return OFLResults object.
          */
-        double calcHCR(double prjMMB, double Bmsy, double Fmsy, ostream& cout);
-};
-
-/**
- * Convenience class encapsulating OFL results for one model (MCMC) instance
- */
-class OFLResults {
-    public:
-        double OFL;     //total OFL (1000's t)
-        //dmatrix OFL_fx; //fishery mortality components to OFL (f=0 is retained catch, f>0 is total catch mortality)
-        double Fofl;    //F on directed fishery for males resulting in the OFL
-        double prjB;    //projected MMB for coming year when current population fished at Fofl.
-        double Fmsy;    //equilibrium F on directed fishery for males resulting in MSY
-        double Bmsy;    //equilibrium MMB when fished at Fmsy 
-        double B100;    //equilibrium MMB for unfished population
-        
-    public:
-        OFLResults(){}
-        ~OFLResults(){}
-        
-    public:
-        /**
-         * Write csv header for OFL results to output stream
-         *  
-         * @param os - output stream to write to
-         */
-        void writeHeaderToCSV(ostream& os);
-        /**
-         * Write values in csv format to output stream
-         * 
-         * @param os - output stream to write to
-         */
-        void writeToCSV(ostream& os);
-        /**
-         * Write values as R list to output stream
-         * 
-         * @param os - output stream to write to
-         * @param name - name for R list
-         * @param debug - flag to print debugging info
-         */
-        void writeToR(ostream& os, adstring name, int debug);
-};
+        OFLResults calcOFLResults(dvector R, d4_array& n_xmsz, ostream& cout);
+};//OFL_Calculator
 
 #endif	/* OFLCALCS_HPP */
 
