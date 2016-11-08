@@ -117,10 +117,10 @@ class CatchInfo {
         dvector  hm_f;     //discard mortality rates
         
     public:
-        d3_array cp_msz; //total captured (abundance)
-        d3_array cm_msz; //catch mortality (abundance)
-        d4_array rm_fmsz;//retained mortality (abundance)
-        d4_array dm_fmsz;//discard mortality (abundance)
+        d3_array cm_msz; //total catch mortality (abundance)
+        d4_array cp_fmsz; //total captured, by fishery (abundance)
+        d4_array rm_fmsz;//retained mortality, by fishery (abundance)
+        d4_array dm_fmsz;//discard mortality, by fishery (abundance)
         
     public:
         /**
@@ -146,11 +146,15 @@ class CatchInfo {
          */
         double findMaxTargetCaptureRate(ostream& cout);
         /**
-         * Calculate catch abundance (ct_msz, rm_fmsz, dm_fmsz) and post-fisheries
-         * abundance based on target fishery capture rate 'dirF' and initial population 
-         * abundance n_msz.
+         * Calculate single-sex catch abundance (cm_msz, cp_fmsz, rm_fmsz, dm_fmsz) and 
+         * post-fisheries abundance based on target fishery capture rate 'dirF' 
+         * and pre-fisheries population abundance n_msz.
          * 
-         * Modifies: ct_msz, rm_fmsz, dm_fmsz
+         * Modifies: 
+         *      cm_msz  - total fishing mortality (abundance)
+         *      cp_fmsz - fishery captures, by fishery (abundance)
+         *      rm_fmsz - retained mortality, by fishery (abundance)
+         *      dm_fmsz - discard mortality, by fishery
          * 
          * @param dirF - fully-selected directed fishery capture rate
          * @param n_msz - pre-fisheries population size
@@ -228,11 +232,12 @@ class PopProjector{
          * is NOT added in.
          * 
          * Also calculates:
-         *      spB - spawning (mature) biomass at mating time
-         *      cp_msz - total fishery captures (abundance)
-         *      cm_msz - total fishing mortality (abundance)
-         *      rm_fmsz - retained mortality, by fishery
-         *      dm_fmsz - discard mortality, by fishery
+         *      matBio - mature biomass at mating time
+         *      pPCI elements:
+         *          cm_msz  - total fishing mortality (abundance)
+         *          cp_fmsz - fishery captures, by fishery (abundance)
+         *          rm_fmsz - retained mortality, by fishery (abundance)
+         *          dm_fmsz - discard mortality, by fishery
          * 
          * @param dirF - multiplier on fishing mortality rate in directed fishery
          * @param n_msz - initial abundance
@@ -241,6 +246,26 @@ class PopProjector{
          * @return final sex-specific abundance, without recruitment
          */
         d3_array project(double dirF, d3_array& n_msz, ostream& cout);
+        /**
+         * Project unfished single-sex population abundance forward one year,
+         * based on single-sex population abundance on July 1. Recruitment
+         * is NOT added in.
+         * 
+         * Also calculates:
+         *      matBio - mature biomass at mating time
+         *      pPCI elements:
+         *          cm_msz  - total fishing mortality (abundance) [=0]
+         *          cp_fmsz - fishery captures (abundance)        [=0]
+         *          rm_fmsz - retained mortality, by fishery      [=0]
+         *          dm_fmsz - discard mortality, by fishery       [=0]
+         * 
+         * 
+         * @param n_msz - initial abundance
+         * @param cout - output stream for debug info
+         * 
+         * @return final sex-specific abundance, without recruitment
+         */
+        d3_array projectUnFished(d3_array& n_msz, ostream& cout);
         /**
          * Add single-sex recruitment to population abundance for one sex.
          * 
@@ -296,6 +321,77 @@ class PopProjector{
         d3_array applyMG(d3_array& n_msz, ostream& cout);
 };
 
+/**
+ * Class to make multi-year single-sex population projections.
+ */
+class MultiYearPopProjector {
+    public:
+        static int debug;
+        
+    public:
+        PopProjector* pPP;//pointer to single-sex population projector
+        
+    public:
+        d4_array n_ymsz;//numbers-at-size
+        dvector matBio_y;//mature biomass
+        dmatrix cp_yf;   //captured biomass, by fishery
+        dmatrix rm_yf;   //retained catch biomass, by fishery
+        dmatrix dm_yf;   //discard catch mortality, by fishery
+        dvector totCM_y; //total catch biomass
+        
+    public:
+        /**
+         * Class constructor.
+         * 
+         * @param pPPp - pointer to a PopProjector object to base equilibrium calculations on
+         */
+        MultiYearPopProjector(PopProjector* pPPp){pPP = pPPp;}
+        /**
+         * Class destructor.
+         */
+        ~MultiYearPopProjector(){delete pPP;}
+        /**
+         * Project multiple years at constant recruitment and directed F.
+         * 
+         * Calculates:
+         *      n_ymsz   - numbers-at-size
+         *      matBio_y - mature biomass
+         *      cp_yf    - captured biomass, by fishery
+         *      rm_yf    - retained catch biomass, by fishery
+         *      dm_yf    - discard catch mortality, by fishery
+         *      totCM_y  - total catch biomass
+         * 
+         * @param n - number of years to project
+         * @param R - (constant) single-sex recruimtent
+         * @param dirF - (constant) directed F
+         * @param n_msz - initial abundance
+         * @param cout - output stream for debug info
+         * 
+         */
+        void project(int n, double R, double dirF, d3_array& n_msz, ostream& cout);
+        /**
+         * Project multiple years at constant recruitment, with no fishing.
+         * 
+         * Calculates:
+         *      n_ymsz   - numbers-at-size
+         *      matBio_y - mature biomass
+         *      cp_yf    - captured biomass, by fishery        [=0]
+         *      rm_yf    - retained catch biomass, by fishery  [=0]
+         *      dm_yf    - discard catch mortality, by fishery [=0]
+         *      totCM_y  - total catch biomass                 [=0]
+         * 
+         * @param n - number of years to project
+         * @param R - (constant) single-sex recruimtent
+         * @param n_msz - initial abundance
+         * @param cout - output stream for debug info
+         * 
+         */
+        void projectUnFished(int n, double R, d3_array& n_msz, ostream& cout);
+};
+
+/**
+ * Class to calculate single-sex equilibrium conditions.
+ */
 class Equilibrium_Calculator {
     public:
         static int debug;
@@ -510,9 +606,10 @@ class OFLResults {
         double B0;       //equilibrium MMB for unfished population
         double Fmsy;     //equilibrium F on directed fishery for males resulting in MSY
         double Bmsy;     //equilibrium MMB when fished at Fmsy 
+        double MSY;      //equilibrium yield (1000's t) when fished at Fmsy
         double Fofl;     //F on directed fishery for males resulting in the OFL
         double OFL;      //total OFL (1000's t)
-        //dmatrix OFL_fx; //fishery mortality components to OFL (f=0 is retained catch, f>0 is total catch mortality)
+        dmatrix ofl_fx;  //fishery/sex-specific mortality components to OFL (f=0 is retained catch, f>0 is total catch mortality)
         double prjB;     //projected MMB for coming year when current population fished at Fofl.
         
     public:
@@ -555,23 +652,24 @@ class OFL_Calculator{
 
     public:
         double prjMMB;  //projected ("current") MMB when OFL is taken
-        dmatrix ofl_xf; //catch by sex/fishery when OFL is taken
+        dmatrix ofl_fx; //catch by sex/fishery when OFL is taken
+        dmatrix msy_fx; //MSY catch by sex/fishery
         
     public:
-        Tier_Calculator*  pTC;  //pointer to a Tier_Calculator object
-        PopProjector*     pPrjF;//pointer to PopProjector for females
+        Tier_Calculator*  pTCM;  //pointer to a Tier_Calculator object for males
+        Tier_Calculator*  pTCF;  //pointer to a Tier_Calculator object for females
     public:
         /**
          * Constructor.
          * 
-         * @param pTC   - pointer to a Tier_Calculator object
-         * @param pPrjF - pointer to PopProjector for females
+         * @param pTCM - pointer to a Tier_Calculator object for males
+         * @param pTCF - pointer to a Tier_Calculator object for females
          */
-        OFL_Calculator(Tier_Calculator* pTC, PopProjector* pPrjF);
+        OFL_Calculator(Tier_Calculator* pTCMp, Tier_Calculator* pTCFp);
         /**
          * Class destructor.
          */
-        ~OFL_Calculator(){delete pTC; delete pPrjF;}
+        ~OFL_Calculator(){delete pTCM; delete pTCF;}
         /**
          * Calculate Fofl using the Harvest Control Rule (HCR).
          * 
@@ -593,7 +691,7 @@ class OFL_Calculator{
          * 
          * @return Bmsy
          */
-        double calcBmsy(double R, ostream& cout){return pTC->calcBmsy(R,cout);}
+        double calcBmsy(double R, ostream& cout){return pTCM->calcBmsy(R,cout);}
         /**
          * Calculate Fmsy, the directed fishery male capture rate, based on the 
          * stock Tier level and the longterm male-only recruitment level (R). 
@@ -603,7 +701,18 @@ class OFL_Calculator{
          * 
          * @return the F that yields MSY
          */
-        double calcFmsy(double R, ostream& cout){return pTC->calcFmsy(R,cout);}
+        double calcFmsy(double R, ostream& cout){return pTCM->calcFmsy(R,cout);}
+        /**
+         * Calculate MSY, the maximum sustainable yield, based on the 
+         * longterm sex-specific recruitment level (R_y) and Fmsy. 
+         * 
+         * @param R_x - longterm (average) sex-specific recruitment
+         * @param Fmsy - directed fishery F rate at MSY
+         * @param cout - output stream for debug info
+         * 
+         * @return the MSY
+         */
+        double calcMSY(dvector R_x, double Fmsy, ostream& cout);
         /**
          * Calculate Fofl using the Harvest Control Rule (HCR), based on Bmsy,
          * Fmsy, and the initial (July 1) male abundance n_msz. This is an 
