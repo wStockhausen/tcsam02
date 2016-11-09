@@ -190,7 +190,7 @@ void calcPriors(objective_function_value& objFun, NumberVectorInfo* ptrVI,param_
             cout<<ptrVI->name<<"=list("<<endl;
             for (int i=pri.indexmin();i<pri.indexmax();i++){
                 adstring type = (*ptrVI)[i]->getPriorType();
-                cout<<tb<<"'"<<i<<"'=list(type='"<<type<<"'"<<cc<<"wgt="<<wts(i)<<cc<<"nll="<<-sum(pri)<<cc<<"objfun="<<-wts(i)*sum(pri)<<"),"<<endl;
+                cout<<tb<<"'"<<i<<"'=list(type='"<<type<<"'"<<cc<<"wgt="<<wts(i)<<cc<<"nll="<<-pri(i)<<cc<<"objfun="<<-wts(i)*pri(i)<<"),"<<endl;
             }
             {
                 int i=pri.indexmax();
@@ -237,7 +237,7 @@ void calcPriors(objective_function_value& objFun, BoundedNumberVectorInfo* ptrVI
             cout<<ptrVI->name<<"=list("<<endl;
             for (int i=pri.indexmin();i<pri.indexmax();i++){
                 adstring type = (*ptrVI)[i]->getPriorType();
-                cout<<tb<<"'"<<i<<"'=list(type='"<<type<<"'"<<cc<<"wgt="<<wts(i)<<cc<<"nll="<<-sum(pri)<<cc<<"objfun="<<-wts(i)*sum(pri)<<"),"<<endl;
+                cout<<tb<<"'"<<i<<"'=list(type='"<<type<<"'"<<cc<<"wgt="<<wts(i)<<cc<<"nll="<<-pri(i)<<cc<<"objfun="<<-wts(i)*pri(i)<<"),"<<endl;
             }
             {
                 int i=pri.indexmax();
@@ -287,7 +287,7 @@ void calcPriors(objective_function_value& objFun, BoundedVectorVectorInfo* ptrVV
             objFun += -wts(i)*sum(pri);
             if (debug<0) {
                 adstring type = (*ptrVVI)[i]->getPriorType();
-                cout<<tb<<"'"<<i<<"'=list(type='"<<type<<"'"<<cc<<"wgts="<<wts(i)<<cc<<"nlls="<<-sum(pri)<<cc<<"objfun="<<-wts(i)*sum(pri)<<"),"<<endl;
+                cout<<tb<<"'"<<i<<"'=list(type='"<<type<<"'"<<cc<<"wgt="<<wts(i)<<cc<<"nll="<<-sum(pri)<<cc<<"objfun="<<-wts(i)*sum(pri)<<"),"<<endl;
             }
         }
         {
@@ -353,7 +353,7 @@ void calcPriors(objective_function_value& objFun, DevsVectorVectorInfo* ptrVVI, 
             objFun += -wts(i)*sum(pri);
             if (debug<0) {
                 adstring type = (*ptrVVI)[i]->getPriorType();
-                cout<<tb<<"'"<<i<<"'=list(type='"<<type<<"'"<<cc<<"wgts="<<wts(i)<<cc<<"nlls="<<-sum(pri)<<cc<<"objfun="<<-wts(i)*sum(pri)<<"),"<<endl;
+                cout<<tb<<"'"<<i<<"'=list(type='"<<type<<"'"<<cc<<"wgt="<<wts(i)<<cc<<"nll="<<-sum(pri)<<cc<<"objfun="<<-wts(i)*sum(pri)<<"),"<<endl;
             }
         }
         {

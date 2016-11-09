@@ -954,7 +954,7 @@ PARAMETER_SECTION
     
     //recruitment-related quantities
     number initMnR;                //mean recruitment for initial size comps
-    vector R_y(mnYr,mxYr);         //total number of recruits by year
+    vector R_y(mnYr,mxYr);         //total number of recruits entering population on July 1, by year
     vector Rx_c(1,npcRec);         //male fraction of recruits by parameter combination
     matrix R_yx(mnYr,mxYr,1,nSXs); //sex-specific fraction of recruits by year
     matrix R_cz(1,npcRec,1,nZBs);  //size distribution of recruits by parameter combination
@@ -1041,7 +1041,7 @@ PARAMETER_SECTION
     
     //sdreport variables
     sdreport_vector sdrLnR_y(mnYr,mxYr);
-    sdreport_matrix sdrSpB_xy(1,nSXs,mnYr+5,mxYr);
+    sdreport_matrix sdrSpB_xy(1,nSXs,mnYr,mxYr);
 
     
     !!cout<<"#finished PARAMETER_SECTION"<<endl;
@@ -1249,7 +1249,7 @@ PROCEDURE_SECTION
     if (sd_phase()){
         sdrLnR_y = log(R_y);
         for (int x=1;x<=nSXs;x++){
-            for (int y=mnYr+ptrMDS->ptrBio->recLag; y<=mxYr; y++){
+            for (int y=mnYr; y<=mxYr; y++){
                 sdrSpB_xy(x,y) = spB_yx(y,x);
             }
         }
@@ -1820,18 +1820,21 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
     if (debug) {cout<<"  males_msz:"<<endl; wts::print(n_xmsz(  MALE),cout,1);}
     if (debug) {cout<<"females_msz:"<<endl; wts::print(n_xmsz(FEMALE),cout,1);}
     
-    //2. set yr back one year (if necessary) to get population rates, etc.
-    yr = yr-1;//don't have pop rates, etc. for mxYr+1
+    //2. set yr back one year to get population rates, etc., 
+    //   from year prior to projection year
+    yr = yr-1;//don't have pop rates, etc. for projection year
     if (debug) cout<<"year for pop rates = "<<yr<<endl;
     
     //3. Determine mean recruitment 
-    //1981 tcsam02 recruitment is equivalent to 1982 tcsam2013 recruitment
+    //   1981 here corresponds to 1982 in TCSAM2013, the year recruitment enters
+    //   the model population.
     dvector avgRec_x(1,nSXs);
+    if (debug) cout<<"R dims: "<<R_y.indexmin()<<cc<<R_y.indexmax()<<endl;
     for (int x=1;x<=nSXs;x++) 
         avgRec_x(x)= value(mean(elem_prod(R_y(1981,yr),column(R_yx,x)(1981,yr))));
     if (debug) {
-        cout<<"R_y(1981,"<<yr<<") = "<<R_y(1981,yr)<<endl;
-        cout<<"R_yx((1981:mxYr,MALE) = "<<column(R_yx,MALE)(1981,yr)<<endl;
+        cout<<"R_y(  1981:"<<yr<<")      = "<<R_y(1981,yr)<<endl;
+        cout<<"R_yx((1981:"<<yr<<",MALE) = "<<column(R_yx,MALE)(1981,yr)<<endl;
         cout<<"Average recruitment = "<<avgRec_x<<endl;
     }
 
@@ -2117,7 +2120,7 @@ FUNCTION void runPopDyModOneYear(int yr, int debug, ostream& cout)
             }
         }
     }
-    //add in recruits
+    //add in recruits (NOTE: R_y(y) here corresponds to R_y(y+1) in TCSAM2013)
     for (int x=1;x<=nSXs;x++) n_yxmsz(yr+1,x,IMMATURE,NEW_SHELL) += R_yxz(yr,x);
     
     if (debug>=dbgPopDy) cout<<"finished runPopDyModOneYear("<<yr<<")"<<endl;

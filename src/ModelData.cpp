@@ -753,101 +753,7 @@ void BioData::read(cifstream & is){
             exit(-1);
         }
     }}
-    
-//    //PROBABILITY OF MATURING AT SIZE
-//    {prMature_xz.allocate(1,tcsam::nSXs,1,nZBins);
-//    prMature_xz.initialize();
-//    int nc;
-//    is>>nc; //number of factor combinations to read in data for
-//    rpt::echo<<nc<<tb<<"#number of factor combinations"<<std::endl;
-//    adstring_array factors(1,1);
-//    for (int i=0;i<nc;i++){
-//        is>>factors;
-//        rpt::echo<<factors(1)<<tb<<"#factors"<<std::endl;
-//        int sex   = tcsam::getSexType(factors(1));
-//        if (sex){
-//            is>>prMature_xz(sex);
-//            rpt::echo<<prMature_xz(sex)<<std::endl;
-//            if (debug) {
-//                std::cout<<"#prMature_xz("<<factors(1)<<")="<<std::endl;
-//                std::cout<<"#"<<zBins<<std::endl;
-//                std::cout<<prMature_xz(sex)<<std::endl;
-//            }
-//        } else {
-//            std::cout<<"-----------------------------------------------------------"<<std::endl;
-//            std::cout<<"-----------------------------------------------------------"<<std::endl;
-//            std::cout<<"Reading file name "<<is.get_file_name()<<std::endl;
-//            std::cout<<"Factors for prMature_xz not recognized!"<<std::endl;
-//            std::cout<<"Factors: "<<factors(1)<<std::endl;
-//            std::cout<<"Terminating..."<<std::endl;
-//            std::cout<<"-----------------------------------------------------------"<<std::endl;
-//            exit(-1);
-//        }
-//    }}
-//    
-//    //FRACTION MATURE BY SEX, SHELL CONDITION
-//    {frMature_xsz.allocate(1,tcsam::nSXs,1,tcsam::nMSs,1,nZBins);
-//    frMature_xsz.initialize();
-//    int nc;
-//    is>>nc; //number of factor combinations to read in data for
-//    rpt::echo<<nc<<tb<<"#number of factor combinations"<<std::endl;
-//    adstring_array factors(1,2);
-//    for (int i=0;i<nc;i++){
-//        is>>factors;
-//        rpt::echo<<factors(1)<<tb<<factors(2)<<tb<<"#factors"<<std::endl;
-//        int sex   = tcsam::getSexType(factors(1));
-//        int shl   = tcsam::getShellType(factors(2));
-//        if (sex||shl){
-//            is>>frMature_xsz(sex,shl);
-//            rpt::echo<<frMature_xsz(sex,shl)<<std::endl;
-//            if (debug) {
-//                std::cout<<"#frMature_xsz("<<factors(1)<<cc<<factors(2)<<")="<<std::endl;
-//                std::cout<<"#"<<zBins<<std::endl;
-//                std::cout<<frMature_xsz(sex,shl)<<std::endl;
-//            }
-//        } else {
-//            std::cout<<"-----------------------------------------------------------"<<std::endl;
-//            std::cout<<"-----------------------------------------------------------"<<std::endl;
-//            std::cout<<"Reading file name "<<is.get_file_name()<<std::endl;
-//            std::cout<<"Factors for frMature_xsz not recognized!"<<std::endl;
-//            std::cout<<"Factors: "<<factors(1)<<tb<<factors(2)<<std::endl;
-//            std::cout<<"Terminating..."<<std::endl;
-//            std::cout<<"-----------------------------------------------------------"<<std::endl;
-//            exit(-1);
-//        }
-//    }}
-    
-//    //CV for mean size at min, max size bins
-//    {rpt::echo<<"#CV for min, max sizes"<<std::endl;
-//    cvMnMxZ_xc.allocate(1,tcsam::nSXs,1,2);
-//    cvMnMxZ_xc.initialize();
-//    int nc;
-//    is>>nc; //number of factor combinations to read in data for
-//    rpt::echo<<nc<<tb<<"#number of factor combinations"<<std::endl;
-//    adstring_array factors(1,1);
-//    for (int i=0;i<nc;i++){
-//        is>>factors;
-//        rpt::echo<<factors(1)<<"#factors"<<std::endl;
-//        int sex   = tcsam::getSexType(factors(1));
-//        if (sex){
-//            is>>cvMnMxZ_xc(sex);
-//            rpt::echo<<cvMnMxZ_xc(sex)<<std::endl;
-//            if (debug) {
-//                std::cout<<"#cvMnMxZ_xc("<<factors(1)<<")="<<std::endl;
-//                std::cout<<cvMnMxZ_xc(sex)<<std::endl;
-//            }
-//        } else {
-//            std::cout<<"-----------------------------------------------------------"<<std::endl;
-//            std::cout<<"-----------------------------------------------------------"<<std::endl;
-//            std::cout<<"Reading file name "<<is.get_file_name()<<std::endl;
-//            std::cout<<"Factors for cvMnMxZ_xc not recognized!"<<std::endl;
-//            std::cout<<"Factors: "<<factors(1)<<std::endl;
-//            std::cout<<"Terminating..."<<std::endl;
-//            std::cout<<"-----------------------------------------------------------"<<std::endl;
-//            exit(-1);
-//        }
-//    }}
-    
+        
     //MIDPOINTS OF FISHERY SEASONS BY YEAR
     rpt::echo<<"#Timing of fisheries and mating"<<std::endl;
     is>>fshTimingTypical;
@@ -883,7 +789,7 @@ void BioData::write(ostream & os){
     os<<KW_BIO_DATA<<std::endl;
     
     os<<"#-----------RECRUITMENT LAG---------------------------#"<<std::endl;
-    os<<nZBins<<tb<<"#recLag (recruitment lag in years)"<<std::endl;
+    os<<recLag<<tb<<"#recLag (recruitment lag in years)"<<std::endl;
     
     os<<"#-----------SIZE BINS---------------------------------#"<<std::endl;
     os<<nZBins<<tb<<"#number of size bins"<<std::endl;
@@ -902,39 +808,6 @@ void BioData::write(ostream & os){
             os<<wAtZ_xmz(sex,mat)<<std::endl;
         }
     }}
-    
-//    {os<<"#-----------PROBABILITY OF MATURING-------------------#"<<std::endl;
-//    os<<tcsam::nSXs<<tb<<"#number of factor combinations (sex)"<<std::endl;
-//    adstring_array factors(1,1);
-//    for (int sex=1;sex<=tcsam::nSXs;sex++){
-//        factors(1) = tcsam::getSexType(sex);
-//        os<<"#-------"<<factors(1)<<std::endl;
-//        os<<factors(1)<<std::endl;
-//        os<<prMature_xz(sex)<<std::endl;
-//    }}
-//    
-//    {os<<"#-----------FRACTION MATURE BY SEX, SHELL CONDITION---#"<<std::endl;
-//    os<<tcsam::nSXs*tcsam::nSCs<<tb<<"#number of factor combinations (sex x shell condition)"<<std::endl;
-//    adstring_array factors(1,2);
-//    for (int sex=1;sex<=tcsam::nSXs;sex++){
-//        factors(1) = tcsam::getSexType(sex);
-//        for (int shl=1;shl<=tcsam::nSCs;shl++){
-//            factors(2) = tcsam::getShellType(shl);
-//            os<<"#-------"<<factors(1)<<cc<<factors(2)<<std::endl;
-//            os<<factors(1)<<tb<<factors(2)<<std::endl;
-//            os<<frMature_xsz(sex,shl)<<std::endl;
-//        }
-//    }}
-    
-//    {os<<"#-----------CV FOR MIN, MAX SIZES---------------------#"<<std::endl;
-//    os<<tcsam::nSXs<<tb<<"#number of factor combinations (sex)"<<std::endl;
-//    adstring_array factors(1,1);
-//    for (int sex=1;sex<=tcsam::nSXs;sex++){
-//        factors(1) = tcsam::getSexType(sex);
-//        os<<"#-------"<<factors(1)<<std::endl;
-//        os<<factors(1)<<std::endl;
-//        os<<cvMnMxZ_xc(sex)<<std::endl;
-//    }}
     
     {os<<"#-----------TIMING------------------------------------#"<<std::endl;
     os<<fshTimingTypical<<tb<<"#timing of midpoint of typical fishing season"<<std::endl;
@@ -973,40 +846,6 @@ void BioData::writeToR(ostream& os, string nm, int indent) {
             wts::writeToR(os,wAtZ_xmz,x,m,z); os<<std::endl;
         indent--;}
         for (int n=0;n<indent;n++) os<<tb; os<<"),"<<std::endl;
-        
-//        //probability of maturing-at-size
-//        {for (int n=0;n<indent;n++) os<<tb;
-//        os<<"prMat="<<std::endl; 
-//        indent++;
-//            for (int n=0;n<indent;n++) os<<tb;
-//            ivector bnds = wts::getBounds(prMature_xz);
-//            adstring x = tcsamDims::getSXsForR(bnds[1],bnds[2]);
-//            adstring z = "size=c("+wts::to_qcsv(zBins)+")";
-//            wts::writeToR(os,prMature_xz,x,z); os<<","<<std::endl;
-//        indent--;}
-//        
-//        //fraction mature-at-size
-//        {for (int n=0;n<indent;n++) os<<tb;
-//        os<<"frMat="<<std::endl; 
-//        indent++;
-//            for (int n=0;n<indent;n++) os<<tb;
-//            ivector bnds = wts::getBounds(frMature_xsz);
-//            adstring x = tcsamDims::getSXsForR(bnds[1],bnds[2]);
-//            adstring s = tcsamDims::getSCsForR(bnds[3],bnds[4]);
-//            adstring z = "size=c("+wts::to_qcsv(zBins)+")";
-//            wts::writeToR(os,frMature_xsz,x,s,z); os<<","<<std::endl;
-//        indent--;}
-//        
-//        //cv for min, max sizes
-//        {for (int n=0;n<indent;n++) os<<tb;
-//        os<<"cvZs="<<std::endl; 
-//        indent++;
-//            for (int n=0;n<indent;n++) os<<tb;
-//            ivector bnds = wts::getBounds(cvMnMxZ_xc);
-//            adstring x = tcsamDims::getSXsForR(bnds[1],bnds[2]);
-//            adstring c = "size=c('minZ','maxZ')";
-//            wts::writeToR(os,cvMnMxZ_xc,x,c); os<<","<<std::endl;
-//        indent--;}
         
         //timing of fishery season midpoints and mating
         {for (int n=0;n<indent;n++) os<<tb;

@@ -325,7 +325,14 @@ void IndexBlockSet::writeToR(std::ostream& os){
 }
 
 
-
+/**
+ * Function to get index limits for standard types from the ModelConfiguration
+ * object or tcsam namespace.
+ * 
+ * @param idxType - adstring indicating index type (e.g., year, size, sex, etc.) [in]
+ * @param mn - minimum index value [out]
+ * @param mx - maximum index value [out]
+ */
 void tcsam::getIndexLimits(adstring& idxType,int& mn,int& mx){
     if (idxType==tcsam::STR_YEAR) {
         mn = ModelConfiguration::mnYr; 

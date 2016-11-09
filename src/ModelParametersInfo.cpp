@@ -1372,7 +1372,7 @@ ModelParametersInfo::ModelParametersInfo(ModelConfiguration& mc){
     ptrMC=&mc;
     ptrRec=0;
     ptrNM =0;
-    ptrGrw =0;
+    ptrGrw=0;
     ptrM2M=0;
     ptrSel=0;
     ptrFsh=0;
@@ -1382,7 +1382,7 @@ ModelParametersInfo::ModelParametersInfo(ModelConfiguration& mc){
 ModelParametersInfo::~ModelParametersInfo(){
     if (ptrRec) {delete ptrRec;     ptrRec  = 0;}
     if (ptrNM)  {delete ptrNM;      ptrNM   = 0;}
-    if (ptrGrw)  {delete ptrGrw;      ptrGrw   = 0;}
+    if (ptrGrw) {delete ptrGrw;     ptrGrw  = 0;}
     if (ptrM2M) {delete ptrM2M;     ptrM2M  = 0;}
     if (ptrSel) {delete ptrSel;     ptrSel  = 0;}
     if (ptrFsh) {delete ptrFsh;     ptrFsh  = 0;}
@@ -1482,7 +1482,7 @@ void ModelParametersInfo::writeToR(std::ostream & os){
     os<<"mpi=list("<<endl;
     ptrRec->writeToR(os); os<<cc<<endl;
     ptrNM->writeToR(os);  os<<cc<<endl;
-    ptrGrw->writeToR(os);  os<<cc<<endl;
+    ptrGrw->writeToR(os); os<<cc<<endl;
     ptrM2M->writeToR(os); os<<cc<<endl;
     ptrSel->writeToR(os); os<<cc<<endl;
     ptrFsh->writeToR(os); os<<cc<<endl;
@@ -1640,10 +1640,6 @@ void tcsam::setParameterInfo(DevsVectorVectorInfo* pDVVI,
         for (int n=1;n<=np;n++) os<<n<<tb<<mns(n)<<tb<<mxs(n)<<tb<<lb(n)<<tb<<ub(n)<<tb<<phs(n)<<endl;
         idxs.allocate(1,np);
         for (int n=1;n<=np;n++) idxs(n) = (*pDVVI)[n]->getRevIndices();
-//        os<<"Reverse indices:"<<endl;
-//        for (int i=idxs(1).indexmin();i<=idxs(1).indexmax();i++) {
-//            os<<i<<tb; for (int n=1;n<=np;n++) os<<idxs(n,i)<<tb;  os<<endl;
-//        }
         os<<"Reverse indices:"<<endl;
         int mnc = idxs(1).indexmin(); int mxc = idxs(1).indexmax();
         for (int n=2;n<=np;n++) {

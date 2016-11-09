@@ -602,7 +602,7 @@ class Tier3_Calculator : public Tier_Calculator {
  */
 class OFLResults {
     public:
-        dvector avgRec_x; //average recruitment, by sex
+        dvector avgRec_x;//average recruitment, by sex
         double B0;       //equilibrium MMB for unfished population
         double Fmsy;     //equilibrium F on directed fishery for males resulting in MSY
         double Bmsy;     //equilibrium MMB when fished at Fmsy 
@@ -610,7 +610,8 @@ class OFLResults {
         double Fofl;     //F on directed fishery for males resulting in the OFL
         double OFL;      //total OFL (1000's t)
         dmatrix ofl_fx;  //fishery/sex-specific mortality components to OFL (f=0 is retained catch, f>0 is total catch mortality)
-        double prjB;     //projected MMB for coming year when current population fished at Fofl.
+        double prjB;     //projected MMB for projection year when current population is fished at Fofl.
+        double curB;     //"current" MMB at beginning of projection year
         
     public:
         OFLResults(){}

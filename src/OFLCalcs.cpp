@@ -1199,6 +1199,8 @@ OFLResults OFL_Calculator::calcOFLResults(dvector R, d4_array& n_xmsz, ostream& 
     OFLResults res;
     
     res.avgRec_x = R;
+    res.curB     = pTCM->pEC->pPP->pPI->calcMatureBiomass(n_xmsz(MALE),cout);
+            
     res.Fmsy = pTCM->calcFmsy(R(MALE),cout);//also calculates B0 and Bmsy
     res.B0   = pTCM->B0;
     res.Bmsy = pTCM->Bmsy;
@@ -1224,7 +1226,7 @@ OFLResults OFL_Calculator::calcOFLResults(dvector R, d4_array& n_xmsz, ostream& 
 void OFLResults::writeCSVHeader(ostream& os){
     os<<"avgRecM";
     if (tcsam::nSXs>1) os<<", AvgRecF";
-    os<<", B0, Bmsy, Fmsy, MSY, Fofl, OFL, prjB, prjB/Bmsy";
+    os<<", B0, Bmsy, Fmsy, MSY, Fofl, OFL, prjB, prjB/Bmsy, curB, prjB/curB";
 }
 
 /**
@@ -1235,7 +1237,8 @@ void OFLResults::writeCSVHeader(ostream& os){
 void OFLResults::writeToCSV(ostream& os){
     os<<avgRec_x(  MALE);
     if (tcsam::nSXs>1) os<<cc<<avgRec_x(FEMALE);
-    os<<cc<<B0<<cc<<Bmsy<<cc<<Fmsy<<cc<<MSY<<cc<<Fofl<<cc<<OFL<<cc<<prjB<<cc<<prjB/Bmsy;
+    os<<cc<<B0<<cc<<Bmsy<<cc<<Fmsy<<cc<<MSY<<cc<<Fofl<<cc<<OFL<<cc;
+    os<<prjB<<cc<<prjB/Bmsy<<cc<<curB<<cc<<prjB/curB;
 }
 /**
  * Write values as R list to file
@@ -1243,7 +1246,7 @@ void OFLResults::writeToCSV(ostream& os){
  * @param os - output stream to write to
  */
 void OFLResults::writeToR(ostream& os, adstring name, int debug){
-    os<<name<<"=list(OFL="<<OFL<<cc<<"Fofl="<<Fofl<<cc<<"prjB="<<prjB;
+    os<<name<<"=list(OFL="<<OFL<<cc<<"Fofl="<<Fofl<<cc<<"prjB="<<prjB<<cc<<"curB="<<curB;
     os<<cc<<"Fmsy="<<Fmsy<<cc<<"Bmsy="<<Bmsy<<cc<<"MSY="<<MSY;
     os<<cc<<"B100="<<B0<<cc<<"avgRecM="<<avgRec_x(MALE);
     if (tcsam::nSXs>1) os<<cc<<"avgRecF="<<avgRec_x(FEMALE);

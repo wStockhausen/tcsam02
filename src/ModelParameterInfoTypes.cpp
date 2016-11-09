@@ -134,18 +134,22 @@ void NumberInfo::write(ostream & os){
     for (int c=cNames.indexmax();c<=cNames.indexmax();c++) os<<cNames(c)<<tb;
 }
 
-/***************************************************************
-*   writeToR.
-***************************************************************/
+/**
+ * Writes the parameter info to an output stream as an R list.
+ * 
+ * @param os - the output stream object, by reference
+ */
 void NumberInfo::writeToR(ostream& os){
     os<<"list(";
     writeToR1(os);
     os<<")";
 }
 
-/****************************************************************\n
-*   writeToR1.
-***************************************************************/
+/**
+ * Writes the parameter info to an output stream as members of an R list.
+ * 
+ * @param os - the output stream object, by reference
+ */
 void NumberInfo::writeToR1(ostream& os){
     os<<"initVal="<<initVal<<cc;
     os<<"finalVal="<<finlVal<<cc;
@@ -169,10 +173,11 @@ void NumberInfo::writeToR1(ostream& os){
 /*------------------------------------------------------------------------------
  *  BoundedNumberInfo
  *----------------------------------------------------------------------------*/
-/***************************************************************
-*   Draw a random sample from the prior.                       * 
-*   If phase<0, return initVal rather than resampling.         *
-***************************************************************/
+/**
+ * Sets the initial value for the parameter.
+ * 
+ * @param x - the initial value to set
+ */
 void BoundedNumberInfo::setInitVal(double x){
     if (debug) rpt::echo<<"starting BoundedNumberInfo::setInitVal(double x)"<<this<<endl;
     if (x<lower) {initVal = lower+(upper-lower)/1000000.0;} else
@@ -181,10 +186,15 @@ void BoundedNumberInfo::setInitVal(double x){
     if (debug) rpt::echo<<"finished BoundedNumberInfo::setInitVal(double x)"<<this<<endl;
 }
 
-/***************************************************************
-*   Draw a random sample from the prior.                       * 
-*   If phase<0, return initVal rather than resampling.         *
-***************************************************************/
+/**
+ * Draw a random sample based on the parameter's prior.
+ * If the parameter's phase is < 0, the input initial value is returned.
+ * 
+ * @param rng - reference to random number generator
+ * @param vif - variance inflation factor
+ * 
+ * @return random value, or the initial value
+ */
 double BoundedNumberInfo::drawInitVal(random_number_generator& rng, double vif){
     if (debug) rpt::echo<<"starting BoundedNumberInfo::drawSample(random_number_generator& rng)"<<this<<endl;
     double smpl  = initVal;
@@ -198,11 +208,11 @@ double BoundedNumberInfo::drawInitVal(random_number_generator& rng, double vif){
     return smpl;
 }
 
-/***************************************************************
-* Read from cifstream object.\n
- * Read order is:\n
- *  lower, upper, jitter + NumberInfo::read(is)
-***************************************************************/
+/**
+ * Read the parameter information from an input filestream in ADMB format.
+ * 
+ * @param is - the input filestream object
+ */
 void BoundedNumberInfo::read(cifstream & is){
     if (debug) rpt::echo<<"Starting BoundedNumberInfo::read(cifstream & is) "<<this<<endl;
     adstring str;
@@ -218,11 +228,11 @@ void BoundedNumberInfo::read(cifstream & is){
     if (debug) rpt::echo<<"Done BoundedNumberInfo::read(cifstream & is) "<<this<<endl;
 }
 
-/***************************************************************
- * Write to ostream object.\n
- * Write order is:\n
- *  lower, upper, jitter + NumberInfo::write(is)\n
-***************************************************************/
+/**
+ * Write the parameter information to an output stream in ADMB format.
+ * 
+ * @param os - the output stream object
+ */
 void BoundedNumberInfo::write(ostream & os){
     os<<lower<<tb;
     os<<upper<<tb;
@@ -230,18 +240,22 @@ void BoundedNumberInfo::write(ostream & os){
     NumberInfo::write(os);//finish writing
 }
 
-/***************************************************************
-*   writeToR.
-***************************************************************/
+/**
+ * Write the parameter information to an output stream as an R list.
+ * 
+ * @param os - the output stream object
+ */
 void BoundedNumberInfo::writeToR(ostream& os){
     os<<"list(";
     writeToR1(os);
     os<<")";
 }
 
-/***************************************************************
-*   writeToR1                                                    *
-***************************************************************/
+/**
+ * Write the parameter information to an output stream as members of an R list.
+ * 
+ * @param os - the output stream object
+ */
 void BoundedNumberInfo::writeToR1(ostream& os){
     os<<"lower="<<lower<<cc;
     os<<"upper="<<upper<<cc;
