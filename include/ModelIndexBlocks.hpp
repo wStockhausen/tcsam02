@@ -85,7 +85,7 @@ class IndexRange{
 class IndexBlock{
     public:
         static int debug;//debug flag (0=OFF, 1=ON)
-    protected:
+    public:
         int modMin;//minimum possible value in model for index
         int modMax;//maximum possible value in model for index
         int nRCs;  //number of individual range components defining block
@@ -101,7 +101,19 @@ class IndexBlock{
          * Returns size (max index=nIDs) of associated index vector.
          * @return 
          */
-        int getSize(void){return nIDs;}        
+        int getSize(void){return nIDs;}    
+        /**
+         * Get the minimum index across the block.
+         * 
+         * @return the min index
+         */
+        int getMin(void);
+        /**
+         * Get the maximum index across the block.
+         * 
+         * @return the max index
+         */
+        int getMax(void);
         /** 
          * Returns an ivector that maps block indices (1:nIDs) to model indices.\n
          * Thus, if iv is the ivector result of the function, iv(i) is the model\n

@@ -24,7 +24,7 @@ const adstring EffortData::KW_EFFORT_DATA = "EFFORT_DATA";
 *   destruction.                                               *
 ***************************************************************/
 EffortData::~EffortData(){
-    delete ptrAvgIR; ptrAvgIR=0;
+    delete ptrAvgIB; ptrAvgIB=0;
 }
 /***************************************************************
 *   read.                                                      *
@@ -48,17 +48,21 @@ void EffortData::read(cifstream & is){
     is>>str;
     if (!(str==KW_EFFORT_DATA)){
         cout<<"#Error reading effort data from "<<is.get_file_name()<<endl;
-        cout<<"Expected keyowrd '"<<KW_EFFORT_DATA<<"' but got '"<<str<<"'"<<endl;
+        cout<<"Expected keyword '"<<KW_EFFORT_DATA<<"' but got '"<<str<<"'"<<endl;
         cout<<"Aborting..."<<endl;
         exit(-1);
     }
-    is>>ny;//number of years of effort data
-    rpt::echo<<ny<<tb<<"#number of years"<<endl;
-    ptrAvgIR = new IndexRange(ModelConfiguration::mnYr,ModelConfiguration::mxYr);
-    is>>(*ptrAvgIR);
-    rpt::echo<<(*ptrAvgIR)<<tb<<"#interval over which to average effort/fishing mortality"<<endl;
+    ptrAvgIB = new IndexBlock(ModelConfiguration::mnYr,ModelConfiguration::mxYr);
+    is>>(*ptrAvgIB);
+    rpt::echo<<(*ptrAvgIB)<<tb<<"#intervals over which to average effort/fishing mortality"<<endl;
+    is>>str; llType = tcsam::getLikelihoodType(str);
+    rpt::echo<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood function type"<<std::endl;
+    is>>llWgt;
+    rpt::echo<<llWgt<<tb<<"#likelihood weight (multiplier)"<<std::endl;
     is>>units;
     rpt::echo<<units<<tb<<"#units"<<endl;
+    is>>ny;//number of years of effort data
+    rpt::echo<<ny<<tb<<"#number of years"<<endl;
     inpEff_yc.allocate(1,ny,1,2);
     is>>inpEff_yc;
     rpt::echo<<"#year potlifts ("<<units<<")"<<endl<<inpEff_yc<<endl;
@@ -77,9 +81,11 @@ void EffortData::read(cifstream & is){
 void EffortData::write(ostream & os){
     if (debug) cout<<"start EffortData::write(...) "<<this<<endl;
     os<<KW_EFFORT_DATA<<tb<<"#required keyword"<<endl;
-    os<<ny<<tb<<"#number of years of effort data"<<endl;
-    os<<(*ptrAvgIR)<<tb<<"#interval over which to average effort/fishing mortality"<<endl;
-    os<<units<<tb<<"#units for pot lifts"<<endl;
+    os<<(*ptrAvgIB)<<tb<<"#intervals over which to average effort/fishing mortality"<<endl;
+    os<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood function type"<<std::endl;
+    os<<llWgt<<tb<<"#likelihood weight (multiplier)"<<std::endl;
+    os<<units<<tb<<"#units"<<endl;
+    os<<ny<<tb<<"#number of years"<<endl;
     os<<"#year   potlifts"<<endl<<inpEff_yc<<endl;
     if (debug) cout<<"end EffortData::write(...) "<<this<<endl;
 }
@@ -93,7 +99,9 @@ void EffortData::writeToR(ostream& os, std::string nm, int indent) {
         os<<"effort=list("<<endl;
         indent++; 
             for (int n=0;n<indent;n++) os<<tb;
-            os<<"avgRng="<<(*ptrAvgIR)<<cc<<endl;
+            os<<"avgRng="<<(*ptrAvgIB)<<cc<<endl;
+            os<<"llType="<<qt<<tcsam::getLikelihoodType(llType)<<qt<<cc<<endl;
+            os<<"llWgt="<<llWgt<<cc<<endl;
             os<<"units="<<qt<<units<<qt<<cc<<endl;
             for (int n=0;n<indent;n++) os<<tb;
             os<<"data="; wts::writeToR(os,column(inpEff_yc,2),y); os<<endl;

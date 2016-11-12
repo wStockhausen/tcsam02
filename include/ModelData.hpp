@@ -8,7 +8,10 @@
  * 20150209: 1. Removed prMature_xz, frMature_xsz, cvMnMxZ_xc from BioData.
  * 20150121: 1. Combined FisheryData, SurveyData classes into a FleetData class
  *           2. Updated some documentation.
- */
+ * 20161109: 1. added likelihood multiplier (llWgt) to Data classes
+ *           2. added likelihood type to EffortData class
+ *           3. changed effort averaging interval from IndexRange to IndexBlock
+*/
 
 #ifndef MODELDATA_HPP
 #define MODELDATA_HPP
@@ -24,7 +27,7 @@
 //      ModelDatasets
 //**********************************************************************
 class ModelConfiguration; //forward definition
-class IndexRange;
+class IndexBlock;
 
 //--------------------------------------------------------------------------------
 //          AggregateCatchData
@@ -38,14 +41,22 @@ class IndexRange;
     class AggregateCatchData {
     public:
         static int debug;
-        const static adstring KW_ABUNDANCE_DATA;//keyword indicating abundance (numbers) data
-        const static adstring KW_BIOMASS_DATA;  //keyword indicating biomass (weight) data
+        /* keyword indicating abundance (numbers) data */
+        const static adstring KW_ABUNDANCE_DATA;
+        /* keyword indicating biomass (weight) data */
+        const static adstring KW_BIOMASS_DATA;  
     protected:
-        d5_array inpC_xmsyc; //input aggregate catch data (value, cv by xmsy)
+        /* input aggregate catch data (value, cv by xmsy) */
+        d5_array inpC_xmsyc; 
     public:
-        adstring type;  //type (abundance, biomass) of data (matches one of the keywords above)
-        int optFit;     //objective function fitting option
-        int llType;     //likelihood function type
+        /* type (abundance, biomass) of data */
+        adstring type;  
+        /* objective function fitting option */
+        int optFit;     
+        /* likelihood function type */
+        int llType; 
+        /* likelihood weight (i.e., multiplier) */
+        double llWgt;   
         int ny;         //number of data rows for aggregate catch
         adstring units; //units for aggregate catch data
         ivector yrs;    //years for aggregate catch data
@@ -92,12 +103,16 @@ class IndexRange;
         /* keyword indicating effort data */
         const static adstring KW_EFFORT_DATA;
     public:
-        /* number of years of effort data */
-        int ny;
-        /* interval to average effort/fishing mortality */
-        IndexRange* ptrAvgIR; 
+        /* likelihood function type */
+        int llType; 
+        /* likelihood weight (i.e., multiplier) */
+        double llWgt;   
+        /* pointer to intervals (IndexBlock) over which to average effort/fishing mortality */
+        IndexBlock* ptrAvgIB; 
         /* units for potlifts */
         adstring units;   
+        /* number of years of effort data */
+        int ny;
         /* input effort data (year)x(year,potlifts) */
         dmatrix  inpEff_yc;   
         /* vector of years w/ effort data */
@@ -108,7 +123,7 @@ class IndexRange;
         /**
          * Constructor.
          */
-        EffortData(){ptrAvgIR=0;}
+        EffortData(){ptrAvgIB=0;}
         /**
          * Destructor.
          */
@@ -159,7 +174,8 @@ class IndexRange;
         int optFit; 
         /* likelihood function type */
         int llType; 
-        
+        /* likelihood weight (i.e., multiplier) */
+        double llWgt;   
         /* number of size bin cut pts */
         int nZCs;    
         /* vector of cut points for size bins (1:nZCs) */
@@ -246,9 +262,6 @@ class IndexRange;
         dvector zBins;        //size bins
         adstring unitsWatZ;   //units for weight-at-size
         d3_array wAtZ_xmz;    //weight at size (in kg)
-//        dmatrix prMature_xz;  //probability of maturity at size by sex
-//        d3_array frMature_xsz;//fraction mature at size by sex, shell condition
-//        dmatrix cvMnMxZ_xc;   //cv of min size, max size by sex
         
         int recLag;         //recruitment lag (in years)
         double fshTimingTypical;//typical midpoint of fishery seasons

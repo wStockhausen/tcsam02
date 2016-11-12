@@ -154,6 +154,11 @@
 //              2. Added OFL output to MCMC results.
 //--2016-11-08: 1. Revised PopDy and OFL calculations such that z in prM2M refers 
 //                  to post-molt size, not pre-molt size.
+//--2016-11-12: 1. Revised CatchData types to include weighting factor for
+//                  likelihood components (llWgt)
+//              2. Revised EffortData to use an IndexBlock to specify ranges
+//                  over which to calculate average effort/average F.
+//              3. Revised all NLL functions for data to incorporate an input weighting factor.
 //
 // =============================================================================
 // =============================================================================
@@ -819,8 +824,9 @@ DATA_SECTION
     //model options
     ivector optsFcAvg(1,nFsh);//option flags for fishery capture rate averaging
     !!optsFcAvg = ptrMOs->optsFcAvg;
-    matrix eff_fy(1,nFsh,mnYr,mxYr);//effort for averaging over fishery-specific time periods
-    vector avgEff(1,nFsh);//average effort over fishery-specific time periods
+    imatrix yrsAvgEff_fy(1,nFsh,mnYr,mxYr);//years corresponding to average effort
+    matrix eff_fy(1,nFsh,mnYr,mxYr);       //effort for averaging over fishery-specific time periods
+    vector avgEff(1,nFsh);                 //average effort over fishery-specific time periods
     int optGrowth;    //growth function option
     !!optGrowth = ptrMOs->optGrowth;
     int optInitNatZ;  //initial n-at-z option
@@ -1091,27 +1097,36 @@ PRELIMINARY_CALCS_SECTION
     cout<<"calculating average effort"<<endl;
     rpt::echo<<"calculating average effort"<<endl;
     rpt::echo<<"mapD2MFsh = "<<mapD2MFsh<<endl;
-    avgEff = 0.0;
+    avgEff.initialize();;
     for (int fd=1;fd<=nFsh;fd++){//fishery data object
         rpt::echo<<"fd = "<<fd<<endl;
         if (ptrMDS->ppFsh[fd-1]->ptrEff){
             rpt::echo<<"fishery has effort"<<endl;
-            IndexRange* pir = ptrMDS->ppFsh[fd-1]->ptrEff->ptrAvgIR;
+            IndexBlock* pib = ptrMDS->ppFsh[fd-1]->ptrEff->ptrAvgIB;
             int fm = mapD2MFsh(fd);//index of corresponding model fishery
-            int mny = max(mnYr,pir->getMin());
-            int mxy = min(mxYr,pir->getMax());
-            rpt::echo<<"fm, mny, mxy = "<<fm<<tb<<pir->getMin()<<tb<<pir->getMax()<<endl;
+            int mny = max(mnYr,pib->getMin());
+            int mxy = min(mxYr,pib->getMax());
+            rpt::echo<<"fm, mny, mxy = "<<fm<<tb<<pib->getMin()<<tb<<pib->getMax()<<endl;
             rpt::echo<<"fm, mny, mxy = "<<fm<<tb<<mny<<tb<<mxy<<endl;
             eff_fy(fm).deallocate();
             eff_fy(fm).allocate(mny,mxy);
-            eff_fy(fm) = ptrMDS->ppFsh[fd-1]->ptrEff->eff_y(mny,mxy);
-            rpt::echo<<"eff_fy(fm) = "<<eff_fy(fm)<<endl;
-            avgEff(fm) = mean(eff_fy(fm));
+            yrsAvgEff_fy(fm).deallocate();
+            yrsAvgEff_fy(fm) = pib->getFwdIndexVector();
+            for (int rc=0;rc<pib->nRCs;rc++){
+                IndexRange* pir = pib->ppIRs[rc];
+                mny = max(mnYr,pir->getMin());
+                mxy = min(mxYr,pir->getMax());
+                eff_fy(fm)(mny,mxy) = ptrMDS->ppFsh[fd-1]->ptrEff->eff_y(mny,mxy);
+            }
+            rpt::echo<<"eff_fy(fm)       = "<<eff_fy(fm)<<endl;
+            rpt::echo<<"yrsAvgEff_fy(fm) = "<<yrsAvgEff_fy(fm)<<endl;
+            avgEff(fm) = sum(eff_fy(fm))/yrsAvgEff_fy(fm).size();
             rpt::echo<<"avgEff(fm) = "<<avgEff(fm)<<endl;
-        }
-    }
-    rpt::echo<<"eff_fy = "<<endl<<eff_fy<<endl;
-    rpt::echo<<"avgEff = "<<avgEff<<endl;
+        }//has effort
+    }//fm
+    rpt::echo<<"eff_fy       = "<<endl<<eff_fy<<endl;
+    rpt::echo<<"yrsAvgEff_fy = "<<endl<<yrsAvgEff_fy<<endl;
+    rpt::echo<<"avgEff       = "<<avgEff<<endl;
     rpt::echo<<"finished calculating average effort"<<endl;
     cout<<"finished calculating average effort"<<endl;
 
@@ -2867,9 +2882,9 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
     for (int f=1;f<=nFsh;f++){//model fishery objects
         int fd = mapM2DFsh(f);//index of corresponding fishery data object
         if (ptrMDS->ppFsh[fd-1]->ptrEff){
-            IndexRange* pir = ptrMDS->ppFsh[fd-1]->ptrEff->ptrAvgIR;
-            int mny = max(mnYr,pir->getMin());//adjust for model min
-            int mxy = min(mxYr,pir->getMax());//adjust for model max
+            IndexBlock* pib = ptrMDS->ppFsh[fd-1]->ptrEff->ptrAvgIB;
+            int mny = max(mnYr,pib->getMin());//adjust for model min
+            int mxy = min(mxYr,pib->getMax());//adjust for model max
             if (debug>dbgCalcProcs) cout<<"f,mny,mxy = "<<f<<tb<<mny<<tb<<mxy<<endl;
             for (int x=1;x<=nSXs;x++){
                 for (int m=1;m<=nMSs;m++){
@@ -2877,19 +2892,23 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
                         tot.initialize();
                         cpF_fxmsy(f,x,m,s).deallocate();
                         cpF_fxmsy(f,x,m,s).allocate(mny,mxy);//TODO: do this in preliminary calcs so it happens once!
+                        cpF_fxmsy(f,x,m,s).initialize();
                         switch (optsFcAvg(f)){
                             case 0:
                                 //won't use effort to fill in
                                 avgFc_fxms(f,x,m,s) = -1;
                             case 1:
-                                for (int y=mny;y<=mxy;y++) cpF_fxmsy(f,x,m,s,y) = cpF_fyxms(f,y,x,m,s);
-                                avgFc_fxms(f,x,m,s) = sum(cpF_fxmsy(f,x,m,s))/(mxy-mny+1); break;
+                                for (int y=yrsAvgEff_fy(f).indexmin();y<=yrsAvgEff_fy(f).indexmax();y++) 
+                                    cpF_fxmsy(f,x,m,s,yrsAvgEff_fy(f,y)) = cpF_fyxms(f,yrsAvgEff_fy(f,y),x,m,s);
+                                avgFc_fxms(f,x,m,s) = sum(cpF_fxmsy(f,x,m,s))/yrsAvgEff_fy(f).size(); break;
                             case 2:
-                                for (int y=mny;y<=mxy;y++) cpF_fxmsy(f,x,m,s,y) = 1.0-mfexp(-cpF_fyxms(f,y,x,m,s));
-                                avgFc_fxms(f,x,m,s) = sum(cpF_fxmsy(f,x,m,s))/(mxy-mny+1); break;
+                                for (int y=yrsAvgEff_fy(f).indexmin();y<=yrsAvgEff_fy(f).indexmax();y++) 
+                                    cpF_fxmsy(f,x,m,s,yrsAvgEff_fy(f,y)) = 1.0-mfexp(-cpF_fyxms(f,yrsAvgEff_fy(f,y),x,m,s));
+                                avgFc_fxms(f,x,m,s) = sum(cpF_fxmsy(f,x,m,s))/yrsAvgEff_fy(f).size(); break;
                             case 3:
-                                for (int y=mny;y<=mxy;y++) cpF_fxmsy(f,x,m,s,y) = mean(cpF_fyxmsz(f,y,x,m,s));
-                                avgFc_fxms(f,x,m,s) = sum(cpF_fxmsy(f,x,m,s))/(mxy-mny+1); break;
+                                for (int y=yrsAvgEff_fy(f).indexmin();y<=yrsAvgEff_fy(f).indexmax();y++)
+                                    cpF_fxmsy(f,x,m,s,yrsAvgEff_fy(f,y)) = mean(cpF_fyxmsz(f,yrsAvgEff_fy(f,y),x,m,s));
+                                avgFc_fxms(f,x,m,s) = sum(cpF_fxmsy(f,x,m,s))/yrsAvgEff_fy(f).size(); break;
                             default:
                                 cout<<"optsFcAvg("<<f<<") = "<<optsFcAvg(f)<<" to calculate average Fc is invalid."<<endl;
                                 cout<<"Aborting..."<<endl;
@@ -3325,7 +3344,7 @@ FUNCTION void testNaNs(double v, adstring str)
 
 //-------------------------------------------------------------------------------------
 //Calculate norm2 NLL contribution to objective function
-FUNCTION void calcNorm2NLL(dvar_vector& mod, dvector& obs, dvector& stdv, ivector& yrs, int debug, ostream& cout)
+FUNCTION void calcNorm2NLL(double wgt, dvar_vector& mod, dvector& obs, dvector& stdv, ivector& yrs, int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"Starting calcNorm2NLL()"<<endl;
     int y;
     dvariable nll = 0.0;
@@ -3338,7 +3357,6 @@ FUNCTION void calcNorm2NLL(dvar_vector& mod, dvector& obs, dvector& stdv, ivecto
         }
     }
     nll += 0.5*norm2(zscr);
-    double wgt = 1.0;//TODO: implement likelihood weights
     objFun += wgt*nll;
     if (debug<0){
         adstring obsyrs = wts::to_qcsv(yrs);
@@ -3353,7 +3371,7 @@ FUNCTION void calcNorm2NLL(dvar_vector& mod, dvector& obs, dvector& stdv, ivecto
     
 //-------------------------------------------------------------------------------------
 //Calculate normal NLL contribution to objective function
-FUNCTION void calcNormalNLL(dvar_vector& mod, dvector& obs, dvector& stdv, ivector& yrs, int debug, ostream& cout)
+FUNCTION void calcNormalNLL(double wgt, dvar_vector& mod, dvector& obs, dvector& stdv, ivector& yrs, int debug, ostream& cout)
    if (debug>=dbgAll) cout<<"Starting calcNormalNLL()"<<endl;
     int y;
     dvariable nll = 0.0;
@@ -3369,7 +3387,6 @@ FUNCTION void calcNormalNLL(dvar_vector& mod, dvector& obs, dvector& stdv, ivect
         }
     }
     nll += 0.5*norm2(zscr);
-    double wgt = 1.0;//TODO: implement likelihood weights
     objFun += wgt*nll;
     if (debug<0){
         adstring obsyrs = wts::to_qcsv(yrs);
@@ -3384,7 +3401,7 @@ FUNCTION void calcNormalNLL(dvar_vector& mod, dvector& obs, dvector& stdv, ivect
     
 //-------------------------------------------------------------------------------------
 //Calculate lognormal NLL contribution to objective function
-FUNCTION void calcLognormalNLL(dvar_vector& mod, dvector& obs, dvector& stdv, ivector& yrs, int debug, ostream& cout)
+FUNCTION void calcLognormalNLL(double wgt, dvar_vector& mod, dvector& obs, dvector& stdv, ivector& yrs, int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"Starting calcLognormalNLL()"<<endl;
     int y;
     dvariable nll = 0.0;
@@ -3400,7 +3417,6 @@ FUNCTION void calcLognormalNLL(dvar_vector& mod, dvector& obs, dvector& stdv, iv
         }
     }
     nll += 0.5*norm2(zscr);
-    double wgt = 1.0;//TODO: implement likelihood weights
     objFun += wgt*nll;
     if (debug<0){
         adstring obsyrs = wts::to_qcsv(yrs);
@@ -3415,7 +3431,7 @@ FUNCTION void calcLognormalNLL(dvar_vector& mod, dvector& obs, dvector& stdv, iv
     
 //-------------------------------------------------------------------------------------
 //Pass-through for no NLL contribution to objective function for aggregated catch
-FUNCTION void calcNoneNLL(dvar_vector& mod, dvector& obs, dvector& stdv, ivector& yrs, int debug, ostream& cout)
+FUNCTION void calcNoneNLL(double wgt, dvar_vector& mod, dvector& obs, dvector& stdv, ivector& yrs, int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"Starting calcNoneNLL(agg catch)"<<endl;
     if (debug<0){
         adstring obsyrs = wts::to_qcsv(yrs);
@@ -3426,10 +3442,9 @@ FUNCTION void calcNoneNLL(dvar_vector& mod, dvector& obs, dvector& stdv, ivector
     
 //-------------------------------------------------------------------------------------
 //Calculate multinomial NLL contribution to objective function
-FUNCTION void calcMultinomialNLL(dvar_vector& mod, dvector& obs, double& ss, int debug, ostream& cout)
+FUNCTION void calcMultinomialNLL(double wgt, dvar_vector& mod, dvector& obs, double& ss, int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"Starting calcMultinomialNLL()"<<endl;
     dvariable nll = -ss*(obs*(log(mod+smlVal)-log(obs+smlVal)));//note dot-product sums
-    double wgt = 1.0;//TODO: incorporate weights
     objFun += wgt*nll;
     if (debug<0){
         dvector vmod = value(mod);
@@ -3449,28 +3464,28 @@ FUNCTION void calcMultinomialNLL(dvar_vector& mod, dvector& obs, double& ss, int
  
 //-------------------------------------------------------------------------------------
 //Pass through for no NLL contribution to objective function for size comps
-FUNCTION void calcNoneNLL(dvar_vector& mod, dvector& obs, double& ss, int debug, ostream& cout)
+FUNCTION void calcNoneNLL(double wgt, dvar_vector& mod, dvector& obs, double& ss, int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"Starting calcNoneNLL(size comps)"<<endl;
     if (debug<0){
-        cout<<"list(nll.type='none',wgt="<<0.0<<cc<<"nll="<<0.0<<cc<<"objfun="<<0.0<<cc<<"ss="<<0<<cc<<"effN="<<0<<cout<<")";
+        cout<<"list(nll.type='none',wgt="<<wgt<<cc<<"nll="<<0.0<<cc<<"objfun="<<0.0<<cc<<"ss="<<0<<cc<<"effN="<<0<<cout<<")";
     }
     if (debug>=dbgAll) cout<<"Finished calcNoneNLL(size comps)"<<endl;
  
 //-------------------------------------------------------------------------------------
 //Calculate time series contribution to objective function
-FUNCTION void calcNLL(int llType, dvar_vector& mod, dvector& obs, dvector& stdv, ivector& yrs, int debug, ostream& cout)
+FUNCTION void calcNLL(int llType, double wgt, dvar_vector& mod, dvector& obs, dvector& stdv, ivector& yrs, int debug, ostream& cout)
     switch (llType){
         case tcsam::LL_NONE:
-            calcNoneNLL(mod,obs,stdv,yrs,debug,cout);
+            calcNoneNLL(wgt,mod,obs,stdv,yrs,debug,cout);
             break;
         case tcsam::LL_LOGNORMAL:
-            calcLognormalNLL(mod,obs,stdv,yrs,debug,cout);
+            calcLognormalNLL(wgt,mod,obs,stdv,yrs,debug,cout);
             break;
         case tcsam::LL_NORMAL:
-            calcNormalNLL(mod,obs,stdv,yrs,debug,cout);
+            calcNormalNLL(wgt,mod,obs,stdv,yrs,debug,cout);
             break;
         case tcsam::LL_NORM2:
-            calcNorm2NLL(mod,obs,stdv,yrs,debug,cout);
+            calcNorm2NLL(wgt,mod,obs,stdv,yrs,debug,cout);
             break;
         default:
             cout<<"Unrecognized likelihood type in calcNLL(1)"<<endl;
@@ -3481,13 +3496,13 @@ FUNCTION void calcNLL(int llType, dvar_vector& mod, dvector& obs, dvector& stdv,
 
 //-------------------------------------------------------------------------------------
 //Calculate size frequency contribution to objective function
-FUNCTION void calcNLL(int llType, dvar_vector& mod, dvector& obs, double& ss, int debug, ostream& cout)
+FUNCTION void calcNLL(int llType, double wgt, dvar_vector& mod, dvector& obs, double& ss, int debug, ostream& cout)
     switch (llType){
         case tcsam::LL_NONE:
-            calcNoneNLL(mod,obs,ss,debug,cout);
+            calcNoneNLL(wgt,mod,obs,ss,debug,cout);
             break;
         case tcsam::LL_MULTINOMIAL:
-            calcMultinomialNLL(mod,obs,ss,debug,cout);
+            calcMultinomialNLL(wgt,mod,obs,ss,debug,cout);
             break;
         default:
             cout<<"Unrecognized likelihood type in calcNLL(2)"<<endl;
@@ -3530,7 +3545,7 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
             cout<<"s="<<qt<<tcsam::getShellType(ALL_SCs)   <<qt<<cc;
             cout<<"nll=";
         }
-        calcNLL(ptrAB->llType, tAB_y, ptrAB->C_xmsy(ALL_SXs,ALL_MSs,ALL_SCs), ptrAB->sd_xmsy(ALL_SXs,ALL_MSs,ALL_SCs), ptrAB->yrs, debug, cout);                
+        calcNLL(ptrAB->llType, ptrAB->llWgt, tAB_y, ptrAB->C_xmsy(ALL_SXs,ALL_MSs,ALL_SCs), ptrAB->sd_xmsy(ALL_SXs,ALL_MSs,ALL_SCs), ptrAB->yrs, debug, cout);                
         if (debug<0) cout<<")";
         if (debug<0) cout<<")";
     } else if (ptrAB->optFit==tcsam::FIT_BY_X){
@@ -3556,7 +3571,7 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
                 cout<<"s="<<qt<<tcsam::getShellType(ALL_SCs)   <<qt<<cc;
                 cout<<"nll=";
             }
-            calcNLL(ptrAB->llType, tAB_y, ptrAB->C_xmsy(x,ALL_MSs,ALL_SCs), ptrAB->sd_xmsy(x,ALL_MSs,ALL_SCs), ptrAB->yrs, debug, cout); 
+            calcNLL(ptrAB->llType, ptrAB->llWgt, tAB_y, ptrAB->C_xmsy(x,ALL_MSs,ALL_SCs), ptrAB->sd_xmsy(x,ALL_MSs,ALL_SCs), ptrAB->yrs, debug, cout); 
             if (debug<0) cout<<"),"<<endl;
         }//x
         if (debug<0) cout<<"NULL)";
@@ -3583,7 +3598,7 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
                     cout<<"s="<<qt<<tcsam::getShellType(ALL_SCs)<<qt<<cc;
                     cout<<"nll=";
                 }
-                calcNLL(ptrAB->llType, tAB_y, ptrAB->C_xmsy(x,m,ALL_SCs), ptrAB->sd_xmsy(x,m,ALL_SCs), ptrAB->yrs, debug, cout); 
+                calcNLL(ptrAB->llType, ptrAB->llWgt, tAB_y, ptrAB->C_xmsy(x,m,ALL_SCs), ptrAB->sd_xmsy(x,m,ALL_SCs), ptrAB->yrs, debug, cout); 
                 if (debug<0) cout<<"),"<<endl;
             }//m
         }//x
@@ -3613,7 +3628,7 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
                     cout<<"s="<<qt<<tcsam::getShellType(s)         <<qt<<cc;
                     cout<<"nll=";
                 }
-                calcNLL(ptrAB->llType, tAB_y, ptrAB->C_xmsy(x,ALL_MSs,s), ptrAB->sd_xmsy(x,ALL_MSs,s), ptrAB->yrs, debug, cout); 
+                calcNLL(ptrAB->llType, ptrAB->llWgt, tAB_y, ptrAB->C_xmsy(x,ALL_MSs,s), ptrAB->sd_xmsy(x,ALL_MSs,s), ptrAB->yrs, debug, cout); 
                 if (debug<0) cout<<"),"<<endl;
             }//s
         }//x
@@ -3636,7 +3651,7 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
                         cout<<"s="<<qt<<tcsam::getShellType(s)   <<qt<<cc;
                         cout<<"nll=";
                     }
-                    calcNLL(ptrAB->llType, tAB_y, ptrAB->C_xmsy(x,m,s), ptrAB->sd_xmsy(x,m,s), ptrAB->yrs, debug, cout); 
+                    calcNLL(ptrAB->llType, ptrAB->llWgt, tAB_y, ptrAB->C_xmsy(x,m,s), ptrAB->sd_xmsy(x,m,s), ptrAB->yrs, debug, cout); 
                     if (debug<0) cout<<"),"<<endl;
                 }//s
             }//m
@@ -3730,7 +3745,7 @@ FUNCTION void calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_yxms
                         cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
                         cout<<"fit=";
                     }
-                    calcNLL(ptrZFD->llType,mP_z,oP_z,ss,debug,cout);
+                    calcNLL(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,debug,cout);
                     if (debug<0) cout<<")"<<cc<<endl;
                 }
                 //FIT_BY_TOT
@@ -3767,7 +3782,7 @@ FUNCTION void calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_yxms
                             cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
                             cout<<"fit=";
                         }
-                        calcNLL(ptrZFD->llType,mP_z,oP_z,ss,debug,cout);
+                        calcNLL(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,debug,cout);
                         if (debug<0) cout<<")"<<cc<<endl;
                     }//nT>0
                 }//x
@@ -3802,7 +3817,7 @@ FUNCTION void calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_yxms
                                 cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
                                 cout<<"fit=";
                             }
-                            calcNLL(ptrZFD->llType,mP_z,oP_z,ss,debug,cout);
+                            calcNLL(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,debug,cout);
                             if (debug<0) cout<<")"<<cc<<endl;
                         }//nT>0
                     }//m
@@ -3839,7 +3854,7 @@ FUNCTION void calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_yxms
                                 cout<<"s='"<<tcsam::getShellType(s)<<"'"<<cc;
                                 cout<<"fit=";
                             }
-                            calcNLL(ptrZFD->llType,mP_z,oP_z,ss,debug,cout);
+                            calcNLL(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,debug,cout);
                             if (debug<0) cout<<")"<<cc<<endl;
                         }//nT>0
                     }//m
@@ -3874,7 +3889,7 @@ FUNCTION void calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_yxms
                                     cout<<"s='"<<tcsam::getShellType(s)<<"'"<<cc;
                                     cout<<"fit=";
                                 }
-                                calcNLL(ptrZFD->llType,mP_z,oP_z,ss,debug,cout);
+                                calcNLL(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,debug,cout);
                                 if (debug<0) cout<<")"<<cc<<endl;
                             }//nT>0
                         }//s
@@ -3922,7 +3937,7 @@ FUNCTION void calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_yxms
                             cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
                             cout<<"fit=";
                         }
-                        calcNLL(ptrZFD->llType,mPt,oPt,ss,debug,cout);
+                        calcNLL(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,debug,cout);
                         if (debug<0) cout<<")"<<cc<<endl;
                     }//x
                 }//nT>0
@@ -3967,7 +3982,7 @@ FUNCTION void calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_yxms
                                 cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
                                 cout<<"fit=";
                             }
-                            calcNLL(ptrZFD->llType,mPt,oPt,ss,debug,cout);
+                            calcNLL(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,debug,cout);
                             if (debug<0) cout<<")"<<cc<<endl;
                         }//m
                     }//nT>0
@@ -4013,7 +4028,7 @@ FUNCTION void calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_yxms
                                 cout<<"s='"<<tcsam::getShellType(s)<<"'"<<cc;
                                 cout<<"fit=";
                             }
-                            calcNLL(ptrZFD->llType,mPt,oPt,ss,debug,cout);
+                            calcNLL(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,debug,cout);
                             if (debug<0) cout<<")"<<cc<<endl;
                         }//s
                     }//nT>0
@@ -4063,7 +4078,7 @@ FUNCTION void calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_yxms
                                 cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
                                 cout<<"fit=";
                             }
-                            calcNLL(ptrZFD->llType,mPt,oPt,ss,debug,cout);
+                            calcNLL(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,debug,cout);
                             if (debug<0) cout<<")"<<cc<<endl;
                         }//m
                     }//x
@@ -4106,7 +4121,7 @@ FUNCTION void calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_yxms
                                     cout<<"s='"<<tcsam::getShellType(s)<<"'"<<cc;
                                     cout<<"fit=";
                                 }
-                                calcNLL(ptrZFD->llType,mPt,oPt,ss,debug,cout);
+                                calcNLL(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,debug,cout);
                                 if (debug<0) cout<<")"<<cc<<endl;
                             }//s
                         }//nT>0

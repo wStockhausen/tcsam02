@@ -5,10 +5,9 @@
 #include "ModelData.hpp"
 #include "SummaryFunctions.hpp"
 
-//using namespace tcsam;
-
 //**********************************************************************
 //  Includes
+//      AggregateCatchData
 //      SizeFrequencyData
 //      BioData
 //      ModelDatasets
@@ -275,6 +274,8 @@ void AggregateCatchData::read(cifstream & is){
     rpt::echo<<tcsam::getFitType(optFit)<<tb<<"#objective function fitting option"<<std::endl;
     is>>str; llType = tcsam::getLikelihoodType(str);
     rpt::echo<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood type"<<std::endl;
+    is>>llWgt;
+    rpt::echo<<llWgt<<tb<<"#likelihood weight (multiplier)"<<std::endl;
     is>>ny;//number of years of catch data
     rpt::echo<<ny<<tb<<"#number of years"<<std::endl;
     is>>units;
@@ -345,6 +346,7 @@ void AggregateCatchData::write(ostream & os){
     os<<type<<tb<<"#required keyword"<<std::endl;
     os<<tcsam::getFitType(optFit)<<tb<<"#objective function fitting option"<<std::endl;
     os<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood type"<<std::endl;
+    os<<llWgt<<tb<<"#likelihood weight (multiplier)"<<std::endl;
     os<<ny<<tb<<"#number of years of catch data"<<std::endl;
     os<<units<<tb<<"#units for catch data"<<std::endl;
     
@@ -390,7 +392,8 @@ void AggregateCatchData::writeToR(ostream& os, std::string nm, int indent) {
         os<<str<<"=list(units="<<qt<<units<<qt<<cc<<std::endl;
     for (int n=0;n<indent;n++) os<<tb;
         os<<"optFit="<<qt<<tcsam::getFitType(optFit)<<qt<<cc; 
-        os<<"llType="<<qt<<tcsam::getLikelihoodType(llType)<<qt<<cc<<std::endl; 
+        os<<"llType="<<qt<<tcsam::getLikelihoodType(llType)<<qt<<cc;
+        os<<"llWgt="<<llWgt<<std::endl; 
     for (int n=0;n<indent;n++) os<<tb;
         os<<"y="; wts::writeToR(os,yrs); os<<cc<<std::endl;
     for (int n=0;n<indent;n++) os<<tb;
@@ -558,6 +561,8 @@ void SizeFrequencyData::read(cifstream & is){
     rpt::echo<<tcsam::getFitType(optFit)<<tb<<"#objective function fitting option"<<std::endl;
     is>>str; llType = tcsam::getLikelihoodType(str);
     rpt::echo<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood function type"<<std::endl;
+    is>>llWgt;
+    rpt::echo<<llWgt<<tb<<"#likelihood weight (multiplier)"<<std::endl;
     is>>ny;//number of years of numbers-at-size data
     rpt::echo<<ny<<tb<<"#number of years for size frequency data"<<std::endl;
     is>>units;
@@ -626,6 +631,7 @@ void SizeFrequencyData::write(ostream & os){
     os<<KW_SIZEFREQUENCY_DATA<<tb<<"#required keyword"<<std::endl;
     os<<tcsam::getFitType(optFit)<<tb<<"#objective function fitting option"<<std::endl;
     os<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood function type"<<std::endl;
+    os<<llWgt<<tb<<"#likelihood weight (multiplier)"<<std::endl;
     os<<ny<<tb<<"#number of years of size data"<<std::endl;
     os<<units<<tb<<"#units for numbers at size"<<std::endl;
     os<<nZCs<<tb<<"#number of size bin cutpoints"<<std::endl;
@@ -658,9 +664,9 @@ void SizeFrequencyData::writeToR(ostream& os, std::string nm, int indent) {
     for (int n=0;n<indent;n++) os<<tb;
         os<<"nAtZ=list(units="<<qt<<units<<qt<<cc<<std::endl;
     for (int n=0;n<indent;n++) os<<tb;
-        os<<"optFit="<<qt<<tcsam::getFitType(optFit)<<qt<<cc<<std::endl; 
-    for (int n=0;n<indent;n++) os<<tb;
-        os<<"llType="<<qt<<tcsam::getLikelihoodType(llType)<<qt<<cc<<std::endl; 
+        os<<"optFit="<<qt<<tcsam::getFitType(optFit)<<qt<<cc; 
+        os<<"llType="<<qt<<tcsam::getLikelihoodType(llType)<<qt<<cc; 
+        os<<"llWgt="<<llWgt<<cc<<std::endl; 
     for (int n=0;n<indent;n++) os<<tb;
         os<<"y="; wts::writeToR(os,yrs); os<<cc<<std::endl;
     for (int n=0;n<indent;n++) os<<tb;
@@ -873,7 +879,7 @@ void BioData::writeToR(ostream& os, string nm, int indent) {
 ModelDatasets::ModelDatasets(ModelConfiguration* ptrMC){
     pMC=ptrMC;
     ptrBio=0;
-//    ppFsh=0;
+    ppFsh=0;
     ppSrv=0;
 }
 /***************************************************************
@@ -882,10 +888,10 @@ ModelDatasets::ModelDatasets(ModelConfiguration* ptrMC){
 ModelDatasets::~ModelDatasets(){
     pMC=0;
     delete ptrBio;  ptrBio=0;
-//    if (ppFsh) {                                                        TODO: uncomment
-//        for (int f=0;f<nFsh;f++) delete ppFsh[f];
-//        delete ppFsh; ppFsh = 0;
-//    } 
+    if (ppFsh) {                                                        
+        for (int f=0;f<nFsh;f++) delete ppFsh[f];
+        delete ppFsh; ppFsh = 0;
+    } 
     if (ppSrv) {
         for (int s=0;s<nSrv;s++) delete ppSrv[s];
         delete ppSrv; ppSrv = 0;

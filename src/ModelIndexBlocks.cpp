@@ -112,6 +112,28 @@ IndexBlock::~IndexBlock(){
 }
 
 /**
+ * Get the minimum index across the block.
+ * 
+ * @return the min index
+ */
+int IndexBlock::getMin(void){
+    int mn = ppIRs[0]->getMin();
+    for (int i=1;i<nRCs;i++) mn = min(mn,ppIRs[i]->getMin());
+    return mn;
+}
+
+/**
+ * Get the maximum index across the block.
+ * 
+ * @return the max index
+ */
+int IndexBlock::getMax(void){
+    int mx = ppIRs[0]->getMax();
+    for (int i=1;i<nRCs;i++) mx = max(mx,ppIRs[i]->getMax());
+    return mx;
+}
+
+/**
  * Creates vectors of indices that map from block to model (forward)\n
  * and from model to block (reverse).\n
  */
