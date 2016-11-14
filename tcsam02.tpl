@@ -159,6 +159,11 @@
 //              2. Revised EffortData to use an IndexBlock to specify ranges
 //                  over which to calculate average effort/average F.
 //              3. Revised all NLL functions for data to incorporate an input weighting factor.
+//--2016-11-14: 1. Added GrowthData and ChelaHeightData classes to handle new
+//                  growth and chela height data inputs.
+//              2. Modified ModelDatasets to handle new Data classes.
+//              3. Removed explicit call to superclass destructor in Tier3_Calculator.
+//                  It's called implicitly and resulted in compilation errors on Windows.
 //
 // =============================================================================
 // =============================================================================

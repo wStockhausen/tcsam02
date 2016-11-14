@@ -547,9 +547,9 @@ class Tier3_Calculator : public Tier_Calculator {
          */
         Tier3_Calculator(double XX, Equilibrium_Calculator* pECp);
         /**
-         * Class destructor
+         * Class destructor (calls superclass destructor).
          */
-        ~Tier3_Calculator(){Tier_Calculator::~Tier_Calculator();}
+        ~Tier3_Calculator(){}
         /**
          * Calculate B0, which is equilibrium mature male biomass (MMB)
          * for an unfished stock.

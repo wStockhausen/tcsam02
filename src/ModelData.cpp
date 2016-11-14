@@ -824,9 +824,13 @@ void BioData::write(ostream & os){
     
     if (debug) std::cout<<"end BioData::write(...) "<<this<<std::endl;
 }
-/***************************************************************
-*   Function to write object to R list.                        *
-***************************************************************/
+/**
+ * Write to an output stream as an R list. 
+ * 
+ * @param os - the output stream
+ * @param nm - the name for the list
+ * @param indent - the number of tabs to indent, initially
+ */
 void BioData::writeToR(ostream& os, string nm, int indent) {
     for (int n=0;n<indent;n++) os<<tb;
         os<<nm<<"=list("<<std::endl;
@@ -873,18 +877,22 @@ void BioData::writeToR(ostream& os, string nm, int indent) {
 //----------------------------------------------------------------------
 //          ModelDatasets
 //----------------------------------------------------------------------
-/***************************************************************
-*   Instantiation                                              *
-***************************************************************/
+/**
+ * Class constructor.
+ * 
+ * @param ptrMC - pointer to the global ModelConfiguration object
+ */
 ModelDatasets::ModelDatasets(ModelConfiguration* ptrMC){
     pMC=ptrMC;
     ptrBio=0;
     ppFsh=0;
     ppSrv=0;
+    ppGrw=0;
+    ppCHD=0;
 }
-/***************************************************************
-*   Destruction                                                *
-***************************************************************/
+/**
+ * Class destructor. Cleans up various pointers.
+ */
 ModelDatasets::~ModelDatasets(){
     pMC=0;
     delete ptrBio;  ptrBio=0;
@@ -896,10 +904,20 @@ ModelDatasets::~ModelDatasets(){
         for (int s=0;s<nSrv;s++) delete ppSrv[s];
         delete ppSrv; ppSrv = 0;
     } 
+    if (ppGrw) {
+        for (int s=0;s<nGrw;s++) delete ppGrw[s];
+        delete ppGrw; ppGrw = 0;
+    } 
+    if (ppCHD) {
+        for (int s=0;s<nCHD;s++) delete ppCHD[s];
+        delete ppCHD; ppCHD = 0;
+    } 
 }
-/***************************************************************
-*   read.                                                      *
-***************************************************************/
+/**
+ * Read ModelDatasets file from input filestream.
+ * 
+ * @param is - the input filestream
+ */
 void ModelDatasets::read(cifstream & is){
     cout<<"ModelDatasets input file name: '"<<is.get_file_name()<<"'"<<endl;
     adstring parent = wts::getParentFolder(is);
@@ -930,6 +948,26 @@ void ModelDatasets::read(cifstream & is){
         for (int i=1;i<=nSrv;i++) {
             fnsSurveyData[i] = wts::concatenateFilePaths(parent,fnsSurveyData[i]);
             rpt::echo<<fnsSurveyData[i]<<tb<<"#survey dataset "<<i<<std::endl;
+        }
+    }
+    is>>nGrw;
+    rpt::echo<<nGrw<<tb<<"#number of survey datasets to read in"<<std::endl;
+    if (nGrw){
+        fnsGrowthData.allocate(1,nGrw);
+        is>>fnsGrowthData; 
+        for (int i=1;i<=nGrw;i++) {
+            fnsGrowthData[i] = wts::concatenateFilePaths(parent,fnsGrowthData[i]);
+            rpt::echo<<fnsGrowthData[i]<<tb<<"#growth dataset "<<i<<std::endl;
+        }
+    }
+    is>>nCHD;
+    rpt::echo<<nCHD<<tb<<"#number of survey datasets to read in"<<std::endl;
+    if (nCHD){
+        fnsChelaHeightData.allocate(1,nCHD);
+        is>>fnsChelaHeightData; 
+        for (int i=1;i<=nCHD;i++) {
+            fnsChelaHeightData[i] = wts::concatenateFilePaths(parent,fnsChelaHeightData[i]);
+            rpt::echo<<fnsChelaHeightData[i]<<tb<<"#survey dataset "<<i<<std::endl;
         }
     }
     
@@ -963,10 +1001,34 @@ void ModelDatasets::read(cifstream & is){
             strm>>(*ppSrv[i]);
         }
     }
+    //          Growth data
+    if (nGrw) {
+        rpt::echo<<"#-------Growth Datasets---------"<<std::endl;
+        ppGrw = new GrowthData*[nGrw];
+        for (int i=0;i<nGrw;i++) {
+            ppGrw[i] = new GrowthData();
+            cifstream strm(fnsGrowthData(i+1),ios::in);
+            rpt::echo<<std::endl<<"#----------Growth Data "<<i+1<<"-----"<<std::endl;
+            strm>>(*ppGrw[i]);
+        }
+    }
+    //          Chela Height Data
+    if (nCHD) {
+        rpt::echo<<"#-------Chela Height Datasets---------"<<std::endl;
+        ppCHD = new ChelaHeightData*[nCHD];
+        for (int i=0;i<nCHD;i++) {
+            ppCHD[i] = new ChelaHeightData();
+            cifstream strm(fnsChelaHeightData(i+1),ios::in);
+            rpt::echo<<std::endl<<"#----------Chela Height Data "<<i+1<<"-----"<<std::endl;
+            strm>>(*ppCHD[i]);
+        }
+    }
 }
-/***************************************************************
-*   read.                                                      *
-***************************************************************/
+/**
+ * Write ModelDatasets info to output stream in ADMB format.
+ * 
+ * @param os - the output stream
+ */
 void ModelDatasets::write(ostream & os){
     if (debug) std::cout<<"start ModelDatasets::write(...) "<<this<<std::endl;
     os<<fnBioData<<tb<<"#tanner crab biological data file"<<std::endl;
@@ -976,6 +1038,13 @@ void ModelDatasets::write(ostream & os){
     os<<"#-------survey data files---------"<<std::endl;
     os<<nSrv<<tb<<"#number of survey data files"<<std::endl;
     for (int i=1;i<+nSrv;i++) os<<fnsSurveyData[i]<<tb<<"#survey dataset "<<i<<std::endl;
+    os<<"#-------growth data files---------"<<std::endl;
+    os<<nGrw<<tb<<"#number of growth data files"<<std::endl;
+    for (int i=1;i<+nGrw;i++) os<<fnsGrowthData[i]<<tb<<"#growth dataset "<<i<<std::endl;
+    os<<"#-------chela height data files---------"<<std::endl;
+    os<<nCHD<<tb<<"#number of chela height data files"<<std::endl;
+    for (int i=1;i<+nCHD;i++) os<<fnsChelaHeightData[i]<<tb<<"#chela height dataset "<<i<<std::endl;
+    
     os<<"#-----biological data---------"<<std::endl;
     os<<(*ptrBio)<<std::endl;
     os<<"#-------fishery data ---------"<<std::endl;
@@ -988,17 +1057,65 @@ void ModelDatasets::write(ostream & os){
         for (int i=1;i<nSrv;i++) os<<"#----survey dataset "<<i<<std::endl<<(*ppSrv[i-1])<<std::endl;
         os<<"#----survey dataset "<<nSrv<<std::endl<<(*ppSrv[nSrv-1]);
     }
+    os<<"#-------growth data ---------"<<std::endl;
+    if (nGrw){
+        for (int i=1;i<nGrw;i++) os<<"#----growth dataset "<<i<<std::endl<<(*ppGrw[i-1])<<std::endl;
+        os<<"#----growth dataset "<<nGrw<<std::endl<<(*ppGrw[nGrw-1]);
+    }
+    os<<"#-------chela height data ---------"<<std::endl;
+    if (nCHD){
+        for (int i=1;i<nCHD;i++) os<<"#----chela height dataset "<<i<<std::endl<<(*ppCHD[i-1])<<std::endl;
+        os<<"#----chela height dataset "<<nCHD<<std::endl<<(*ppCHD[nCHD-1]);
+    }
    if (debug) std::cout<<"end ModelDatasets::write(...) "<<this<<std::endl;
 }
-/***************************************************************
-*   Function to write object to R list.                        *
-***************************************************************/
+/**
+ * Write to an output stream as an R list. 
+ * 
+ * @param os - the output stream
+ * @param nm - the name for the list
+ * @param indent - the number of tabs to indent, initially
+ */
 void ModelDatasets::writeToR(ostream& os, std::string nm, int indent) {
     for (int n=0;n<indent;n++) os<<tb;
     os<<nm<<"=list("<<std::endl;
     indent++;
         //bio data as list
             ptrBio->writeToR(os,"bio",indent); os<<cc<<std::endl;
+        
+        //growth data
+        adstring grwNm;
+        for (int n=0;n<indent;n++) os<<tb;
+        os<<"growth=list("<<std::endl;
+        indent++;
+            if (ppGrw) {
+                for (int i=0;i<(nGrw-1);i++) {
+                    grwNm = "growth_"+str(i+1);
+                    ppGrw[i]->writeToR(os,(char*)grwNm,indent); os<<cc<<std::endl;
+                }
+                grwNm = "growth_"+str(nGrw);
+                ppGrw[nGrw-1]->writeToR(os,(char*)grwNm,indent); os<<std::endl;
+            }
+        indent--;
+        for (int n=0;n<indent;n++) os<<tb;
+        os<<"),"<<std::endl;            
+        
+        //chela height data
+        adstring chdNm;
+        for (int n=0;n<indent;n++) os<<tb;
+        os<<"chelaheight=list("<<std::endl;
+        indent++;
+            if (ppCHD) {
+                for (int i=0;i<(nCHD-1);i++) {
+                    chdNm = "chelaheight_"+str(i+1);
+                    ppCHD[i]->writeToR(os,(char*)chdNm,indent); os<<cc<<std::endl;
+                }
+                chdNm = "chelaheight_"+str(nCHD);
+                ppCHD[nCHD-1]->writeToR(os,(char*)chdNm,indent); os<<std::endl;
+            }
+        indent--;
+        for (int n=0;n<indent;n++) os<<tb;
+        os<<"),"<<std::endl;            
         
         //survey data
         adstring srvNm;
@@ -1033,6 +1150,7 @@ void ModelDatasets::writeToR(ostream& os, std::string nm, int indent) {
         indent--;
         for (int n=0;n<indent;n++) os<<tb;
         os<<")"<<std::endl;            
+        
     indent--;
     for (int n=0;n<indent;n++) os<<tb;
     os<<")";

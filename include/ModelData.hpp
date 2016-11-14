@@ -11,6 +11,8 @@
  * 20161109: 1. added likelihood multiplier (llWgt) to Data classes
  *           2. added likelihood type to EffortData class
  *           3. changed effort averaging interval from IndexRange to IndexBlock
+ * 20161109: 1. added GrowthData, ChelaHeightData classes
+ *           2. revised ModelDatasets to incorporate new data classes
 */
 
 #ifndef MODELDATA_HPP
@@ -24,6 +26,8 @@
 //      CatchData
 //      BioData
 //      FleetData
+//      GrowthData
+//      ChelaHeightData
 //      ModelDatasets
 //**********************************************************************
 class ModelConfiguration; //forward definition
@@ -38,6 +42,9 @@ class IndexBlock;
 //              3. changed C_xy, cv_xy, sd_xy dimensions from xy to xmsy (and renamed them accordingly)
 //
 //--------------------------------------------------------------------------------
+    /**
+     * Class encapsulating aggregate (numbers, biomass) catch data from a data file.
+     */
     class AggregateCatchData {
     public:
         static int debug;
@@ -80,10 +87,10 @@ class IndexBlock;
          */
         void replaceCatchData(int iSeed,random_number_generator& rng,d4_array& newC_xmsy);
         void read(cifstream & is);//read file in ADMB format
-        void write(ostream & os); //write object to file in ADMB format
-        void writeToR(ostream& os, std::string nm, int indent=0);//write object to R file as list
+        void write(std::ostream & os); //write object to file in ADMB format
+        void writeToR(std::ostream& os, std::string nm, int indent=0);//write object to R file as list
         friend cifstream& operator >>(cifstream & is, AggregateCatchData & obj){obj.read(is); return is;}
-        friend ostream&   operator <<(ostream & os,   AggregateCatchData & obj){obj.write(os); return os;}
+        friend std::ostream&   operator <<(std::ostream & os,   AggregateCatchData & obj){obj.write(os); return os;}
     
     protected:
         /**
@@ -96,6 +103,9 @@ class IndexBlock;
 //--------------------------------------------------------------------------------
 //          EffortData
 //--------------------------------------------------------------------------------
+    /**
+     * Class encapsulating effort data from a data file.
+     */
     class EffortData {
     public:
         /* flag to print debugging info */
@@ -139,13 +149,13 @@ class IndexBlock;
          * 
          * @param os output stream
          */
-        void write(ostream & os); //write object to file in ADMB format
+        void write(std::ostream & os); //write object to file in ADMB format
         /**
          * Write data to an output stream as an R-formatted list object
          * 
          * @param os output stream
          */
-        void writeToR(ostream& os, std::string nm, int indent=0);//write object to R file as list
+        void writeToR(std::ostream& os, std::string nm, int indent=0);//write object to R file as list
         /**
          * Operator to read ADMB-formatted data from an input stream into an EffortData object.
          */
@@ -153,12 +163,15 @@ class IndexBlock;
         /**
          * Operators to write data to an output stream in ADMB format from an EffortData object.
          */
-        friend ostream&   operator <<(ostream & os,   EffortData & obj){obj.write(os); return os;}
+        friend std::ostream&   operator <<(std::ostream & os,   EffortData & obj){obj.write(os); return os;}
     };
 
 //--------------------------------------------------------------------------------
 //          SizeFrequencyData
 //--------------------------------------------------------------------------------
+    /**
+     * Class encapsulating size frequency data from a data file.
+     */
     class SizeFrequencyData {
     public:
         static int debug;
@@ -231,18 +244,18 @@ class IndexBlock;
          * 
          * @param os output stream
          */
-        void write(ostream & os); //write object to file in ADMB format
+        void write(std::ostream & os); //write object to file in ADMB format
         /**
          * Write data to an output stream as an R-formatted list object
          * 
          * @param os output stream
          */
-        void writeToR(ostream& os, std::string nm, int indent=0);//write object to R file as list
+        void writeToR(std::ostream& os, std::string nm, int indent=0);//write object to R file as list
         /**
          * Operator to read ADMB-formatted data from an input stream into an SizeFrequencyData object.
          */
         friend cifstream& operator >>(cifstream & is, SizeFrequencyData & obj){obj.read(is); return is;}
-        friend ostream&   operator <<(ostream & os,   SizeFrequencyData & obj){obj.write(os); return os;}
+        friend std::ostream&   operator <<(std::ostream & os,   SizeFrequencyData & obj){obj.write(os); return os;}
     public:
         /**
          * Calculate normalized size compositions PatZ_xmsyz based on NatZ_xmsyz.
@@ -253,6 +266,9 @@ class IndexBlock;
 //--------------------------------------------------------------------------------
 //          BioData
 //--------------------------------------------------------------------------------
+    /**
+     * Class encapsulating biological information (weight-at-age, etc.)
+     */
     class BioData {
     public:
         static int debug;
@@ -326,13 +342,13 @@ class IndexBlock;
          */
         virtual void replaceCatchData(int iSeed,random_number_generator& rng,d5_array& newNatZ_yxmsz, d3_array& wAtZ_xmz);
         virtual void read(cifstream & is);//read file in ADMB format
-        virtual void write(ostream & os); //write object to file in ADMB format
-        virtual void writeToR(ostream& os, std::string nm, int indent=0);//write object to R file as list
+        virtual void write(std::ostream & os); //write object to file in ADMB format
+        virtual void writeToR(std::ostream& os, std::string nm, int indent=0);//write object to R file as list
         /**
          * Operator to read ADMB-formatted data from an input stream into a CatchData object.
          */
         friend cifstream& operator >>(cifstream & is, CatchData & obj){obj.read(is); return is;}
-        friend ostream&   operator <<(ostream & os,   CatchData & obj){obj.write(os); return os;}
+        friend std::ostream&   operator <<(std::ostream & os,   CatchData & obj){obj.write(os); return os;}
     };
 
 //------------------------------------------------------------------------------    
@@ -396,33 +412,175 @@ class IndexBlock;
          * 
          * @param os - output stream to write to
          */
-        void write(ostream & os); //write object to file in ADMB format
-        void writeToR(ostream& os, std::string nm, int indent=0);//write object to R file as list
+        void write(std::ostream & os); //write object to file in ADMB format
+        void writeToR(std::ostream& os, std::string nm, int indent=0);//write object to R file as list
         /**
          * Operator to read ADMB-formatted data from an input stream into a FleetData object.
          */
         friend cifstream& operator >>(cifstream & is, FleetData & obj){obj.read(is); return is;}
-        friend ostream&   operator <<(ostream & os,   FleetData & obj){obj.write(os); return os;}
+        friend std::ostream&   operator <<(std::ostream & os,   FleetData & obj){obj.write(os); return os;}
+    };
+
+//--------------------------------------------------------------------------------
+//          GrowthData
+//--------------------------------------------------------------------------------
+    /**
+     * Class encapsulating growth data.
+     */
+    class GrowthData {
+    public:
+        /* flag to print debugging info */
+        static int debug;
+        /* keyword indicating effort data */
+        const static adstring KW_GROWTH_DATA;
+    public:
+        /* likelihood function type */
+        int llType; 
+        /* likelihood weight (i.e., multiplier) */
+        double llWgt;   
+        /* number of sex classes */
+        int nSXs;
+        /* number of observations, by sex */
+        ivector nObs_x;
+        /* input data, by sex, c: year,pre-molt size, post-molt size, n: observations */
+        d3_array  inpData_xcn;  
+    public:
+        /**
+         * Constructor.
+         */
+        GrowthData();
+        /**
+         * Destructor.
+         */
+        ~GrowthData();
+        /**
+         * Read input data in ADMB format from a file stream
+         * 
+         * @param is - input file stream
+         */
+        void read(cifstream & is);//read file in ADMB format
+        /**
+         * Write data to an output stream in ADMB format
+         * 
+         * @param os output stream
+         */
+        void write(std::ostream & os); //write object to file in ADMB format
+        /**
+         * Write data to an output stream as an R-formatted list object
+         * 
+         * @param os output stream
+         */
+        void writeToR(std::ostream& os, std::string nm, int indent=0);//write object to R file as list
+        /**
+         * Operator to read ADMB-formatted data from an input stream into an GrowthData object.
+         */
+        friend cifstream& operator >>(cifstream & is, GrowthData & obj){obj.read(is); return is;}
+        /**
+         * Operators to write data to an output stream in ADMB format from a GrowthData object.
+         */
+        friend std::ostream&   operator <<(std::ostream & os,   GrowthData & obj){obj.write(os); return os;}
+    };
+
+//--------------------------------------------------------------------------------
+//          ChelaHeightData
+//--------------------------------------------------------------------------------
+    class ChelaHeightData {
+    public:
+        /* flag to print debugging info */
+        static int debug;
+        /* keyword indicating effort data */
+        const static adstring KW_CHELAHEIGHT_DATA;
+    public:
+        /* likelihood function type */
+        int llType; 
+        /* likelihood weight (i.e., multiplier) */
+        double llWgt;   
+        /* number of observations */
+        int nObs;
+        /* input data (columns: year,size,N,fraction mature) */
+        dmatrix  inpData_nc;  
+    public:
+        /**
+         * Constructor.
+         */
+        ChelaHeightData(){}
+        /**
+         * Destructor.
+         */
+        ~ChelaHeightData();
+        /**
+         * Read input data in ADMB format from a file stream
+         * 
+         * @param is - input file stream
+         */
+        void read(cifstream & is);//read file in ADMB format
+        /**
+         * Write data to an output stream in ADMB format
+         * 
+         * @param os output stream
+         */
+        void write(std::ostream & os); //write object to file in ADMB format
+        /**
+         * Write data to an output stream as an R-formatted list object
+         * 
+         * @param os output stream
+         */
+        void writeToR(std::ostream& os, std::string nm, int indent=0);//write object to R file as list
+        /**
+         * Operator to read ADMB-formatted data from an input stream into a ChelaHeightData object.
+         */
+        friend cifstream& operator >>(cifstream & is, ChelaHeightData & obj){obj.read(is); return is;}
+        /**
+         * Operators to write data to an output stream in ADMB format from an ChelaHeightData object.
+         */
+        friend std::ostream& operator <<(std::ostream & os, ChelaHeightData & obj){obj.write(os); return os;}
     };
 
 //--------------------------------------------------------------------------------
 //         ModelDatasets
 //--------------------------------------------------------------------------------
+    /**
+     * Class encapsulating model dataset objects.
+     */
     class ModelDatasets {
     public:
+        /* flag to print debugging info */
         static int debug;
     public:
-        ModelConfiguration* pMC;//pointer to ModelConfiguration object
-        adstring fnBioData;//bio data file name
-        BioData* ptrBio;   //pointer to bio dataset object
+        /* pointer to ModelConfiguration object */
+        ModelConfiguration* pMC;
+        /* bio data file name */
+        adstring fnBioData;
+        /* pointer to bio dataset object */
+        BioData* ptrBio;   
         
-        int nFsh;//number of fishery datasets to read
-        adstring_array fnsFisheryData;//fishery data file names       
-        FleetData**    ppFsh;         //pointer to array of pointers to fishery dataset objects
+        /* number of fishery datasets to read */
+        int nFsh;
+        /* fishery data file names */
+        adstring_array fnsFisheryData;      
+        /* pointer to array of pointers to fishery dataset objects */
+        FleetData**    ppFsh;         
         
-        int nSrv;//number of survey datasets to read
-        adstring_array fnsSurveyData;//survey data files names
-        FleetData**    ppSrv;        //pointer to array of pointers to survey dataset objects
+        /* number of survey datasets to read */
+        int nSrv;
+        /* survey data files names */
+        adstring_array fnsSurveyData;
+        /* pointer to array of pointers to survey dataset objects */
+        FleetData**    ppSrv;        
+        
+        /* number of growth datasets to read */
+        int nGrw;
+        /* growth data files names */
+        adstring_array fnsGrowthData;
+        /* pointer to array of pointers to growth dataset objects */
+        GrowthData**    ppGrw;        
+        
+        /* number of chela height datasets to read */
+        int nCHD;
+        /* chela height data files names */
+        adstring_array fnsChelaHeightData;
+        /* pointer to array of pointers to chela height dataset objects */
+        ChelaHeightData**    ppCHD;        
     public:
         ModelDatasets(ModelConfiguration* ptrMC);
         ~ModelDatasets();
@@ -432,8 +590,8 @@ class IndexBlock;
         /**
          * Operator to read ADMB-formatted data from an input stream into a ModelDatasets object.
          */
-        friend cifstream& operator >>(cifstream & is, ModelDatasets & obj){obj.read(is); return is;}
-        friend std::ostream&   operator <<(std::ostream & os,   ModelDatasets & obj){obj.write(os); return os;}
+        friend cifstream&    operator >>(cifstream & is,   ModelDatasets & obj){obj.read(is); return is;}
+        friend std::ostream& operator <<(std::ostream & os,ModelDatasets & obj){obj.write(os); return os;}
     };
 #endif  /* MODELDATA_HPP */
 
