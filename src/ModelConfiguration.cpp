@@ -10,8 +10,8 @@ using namespace std;
 //      ModelConfiguration
 //      ModelOptions
 //**********************************************************************
-const adstring ModelConfiguration::VERSION = "2016.09.30";
-const adstring ModelOptions::VERSION       = "2016.09.30";
+const adstring ModelConfiguration::VERSION = "2016.11.15";
+const adstring ModelOptions::VERSION       = "2016.11.15";
 
 int ModelConfiguration::debug=0;
 int ModelOptions::debug      =0;

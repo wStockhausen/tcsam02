@@ -164,6 +164,9 @@
 //              2. Modified ModelDatasets to handle new Data classes.
 //              3. Removed explicit call to superclass destructor in Tier3_Calculator.
 //                  It's called implicitly and resulted in compilation errors on Windows.
+//--2016-11-15: 1. Added asclogisticLn50 and dbllogisticLnD50 functions to SelFcns.
+//              2. Updated model, model configuration and model options versions
+//                  to "2016.11.15".
 //
 // =============================================================================
 // =============================================================================

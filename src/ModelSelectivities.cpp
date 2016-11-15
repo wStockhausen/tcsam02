@@ -44,10 +44,12 @@ int SelFcns::getSelFcnID(adstring str){
     int id = 0;
     str.to_lower();
     if (str==STR_ASCLOGISTIC)         return ID_ASCLOGISTIC;
+    if (str==STR_ASCLOGISTICLN50)     return ID_ASCLOGISTICLN50;
     if (str==STR_ASCLOGISTIC5095)     return ID_ASCLOGISTIC5095;
     if (str==STR_ASCLOGISTIC50LN95)   return ID_ASCLOGISTIC50LN95;
     if (str==STR_ASCLOGISTICLN50LN95) return ID_ASCLOGISTICLN50LN95;
     if (str==STR_DBLLOGISTIC)         return ID_DBLLOGISTIC;
+    if (str==STR_DBLLOGISTICLND50)    return ID_DBLLOGISTICLND50;
     if (str==STR_DBLLOGISTIC5095)     return ID_DBLLOGISTIC5095;
     if (str==STR_DBLLOGISTIC50LN95)   return ID_DBLLOGISTIC50LN95;
     if (str==STR_DBLLOGISTICLN50LN95) return ID_DBLLOGISTICLN50LN95;
@@ -72,6 +74,9 @@ adstring SelFcns::getSelFcnID(int id){
         case ID_ASCLOGISTIC: 
             if (debug) cout<<"SelFcn = "<<STR_ASCLOGISTIC<<endl;
             return STR_ASCLOGISTIC;
+        case ID_ASCLOGISTICLN50: 
+            if (debug) cout<<"SelFcn = "<<STR_ASCLOGISTICLN50<<endl;
+            return STR_ASCLOGISTICLN50;
         case ID_ASCLOGISTIC5095: 
             if (debug) cout<<"SelFcn = "<<STR_ASCLOGISTIC5095<<endl;
             return STR_ASCLOGISTIC5095;
@@ -84,6 +89,9 @@ adstring SelFcns::getSelFcnID(int id){
         case ID_DBLLOGISTIC: 
             if (debug) cout<<"SelFcn = "<<STR_DBLLOGISTIC<<endl;
             return STR_DBLLOGISTIC;
+        case ID_DBLLOGISTICLND50: 
+            if (debug) cout<<"SelFcn = "<<STR_DBLLOGISTICLND50<<endl;
+            return STR_DBLLOGISTICLND50;
         case ID_DBLLOGISTIC5095: 
             if (debug) cout<<"SelFcn = "<<STR_DBLLOGISTIC5095<<endl;
             return STR_DBLLOGISTIC5095;
@@ -126,10 +134,12 @@ dvar_vector SelFcns::calcSelFcn(int id,dvector& z, dvar_vector& params, double f
     s.initialize();
     switch (id){
         case ID_ASCLOGISTIC:         {s=asclogistic(z,params,fsZ);         break;}
+        case ID_ASCLOGISTICLN50:     {s=asclogisticLn50(z,params,fsZ);     break;}
         case ID_ASCLOGISTIC5095:     {s=asclogistic5095(z,params,fsZ);     break;}
         case ID_ASCLOGISTIC50LN95:   {s=asclogistic50Ln95(z,params,fsZ);   break;}
         case ID_ASCLOGISTICLN50LN95: {s=asclogisticLn50Ln95(z,params,fsZ); break;}
         case ID_DBLLOGISTIC:         {s=dbllogistic(z,params,fsZ);         break;}
+        case ID_DBLLOGISTICLND50:    {s=dbllogisticLnD50(z,params,fsZ);    break;}
         case ID_DBLLOGISTIC5095:     {s=dbllogistic5095(z,params,fsZ);     break;}
         case ID_DBLLOGISTIC50LN95:   {s=dbllogistic50Ln95(z,params,fsZ);   break;}
         case ID_DBLLOGISTICLN50LN95: {s=dbllogisticLn50Ln95(z,params,fsZ); break;}
@@ -147,12 +157,14 @@ dvar_vector SelFcns::calcSelFcn(int id,dvector& z, dvar_vector& params, double f
     return s;
 }
 
-//all need to be lower case
+//
 const adstring SelFcns::STR_ASCLOGISTIC        ="asclogistic";
+const adstring SelFcns::STR_ASCLOGISTICLN50    ="asclogisticLn50";
 const adstring SelFcns::STR_ASCLOGISTIC5095    ="asclogistic5095";
 const adstring SelFcns::STR_ASCLOGISTIC50LN95  ="asclogistic50ln95";
 const adstring SelFcns::STR_ASCLOGISTICLN50LN95="asclogisticln50ln95";
 const adstring SelFcns::STR_DBLLOGISTIC        ="dbllogistic";
+const adstring SelFcns::STR_DBLLOGISTICLND50   ="dbllogisticLnD50";
 const adstring SelFcns::STR_DBLLOGISTIC5095    ="dbllogistic5095";
 const adstring SelFcns::STR_DBLLOGISTIC50LN95  ="dbllogistic50ln95";
 const adstring SelFcns::STR_DBLLOGISTICLN50LN95="dbllogisticln50ln95";
@@ -192,6 +204,41 @@ dvar_vector SelFcns::asclogistic(dvector& z, dvar_vector& params, double fsZ){
     RETURN_ARRAYS_DECREMENT();
     return s;
 }
+
+/**
+ * Calculates ascending logistic function parameterized by 
+ *      params[1]: ln(size at 50% selected) (z50)
+ *      params[2]: slope
+ * Inputs:
+ * @param z      - dvector of sizes at which to compute function values
+ * @param params - dvar_vector of function parameters
+ * @param fsZ    - size at which function = 1 (i.e., fully-selected size) [double]
+ * 
+ * @return - selectivity function values as dvar_vector
+ */
+dvar_vector SelFcns::asclogisticLn50(dvector& z, dvar_vector& params, double fsZ){
+    RETURN_ARRAYS_INCREMENT();
+    if (debug) rpt::echo<<"Starting SelFcns::asclogisticLn50(...)"<<endl;
+    dvariable n; n.initialize();
+    dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
+    s = 1.0/(1.0+exp(-params(2)*(z-exp(params(1)))));
+    if (fsZ>0){
+        n = 1.0+exp(-params(2)*(fsZ-exp(params(1))));//normalize so (s(fsZ) = 1
+        s *= n;
+    } else if (fsZ<0) {
+        n = 1.0/max(s);
+        s *= n; //normalize by max
+    } //otherwise don't normalize it
+    if (debug) {
+        rpt::echo<<"params, fsZ = "<<params(1)<<tb<<params(2)<<tb<<fsZ<<endl;
+        rpt::echo<<"n = "<<n<<endl;
+        rpt::echo<<"z = "<<z<<endl;
+        rpt::echo<<"s = "<<s<<endl;
+        cout<<"Finished SelFcns::asclogisticLn50(...)"<<endl;
+    }
+    RETURN_ARRAYS_DECREMENT();
+    return s;
+}      
 
 /**
  * Calculates ascending logistic function parameterized by 
@@ -329,11 +376,48 @@ dvar_vector SelFcns::dbllogistic(dvector& z, dvar_vector& params, double fsZ){
         s *= n; //normalize by max
     } //otherwise don't normalize it
     if (debug) {
-        rpt::echo<<"params, fsZ = "<<params(1)<<tb<<params(2)<<tb<<fsZ<<endl;
+        rpt::echo<<"params, fsZ = "<<params(1)<<tb<<params(2)<<tb<<params(3)<<tb<<params(4)<<tb<<fsZ<<endl;
         rpt::echo<<"n = "<<n<<endl;
         rpt::echo<<"z = "<<z<<endl;
         rpt::echo<<"s = "<<s<<endl;
         cout<<"Finished SelFcns::dbllogistic(...)"<<endl;
+    }
+    RETURN_ARRAYS_DECREMENT();
+    return s;
+}
+
+/**
+ * Calculates double logistic function parameterized by 
+ *      params[1]: size where ascending limb = 0.5  (z50)
+ *      params[2]: ascending limb rate parameter    (slope)
+ *      params[3]: ln-scale increment from z50 to where descending limb = 0.5 (z50)
+ *      params[4]: descending limb rate parameter   (slope)
+ * Inputs:
+ * @param z      - dvector of sizes at which to compute function values
+ * @param params - dvar_vector of function parameters
+ * @param fsZ    - size at which function = 1 (i.e., fully-selected size) [double]
+ * 
+ * @return - selectivity function values as dvar_vector
+ */
+dvar_vector SelFcns::dbllogisticLnD50(dvector& z, dvar_vector& params, double fsZ){
+    RETURN_ARRAYS_INCREMENT();
+    if (debug) cout<<"Starting SelFcns::dbllogisticLnD50(...)"<<endl;
+    dvariable n; n.initialize();
+    dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
+    s = elem_prod(1.0/(1.0+exp(-params(2)*(z-params(1)))),1.0/(1.0+exp(-params(4)*(params(1)+exp(params(3))-z))));
+    if (fsZ>0){
+        n = (1.0+exp(-params(2)*(fsZ-params(1))))*(1.0+exp(-params(4)*(params(1)+exp(params(3))-fsZ)));//normalization constant
+        s *= n;
+    } else if (fsZ<0) {
+        n = 1.0/max(s);
+        s *= n; //normalize by max
+    } //otherwise don't normalize it
+    if (debug) {
+        rpt::echo<<"params, fsZ = "<<params(1)<<tb<<params(2)<<tb<<params(3)<<tb<<params(4)<<tb<<fsZ<<endl;
+        rpt::echo<<"n = "<<n<<endl;
+        rpt::echo<<"z = "<<z<<endl;
+        rpt::echo<<"s = "<<s<<endl;
+        cout<<"Finished SelFcns::dbllogisticLnD50(...)"<<endl;
     }
     RETURN_ARRAYS_DECREMENT();
     return s;
@@ -366,7 +450,7 @@ dvar_vector SelFcns::dbllogistic5095(dvector& z, dvar_vector& params, double fsZ
         s *= n; //normalize by max
     } //otherwise don't normalize it
     if (debug) {
-        rpt::echo<<"params, fsZ = "<<params(1)<<tb<<params(2)<<tb<<fsZ<<endl;
+        rpt::echo<<"params, fsZ = "<<params(1)<<tb<<params(2)<<tb<<params(3)<<tb<<params(4)<<tb<<fsZ<<endl;
         rpt::echo<<"n = "<<n<<endl;
         rpt::echo<<"z = "<<z<<endl;
         rpt::echo<<"s = "<<s<<endl;
@@ -408,7 +492,7 @@ dvar_vector SelFcns::dbllogistic50Ln95(dvector& z, dvar_vector& params, double f
         s *= n; //normalize by max
     } //otherwise don't normalize it
     if (debug) {
-        rpt::echo<<"params, fsZ = "<<params(1)<<tb<<params(2)<<tb<<fsZ<<endl;
+        rpt::echo<<"params, fsZ = "<<params(1)<<tb<<params(2)<<tb<<params(3)<<tb<<params(4)<<tb<<fsZ<<endl;
         rpt::echo<<"n = "<<n<<endl;
         rpt::echo<<"z = "<<z<<endl;
         rpt::echo<<"s = "<<s<<endl;
@@ -450,7 +534,7 @@ dvar_vector SelFcns::dbllogisticLn50Ln95(dvector& z, dvar_vector& params, double
         s *= n; //normalize by max
     } //otherwise don't normalize it
     if (debug) {
-        rpt::echo<<"params, fsZ = "<<params(1)<<tb<<params(2)<<tb<<fsZ<<endl;
+        rpt::echo<<"params, fsZ = "<<params(1)<<tb<<params(2)<<tb<<params(3)<<tb<<params(4)<<tb<<fsZ<<endl;
         rpt::echo<<"n = "<<n<<endl;
         rpt::echo<<"z = "<<z<<endl;
         rpt::echo<<"s = "<<s<<endl;
@@ -460,6 +544,7 @@ dvar_vector SelFcns::dbllogisticLn50Ln95(dvector& z, dvar_vector& params, double
     return s;
 }
 
+//TODO: implement this!
 dvar_vector SelFcns::dblnormal(dvector& z, dvar_vector& params, double fsZ){
     RETURN_ARRAYS_INCREMENT();
     if (debug) cout<<"Starting SelFcns::dblnormal(...)"<<endl;
