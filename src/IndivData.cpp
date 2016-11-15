@@ -126,7 +126,7 @@ void GrowthData::writeToR(ostream& os, std::string nm, int indent) {
                     os<<tcsam::getSexType(x)<<"="; wts::writeToR(os,trans(inpData_xcn(x))); os<<cc<<std::endl;
                 }
             }//x
-            os<<NULL<<std::endl;
+            os<<"NULL"<<std::endl;
         indent--;
     for (int n=0;n<indent;n++) os<<tb; os<<")"<<std::endl;
     if (debug) cout<<"GrowthData::done writing to R"<<std::endl;
