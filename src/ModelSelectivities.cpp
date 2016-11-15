@@ -19,27 +19,39 @@ using namespace std;
 
 int SelFcns::debug = 0;//debug flag
 
+//the following values should all be lower case
+const adstring SelFcns::STR_ASCLOGISTIC        ="asclogistic";
+const adstring SelFcns::STR_ASCLOGISTICLN50    ="asclogisticln50";
+const adstring SelFcns::STR_ASCLOGISTIC5095    ="asclogistic5095";
+const adstring SelFcns::STR_ASCLOGISTIC50LN95  ="asclogistic50ln95";
+const adstring SelFcns::STR_ASCLOGISTICLN50LN95="asclogisticln50ln95";
+const adstring SelFcns::STR_DBLLOGISTIC        ="dbllogistic";
+const adstring SelFcns::STR_DBLLOGISTICLND50   ="dbllogisticlnd50";
+const adstring SelFcns::STR_DBLLOGISTIC5095    ="dbllogistic5095";
+const adstring SelFcns::STR_DBLLOGISTIC50LN95  ="dbllogistic50ln95";
+const adstring SelFcns::STR_DBLLOGISTICLN50LN95="dbllogisticln50ln95";
+const adstring SelFcns::STR_DBLNORMAL          ="dblnormal";
+
 //--------------------------------------------------------------------------------
 //          SelFcns
 //  Encapsulates selectivity functions
 //--------------------------------------------------------------------------------
-/***************************************************************\n
-*   instantiation.\n
-***************************************************************/
-SelFcns::SelFcns(){
-}
+/**
+ * Class constructor.
+ */
+SelFcns::SelFcns(){}
 
-/***************************************************************\n
-*   destruction\n
-***************************************************************/
-SelFcns::~SelFcns(){;}
+/**
+ * Class destructor.
+ */
+SelFcns::~SelFcns(){}
 
-/**************************************************************\n
+/**
  * Returns the integer id of the requested selectivity function.
  * 
  * @param str - selectivity function name
- * @return    - integer id for selectivity function (or 0)
- **************************************************************/
+ * @return - integer id for selectivity function (or 0)
+ */
 int SelFcns::getSelFcnID(adstring str){
     int id = 0;
     str.to_lower();
@@ -156,19 +168,6 @@ dvar_vector SelFcns::calcSelFcn(int id,dvector& z, dvar_vector& params, double f
     RETURN_ARRAYS_DECREMENT();
     return s;
 }
-
-//
-const adstring SelFcns::STR_ASCLOGISTIC        ="asclogistic";
-const adstring SelFcns::STR_ASCLOGISTICLN50    ="asclogisticLn50";
-const adstring SelFcns::STR_ASCLOGISTIC5095    ="asclogistic5095";
-const adstring SelFcns::STR_ASCLOGISTIC50LN95  ="asclogistic50ln95";
-const adstring SelFcns::STR_ASCLOGISTICLN50LN95="asclogisticln50ln95";
-const adstring SelFcns::STR_DBLLOGISTIC        ="dbllogistic";
-const adstring SelFcns::STR_DBLLOGISTICLND50   ="dbllogisticLnD50";
-const adstring SelFcns::STR_DBLLOGISTIC5095    ="dbllogistic5095";
-const adstring SelFcns::STR_DBLLOGISTIC50LN95  ="dbllogistic50ln95";
-const adstring SelFcns::STR_DBLLOGISTICLN50LN95="dbllogisticln50ln95";
-const adstring SelFcns::STR_DBLNORMAL          ="dblnormal";
 
 /**
  * Calculates ascending logistic function parameterized by 
