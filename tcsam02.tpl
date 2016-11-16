@@ -2602,16 +2602,16 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
                 //old style (TCSAM2013)
                 for (int z=1;z<nZBs;z++){//pre-molt growth bin
                     dvector dZs =  zBs(z,nZBs) - zBs(z);//realized growth increments (note non-neg. growth only)
-                    cout<<"Zpre = "<<zBs(z)<<endl;
-                    cout<<"dZs: "<<dZs<<endl;
+                    os<<"Zpre = "<<zBs(z)<<endl;
+                    os<<"dZs: "<<dZs<<endl;
                     //dvar_vector prs = elem_prod(pow(dZs,alZ(z)-1.0),mfexp(-dZs/grBeta)); //pr(dZ|z)
                     dvar_vector prs = wts::log_gamma_density(dZs,alZ(z),invBeta);
-                    cout<<"log(prs): "<<prs<<endl;
+                    os<<"log(prs): "<<prs<<endl;
                     prs = mfexp(prs);//gamma pdf
-                    cout<<"prs     : "<<prs<<endl;
+                    os<<"prs     : "<<prs<<endl;
                     if (prs.size()>10) prs(z+10,nZBs) = 0.0;//limit growth range TODO: this assumes bin size is 5 mm
-                    cout<<"normalization factor = "<<sum(prs)<<endl;
-                    cout<<"prs     : "<<prs<<endl;
+                    os<<"normalization factor = "<<sum(prs)<<endl;
+                    os<<"prs     : "<<prs<<endl;
                 }
             }
             
