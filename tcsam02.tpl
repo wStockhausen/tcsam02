@@ -169,6 +169,7 @@
 //                  to "2016.11.15".
 //--2016-11-16: 1. Revised TCSAM2013 growth calc to use wts::log_gamma_density functions
 //                  to try to eliminate NaNs.
+//              2. Added output to "GrowthReport.dat" when NaNs detected in growth function.
 //
 // =============================================================================
 // =============================================================================
@@ -2587,7 +2588,17 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
         mnGrZ_cz(pc) = mnZ;        
         prGr_czz(pc) = trans(prGr_zz);//transpose so rows are post-molt (i.e., lefthand z index is post-molt, or "to") z's so n+ = prGr_zz*n
         
-        testNaNs(value(sum(prGr_zz)),"Calculating growth");
+        if (isnan(value(sum(prGr_zz)))){
+            ofstream os("GrowthReport.dat");
+            os<<"##Found NaN in calcGrowth!"<<endl;
+            os<<"pc: "<<pc<<tb<<"grA:"<<tb<<grA<<". grB:"<<tb<<grB<<". grBeta:"<<grBeta<<endl;
+            os<<"mnGrZ_cz = "<<endl<<mnGrZ_cz<<endl;
+            d3_array val = value(prGr_czz);
+            os<<"prGr_czz = "<<endl; wts::print(val, os, 1); os<<endl;
+            os.close();
+            exit(-1.0);
+            //testNaNs(value(sum(prGr_zz)),"Calculating growth");
+        }
         
         //loop over model indices as defined in the index blocks
         imatrix idxs = ptrGrI->getModelIndices(pc);
