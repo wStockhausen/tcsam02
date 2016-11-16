@@ -170,6 +170,7 @@
 //--2016-11-16: 1. Revised TCSAM2013 growth calc to use wts::log_gamma_density functions
 //                  to try to eliminate NaNs.
 //              2. Added output to "GrowthReport.dat" when NaNs detected in growth function.
+//              3. Reverted parameterization of growth transition matrix to arithmetic scale.
 //
 // =============================================================================
 // =============================================================================
@@ -2532,9 +2533,12 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
     for (int pc=1;pc<=ptrGrI->nPCs;pc++){
         ivector pids = ptrGrI->getPCIDs(pc);
         int k=ptrGrI->nIVs+1;//1st parameter column
-        grA = mfexp(pLnGrA(pids[k])); k++; //"a" coefficient for mean growth
-        grB = mfexp(pLnGrB(pids[k])); k++; //"b" coefficient for mean growth
-        grBeta = mfexp(pLnGrBeta(pids[k])); k++; //shape factor for gamma function growth transition
+//        grA = mfexp(pLnGrA(pids[k])); k++; //"a" coefficient for mean growth
+//        grB = mfexp(pLnGrB(pids[k])); k++; //"b" coefficient for mean growth
+//        grBeta = mfexp(pLnGrBeta(pids[k])); k++; //shape factor for gamma function growth transition
+        grA = pLnGrA(pids[k]); k++; //"a" coefficient for mean growth
+        grB = pLnGrB(pids[k]); k++; //"b" coefficient for mean growth
+        grBeta = pLnGrBeta(pids[k]); k++; //scale factor for gamma function growth transition
         if (debug>dbgCalcProcs){
             cout<<"pc: "<<pc<<tb<<"grA:"<<tb<<grA<<". grB:"<<tb<<grB<<". grBeta:"<<grBeta<<endl;
         }
@@ -2593,6 +2597,24 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
             os<<"##Found NaN in calcGrowth!"<<endl;
             os<<"pc: "<<pc<<tb<<"grA:"<<tb<<grA<<". grB:"<<tb<<grB<<". grBeta:"<<grBeta<<endl;
             os<<"mnGrZ_cz = "<<endl<<mnGrZ_cz<<endl;
+            os<<"alZ = "<<endl<<alZ<<endl;
+            if (optGrowth==0) {
+                //old style (TCSAM2013)
+                for (int z=1;z<nZBs;z++){//pre-molt growth bin
+                    dvector dZs =  zBs(z,nZBs) - zBs(z);//realized growth increments (note non-neg. growth only)
+                    cout<<"Zpre = "<<zBs(z)<<endl;
+                    cout<<"dZs: "<<dZs<<endl;
+                    //dvar_vector prs = elem_prod(pow(dZs,alZ(z)-1.0),mfexp(-dZs/grBeta)); //pr(dZ|z)
+                    dvar_vector prs = wts::log_gamma_density(dZs,alZ(z),invBeta);
+                    cout<<"log(prs): "<<prs<<endl;
+                    prs = mfexp(prs);//gamma pdf
+                    cout<<"prs     : "<<prs<<endl;
+                    if (prs.size()>10) prs(z+10,nZBs) = 0.0;//limit growth range TODO: this assumes bin size is 5 mm
+                    cout<<"normalization factor = "<<sum(prs)<<endl;
+                    cout<<"prs     : "<<prs<<endl;
+                }
+            }
+            
             d3_array val = value(prGr_czz);
             os<<"prGr_czz = "<<endl; wts::print(val, os, 1); os<<endl;
             os.close();
