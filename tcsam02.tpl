@@ -168,9 +168,10 @@
 //              2. Updated model, model configuration and model options versions
 //                  to "2016.11.15".
 //--2016-11-16: 1. Revised TCSAM2013 growth calc to use wts::log_gamma_density functions
-//                  to try to eliminate NaNs.
+//                  to try to eliminate NaNs when using optGrowth=0.
 //              2. Added output to "GrowthReport.dat" when NaNs detected in growth function.
 //              3. Reverted parameterization of growth transition matrix to arithmetic scale.
+//              4. Revised growth calc for optGrowth=1 (using cumd_gamma).
 //
 // =============================================================================
 // =============================================================================
@@ -2545,16 +2546,17 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
         
         //compute growth transition matrix for this pc
         prGr_zz.initialize();
-        dvar_vector mnZ = mfexp(grA)*pow(zBs,grB);//mean size after growth from zBs
-        dvariable invBeta = 1.0/grBeta;//inverse scale for dgamma function
-        dvar_vector alZ = (mnZ-zBs)/grBeta;//scaled mean growth increment from zBs
+        dvariable invBeta = 1.0/grBeta;           //inverse scale for gamma density function
+        dvar_vector mnZs = mfexp(grA)*pow(zBs,grB);//mean post-molt sizes with zBs as pre-molt sizes
+        dvar_vector mnIs = mnZs - zBs;              //mean molt increments
+        dvar_vector alIs = mnIs/grBeta;             //gamma density alpha (location) parameters
         if (optGrowth==0) {
             //old style (TCSAM2013)
             for (int z=1;z<nZBs;z++){//pre-molt growth bin
                 dvector dZs =  zBs(z,nZBs) - zBs(z);//realized growth increments (note non-neg. growth only)
                 if (debug) cout<<"dZs: "<<dZs.indexmin()<<":"<<dZs.indexmax()<<endl;
                 //dvar_vector prs = elem_prod(pow(dZs,alZ(z)-1.0),mfexp(-dZs/grBeta)); //pr(dZ|z)
-                dvar_vector prs = wts::log_gamma_density(dZs,alZ(z),invBeta);
+                dvar_vector prs = wts::log_gamma_density(dZs,alIs(z),invBeta);
                 prs = mfexp(prs);//gamma pdf
                 if (debug) cout<<"prs: "<<prs.indexmin()<<":"<<prs.indexmax()<<endl;
                 if (prs.size()>10) prs(z+10,nZBs) = 0.0;//limit growth range TODO: this assumes bin size is 5 mm
@@ -2562,26 +2564,31 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
                 prs = prs/sum(prs);//normalize to sum to 1
                 if (debug) cout<<prs<<endl;
                 prGr_zz(z)(z,nZBs) = prs;
-            }
+            }//zs
             prGr_zz(nZBs,nZBs) = 1.0; //no growth from max size
         } else if (optGrowth==1){
-            //use cumd_gamma function like gmacs
-            dvar_vector sclMnZ = mnZ/grBeta;           //scaled mean growth increments
-            dvar_vector sclZCs = ptrMC->zCutPts/grBeta;//scaled size bin cut points
+            //using cumd_gamma function like gmacs
             for (int z=1;z<nZBs;z++){
-                dvar_vector cprs(z,nZBs);
-                for (int zp=z;zp<=nZBs;zp++){
-                    cprs(zp) = cumd_gamma(sclZCs(zp),sclMnZ(z));//cumulative pr to sclZCs(zp)
-                }
-                //cout<<"cprs indices: "<<cprs.indexmin()<<"  "<<cprs.indexmax()<<endl;
+                dvar_vector sclIs = (ptrMC->zCutPts(z+1,nZBs+1)-zBs(z))/grBeta;//scaled increments at size bin cut points
                 dvar_vector prs(z,nZBs);
-                prs(z,nZBs-1) = first_difference(cprs);
-                prs(nZBs) = 1.0 - cprs(nZBs);//treat final size bin as accumulator
+                prs(z) = cumd_gamma(sclIs(z+1),alIs(z));
+                for (int zp=z+1;zp<=nZBs;zp++){
+                    prs(zp) = cumd_gamma(sclIs(zp+1),alIs(z))-prs(zp-1);//cumulative pr from zCs(zp) to zCs(zp+1)
+                }
+                prs(nZBs) += 1.0 - cumd_gamma(sclIs(nZBs+1),alIs(z));//treat final size bin as accumulator
                 //cout<<"prs indices: "<<prs.indexmin()<<"  "<<prs.indexmax()<<endl;
+                //check sum = 1
+                if (sfabs(1.0-sum(prs))>1.0e-10){
+                    cout<<"Errors in calculating growth transition matrix: sum NE 1"<<endl;
+                    cout<<"zB = "<<zBs(z)<<tb<<"sum(prs) = "<<sum(prs)<<endl;
+                    cout<<"prs = "<<prs<<endl;
+                    exit(-1);
+                }
+                if (prs.size()>10) prs(z+10,nZBs) = 0.0;//limit growth range TODO: this assumes bin size is 5 mm
                 prs = prs/sum(prs);//normalize to sum to 1
                 if (debug) cout<<prs<<endl;
                 prGr_zz(z)(z,nZBs) = prs;
-            }            
+            }//zs
             prGr_zz(nZBs,nZBs) = 1.0; //no growth from max size
         } else {
             cout<<"Unrecognized growth option: "<<optGrowth<<endl;
@@ -2589,23 +2596,27 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
             exit(-1);
         }
         
-        mnGrZ_cz(pc) = mnZ;        
+        mnGrZ_cz(pc) = mnZs;        
         prGr_czz(pc) = trans(prGr_zz);//transpose so rows are post-molt (i.e., lefthand z index is post-molt, or "to") z's so n+ = prGr_zz*n
         
         if (isnan(value(sum(prGr_zz)))){
             ofstream os("GrowthReport.dat");
             os<<"##Found NaN in calcGrowth!"<<endl;
-            os<<"pc: "<<pc<<tb<<"grA:"<<tb<<grA<<". grB:"<<tb<<grB<<". grBeta:"<<grBeta<<endl;
-            os<<"mnGrZ_cz = "<<endl<<mnGrZ_cz<<endl;
-            os<<"alZ = "<<endl<<alZ<<endl;
+            os<<"pc: "<<pc<<tb<<"grA:"<<tb<<grA<<" grB:"<<tb<<grB<<" grBeta:"<<grBeta<<endl;
+            os<<"zBs   = "<<zBs<<endl;
+            os<<"mnZs  = "<<mnZs<<endl;
+            os<<"mnIs  = "<<mnIs<<endl;
+            os<<"sdIs  = "<<sqrt(mnIs*grBeta)<<endl;
+            os<<"alIs  = "<<alIs<<endl;
             if (optGrowth==0) {
                 //old style (TCSAM2013)
                 for (int z=1;z<nZBs;z++){//pre-molt growth bin
                     dvector dZs =  zBs(z,nZBs) - zBs(z);//realized growth increments (note non-neg. growth only)
                     os<<"Zpre = "<<zBs(z)<<endl;
                     os<<"dZs: "<<dZs<<endl;
+                    os<<"Zbs: "<<zBs(z,nZBs)<<endl;
                     //dvar_vector prs = elem_prod(pow(dZs,alZ(z)-1.0),mfexp(-dZs/grBeta)); //pr(dZ|z)
-                    dvar_vector prs = wts::log_gamma_density(dZs,alZ(z),invBeta);
+                    dvar_vector prs = wts::log_gamma_density(dZs,alIs(z),invBeta);
                     os<<"log(prs): "<<prs<<endl;
                     prs = mfexp(prs);//gamma pdf
                     os<<"prs     : "<<prs<<endl;
@@ -2613,7 +2624,23 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
                     os<<"normalization factor = "<<sum(prs)<<endl;
                     os<<"prs     : "<<prs<<endl;
                 }
-            }
+            } else if (optGrowth==1){
+                //using cumd_gamma function like gmacs
+                for (int z=1;z<nZBs;z++){
+                    dvar_vector sclIs = (ptrMC->zCutPts(z+1,nZBs+1)-zBs(z))/grBeta;//scaled increments at size bin cut points
+                    dvar_vector prs(z,nZBs);
+                    prs(z) = cumd_gamma(sclIs(z+1),alIs(z));
+                    for (int zp=z+1;zp<=nZBs;zp++){
+                        prs(zp) = cumd_gamma(sclIs(zp+1),alIs(z))-prs(zp-1);//cumulative pr from zCs(zp) to zCs(zp+1)
+                    }
+                    prs(nZBs) += 1.0 - cumd_gamma(sclIs(nZBs+1),alIs(z));//treat final size bin as accumulator
+                    cout<<"zB = "<<zBs(z)<<tb<<"sum(prs) = "<<sum(prs)<<endl;
+                    cout<<"prs = "<<prs<<endl;
+                    if (prs.size()>10) prs(z+10,nZBs) = 0.0;//limit growth range TODO: this assumes bin size is 5 mm
+                    os<<"normalization factor = "<<sum(prs)<<endl;
+                    os<<"prs     : "<<prs<<endl;
+                }//zs
+            }//optGrowth
             
             d3_array val = value(prGr_czz);
             os<<"prGr_czz = "<<endl; wts::print(val, os, 1); os<<endl;
