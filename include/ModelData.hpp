@@ -442,6 +442,8 @@ class IndexBlock;
         int nSXs;
         /* number of observations, by sex */
         ivector nObs_x;
+        /* years associated with observations, by sex */
+        imatrix obsYears_xn;
         /* input data, by sex, c: year,pre-molt size, post-molt size, n: observations */
         d3_array  inpData_xcn;  
     public:

@@ -26,7 +26,8 @@ const adstring GrowthData::KW_GROWTH_DATA = "GROWTH_DATA";
  */
 GrowthData::GrowthData(){
     nObs_x.allocate(1,tcsam::nSXs);
-    inpData_xcn.allocate(1,tcsam::nSXs,1,3);//note: allocation not complete
+    obsYears_xn.allocate(1,tcsam::nSXs);    //note: allocation incomplete
+    inpData_xcn.allocate(1,tcsam::nSXs,1,3);//note: allocation incomplete
 }
 /**
  * Destructor.
@@ -80,6 +81,9 @@ void GrowthData::read(cifstream & is){
         inpData_xcn(xp,2).allocate(1,nObs_x(xp));
         inpData_xcn(xp,3).allocate(1,nObs_x(xp));
         inpData_xcn(xp) = trans(tmp);
+        obsYears_xn(xp).allocate(1,nObs_x(xp));
+        ivector itmp(inpData_xcn(xp,1));
+        obsYears_xn(xp) = itmp;
     }
     
     if (debug) cout<<"end GrowthData::read(...) "<<this<<std::endl;

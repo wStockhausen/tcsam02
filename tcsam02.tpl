@@ -172,6 +172,10 @@
 //              2. Added output to "GrowthReport.dat" when NaNs detected in growth function.
 //              3. Reverted parameterization of growth transition matrix to arithmetic scale.
 //              4. Revised growth calc for optGrowth=1 (using cumd_gamma).
+//--2016-11-18: 1. Turned off calcNLLs_Recruitment() by setting llWgt = 0 in function
+//                  to agree more closely with TCSAM2013 approach. llWgt should be an
+//                  input to the ModelControl file.
+//              2. Implemented calcNLLs_GrowthData().
 //
 // =============================================================================
 // =============================================================================
@@ -2570,18 +2574,27 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
             //using cumd_gamma function like gmacs
             for (int z=1;z<nZBs;z++){
                 dvar_vector sclIs = (ptrMC->zCutPts(z+1,nZBs+1)-zBs(z))/grBeta;//scaled increments at size bin cut points
-                dvar_vector prs(z,nZBs);
-                prs(z) = cumd_gamma(sclIs(z+1),alIs(z));
+                dvar_vector cprs(z,nZBs); cprs.initialize();
+                dvar_vector prs(z,nZBs); prs.initialize();
+                cprs(z) = cumd_gamma(sclIs(z+1),alIs(z));
+                prs(z)  = cprs(z);
                 for (int zp=z+1;zp<=nZBs;zp++){
-                    prs(zp) = cumd_gamma(sclIs(zp+1),alIs(z))-prs(zp-1);//cumulative pr from zCs(zp) to zCs(zp+1)
+                    cprs(zp) = cumd_gamma(sclIs(zp+1),alIs(z));
+                    prs(zp)  = cprs(zp)-cprs(zp-1);//cumulative pr from zCs(zp) to zCs(zp+1)
                 }
-                prs(nZBs) += 1.0 - cumd_gamma(sclIs(nZBs+1),alIs(z));//treat final size bin as accumulator
+                prs(nZBs)   += 1.0 - cprs(nZBs);//treat final size bin as accumulator
                 //cout<<"prs indices: "<<prs.indexmin()<<"  "<<prs.indexmax()<<endl;
                 //check sum = 1
                 if (sfabs(1.0-sum(prs))>1.0e-10){
-                    cout<<"Errors in calculating growth transition matrix: sum NE 1"<<endl;
-                    cout<<"zB = "<<zBs(z)<<tb<<"sum(prs) = "<<sum(prs)<<endl;
-                    cout<<"prs = "<<prs<<endl;
+                    ofstream os("GrowthReport.dat");
+                    os<<"Errors in calculating growth transition matrix: sum NE 1"<<endl;
+                    os<<"z = "<<z<<tb<<"zB = "<<zBs(z)<<endl;
+                    os<<"cutpts = "<<ptrMC->zCutPts(z+1,nZBs+1)<<endl;
+                    os<<"sclIs = "<<sclIs<<endl;
+                    os<<"sum(prs) = "<<sum(prs)<<endl;
+                    os<<"prs  = "<<prs<<endl;
+                    os<<"cprs = "<<cprs<<endl;
+                    os.close();
                     exit(-1);
                 }
                 if (prs.size()>10) prs(z+10,nZBs) = 0.0;//limit growth range TODO: this assumes bin size is 5 mm
@@ -3345,7 +3358,7 @@ FUNCTION dvar_vector calc2ndDiffs(const dvar_vector& d)
 //Calculate recruitment components in the likelihood.
 FUNCTION void calcNLLs_Recruitment(int debug, ostream& cout)
     if (debug>=dbgObjFun) cout<<"Starting calcNLLs_Recruitment"<<endl;
-    double nllWgtRecDevs = 1.0;//TODO: read in from input file (as vector?))
+    double nllWgtRecDevs = 0.0;//TODO: read in from input file (as vector?))
     nllRecDevs.initialize();
     if (debug<0) cout<<"list("<<endl;
     if (debug<0) cout<<tb<<"recDevs=list("<<endl;
@@ -3420,116 +3433,48 @@ FUNCTION void calcObjFun(int debug, ostream& cout)
 //******************************************************************************
 FUNCTION void calcNLLs_GrowthData(int debug, ostream& cout)  
     if(debug>dbgObjFun) cout<<"Starting calcNLLs_GrowthData()"<<endl;
-//    
-//    for (int i=0;i<ptrMDS->nGrw;i++){
-//        GrowthData* pGD = ptrMDS->ppGrw[i];
-//        d3_array gd_xcn = ptrMDS->ppGrw[i]->inpData_xcn;
-//        for (int x=1;x<=nSXs;x++){
-//            int nObs = ptrMDS->ppGrw[i]->nObs_x(x);
-//            if (nObs>0) {
-//                double wgt = ptrMDS->ppGrw[i]->llWgt;
-//                /* observation year */
-//                dvector year_n = ptrMDS->ppGrw[i]->inpData_xcn(x,1);
-//                /* pre-molt size, by observation */
-//                dvector zpre_n = ptrMDS->ppGrw[i]->inpData_xcn(x,2);
-//                /* post-molt size, by observation */
-//                dvector zpst_n = ptrMDS->ppGrw[i]->inpData_xcn(x,3);
-//                /* molt increment, by observation */
-//                dvector delZ = zpst_n - zpre_n;
-//                /* mean post-molt size, by observation */
-//                dvar_vector mnZ   = elem_prod(grA_xy(x)(year_n),pow(zpre_n,grB_xy(x)(year_n)));
-//                /* multiplicative scale factor, by observation */
-//                dvar_vector ibeta = elem_div(1.0,grBeta_xy(x)(year_n));
-//                /* location factor, by observation */
-//                dvar_vector alpha = elem_prod(mnZ-zpre_n,ibeta);
-//                dvar_vector nlls(1,nObs); nlls.initialize();
-//                nlls = dgamma()
-//            }//nObs>0
-//        }//x
-//    }//datasets
-//    if (ptrMDS->nGrw>0){
-//        dvariable grA;
-//        dvariable grB;
-//        dvariable grBeta;
-//        
-//
-//        int y; int x;
-//        for (int pc=1;pc<=ptrGrI->nPCs;pc++){
-//            ivector pids = ptrGrI->getPCIDs(pc);
-//            int k=ptrGrI->nIVs+1;//1st parameter column
-//            grA = mfexp(pLnGrA(pids[k])); k++; //"a" coefficient for mean growth
-//            grB = mfexp(pLnGrB(pids[k])); k++; //"b" coefficient for mean growth
-//            grBeta = mfexp(pLnGrBeta(pids[k])); k++; //shape factor for gamma function growth transition
-//            if (debug>dbgCalcProcs){
-//                cout<<"pc: "<<pc<<tb<<"grA:"<<tb<<grA<<". grB:"<<tb<<grB<<". grBeta:"<<grBeta<<endl;
-//            }
-//
-//            //compute growth transition matrix for this pc
-//            prGr_zz.initialize();
-//            dvar_vector mnZ = mfexp(grA)*pow(zBs,grB);//mean size after growth from zBs
-//            mnGrZ_cz(pc) = mnZ;
-//            if (optGrowth==0) {
-//                //old style (TCSAM2013)
-//                dvariable invBeta = 1.0/grBeta;//inverse scale for dgamma function
-//                dvar_vector alZ = (mnZ-zBs)/grBeta;//scaled mean growth increment from zBs
-//                for (int z=1;z<nZBs;z++){//pre-molt growth bin
-//                    dvar_vector dZs =  zBs(z,nZBs) - zBs(z);//realized growth increments (note non-neg. growth only)
-//                    if (debug) cout<<"dZs: "<<dZs.indexmin()<<":"<<dZs.indexmax()<<endl;
-//                    //dvar_vector prs = elem_prod(pow(dZs,alZ(z)-1.0),mfexp(-dZs/grBeta)); //pr(dZ|z)
-//                    dvar_vector prs = exp(-dgamma(dZs,alZ(z),invBeta));
-//                    if (debug) cout<<"prs: "<<prs.indexmin()<<":"<<prs.indexmax()<<endl;
-//                    if (prs.size()>10) prs(z+10,nZBs) = 0.0;//limit growth range TODO: this assumes bin size is 5 mm
-//                    if (debug) cout<<prs<<endl;
-//                    prs = prs/sum(prs);//normalize to sum to 1
-//                    if (debug) cout<<prs<<endl;
-//                    prGr_zz(z)(z,nZBs) = prs;
-//                }
-//                prGr_zz(nZBs,nZBs) = 1.0; //no growth from max size
-//            } else if (optGrowth==1){
-//                //use cumd_gamma function like gmacs
-//                dvar_vector sclMnZ = mnZ/grBeta;           //scaled mean growth increments
-//                dvar_vector sclZCs = ptrMC->zCutPts/grBeta;//scaled size bin cut points
-//                for (int z=1;z<nZBs;z++){
-//                    dvar_vector cprs(z,nZBs);
-//                    for (int zp=z;zp<=nZBs;zp++){
-//                        cprs(zp) = cumd_gamma(sclZCs(zp),sclMnZ(z));//cumulative pr to sclZCs(zp)
-//                    }
-//                    //cout<<"cprs indices: "<<cprs.indexmin()<<"  "<<cprs.indexmax()<<endl;
-//                    dvar_vector prs(z,nZBs);
-//                    prs(z,nZBs-1) = first_difference(cprs);
-//                    prs(nZBs) = 1.0 - cprs(nZBs);//treat final size bin as accumulator
-//                    //cout<<"prs indices: "<<prs.indexmin()<<"  "<<prs.indexmax()<<endl;
-//                    prs = prs/sum(prs);//normalize to sum to 1
-//                    if (debug) cout<<prs<<endl;
-//                    prGr_zz(z)(z,nZBs) = prs;
-//                }            
-//                prGr_zz(nZBs,nZBs) = 1.0; //no growth from max size
-//            } else {
-//                cout<<"Unrecognized growth option: "<<optGrowth<<endl;
-//                cout<<"Terminating!"<<endl;
-//                exit(-1);
-//            }
-//
-//            testNaNs(value(sum(prGr_zz)),"Calculating growth");
-//
-//            prGr_czz(pc) = trans(prGr_zz);//transpose so rows are post-molt (i.e., lefthand z index is post-molt, or "to") z's so n+ = prGr_zz*n
-//
-//            //loop over model indices as defined in the index blocks
-//            imatrix idxs = ptrGrI->getModelIndices(pc);
-//            if (debug) cout<<"growth indices"<<endl<<idxs<<endl;
-//            for (int idx=idxs.indexmin();idx<=idxs.indexmax();idx++){
-//                y = idxs(idx,1); //year index
-//                if ((mnYr<=y)&&(y<=mxYr)){
-//                    x = idxs(idx,2); //sex index
-//                    for (int s=1;s<=nSCs;s++){
-//                        mnGrZ_yxsz(y,x,s) = mnGrZ_cz(pc);
-//                        prGr_yxszz(y,x,s) = prGr_czz(pc);
-//                        //for (int z=1;z<=nZBs;z++) prGr_yxszz(y,x,s,z) = prGr_czz(pc,z);
-//                    }//s
-//                }
-//            }//idx
-//        }//pc
-//    }//has growth data
+    
+    if (debug<0) cout<<"list("<<endl;
+    for (int i=0;i<ptrMDS->nGrw;i++){
+        GrowthData* pGD = ptrMDS->ppGrw[i];
+        d3_array gd_xcn = ptrMDS->ppGrw[i]->inpData_xcn;
+        if (debug<0) cout<<"GrowthData."<<i+1<<"=list("<<endl;
+        for (int x=1;x<=nSXs;x++){
+            int nObs = ptrMDS->ppGrw[i]->nObs_x(x);
+            if (nObs>0) {
+                double wgt = ptrMDS->ppGrw[i]->llWgt;
+                /* observation year */
+                ivector year_n = ptrMDS->ppGrw[i]->obsYears_xn(x);
+                /* pre-molt size, by observation */
+                dvar_vector zpre_n = ptrMDS->ppGrw[i]->inpData_xcn(x,2);
+                /* post-molt size, by observation */
+                dvar_vector zpst_n = ptrMDS->ppGrw[i]->inpData_xcn(x,3);
+                /* molt increment, by observation */
+                dvar_vector incZ_n = zpst_n - zpre_n;
+                /* mean post-molt size, by observation */
+                dvar_vector mnZ_n = elem_prod(grA_xy(x)(year_n),pow(zpre_n,grB_xy(x)(year_n)));
+                /* multiplicative scale factor, by observation */
+                dvar_vector ibeta_n = 1.0/grBeta_xy(x)(year_n);
+                /* location factor, by observation */
+                dvar_vector alpha_n = elem_prod(mnZ_n-zpre_n,ibeta_n);
+                dvar_vector nlls_n(1,nObs); nlls_n.initialize();
+                nlls_n = -wts::log_gamma_density(incZ_n,alpha_n,ibeta_n);
+                dvariable nll = sum(nlls_n);
+                objFun += wgt*nll;
+                if (debug<0) {
+                    dvar_vector zscrs = elem_div((zpst_n-mnZ_n),sqrt(elem_prod(mnZ_n,grB_xy(x)(year_n))));
+                    cout<<tcsam::getSexType(x)<<"=list(type='normal',wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl;
+                    cout<<"years="; wts::writeToR(cout,year_n);  cout<<cc<<endl;
+                    cout<<"zpre=";  wts::writeToR(cout,value(zpre_n));  cout<<cc<<endl;
+                    cout<<"zpst=";  wts::writeToR(cout,value(zpst_n));  cout<<cc<<endl;
+                    cout<<"nlls=";  wts::writeToR(cout,value(nlls_n));  cout<<cc<<endl;
+                    cout<<"zscrs="; wts::writeToR(cout,value(zscrs)); cout<<"),"<<endl;
+                }
+            }//nObs>0
+        }//x
+        if (debug<0) cout<<"),";
+    }//datasets
+    if (debug<0) cout<<"NULL)"<<endl;
     if (debug>dbgObjFun) cout<<"finished calcNLLs_GrowthData()"<<endl;
 
 //-------------------------------------------------------------------------------------

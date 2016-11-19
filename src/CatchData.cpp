@@ -99,7 +99,7 @@ void EffortData::writeToR(ostream& os, std::string nm, int indent) {
         os<<"effort=list("<<endl;
         indent++; 
             for (int n=0;n<indent;n++) os<<tb;
-            os<<"avgRng="<<(*ptrAvgIB)<<cc<<endl;
+            os<<"avgRng="; ptrAvgIB->writeToR(os); os<<cc<<endl;
             os<<"llType="<<qt<<tcsam::getLikelihoodType(llType)<<qt<<cc<<endl;
             os<<"llWgt="<<llWgt<<cc<<endl;
             os<<"units="<<qt<<units<<qt<<cc<<endl;

@@ -393,7 +393,7 @@ void AggregateCatchData::writeToR(ostream& os, std::string nm, int indent) {
     for (int n=0;n<indent;n++) os<<tb;
         os<<"optFit="<<qt<<tcsam::getFitType(optFit)<<qt<<cc; 
         os<<"llType="<<qt<<tcsam::getLikelihoodType(llType)<<qt<<cc;
-        os<<"llWgt="<<llWgt<<std::endl; 
+        os<<"llWgt="<<llWgt<<cc<<std::endl; 
     for (int n=0;n<indent;n++) os<<tb;
         os<<"y="; wts::writeToR(os,yrs); os<<cc<<std::endl;
     for (int n=0;n<indent;n++) os<<tb;
