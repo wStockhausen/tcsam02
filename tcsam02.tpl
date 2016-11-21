@@ -176,6 +176,9 @@
 //                  to agree more closely with TCSAM2013 approach. llWgt should be an
 //                  input to the ModelControl file.
 //              2. Implemented calcNLLs_GrowthData().
+//--2016-11-19: 1. Fixed mnZ_n calc.s in calNLLs_GrowthData.
+//--2016-11-21: 1. Fixed indexing/dimension problem with grA_xy, grB_xy, and grBeta_xy.
+//              2. Fixed problems with writing calcNLLs_GrowthData results to R.
 //
 // =============================================================================
 // =============================================================================
@@ -999,9 +1002,9 @@ PARAMETER_SECTION
     3darray prGr_czz(1,npcGrw,1,nZBs,1,nZBs);   //prob of growth to z (row=lefthand z index) from zp (col=righthand z index) by parameter combination
     4darray mnGrZ_yxsz(mnYr,mxYr,1,nSXs,1,nSCs,1,nZBs); //mean post-molt size by by year, sex, shell condition, pre-molt size
     5darray prGr_yxszz(mnYr,mxYr,1,nSXs,1,nSCs,1,nZBs,1,nZBs); //prob of growth to z (row=lefthand z index) from zp (col=righthand z index) by year, sex, shell condition
-    matrix grA_xy(1,nSXs,mnYr,mxYr);    //"a" parameters for growth, by sex and year
-    matrix grB_xy(1,nSXs,mnYr,mxYr);    //"b" parameters for growth, by sex and year
-    matrix grBeta_xy(1,nSXs,mnYr,mxYr); //beta parameters for growth, by sex and year
+    matrix grA_xy(1,nSXs,mnYr,mxYr+1);    //"a" parameters for growth, by sex and year
+    matrix grB_xy(1,nSXs,mnYr,mxYr+1);    //"b" parameters for growth, by sex and year
+    matrix grBeta_xy(1,nSXs,mnYr,mxYr+1); //beta parameters for growth, by sex and year
     
     
     //Selectivity (and retention) functions
@@ -2679,8 +2682,14 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
                 }//s
             }
         }//idx
-    }
+    }//pc
     
+    //set values for mxYr+1 to those for mxYr
+    for (int x=1;x<=nSXs;x++){
+        grA_xy(x,mxYr+1) = grA_xy(x,mxYr);
+        grB_xy(x,mxYr+1) = grB_xy(x,mxYr);
+        grBeta_xy(x,mxYr+1) = grBeta_xy(x,mxYr);
+    }
     if (debug>dbgCalcProcs) cout<<"finished calcGrowth()"<<endl;
 
 //******************************************************************************
@@ -3452,7 +3461,7 @@ FUNCTION void calcNLLs_GrowthData(int debug, ostream& cout)
                 /* molt increment, by observation */
                 dvar_vector incZ_n = zpst_n - zpre_n;
                 /* mean post-molt size, by observation */
-                dvar_vector mnZ_n = elem_prod(grA_xy(x)(year_n),pow(zpre_n,grB_xy(x)(year_n)));
+                dvar_vector mnZ_n = elem_prod(mfexp(grA_xy(x)(year_n)),pow(zpre_n,grB_xy(x)(year_n)));
                 /* multiplicative scale factor, by observation */
                 dvar_vector ibeta_n = 1.0/grBeta_xy(x)(year_n);
                 /* location factor, by observation */
@@ -3460,6 +3469,28 @@ FUNCTION void calcNLLs_GrowthData(int debug, ostream& cout)
                 dvar_vector nlls_n(1,nObs); nlls_n.initialize();
                 nlls_n = -wts::log_gamma_density(incZ_n,alpha_n,ibeta_n);
                 dvariable nll = sum(nlls_n);
+                if (isnan(value(nll))){
+                    ofstream os("GrowthData.NLLs.NanReport.dat");
+                    os<<"phase = "<<current_phase()<<endl;
+                    os<<"sex   = "<<tcsam::getSexType(x)<<endl;
+                    os<<"nll   = "<<nll<<endl;
+                    os<<"nObs  = "<<nObs<<endl;
+                    os<<"years   = "<<year_n<<endl;
+                    os<<"grA     = "<<grA_xy(x)(year_n)<<endl;
+                    os<<"grB     = "<<grB_xy(x)(year_n)<<endl;
+                    os<<"zpre_n  = "<<zpre_n<<endl;
+                    os<<"zpst_n  = "<<zpst_n<<endl;
+                    os<<"mnZ_n   = "<<mnZ_n<<endl;
+                    os<<"incZ    = "<<zpst_n-zpre_n<<endl;
+                    os<<"mnInc   = "<<mnZ_n-zpre_n<<endl;
+                    os<<"ibeta_n = "<<ibeta_n<<endl;
+                    os<<"alpha_n = "<<alpha_n<<endl;
+                    os<<"nlls_n  = "<<nlls_n<<endl;
+                    dvar_vector zscrs = elem_div((zpst_n-mnZ_n),sqrt(elem_prod(mnZ_n,grB_xy(x)(year_n))));
+                    os<<"zscrs   = "<<zscrs<<endl;
+                    os.close();
+                    exit(-1);
+                }
                 objFun += wgt*nll;
                 if (debug<0) {
                     dvar_vector zscrs = elem_div((zpst_n-mnZ_n),sqrt(elem_prod(mnZ_n,grB_xy(x)(year_n))));
@@ -3472,7 +3503,7 @@ FUNCTION void calcNLLs_GrowthData(int debug, ostream& cout)
                 }
             }//nObs>0
         }//x
-        if (debug<0) cout<<"),";
+        if (debug<0) cout<<"NULL),";
     }//datasets
     if (debug<0) cout<<"NULL)"<<endl;
     if (debug>dbgObjFun) cout<<"finished calcNLLs_GrowthData()"<<endl;
@@ -4672,8 +4703,9 @@ FUNCTION void ReportToR_ModelFits(ostream& os, int debug, ostream& cout)
         os<<tb<<"components=list("<<endl;
             os<<tb<<tb<<"recruitment="; calcNLLs_Recruitment(-1,os); os<<endl;
         os<<tb<<")"<<cc<<endl;
-        os<<tb<<"fisheries="; calcNLLs_Fisheries(-1,os);  os<<cc<<endl; 
-        os<<tb<<"surveys=";   calcNLLs_Surveys(-1,os);    os<<endl;  
+        os<<tb<<"fisheries=";  calcNLLs_Fisheries(-1,os);  os<<cc<<endl; 
+        os<<tb<<"surveys=";    calcNLLs_Surveys(-1,os);    os<<cc<<endl;  
+        os<<tb<<"growthdata="; calcNLLs_GrowthData(-1,os); os<<endl;
     os<<")";
     if (debug) cout<<"Finished ReportToR_ModelFits(...)"<<endl;
 
