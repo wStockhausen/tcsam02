@@ -179,6 +179,7 @@
 //--2016-11-19: 1. Fixed mnZ_n calc.s in calNLLs_GrowthData.
 //--2016-11-21: 1. Fixed indexing/dimension problem with grA_xy, grB_xy, and grBeta_xy.
 //              2. Fixed problems with writing calcNLLs_GrowthData results to R.
+//--2016-11-22: 1. Expanded output to R in calcNLLs_GrowthData.
 //
 // =============================================================================
 // =============================================================================
@@ -3495,11 +3496,16 @@ FUNCTION void calcNLLs_GrowthData(int debug, ostream& cout)
                 if (debug<0) {
                     dvar_vector zscrs = elem_div((zpst_n-mnZ_n),sqrt(elem_prod(mnZ_n,grB_xy(x)(year_n))));
                     cout<<tcsam::getSexType(x)<<"=list(type='normal',wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl;
-                    cout<<"years="; wts::writeToR(cout,year_n);  cout<<cc<<endl;
-                    cout<<"zpre=";  wts::writeToR(cout,value(zpre_n));  cout<<cc<<endl;
-                    cout<<"zpst=";  wts::writeToR(cout,value(zpst_n));  cout<<cc<<endl;
+                    cout<<"years="; wts::writeToR(cout,year_n);         cout<<cc<<endl;
+                    cout<<"zPre=";  wts::writeToR(cout,value(zpre_n));  cout<<cc<<endl;
+                    cout<<"zPst=";  wts::writeToR(cout,value(zpst_n));  cout<<cc<<endl;
+                    cout<<"grA=";   wts::writeToR(cout,value(grA_xy(x)(year_n))); cout<<cc<<endl;
+                    cout<<"grB=";   wts::writeToR(cout,value(grB_xy(x)(year_n))); cout<<cc<<endl;
+                    cout<<"mnZ =";  wts::writeToR(cout,value(mnZ_n));   cout<<cc<<endl;
+                    cout<<"ibeta="; wts::writeToR(cout,value(ibeta_n)); cout<<cc<<endl;
+                    cout<<"alpha="; wts::writeToR(cout,value(alpha_n)); cout<<cc<<endl;
                     cout<<"nlls=";  wts::writeToR(cout,value(nlls_n));  cout<<cc<<endl;
-                    cout<<"zscrs="; wts::writeToR(cout,value(zscrs)); cout<<"),"<<endl;
+                    cout<<"zscrs="; wts::writeToR(cout,value(zscrs));   cout<<"),"<<endl;
                 }
             }//nObs>0
         }//x
