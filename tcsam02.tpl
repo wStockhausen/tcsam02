@@ -182,6 +182,8 @@
 //--2016-11-22: 1. Expanded output to R in calcNLLs_GrowthData.
 //--2016-12-01: 1. Fixed problem where sel & ret functions were not being assigned
 //                  to output arrays for years where effort extrapolation was used.
+//--2016-12-05: 1. Added additional cases and info to exiting from calcGrowth with
+//                  problems.
 //
 // =============================================================================
 // =============================================================================
@@ -2560,6 +2562,24 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
         dvar_vector mnZs = mfexp(grA)*pow(zBs,grB);//mean post-molt sizes with zBs as pre-molt sizes
         dvar_vector mnIs = mnZs - zBs;              //mean molt increments
         dvar_vector alIs = mnIs/grBeta;             //gamma density alpha (location) parameters
+        //check all mean molt increments are > 0
+        if (isnan(value(sum(sqrt(mnIs))))){
+            ofstream os("GrowthReport."+str(current_phase())+"."+str(ctrProcCallsInPhase)+".dat");
+            std::cout<<"##Found negative growth increments!"<<endl;
+            std::cout<<"jitter seed = "<<iSeed<<endl;
+            std::cout<<"---Phase = "<<current_phase()<<". num PROC calls = "<<ctrProcCalls<<". num PROC calls in phase = "<<ctrProcCallsInPhase<<endl;
+            os<<"##Found negative growth increments!"<<endl;
+            os<<"jitter seed = "<<iSeed<<endl;
+            os<<"---Phase = "<<current_phase()<<". num PROC calls = "<<ctrProcCalls<<". num PROC calls in phase = "<<ctrProcCallsInPhase<<endl;
+            os<<"pc: "<<pc<<tb<<"grA:"<<tb<<grA<<" grB:"<<tb<<grB<<" grBeta:"<<grBeta<<endl;
+            os<<"zBs   = "<<zBs<<endl;
+            os<<"mnZs  = "<<mnZs<<endl;
+            os<<"mnIs  = "<<mnIs<<endl;
+            os<<"sdIs  = "<<sqrt(mnIs*grBeta)<<endl;
+            os<<"alIs  = "<<alIs<<endl;
+            os.close();
+            exit(-1);
+        }
         if (optGrowth==0) {
             //old style (TCSAM2013)
             for (int z=1;z<nZBs;z++){//pre-molt growth bin
@@ -2592,8 +2612,19 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
                 //cout<<"prs indices: "<<prs.indexmin()<<"  "<<prs.indexmax()<<endl;
                 //check sum = 1
                 if (sfabs(1.0-sum(prs))>1.0e-10){
-                    ofstream os("GrowthReport.dat");
+                    std::cout<<"##Errors in calculating growth transition matrix: sum NE 1"<<endl;
+                    std::cout<<"jitter seed = "<<iSeed<<endl;
+                    std::cout<<"---Phase = "<<current_phase()<<". num PROC calls = "<<ctrProcCalls<<". num PROC calls in phase = "<<ctrProcCallsInPhase<<endl;
+                    ofstream os("GrowthReportSum1."+str(current_phase())+"."+str(ctrProcCallsInPhase)+".dat");
                     os<<"Errors in calculating growth transition matrix: sum NE 1"<<endl;
+                    os<<"jitter seed = "<<iSeed<<endl;
+                    os<<"---Phase = "<<current_phase()<<". num PROC calls = "<<ctrProcCalls<<". num PROC calls in phase = "<<ctrProcCallsInPhase<<endl;
+                    os<<"pc: "<<pc<<tb<<"grA:"<<tb<<grA<<" grB:"<<tb<<grB<<" grBeta:"<<grBeta<<endl;
+                    os<<"zBs   = "<<zBs<<endl;
+                    os<<"mnZs  = "<<mnZs<<endl;
+                    os<<"mnIs  = "<<mnIs<<endl;
+                    os<<"sdIs  = "<<sqrt(mnIs*grBeta)<<endl;
+                    os<<"alIs  = "<<alIs<<endl;
                     os<<"z = "<<z<<tb<<"zB = "<<zBs(z)<<endl;
                     os<<"cutpts = "<<ptrMC->zCutPts(z+1,nZBs+1)<<endl;
                     os<<"sclIs = "<<sclIs<<endl;
@@ -2619,8 +2650,13 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
         prGr_czz(pc) = trans(prGr_zz);//transpose so rows are post-molt (i.e., lefthand z index is post-molt, or "to") z's so n+ = prGr_zz*n
         
         if (isnan(value(sum(prGr_zz)))){
-            ofstream os("GrowthReport.dat");
-            os<<"##Found NaN in calcGrowth!"<<endl;
+            ofstream os("GrowthReportPrZZ."+str(current_phase())+"."+str(ctrProcCallsInPhase)+".dat");
+            std::cout<<"##Found NaN in prGz_zz in calcGrowth!"<<endl;
+            std::cout<<"jitter seed = "<<iSeed<<endl;
+            std::cout<<"---Phase = "<<current_phase()<<". num PROC calls = "<<ctrProcCalls<<". num PROC calls in phase = "<<ctrProcCallsInPhase<<endl;
+            os<<"##Found NaN in prGz_zz in calcGrowth!"<<endl;
+            os<<"jitter seed = "<<iSeed<<endl;
+            os<<"---Phase = "<<current_phase()<<". num PROC calls = "<<ctrProcCalls<<". num PROC calls in phase = "<<ctrProcCallsInPhase<<endl;
             os<<"pc: "<<pc<<tb<<"grA:"<<tb<<grA<<" grB:"<<tb<<grB<<" grBeta:"<<grBeta<<endl;
             os<<"zBs   = "<<zBs<<endl;
             os<<"mnZs  = "<<mnZs<<endl;
@@ -2664,7 +2700,7 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
             d3_array val = value(prGr_czz);
             os<<"prGr_czz = "<<endl; wts::print(val, os, 1); os<<endl;
             os.close();
-            exit(-1.0);
+            exit(-1);
             //testNaNs(value(sum(prGr_zz)),"Calculating growth");
         }
         
