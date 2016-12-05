@@ -180,6 +180,8 @@
 //--2016-11-21: 1. Fixed indexing/dimension problem with grA_xy, grB_xy, and grBeta_xy.
 //              2. Fixed problems with writing calcNLLs_GrowthData results to R.
 //--2016-11-22: 1. Expanded output to R in calcNLLs_GrowthData.
+//--2016-12-01: 1. Fixed problem where sel & ret functions were not being assigned
+//                  to output arrays for years where effort extrapolation was used.
 //
 // =============================================================================
 // =============================================================================
@@ -3070,8 +3072,10 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
                             }
                             if (debug>dbgCalcProcs) cout<<"f, y, x, m, s, eff, avgRatFcp2E, cpF = "<<f<<tb<<y<<tb<<x<<tb<<eff<<tb<<avgRatioFc2Eff(f,x,m,s)<<tb<<cpF_fyxms(f,y,x,m,s)<<endl;
                             if (!debug) testNaNs(value(cpF_fyxms(f,y,x,m,s)),"calcFisheryFs: 2nd pass");
+                            sel_fyxmsz(f,y,x,m,s) = sel_cyz(idSel,y);
                             cpF_fyxmsz(f,y,x,m,s) = cpF_fyxms(f,y,x,m,s)*sel_cyz(idSel,y);//size-specific capture rate
                             if (idRet){//fishery has retention
+                                ret_fyxmsz(f,y,x,m,s) = sel_cyz(idRet,y);
                                 rmF_fyxmsz(f,y,x,m,s) = elem_prod(sel_cyz(idRet,y),         cpF_fyxmsz(f,y,x,m,s));//retention mortality rate
                                 dmF_fyxmsz(f,y,x,m,s) = elem_prod(hm*(1.0-sel_cyz(idRet,y)),cpF_fyxmsz(f,y,x,m,s));//discard mortality rate
                             } else {//discard only
@@ -4602,7 +4606,6 @@ FUNCTION void ReportToR_ModelProcesses(ostream& os, int debug, ostream& cout)
         }
         os<<"NULL)"<<cc<<endl;
         os<<"F_list=list("<<endl;
-            //handling mortality
             os<<"hm_fy     ="; wts::writeToR(os,     value(hmF_fy),    fDms,yDms);                     os<<cc<<endl;
             os<<"cpF_fyxms ="; wts::writeToR(os,wts::value(cpF_fyxms ),fDms,yDms,xDms,mDms,sDms);      os<<cc<<endl;
             os<<"sel_fyxmsz="; wts::writeToR(os,wts::value(sel_fyxmsz),fDms,yDms,xDms,mDms,sDms,zbDms); os<<cc<<endl;
