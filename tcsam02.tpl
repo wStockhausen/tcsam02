@@ -184,6 +184,16 @@
 //                  to output arrays for years where effort extrapolation was used.
 //--2016-12-05: 1. Added additional cases and info to exiting from calcGrowth with
 //                  problems.
+//--2016-12-13: 1. optGrowth=0 now calculates growth matrices identically to TCSAM2013
+//                  by shifting calculation of density to lower size bin cutpoint.
+//              2. Changed width of growth matrices from 10 bins to 11 bins 
+//                  to match TCSAM2013.
+//--2016012016: 1. Modified memory allocation for output biomass arrays in
+//                  calcBiomass functions in SummaryFunctions.cpp. Previous
+//                  declarations used default constructors, which only copied
+//                  the reference to the input abundance array (i.e., used a 
+//                  shallow copy); thus, the output biomass array referenced the 
+//                  same memory addresses as the input abundance array.
 //
 // =============================================================================
 // =============================================================================
@@ -2110,6 +2120,12 @@ FUNCTION void runPopDyModOneYear(int yr, int debug, ostream& cout)
     dvar4_array n4_xmsz(1,nSXs,1,nMSs,1,nSCs,1,nZBs);
     dvar4_array n5_xmsz(1,nSXs,1,nMSs,1,nSCs,1,nZBs);
     
+    n1_xmsz.initialize();
+    n2_xmsz.initialize();
+    n3_xmsz.initialize();
+    n4_xmsz.initialize();
+    n5_xmsz.initialize();
+    
     if (dtF_y(yr)<=dtM_y(yr)){//fishery occurs BEFORE molting/growth/maturity
         if (debug>=dbgPopDy) cout<<"Fishery occurs BEFORE molting/growth/maturity"<<endl;
         //apply natural mortality before fisheries
@@ -2203,33 +2219,34 @@ FUNCTION dvar4_array applyNatMort(dvar4_array& n0_xmsz, int y, double dt, int de
 FUNCTION dvar4_array applyFshMort(dvar4_array& n0_xmsz, int y, int debug, ostream& cout)
     if (debug>dbgApply) cout<<"starting applyFshMort("<<y<<")"<<endl;
     RETURN_ARRAYS_INCREMENT();
-    dvar_vector tm_z(1,nZBs);//total mortality (numbers) by size
-    dvar_vector tvF_z(1,nZBs);//total fishing mortality rate by size, for use in calculating fishing rate components
-    dvector     tdF_z(1,nZBs);//total fishing mortality rate by size, for use in calculating fishing rate components
+    dvector     tdF_z(1,nZBs);//for use in calculating fishing rate components
+    dvar_vector tm_z(1,nZBs); //total mortality (numbers) by size
+    dvar_vector tvF_z(1,nZBs);//for use in calculating fishing rate components
+    dvar_vector tfF_z(1,nZBs);//for use in calculating fishing rate components
     dvar4_array n1_xmsz(1,nSXs,1,nMSs,1,nSCs,1,nZBs);//numbers surviving fisheries
     n1_xmsz.initialize();
     for (int x=1;x<=nSXs;x++){
         for (int m=1;m<=nMSs;m++){
             for (int s=1;s<=nSCs;s++){
-                tmF_yxmsz(y,x,m,s) = 0.0;//total fishing mortality rate
+                tmF_yxmsz(y,x,m,s).initialize();//total fishing mortality rate
                 for (int f=1;f<=nFsh;f++) tmF_yxmsz(y,x,m,s) += rmF_fyxmsz(f,y,x,m,s)+dmF_fyxmsz(f,y,x,m,s);
                 n1_xmsz(x,m,s) = elem_prod(mfexp(-tmF_yxmsz(y,x,m,s)),n0_xmsz(x,m,s));//numbers surviving all fisheries
-                tm_z = n0_xmsz(x,m,s)-n1_xmsz(x,m,s);  //numbers killed by all fisheries
+                tm_z = n0_xmsz(x,m,s)-n1_xmsz(x,m,s);                                 //numbers killed by all fisheries
                 tmN_yxmsz(y,x,m,s) += tm_z;            //add in numbers killed by all fisheries to total killed
                 
                 //calculate fishing rate components (need to ensure NOT dividing by 0)
                 tdF_z = value(tmF_yxmsz(y,x,m,s));
-                tvF_z = elem_prod(1-wts::isEQ(tdF_z,0.0),tmF_yxmsz(y,x,m,s)) + 
-                                  wts::isEQ(tdF_z,0.0);
+                tvF_z = elem_prod(1-wts::isEQ(tdF_z,0.0),tmF_yxmsz(y,x,m,s)) + wts::isEQ(tdF_z,0.0);//= tmF_yxmsz(y,x,m,s,z) if tmF_yxmsz(y,x,m,s,z) > 0, else = 1
+                tfF_z = elem_div(1.0-mfexp(-tmF_yxmsz(y,x,m,s)),tvF_z);//= (1-exp(-tmF_yxmsz(y,x,m,s,z)))/tmF_yxmsz(y,x,m,s,z) if tmF_yxmsz(y,x,m,s,z) > 0, else = 1
 //                cout<<"y,x,m,s = "<<y<<tb<<x<<tb<<m<<tb<<s<<endl;
 //                cout<<"tdF_z      = "<<tdF_z<<endl;
 //                cout<<"tdF_z==0.0 = "<<wts::isEQ(tdF_z,0.0)<<endl;
 //                cout<<"tvF_z      = "<<tvF_z<<endl;
 //                int tmp; cout<<"Enter 1 to continue > "; cin>>tmp; if (!tmp) exit(-1);
                 for (int f=1;f<=nFsh;f++){                   
-                    cpN_fyxmsz(f,y,x,m,s) = elem_prod(elem_div( cpF_fyxmsz(f,y,x,m,s),tvF_z),tm_z);//numbers captured in fishery f
-                    rmN_fyxmsz(f,y,x,m,s) = elem_prod(elem_div(rmF_fyxmsz(f,y,x,m,s),tvF_z),tm_z); //retained mortality in fishery f (numbers)
-                    dmN_fyxmsz(f,y,x,m,s) = elem_prod(elem_div(dmF_fyxmsz(f,y,x,m,s),tvF_z),tm_z); //discards mortality in fishery f (numbers)
+                    cpN_fyxmsz(f,y,x,m,s) = elem_prod(elem_prod(cpF_fyxmsz(f,y,x,m,s),tfF_z),n0_xmsz(x,m,s)); //numbers captured in fishery f
+                    rmN_fyxmsz(f,y,x,m,s) = elem_prod(elem_prod(rmF_fyxmsz(f,y,x,m,s),tfF_z),n0_xmsz(x,m,s)); //retained mortality in fishery f (numbers)
+                    dmN_fyxmsz(f,y,x,m,s) = elem_prod(elem_prod(dmF_fyxmsz(f,y,x,m,s),tfF_z),n0_xmsz(x,m,s)); //discards mortality in fishery f (numbers)
                     dsN_fyxmsz(f,y,x,m,s) = cpN_fyxmsz(f,y,x,m,s)-rmN_fyxmsz(f,y,x,m,s);//discarded catch (NOT mortality) in fishery f (numbers)                    
                 }
             }
@@ -2247,9 +2264,10 @@ FUNCTION dvar4_array applyMGM(dvar4_array& n0_xmsz, int y, int debug, ostream& c
     dvar4_array n1_xmsz(1,nSXs,1,nMSs,1,nSCs,1,nZBs);
     n1_xmsz.initialize();
     for (int x=1;x<=nSXs;x++){
-        n1_xmsz(x,IMMATURE,NEW_SHELL) = elem_prod(1.0-prM2M_yxz(y,x),prGr_yxszz(y,x,NEW_SHELL)*n0_xmsz(x,IMMATURE,NEW_SHELL));
+        dvar_vector np_z = prGr_yxszz(y,x,NEW_SHELL)*n0_xmsz(x,IMMATURE,NEW_SHELL);
+        n1_xmsz(x,IMMATURE,NEW_SHELL) = elem_prod(1.0-prM2M_yxz(y,x),np_z);
         n1_xmsz(x,IMMATURE,OLD_SHELL) = 0.0;
-        n1_xmsz(x,MATURE,NEW_SHELL)   = elem_prod(    prM2M_yxz(y,x),prGr_yxszz(y,x,NEW_SHELL)*n0_xmsz(x,IMMATURE,NEW_SHELL));
+        n1_xmsz(x,MATURE,NEW_SHELL)   = elem_prod(    prM2M_yxz(y,x),np_z);
         n1_xmsz(x,MATURE,OLD_SHELL)   = n0_xmsz(x,MATURE,NEW_SHELL)+n0_xmsz(x,MATURE,OLD_SHELL);
     }
     if (debug>dbgApply) cout<<"finished applyNatMGM("<<y<<")"<<endl;
@@ -2383,24 +2401,24 @@ FUNCTION void calcNatMort(int debug, ostream& cout)
         ivector pids = ptrNM->getPCIDs(pc);
         int k=ptrNM->nIVs+1;//1st parameter variable column
         if (debug>dbgCalcProcs) cout<<"pids = "<<pids(k,pids.indexmax())<<endl;
-        //add in base (ln-scale) natural mortality (immature males)
+        //add in base (ln-scale) natural mortality (all crab, immature males)
         if (pids[k]) {
             if (debug>dbgCalcProcs) cout<<"Adding pLnM["<<pids[k]<<"]: "<<pLnM(pids[k])<<endl;
             for (int x=1;x<=nSXs;x++) lnM(x) += pLnM(pids[k]);
         }   k++;
-        //add in main offset from base
+        //add in main offset from base (all crab, immature males)
         if (pids[k]) {
             if (debug>dbgCalcProcs) cout<<"Adding pLnDMT["<<pids[k]<<"]: "<<pLnDMT(pids[k])<<endl;
             for (int x=1;x<=nSXs;x++) lnM(x) += pLnDMT(pids[k]);
         } k++;
         if (FEMALE<=nSXs){
-            //add in offset for females
+            //add in offset for all females
             if (pids[k]) {
                 if (debug>dbgCalcProcs) cout<<"Adding pLnDMX["<<pids[k]<<"]: "<<pLnDMX(pids[k])<<endl;
                 lnM(FEMALE) += pLnDMX(pids[k]);
             }          k++;
         }
-        //add in offset for mature crab
+        //add in offset for all mature crab
         if (pids[k]) {
             if (debug>dbgCalcProcs) cout<<"Adding pLnMM["<<pids[k]<<"]: "<<pLnDMM(pids[k])<<endl;
             for (int x=1;x<=nSXs;x++) lnM(x,MATURE) += pLnDMM(pids[k]);
@@ -2558,10 +2576,12 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
         
         //compute growth transition matrix for this pc
         prGr_zz.initialize();
-        dvariable invBeta = 1.0/grBeta;           //inverse scale for gamma density function
-        dvar_vector mnZs = mfexp(grA)*pow(zBs,grB);//mean post-molt sizes with zBs as pre-molt sizes
+        dvariable invBeta = 1.0/grBeta;             //inverse scale for gamma density function
+        dvar_vector mnZs = mfexp(grA)*pow(zBs,grB); //mean post-molt sizes with zBs as pre-molt sizes
         dvar_vector mnIs = mnZs - zBs;              //mean molt increments
         dvar_vector alIs = mnIs/grBeta;             //gamma density alpha (location) parameters
+        dvar_vector mnpIs = mnZs - (zBs - 2.5);     //mean molt increment (adjusted to start of size bin)
+        dvar_vector alpIs = mnpIs/grBeta;           //gamma density alpha (location) parameters
         //check all mean molt increments are > 0
         if (isnan(value(sum(sqrt(mnIs))))){
             ofstream os("GrowthReport."+str(current_phase())+"."+str(ctrProcCallsInPhase)+".dat");
@@ -2583,13 +2603,22 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
         if (optGrowth==0) {
             //old style (TCSAM2013)
             for (int z=1;z<nZBs;z++){//pre-molt growth bin
-                dvector dZs =  zBs(z,nZBs) - zBs(z);//realized growth increments (note non-neg. growth only)
-                if (debug) cout<<"dZs: "<<dZs.indexmin()<<":"<<dZs.indexmax()<<endl;
-                //dvar_vector prs = elem_prod(pow(dZs,alZ(z)-1.0),mfexp(-dZs/grBeta)); //pr(dZ|z)
-                dvar_vector prs = wts::log_gamma_density(dZs,alIs(z),invBeta);
+                dvector dZs  =  zBs(z,nZBs) - zBs(z);      //realized growth increments (note non-neg. growth only)
+                dvector dpZs =  zBs(z,nZBs) - (zBs(z)-2.5);//realized growth increments (note non-neg. growth only)
+                dvar_vector prs  = wts::log_gamma_density(dZs,alIs(z),invBeta);
                 prs = mfexp(prs);//gamma pdf
-                if (debug) cout<<"prs: "<<prs.indexmin()<<":"<<prs.indexmax()<<endl;
-                if (prs.size()>10) prs(z+10,nZBs) = 0.0;//limit growth range TODO: this assumes bin size is 5 mm
+                dvar_vector prs1 = elem_prod(pow(dZs,alIs(z)-1.0),mfexp(-dZs/grBeta)); //pr(dZ|z)
+                dvar_vector prsp = elem_prod(pow(dpZs,alpIs(z)-1.0),mfexp(-dpZs/grBeta)); //pr(dZ|z)
+                if (debug) {
+                    cout<<"premolt z = "<<zBs(z)<<endl;
+                    cout<<"prs  = "<<prs/sum(prs)<<endl;
+                    cout<<"prs1 = "<<prs1/sum(prs1)<<endl;
+                    cout<<"prsp = "<<prsp/sum(prsp)<<endl;
+                    cout<<"Log(prs/prs1)  = "<<log(prs/sum(prs)+1.0e-10)-log(prs1/sum(prs1)+1.0e-10)<<endl;
+                    cout<<"Log(prs1/prsp) = "<<log(prs1/sum(prs1)+1.0e-10)-log(prsp/sum(prsp)+1.0e-10)<<endl;
+                }
+                prs = prsp;//NOTE: should be IDENTICAL to TCSAM2013
+                if (prs.size()>11) prs(z+11,nZBs) = 0.0;//limit growth range TODO: this assumes bin size is 5 mm
                 if (debug) cout<<prs<<endl;
                 prs = prs/sum(prs);//normalize to sum to 1
                 if (debug) cout<<prs<<endl;
@@ -2634,7 +2663,7 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
                     os.close();
                     exit(-1);
                 }
-                if (prs.size()>10) prs(z+10,nZBs) = 0.0;//limit growth range TODO: this assumes bin size is 5 mm
+                if (prs.size()>11) prs(z+11,nZBs) = 0.0;//limit growth range TODO: this assumes bin size is 5 mm
                 prs = prs/sum(prs);//normalize to sum to 1
                 if (debug) cout<<prs<<endl;
                 prGr_zz(z)(z,nZBs) = prs;
@@ -2675,7 +2704,7 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
                     os<<"log(prs): "<<prs<<endl;
                     prs = mfexp(prs);//gamma pdf
                     os<<"prs     : "<<prs<<endl;
-                    if (prs.size()>10) prs(z+10,nZBs) = 0.0;//limit growth range TODO: this assumes bin size is 5 mm
+                    if (prs.size()>11) prs(z+11,nZBs) = 0.0;//limit growth range TODO: this assumes bin size is 5 mm
                     os<<"normalization factor = "<<sum(prs)<<endl;
                     os<<"prs     : "<<prs<<endl;
                 }
@@ -2691,7 +2720,7 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
                     prs(nZBs) += 1.0 - cumd_gamma(sclIs(nZBs+1),alIs(z));//treat final size bin as accumulator
                     cout<<"zB = "<<zBs(z)<<tb<<"sum(prs) = "<<sum(prs)<<endl;
                     cout<<"prs = "<<prs<<endl;
-                    if (prs.size()>10) prs(z+10,nZBs) = 0.0;//limit growth range TODO: this assumes bin size is 5 mm
+                    if (prs.size()>11) prs(z+11,nZBs) = 0.0;//limit growth range TODO: this assumes bin size is 5 mm
                     os<<"normalization factor = "<<sum(prs)<<endl;
                     os<<"prs     : "<<prs<<endl;
                 }//zs
@@ -4671,54 +4700,37 @@ FUNCTION void ReportToR_ModelResults(ostream& os, int debug, ostream& cout)
     //population numbers, biomass
     d5_array vn_yxmsz = wts::value(n_yxmsz);
     d5_array vb_yxmsz = tcsam::calcBiomass(vn_yxmsz,ptrMDS->ptrBio->wAtZ_xmz);
-//    d4_array n_yxms   = tcsam::calcYXMSfromYXMSZ(vn_yxmsz,ones);
-//    d4_array b_yxms   = tcsam::calcYXMSfromYXMSZ(vn_yxmsz,ptrMDS->ptrBio->wAtZ_xmz);
         
     //numbers, biomass captured (NOT mortality)
     d6_array vcpN_fyxmsz = wts::value(cpN_fyxmsz);
     d6_array vcpB_fyxmsz = tcsam::calcBiomass(vcpN_fyxmsz,ptrMDS->ptrBio->wAtZ_xmz);
-//    d5_array cpN_fyxms   = tcsam::calcIYXMSfromIYXMSZ(vcpN_fyxmsz,ones);
-//    d5_array cpB_fyxms   = tcsam::calcIYXMSfromIYXMSZ(vcpN_fyxmsz,ptrMDS->ptrBio->wAtZ_xmz);
     
     //numbers, biomass discards (NOT mortality)
     d6_array vdsN_fyxmsz = wts::value(dsN_fyxmsz);
     d6_array vdsB_fyxmsz = tcsam::calcBiomass(vdsN_fyxmsz,ptrMDS->ptrBio->wAtZ_xmz);
-//    d5_array dsN_fyxms   = tcsam::calcIYXMSfromIYXMSZ(vdsN_fyxmsz,ones);
-//    d5_array dsB_fyxms   = tcsam::calcIYXMSfromIYXMSZ(vdsN_fyxmsz,ptrMDS->ptrBio->wAtZ_xmz);
     
     //numbers, biomass retained (mortality)
     d6_array vrmN_fyxmsz = wts::value(rmN_fyxmsz);
     d6_array vrmB_fyxmsz = tcsam::calcBiomass(vrmN_fyxmsz,ptrMDS->ptrBio->wAtZ_xmz);
-//    d5_array rmN_fyxms   = tcsam::calcIYXMSfromIYXMSZ(vrmN_fyxmsz,ones);
-//    d5_array rmB_fyxms   = tcsam::calcIYXMSfromIYXMSZ(vrmN_fyxmsz,ptrMDS->ptrBio->wAtZ_xmz);
     
     //numbers, biomass discard mortality
     d6_array vdmN_fyxmsz = wts::value(dmN_fyxmsz);
     d6_array vdmB_fyxmsz = tcsam::calcBiomass(vdmN_fyxmsz,ptrMDS->ptrBio->wAtZ_xmz);
-//    d5_array dmN_fyxms   = tcsam::calcIYXMSfromIYXMSZ(vdmN_fyxmsz,ones);
-//    d5_array dmB_fyxms   = tcsam::calcIYXMSfromIYXMSZ(vdmN_fyxmsz,ptrMDS->ptrBio->wAtZ_xmz);
     
     //survey numbers, biomass
     d6_array vn_vyxmsz = wts::value(n_vyxmsz);
     d6_array vb_vyxmsz = tcsam::calcBiomass(vn_vyxmsz,ptrMDS->ptrBio->wAtZ_xmz);
-//    d5_array n_vyxms   = tcsam::calcIYXMSfromIYXMSZ(vn_vyxmsz,ones);
-//    d5_array b_vyxms   = tcsam::calcIYXMSfromIYXMSZ(vn_vyxmsz,ptrMDS->ptrBio->wAtZ_xmz);
     
     os<<"mr=list("<<endl;
         os<<"iN_xmsz ="; wts::writeToR(os,vn_yxmsz(mnYr),xDms,mDms,sDms,zbDms); os<<cc<<endl;
         os<<"P_list=list("<<endl;
-            os<<"MB_yx    ="; wts::writeToR(os,value(spB_yx), yDms,xDms);                       os<<cc<<endl;
-//            os<<"B_yxms   ="; wts::writeToR(os,       b_yxms,ypDms,xDms,mDms,sDms);             os<<cc<<endl;
-            os<<"N_yxmsz  ="; wts::writeToR(os,     vn_yxmsz,ypDms,xDms,mDms,sDms,zbDms);        os<<cc<<endl;
-            os<<"B_yxmsz  ="; wts::writeToR(os,     vb_yxmsz,ypDms,xDms,mDms,sDms,zbDms);        os<<cc<<endl;
+            os<<"MB_yx    ="; wts::writeToR(os,value(spB_yx), yDms,xDms);                        os<<cc<<endl;
+            os<<"N_yxmsz  ="; wts::writeToR(os,vn_yxmsz,ypDms,xDms,mDms,sDms,zbDms);             os<<cc<<endl;
+            os<<"B_yxmsz  ="; wts::writeToR(os,vb_yxmsz,ypDms,xDms,mDms,sDms,zbDms);             os<<cc<<endl;
             os<<"nmN_yxmsz="; wts::writeToR(os,wts::value(nmN_yxmsz),yDms,xDms,mDms,sDms,zbDms); os<<cc<<endl;
             os<<"tmN_yxmsz="; wts::writeToR(os,wts::value(tmN_yxmsz),yDms,xDms,mDms,sDms,zbDms); os<<endl;
         os<<")"<<cc<<endl;    
         os<<"F_list=list("<<endl;
-//            os<<"cpB_fyxms ="; wts::writeToR(os,cpB_fyxms,fDms,yDms,xDms,mDms,sDms); os<<cc<<endl;
-//            os<<"dsB_fyxms ="; wts::writeToR(os,dsB_fyxms,fDms,yDms,xDms,mDms,sDms); os<<cc<<endl;
-//            os<<"rmB_fyxms ="; wts::writeToR(os,rmB_fyxms,fDms,yDms,xDms,mDms,sDms); os<<cc<<endl;
-//            os<<"dmB_fyxms ="; wts::writeToR(os,dmB_fyxms,fDms,yDms,xDms,mDms,sDms); os<<cc<<endl;
             os<<"cpN_fyxmsz="; wts::writeToR(os,vcpN_fyxmsz,fDms,yDms,xDms,mDms,sDms,zbDms); os<<cc<<endl;
             os<<"dsN_fyxmsz="; wts::writeToR(os,vdsN_fyxmsz,fDms,yDms,xDms,mDms,sDms,zbDms); os<<cc<<endl;
             os<<"rmN_fyxmsz="; wts::writeToR(os,vrmN_fyxmsz,fDms,yDms,xDms,mDms,sDms,zbDms); os<<cc<<endl;
@@ -4730,7 +4742,6 @@ FUNCTION void ReportToR_ModelResults(ostream& os, int debug, ostream& cout)
         os<<")"<<cc<<endl;
         os<<"S_list=list("<<endl;
            os<<"MB_vyx  ="; wts::writeToR(os,value(mb_vyx),vDms,ypDms,xDms);            os<<cc<<endl;
-//           os<<"B_vyxms ="; wts::writeToR(os,      b_vyxms,vDms,ypDms,xDms,mDms,sDms);  os<<cc<<endl;
            os<<"N_vyxmsz="; wts::writeToR(os,    vn_vyxmsz,vDms,ypDms,xDms,mDms,sDms,zbDms); os<<cc<<endl;
            os<<"B_vyxmsz="; wts::writeToR(os,    vb_vyxmsz,vDms,ypDms,xDms,mDms,sDms,zbDms); os<<endl;
        os<<")";

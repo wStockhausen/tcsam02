@@ -12,10 +12,17 @@
  * @return associated biomass as d4_array (1000's t)
  */
 d4_array tcsam::calcBiomass(const d4_array& n_xmsz, const d3_array& w_xmz){
-    d4_array b_xmsz = n_xmsz;
-    for (int x=n_xmsz.indexmin();x<=n_xmsz.indexmax();x++){
-        for (int m=n_xmsz(x).indexmin();m<=n_xmsz(x).indexmax();m++){
-            for (int s=n_xmsz(x,m).indexmin();s<=n_xmsz(x,m).indexmax();s++) 
+    int i = 1;
+    ivector bnds = wts::getBounds(n_xmsz);
+    int mnx = bnds(i++); int mxx = bnds(i++);
+    int mnm = bnds(i++); int mxm = bnds(i++);
+    int mns = bnds(i++); int mxs = bnds(i++);
+    int mnz = bnds(i++); int mxz = bnds(i++);
+    d4_array b_xmsz(mnx,mxx,mnm,mxm,mns,mxs,mnz,mxz);
+    b_xmsz.initialize();
+    for (int x=mnx;x<=mxx;x++){
+        for (int m=mnm;m<=mxm;m++){
+            for (int s=mns;s<=mxs;s++) 
                 b_xmsz(x,m,s) = elem_prod(w_xmz(x,m),n_xmsz(x,m,s));
         }
     }
@@ -30,22 +37,37 @@ d4_array tcsam::calcBiomass(const d4_array& n_xmsz, const d3_array& w_xmz){
  * @return associated biomass as d5_array (1000's t)
  */
 d5_array tcsam::calcBiomass(const d5_array& n_yxmsz, const d3_array& w_xmz){
-    d5_array b_yxmsz = n_yxmsz;
-    for (int y=n_yxmsz.indexmin();y<=n_yxmsz.indexmax();y++) b_yxmsz(y) = calcBiomass(n_yxmsz(y),w_xmz);
+    int i = 1;
+    ivector bnds = wts::getBounds(n_yxmsz);
+    int mny = bnds(i++); int mxy = bnds(i++);
+    int mnx = bnds(i++); int mxx = bnds(i++);
+    int mnm = bnds(i++); int mxm = bnds(i++);
+    int mns = bnds(i++); int mxs = bnds(i++);
+    int mnz = bnds(i++); int mxz = bnds(i++);
+    d5_array b_yxmsz(mny,mxy,mnx,mxx,mnm,mxm,mns,mxs,mnz,mxz);
+    for (int y=mny;y<=mxy;y++) b_yxmsz(y) = calcBiomass(n_yxmsz(y),w_xmz);
     return b_yxmsz;
 }
 
 /**
  * Calculate biomass (1000's t) associated with abundance array.
  * 
- * @param n_fyxmsz - abundance array (millions)
+ * @param n_iyxmsz - abundance array (millions)
  * @param w_xmz - individual weight-at-size by sex, maturity state (kg)
  * @return associated biomass as d6_array (1000's t)
  */
-d6_array tcsam::calcBiomass(const d6_array& n_fyxmsz, const d3_array& w_xmz){
-    d6_array b_fyxmsz = n_fyxmsz;
-    for (int f=n_fyxmsz.indexmin();f<=n_fyxmsz.indexmax();f++) b_fyxmsz(f) = calcBiomass(n_fyxmsz(f),w_xmz);
-    return b_fyxmsz;
+d6_array tcsam::calcBiomass(const d6_array& n_iyxmsz, const d3_array& w_xmz){
+    int i = 1;
+    ivector bnds = wts::getBounds(n_iyxmsz);
+    int mni = bnds(i++); int mxi = bnds(i++);
+    int mny = bnds(i++); int mxy = bnds(i++);
+    int mnx = bnds(i++); int mxx = bnds(i++);
+    int mnm = bnds(i++); int mxm = bnds(i++);
+    int mns = bnds(i++); int mxs = bnds(i++);
+    int mnz = bnds(i++); int mxz = bnds(i++);
+    d6_array b_iyxmsz(mni,mxi,mny,mxy,mnx,mxx,mnm,mxm,mns,mxs,mnz,mxz);
+    for (int i=mni;i<=mxi;i++) b_iyxmsz(i) = calcBiomass(n_iyxmsz(i),w_xmz);
+    return b_iyxmsz;
 }
 
 /**
