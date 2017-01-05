@@ -179,15 +179,15 @@
         /* pointer to model configuration object */
         ModelConfiguration* ptrMC;      //pointer to model configuration object
         /* labels for capture rate averaging options */
-        adstring_array lblsFcAvgOpts;   //labels for capture rate averaging options
+        adstring_array optsFcAvg;       //labels for capture rate averaging options
         /* selected options for averaging capture rate */
-        ivector optsFcAvg;              //selected options for averaging capture rate
+        ivector optFcAvg;               //selected options for averaging capture rate
         /* labels for growth options */
-        adstring_array lblsGrowthOpts;  
+        adstring_array optsGrowth;  
         /* selected option for growth calculations */
         int optGrowth;                 
         /* labels for initial n-at-z options */
-        adstring_array lblsInitNatZOpts;
+        adstring_array optsInitNatZ;
         /* selected option for initial n-at-z calculations */
         int optInitNatZ;               
         /* penalty for F-devs */
@@ -200,14 +200,18 @@
         double wgtLastDevsPen;          
         /* phase to start the penalty on the last devs */
         int phsLastDevsPen;             
-        /* penalty on maturity ogive smoothness */
-        double wgtSmthLgtPrMat;      
-        /* penalty on maturity non-decreasing maturity parameters */
-        double wgtNonDecLgtPrMat;    
-        /* labels for options for penalties on non-decreasing logit-scale prMat parameters */
-        adstring_array lblsPenNonDecLgtPrMatOpts;
-        /* integer indicating option for penalty on non-decreasing logit-scale prMat parameters */
-        int optPenNonDecLgtPrMat;
+        /* labels for options for penalties on M2M parameters/ogives smoothness */
+        adstring_array optsPenSmthPrM2M;
+        /* integer indicating option for penalty on M2M parameters/ogives smoothness */
+        int optPenSmthPrM2M;
+        /* weight for penalties on M2M parameters/ogives smoothness */
+        double wgtPenSmthPrM2M;      
+        /* labels for options for penalties on non-decreasing M2M parameters/ogives */
+        adstring_array optsPenNonDecPrM2M;
+        /* integer indicating option for penalty on non-decreasing M2M parameters/ogives */
+        int optPenNonDecPrM2M;
+        /* weight for penalties on maturity non-decreasing M2M parameters/ogives */
+        double wgtPenNonDecPrM2M;    
 
     public:
         /**

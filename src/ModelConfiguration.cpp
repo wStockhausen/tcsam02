@@ -11,7 +11,7 @@ using namespace std;
 //      ModelOptions
 //**********************************************************************
 const adstring ModelConfiguration::VERSION = "2016.11.15";
-const adstring ModelOptions::VERSION       = "2016.11.15";
+const adstring ModelOptions::VERSION       = "2017.01.03";
 
 int ModelConfiguration::debug=0;
 int ModelOptions::debug      =0;
@@ -285,23 +285,29 @@ void ModelConfiguration::writeToR(ostream& os, std::string nm, int indent) {
 ModelOptions::ModelOptions(ModelConfiguration& mc){
     ptrMC=&mc;
     //capture rate averaging options
-    lblsFcAvgOpts.allocate(0,3);
-    lblsFcAvgOpts(0) = "no averaging"; 
-    lblsFcAvgOpts(1) = "average capture rate";
-    lblsFcAvgOpts(2) = "average exploitation rate";
-    lblsFcAvgOpts(3) = "average mean size-specific capture rate";
+    optsFcAvg.allocate(0,3);
+    optsFcAvg(0) = "no averaging"; 
+    optsFcAvg(1) = "average capture rate";
+    optsFcAvg(2) = "average exploitation rate";
+    optsFcAvg(3) = "average mean size-specific capture rate";
     //growth function options
-    lblsGrowthOpts.allocate(0,1);
-    lblsGrowthOpts(0) = "use gamma probability distribution (like TCSAM2013)"; 
-    lblsGrowthOpts(1) = "use cumulative gamma distribution (like Gmacs)";
+    optsGrowth.allocate(0,1);
+    optsGrowth(0) = "use gamma probability distribution (like TCSAM2013)"; 
+    optsGrowth(1) = "use cumulative gamma distribution (like Gmacs)";
     //initial n-at-z options
-    lblsInitNatZOpts.allocate(0,1);
-    lblsInitNatZOpts(0) = "build up n-at-z from recruitments (like TCSAM2013)"; 
-    lblsInitNatZOpts(1) = "calculate initial n-at-z using equilibrium calculations (like Gmacs)";
-    //penalty options for non-decreasing prMat parameters
-    lblsPenNonDecLgtPrMatOpts.allocate(0,1);
-    lblsPenNonDecLgtPrMatOpts(0) = "use posfun function";
-    lblsPenNonDecLgtPrMatOpts(1) = "use exponential function";    
+    optsInitNatZ.allocate(0,1);
+    optsInitNatZ(0) = "build up n-at-z from recruitments (like TCSAM2013)"; 
+    optsInitNatZ(1) = "calculate initial n-at-z using equilibrium calculations (like Gmacs)";
+    //penalty options for prM2M parameters/ogives smoothness
+    optsPenSmthPrM2M.allocate(0,1);
+    optsPenSmthPrM2M(0) = "evaluate smoothness using parameters";
+    optsPenSmthPrM2M(1) = "evaluate smoothness using ogives";    
+    //penalty options for prM2M parameters/ogives being non-decreasing w/ size
+    optsPenNonDecPrM2M.allocate(0,3);
+    optsPenNonDecPrM2M(0) = "use posfun function on parameters";
+    optsPenNonDecPrM2M(1) = "use exponential function on parameters";    
+    optsPenNonDecPrM2M(2) = "use posfun function on ogives";
+    optsPenNonDecPrM2M(3) = "use exponential function on ogives";    
 }
 /***************************************************************
 *   function to read from file in ADMB format                  *
@@ -320,18 +326,18 @@ void ModelOptions::read(cifstream & is) {
     }
     cout<<ModelOptions::VERSION<<tb<<"# Model Options version"<<endl;
     
-    optsFcAvg.allocate(1,ptrMC->nFsh);
+    optFcAvg.allocate(1,ptrMC->nFsh);
     for (int f=1;f<=ptrMC->nFsh;f++){
         is>>str; cout<<str<<"# fishery"<<tb;
         idx = wts::which(str,ptrMC->lblsFsh);
         cout<<idx<<tb;
-        is>>optsFcAvg(idx);
-        cout<<"= "<<optsFcAvg(idx)<<endl;
+        is>>optFcAvg(idx);
+        cout<<"= "<<optFcAvg(idx)<<endl;
     }
     is>>optGrowth;
-    cout<<optGrowth<<tb<<"#"<<lblsGrowthOpts(optGrowth)<<endl;
+    cout<<optGrowth<<tb<<"#"<<optsGrowth(optGrowth)<<endl;
     is>>optInitNatZ;
-    cout<<optInitNatZ<<tb<<"#"<<lblsInitNatZOpts(optInitNatZ)<<endl;
+    cout<<optInitNatZ<<tb<<"#"<<optsInitNatZ(optInitNatZ)<<endl;
     is>>cvFDevsPen;
     cout<<cvFDevsPen<<tb<<"#initial cv for F-devs penalties"<<endl;
     is>>phsDecrFDevsPen;
@@ -342,12 +348,16 @@ void ModelOptions::read(cifstream & is) {
     cout<<wgtLastDevsPen<<tb<<"#weight for last-devs penalties"<<endl;
     is>>phsLastDevsPen;
     cout<<phsLastDevsPen<<tb<<"#min phase to apply penalty"<<endl;
-    is>>wgtSmthLgtPrMat;
-    cout<<wgtSmthLgtPrMat<<tb<<"#weight for maturity ogive smoothness penalties"<<endl;
-    is>>wgtNonDecLgtPrMat;
-    cout<<wgtNonDecLgtPrMat<<tb<<"#weight for maturity ogive non-decreaing penalties"<<endl;
-    is>>optPenNonDecLgtPrMat;
-    cout<<optPenNonDecLgtPrMat<<tb<<"#option for calculating maturity ogive non-decreaing penalties"<<endl;
+    
+    is>>wgtPenSmthPrM2M;
+    cout<<wgtPenSmthPrM2M<<tb<<"#weight for prM2M ogive smoothness penalties"<<endl;
+    is>>optPenSmthPrM2M;
+    cout<<optPenSmthPrM2M<<tb<<"#option for calculating prM2M smoothness penalties"<<endl;
+    
+    is>>wgtPenNonDecPrM2M;
+    cout<<wgtPenNonDecPrM2M<<tb<<"#weight for maturity ogive non-decreasing penalties"<<endl;
+    is>>optPenNonDecPrM2M;
+    cout<<optPenNonDecPrM2M<<tb<<"#option for calculating maturity ogive non-decreasing penalties"<<endl;
     if (debug){
         cout<<"enter 1 to continue : ";
         cin>>debug;
@@ -363,31 +373,31 @@ void ModelOptions::read(cifstream & is) {
 void ModelOptions::write(ostream & os) {
     if (debug) cout<<"#start ModelOptions::write(ostream)"<<endl;
     os<<"#######################################"<<endl;
-    os<<"#TCSAM2015 Model Options File         #"<<endl;
+    os<<"#TCSAM02 Model Options File           #"<<endl;
     os<<"#######################################"<<endl;
     os<<ModelOptions::VERSION<<tb<<"# Model Options version"<<endl;
 
     //averaging options for fishery capture rates
     os<<"#----Fishery Capture Rate Averaging Options"<<endl;
-    for (int o=lblsFcAvgOpts.indexmin();o<=lblsFcAvgOpts.indexmax();o++) {
-        os<<"#"<<o<<" - "<<lblsFcAvgOpts(o)<<endl;
+    for (int o=optsFcAvg.indexmin();o<=optsFcAvg.indexmax();o++) {
+        os<<"#"<<o<<" - "<<optsFcAvg(o)<<endl;
     }
     os<<"#Fishery    Option"<<endl;
     for (int f=1;f<=ptrMC->nFsh;f++){
-        os<<ptrMC->lblsFsh(f)<<tb<<tb<<optsFcAvg(f)<<endl;
+        os<<ptrMC->lblsFsh(f)<<tb<<tb<<optFcAvg(f)<<endl;
     }
 
     //growth options
     os<<"#----Growth Function Options"<<endl;
-    for (int o=lblsGrowthOpts.indexmin();o<=lblsGrowthOpts.indexmax();o++) {
-        os<<"#"<<o<<" - "<<lblsGrowthOpts(o)<<endl;
+    for (int o=optsGrowth.indexmin();o<=optsGrowth.indexmax();o++) {
+        os<<"#"<<o<<" - "<<optsGrowth(o)<<endl;
     }
     os<<optGrowth<<tb<<"#selected option"<<endl;
 
     //initial n-at-z options
     os<<"#----Initial Numbers-At-Size Options"<<endl;
-    for (int o=lblsInitNatZOpts.indexmin();o<=lblsInitNatZOpts.indexmax();o++) {
-        os<<"#"<<o<<" - "<<lblsInitNatZOpts(o)<<endl;
+    for (int o=optsInitNatZ.indexmin();o<=optsInitNatZ.indexmax();o++) {
+        os<<"#"<<o<<" - "<<optsInitNatZ(o)<<endl;
     }
     os<<optInitNatZ<<tb<<"#selected option"<<endl;
     
@@ -403,14 +413,20 @@ void ModelOptions::write(ostream & os) {
     os<<phsDecrFDevsPen<<tb<<"#min phase to apply penalty"<<endl;
     
     //Penalties on maturity ogives
-    os<<"#----Penalty weights for maturity ogives"<<endl;
-    os<<wgtSmthLgtPrMat<<tb<<"#weight for maturity ogive smoothness penalties"<<endl;
-    os<<wgtNonDecLgtPrMat<<tb<<"#weight for maturity ogive non-decreasing penalties"<<endl;
-    os<<"#----Options for penalty on non-decreasing maturity ogive parameters"<<endl;
-    for (int o=lblsPenNonDecLgtPrMatOpts.indexmin();o<=lblsPenNonDecLgtPrMatOpts.indexmax();o++) {
-        os<<"#"<<o<<" - "<<lblsPenNonDecLgtPrMatOpts(o)<<endl;
+    os<<"#----Penalty options for prM2M"<<endl;
+    os<<wgtPenSmthPrM2M<<tb<<"#weight for prM2M smoothness penalties"<<endl;
+    os<<"#----Options for penalties on prM2M smoothness"<<endl;
+    for (int o=optsPenSmthPrM2M.indexmin();o<=optsPenSmthPrM2M.indexmax();o++) {
+        os<<"#"<<o<<" - "<<optsPenSmthPrM2M(o)<<endl;
     }
-    os<<optPenNonDecLgtPrMat<<tb<<"#selected option"<<endl;
+    os<<optPenSmthPrM2M<<tb<<"#selected option"<<endl;
+    
+    os<<wgtPenNonDecPrM2M<<tb<<"#weight for prM2M non-decreasing penalties"<<endl;
+    os<<"#----Options for penalties on non-decreasing prM2M"<<endl;
+    for (int o=optsPenNonDecPrM2M.indexmin();o<=optsPenNonDecPrM2M.indexmax();o++) {
+        os<<"#"<<o<<" - "<<optsPenNonDecPrM2M(o)<<endl;
+    }
+    os<<optPenNonDecPrM2M<<tb<<"#selected option"<<endl;
     
     if (debug) cout<<"#end ModelOptions::write(ostream)"<<endl;
 }
@@ -426,7 +442,7 @@ void ModelOptions::writeToR(ostream& os, std::string nm, int indent) {
         os<<"growth="<<optGrowth<<cc<<"initNatZ="<<optInitNatZ<<cc
             <<"cvFDevsPen="<<cvFDevsPen<<cc<<"phsDecr="<<phsDecrFDevsPen<<cc<<"phsZero="<<phsZeroFDevsPen<<cc
             <<"wgtLastDevPen="<<wgtLastDevsPen<<cc<<"phsLastDevsPen="<<phsLastDevsPen<<cc
-            <<"wgtSmthLgtPrMat="<<wgtSmthLgtPrMat<<cc<<"wgtNonDecLgtPrMat="<<wgtNonDecLgtPrMat<<endl;
+            <<"wgtSmthLgtPrMat="<<wgtPenSmthPrM2M<<cc<<"wgtNonDecLgtPrMat="<<wgtPenNonDecPrM2M<<endl;
     indent--;
     for (int n=0;n<indent;n++) os<<tb;
         os<<")";

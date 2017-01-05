@@ -285,11 +285,13 @@ dvar_vector ModelFunctionInfo::calc(dvector& x, dvar_vector params, dvector& con
 //          ModelPDFInfo
 //----------------------------------------------------------------------
 const adstring ModelPDFInfo::PDFTYPE_NONE         = "none";
+const adstring ModelPDFInfo::PDFTYPE_AR1_NORMAL   ="ar1_normal";
 //const adstring ModelPDFInfo::PDFTYPE_BETA         = "beta";
 const adstring ModelPDFInfo::PDFTYPE_CAUCHY       = "cauchy";
 const adstring ModelPDFInfo::PDFTYPE_CHISQ        = "chisquare";
 const adstring ModelPDFInfo::PDFTYPE_CONSTANT     = "constant";
 //const adstring ModelPDFInfo::PDFTYPE_DELTAFCN     = "deltafcn";
+const adstring ModelPDFInfo::PDFTYPE_EXPNORMAL    = "expnormal";
 const adstring ModelPDFInfo::PDFTYPE_EXPONENTIAL  = "exponential";
 const adstring ModelPDFInfo::PDFTYPE_GAMMA        = "gamma";
 const adstring ModelPDFInfo::PDFTYPE_INVCHISQ     = "invchisquare";
@@ -306,8 +308,6 @@ const adstring ModelPDFInfo::PDFTYPE_SCALEDCV_INVCHISQ = "scaledCV_invchisquare"
 const adstring ModelPDFInfo::PDFTYPE_T                 = "t";
 const adstring ModelPDFInfo::PDFTYPE_TRUNCATED_NORMAL  ="truncated_normal";
 //const adstring ModelPDFInfo::PDFTYPE_WEIBULL      = "weibull";
-const adstring ModelPDFInfo::PDFTYPE_AR1_NORMAL    ="ar1_normal";
-const adstring ModelPDFInfo::PDFTYPE_EXPNORMAL    ="expnormal";
 
 /***************************************************************
 *   instance creation                                          *
@@ -337,6 +337,19 @@ ModelPDFInfo* ModelPDFInfo::getInfo(adstring type){
         pMPI->nmsFxd(1) = "none";
         pMPI->pPDF = wts::logPDF_constant;
         pMPI->pSmplr = 0;
+    } else
+    if (type==PDFTYPE_AR1_NORMAL) {
+        pMPI = new ModelPDFInfo();
+        pMPI->pdfType = PDFTYPE_AR1_NORMAL;
+        pMPI->nVar = 2;
+        pMPI->nmsVar.allocate(1,2);
+        pMPI->nmsVar(1) = "mean";
+        pMPI->nmsVar(2) = "stdv";
+        pMPI->nFxd = 0;
+        pMPI->nmsFxd.allocate(1,1);
+        pMPI->nmsFxd(1) = "none";
+        pMPI->vpPDF = wts::logPDF_AR1_normal;
+        pMPI->vpSmplr = wts::samplePDF_AR1_normal;
     } else
 //     if (type==PDFTYPE_BETA) {
 //         pMPI = new ModelPDFInfo();
@@ -375,6 +388,19 @@ ModelPDFInfo* ModelPDFInfo::getInfo(adstring type){
         pMPI->nmsFxd(1) = "none";
         pMPI->pPDF = wts::logPDF_chisquare;
         pMPI->pSmplr = wts::samplePDF_chisquare;
+    } else
+    if (type==PDFTYPE_EXPNORMAL) {
+        pMPI = new ModelPDFInfo();
+        pMPI->pdfType = PDFTYPE_EXPNORMAL;
+        pMPI->nVar = 2;
+        pMPI->nmsVar.allocate(1,2);
+        pMPI->nmsVar(1) = "expmean";
+        pMPI->nmsVar(2) = "stdv";
+        pMPI->nFxd = 0;
+        pMPI->nmsFxd.allocate(1,1);
+        pMPI->nmsFxd(1) = "none";
+        pMPI->pPDF = wts::logPDF_expnormal;
+        pMPI->pSmplr = wts::samplePDF_expnormal;
     } else
     if (type==PDFTYPE_EXPONENTIAL) {
         pMPI = new ModelPDFInfo();
@@ -529,32 +555,6 @@ ModelPDFInfo* ModelPDFInfo::getInfo(adstring type){
         pMPI->nmsFxd(2) = "max";
         pMPI->pPDF = wts::logPDF_truncated_normal;
         pMPI->pSmplr = wts::samplePDF_truncated_normal;
-    } else
-    if (type==PDFTYPE_AR1_NORMAL) {
-        pMPI = new ModelPDFInfo();
-        pMPI->pdfType = PDFTYPE_AR1_NORMAL;
-        pMPI->nVar = 2;
-        pMPI->nmsVar.allocate(1,2);
-        pMPI->nmsVar(1) = "mean";
-        pMPI->nmsVar(2) = "stdv";
-        pMPI->nFxd = 0;
-        pMPI->nmsFxd.allocate(1,1);
-        pMPI->nmsFxd(1) = "none";
-        pMPI->vpPDF = wts::logPDF_AR1_normal;
-        pMPI->vpSmplr = wts::samplePDF_AR1_normal;
-    } else
-    if (type==PDFTYPE_EXPNORMAL) {
-        pMPI = new ModelPDFInfo();
-        pMPI->pdfType = PDFTYPE_EXPNORMAL;
-        pMPI->nVar = 2;
-        pMPI->nmsVar.allocate(1,2);
-        pMPI->nmsVar(1) = "expmean";
-        pMPI->nmsVar(2) = "stdv";
-        pMPI->nFxd = 0;
-        pMPI->nmsFxd.allocate(1,1);
-        pMPI->nmsFxd(1) = "none";
-        pMPI->pPDF = wts::logPDF_expnormal;
-        pMPI->pSmplr = wts::samplePDF_expnormal;
     } else
     {
         cout<<"Model pdf type '"<<type<<"' was not recognized."<<endl;

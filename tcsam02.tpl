@@ -188,12 +188,20 @@
 //                  by shifting calculation of density to lower size bin cutpoint.
 //              2. Changed width of growth matrices from 10 bins to 11 bins 
 //                  to match TCSAM2013.
-//--2016012016: 1. Modified memory allocation for output biomass arrays in
+//--2016-12-16: 1. Modified memory allocation for output biomass arrays in
 //                  calcBiomass functions in SummaryFunctions.cpp. Previous
 //                  declarations used default constructors, which only copied
 //                  the reference to the input abundance array (i.e., used a 
 //                  shallow copy); thus, the output biomass array referenced the 
 //                  same memory addresses as the input abundance array.
+//--2017-01-03: 1. Added call to ReportToR_ModelFits() in PRELIM_CALCS section
+//                  to get initial likelihood values.
+//              2. Added "yr" to likelihood info for size comps.
+//              3. Added options for penalizing smoothness and non-decreasing
+//--2017-01-04: 1. revised calc1stDiffs & calc2ndDiffs to use ADMB first_difference().
+//              2. revised prM2M smoothness penalties to use 0.5*norm2(...).
+//              3. calcNLL functions now change value of smlVal to reflect
+//                  parallel values in TCSAM2013.
 //
 // =============================================================================
 // =============================================================================
@@ -858,7 +866,7 @@ DATA_SECTION
 
     //model options
     ivector optsFcAvg(1,nFsh);//option flags for fishery capture rate averaging
-    !!optsFcAvg = ptrMOs->optsFcAvg;
+    !!optsFcAvg = ptrMOs->optFcAvg;
     imatrix yrsAvgEff_fy(1,nFsh,mnYr,mxYr);//years corresponding to average effort
     matrix eff_fy(1,nFsh,mnYr,mxYr);       //effort for averaging over fishery-specific time periods
     vector avgEff(1,nFsh);                 //average effort over fishery-specific time periods
@@ -867,7 +875,7 @@ DATA_SECTION
     int optInitNatZ;  //initial n-at-z option
     !!optInitNatZ = ptrMOs->optInitNatZ;
     int optPenNonDecLgtPrMat;//option for penalty function on non-decreasing prMat parameters
-    !!optPenNonDecLgtPrMat = ptrMOs->optPenNonDecLgtPrMat;
+    !!optPenNonDecLgtPrMat = ptrMOs->optPenNonDecPrM2M;
 
     //number of parameter combinations for various processes
     int npcRec;
@@ -1261,6 +1269,13 @@ PRELIMINARY_CALCS_SECTION
             rpt::echo<<"writing initial model report to R"<<endl;
             ofstream echo1; echo1.open("tcsam02.init.rep", ios::trunc);
             ReportToR(echo1,1,cout);
+        }
+        
+        {
+            //write objective function components only
+            ofstream os0("tcsam02.ModelFits.init.R", ios::trunc);
+            ReportToR_ModelFits(os0,0,cout);
+            os0.close();
         }
         
         {cout<<"writing model sim data to file"<<endl;
@@ -3240,49 +3255,93 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     if (debug<0) cout<<"list("<<endl;//start list of penalties by category
 
     if (debug<0) cout<<tb<<"maturity=list("<<endl;//start of maturity penalties list
-    //smoothness penalties on maturity parameters (NOT maturity ogives)
-    double penWgtSmthLgtPrMat = ptrMOs->wgtSmthLgtPrMat;
-    fPenSmoothLgtPrMat.initialize();
-    if (debug<0) cout<<tb<<tb<<"smoothness=list(";//start of smoothness penalties list
-    for (int i=1;i<npLgtPrMat;i++){
-        dvar_vector v; v = 1.0*pLgtPrM2M(i);
-        fPenSmoothLgtPrMat(i) = norm2(calc2ndDiffs(v));
-        objFun += penWgtSmthLgtPrMat*fPenSmoothLgtPrMat(i);
-        if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrMat<<cc<<"pen="<<fPenSmoothLgtPrMat(i)<<cc<<"objfun="<<penWgtSmthLgtPrMat*fPenSmoothLgtPrMat(i)<<"),"<<endl;
+    if (ptrMOs->optPenSmthPrM2M==0){
+        //smoothness penalties on maturity PARAMETERS (NOT maturity ogives)
+        double penWgtSmthLgtPrMat = ptrMOs->wgtPenSmthPrM2M;
+        fPenSmoothLgtPrMat.initialize();
+        if (debug<0) cout<<tb<<tb<<"smoothness=list(";//start of smoothness penalties list
+        for (int i=1;i<npLgtPrMat;i++){
+            dvar_vector v = 1.0*pLgtPrM2M(i);
+            fPenSmoothLgtPrMat(i) = 0.5*norm2(calc2ndDiffs(v));
+            objFun += penWgtSmthLgtPrMat*fPenSmoothLgtPrMat(i);
+            if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrMat<<cc<<"pen="<<fPenSmoothLgtPrMat(i)<<cc<<"objfun="<<penWgtSmthLgtPrMat*fPenSmoothLgtPrMat(i)<<"),"<<endl;
+        }
+        {
+            int i = npLgtPrMat;
+            dvar_vector v = 1.0*pLgtPrM2M(i);
+            fPenSmoothLgtPrMat(i) = 0.5*norm2(calc2ndDiffs(v));
+            objFun += penWgtSmthLgtPrMat*fPenSmoothLgtPrMat(i);
+            if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrMat<<cc<<"pen="<<fPenSmoothLgtPrMat(i)<<cc<<"objfun="<<penWgtSmthLgtPrMat*fPenSmoothLgtPrMat(i)<<")"<<endl;
+        }
+        if (debug<0) cout<<tb<<tb<<")"<<cc<<endl;//end of smoothness penalties list
+    } else if (ptrMOs->optPenSmthPrM2M==1){
+        //smoothness penalties on maturity OGIVES (NOT maturity parameters)
+        double penWgtSmthLgtPrMat = ptrMOs->wgtPenSmthPrM2M;
+        fPenSmoothLgtPrMat.initialize();
+        if (debug<0) cout<<tb<<tb<<"smoothness=list(";//start of smoothness penalties list
+        for (int i=1;i<ptrMPI->ptrM2M->nPCs;i++){
+            dvar_vector v = 1.0*prM2M_cz(i);
+            fPenSmoothLgtPrMat(i) = 0.5*norm2(calc2ndDiffs(v));
+            objFun += penWgtSmthLgtPrMat*fPenSmoothLgtPrMat(i);
+            if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrMat<<cc<<"pen="<<fPenSmoothLgtPrMat(i)<<cc<<"objfun="<<penWgtSmthLgtPrMat*fPenSmoothLgtPrMat(i)<<"),"<<endl;
+        }
+        {
+            int i = ptrMPI->ptrM2M->nPCs;
+            dvar_vector v = 1.0*prM2M_cz(i);
+            fPenSmoothLgtPrMat(i) = 0.5*norm2(calc2ndDiffs(v));
+            objFun += penWgtSmthLgtPrMat*fPenSmoothLgtPrMat(i);
+            if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrMat<<cc<<"pen="<<fPenSmoothLgtPrMat(i)<<cc<<"objfun="<<penWgtSmthLgtPrMat*fPenSmoothLgtPrMat(i)<<")"<<endl;
+        }
+        if (debug<0) cout<<tb<<tb<<")"<<cc<<endl;//end of smoothness penalties list
     }
-    {
-        int i = npLgtPrMat;
-        dvar_vector v; v = 1.0*pLgtPrM2M(i);
-        fPenSmoothLgtPrMat(i) = norm2(calc2ndDiffs(v));
-        objFun += penWgtSmthLgtPrMat*fPenSmoothLgtPrMat(i);
-        if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrMat<<cc<<"pen="<<fPenSmoothLgtPrMat(i)<<cc<<"objfun="<<penWgtSmthLgtPrMat*fPenSmoothLgtPrMat(i)<<")"<<endl;
-    }
-    if (debug<0) cout<<tb<<tb<<")"<<cc<<endl;//end of smoothness penalties list
 
-    //non-decreasing penalties on maturity parameters (NOT maturity ogives)
-    double penWgtNonDecLgtPrMat = ptrMOs->wgtNonDecLgtPrMat;
+    //non-decreasing penalties on maturity parameters/ogives
+    double penWgtNonDecLgtPrMat = ptrMOs->wgtPenNonDecPrM2M;
     fPenNonDecLgtPrMat.initialize();
     if (debug<0) cout<<tb<<tb<<"nondecreasing=list(";//start of non-decreasing penalties list
-    for (int i=1;i<npLgtPrMat;i++){
-        dvar_vector v; v = calc1stDiffs(pLgtPrM2M(i));
-        if (optPenNonDecLgtPrMat==0){
+    int np;
+    if (ptrMOs->optPenNonDecPrM2M==0||ptrMOs->optPenNonDecPrM2M==1) np = npLgtPrMat;
+    else if (ptrMOs->optPenNonDecPrM2M==2||ptrMOs->optPenNonDecPrM2M==3) np = ptrMPI->ptrM2M->nPCs;
+    for (int i=1;i<np;i++){
+        dvar_vector v; 
+        if (ptrMOs->optPenNonDecPrM2M==0){
+            v = calc1stDiffs(pLgtPrM2M(i));
             for (int iv=v.indexmin();iv<=v.indexmax();iv++){
                 posfun2(v(iv),1.0E-2,fPenNonDecLgtPrMat(i));
             } 
-        } else if (optPenNonDecLgtPrMat==1){
+        } else if (ptrMOs->optPenNonDecPrM2M==1){
+            v = calc1stDiffs(pLgtPrM2M(i));
+            fPenNonDecLgtPrMat(i) = sum(mfexp(-10.0*v));
+        } else if (ptrMOs->optPenNonDecPrM2M==2){
+            v = calc1stDiffs(prM2M_cz(i));
+            for (int iv=v.indexmin();iv<=v.indexmax();iv++){
+                posfun2(v(iv),1.0E-2,fPenNonDecLgtPrMat(i));
+            } 
+        } else if (ptrMOs->optPenNonDecPrM2M==3){
+            v = calc1stDiffs(prM2M_cz(i));
             fPenNonDecLgtPrMat(i) = sum(mfexp(-10.0*v));
         }
         objFun += penWgtNonDecLgtPrMat*fPenNonDecLgtPrMat(i);
         if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtNonDecLgtPrMat<<cc<<"pen="<<fPenNonDecLgtPrMat(i)<<cc<<"objfun="<<penWgtNonDecLgtPrMat*fPenNonDecLgtPrMat(i)<<"),";
     }
     {
-        int i = npLgtPrMat;
-        dvar_vector v; v = calc1stDiffs(pLgtPrM2M(i));
-        if (optPenNonDecLgtPrMat==0){
+        int i = np;
+        dvar_vector v; 
+        if (ptrMOs->optPenNonDecPrM2M==0){
+            v = calc1stDiffs(pLgtPrM2M(i));
             for (int iv=v.indexmin();iv<=v.indexmax();iv++){
                 posfun2(v(iv),1.0E-2,fPenNonDecLgtPrMat(i));
             }
-        } else if (optPenNonDecLgtPrMat==1){
+        } else if (ptrMOs->optPenNonDecPrM2M==1){
+            v = calc1stDiffs(pLgtPrM2M(i));
+            fPenNonDecLgtPrMat(i) = sum(mfexp(-10.0*v));
+        } else if (ptrMOs->optPenNonDecPrM2M==2){
+            v = calc1stDiffs(prM2M_cz(i));
+            for (int iv=v.indexmin();iv<=v.indexmax();iv++){
+                posfun2(v(iv),1.0E-2,fPenNonDecLgtPrMat(i));
+            } 
+        } else if (ptrMOs->optPenNonDecPrM2M==3){
+            v = calc1stDiffs(prM2M_cz(i));
             fPenNonDecLgtPrMat(i) = sum(mfexp(-10.0*v));
         }
         objFun += penWgtNonDecLgtPrMat*fPenNonDecLgtPrMat(i);
@@ -3291,7 +3350,7 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     if (debug<0) cout<<tb<<tb<<")"<<endl;//end of non-decreasing penalties list    
     if (debug<0) cout<<tb<<"),";//end of maturity penalties list
     
-    //penalties on final value of dev vectors
+    //penalties on final value of dev vectors to enforce bounds
     double penWgt = 0.0;
     if (current_phase()>=ptrMOs->phsLastDevsPen) penWgt = ptrMOs->wgtLastDevsPen;
     if (debug<0) cout<<tb<<"final.devs=list("<<endl;//start of devs penalties list
@@ -3412,11 +3471,12 @@ FUNCTION void calcDevsPenalties(int debug, ostream& cout, double penWgt, param_i
 FUNCTION dvar_vector calc1stDiffs(const dvar_vector& d)
 //    cout<<"Starting calc1stDiffs"<<endl;
     RETURN_ARRAYS_INCREMENT();
-    int mn = d.indexmin();
-    int mx = d.indexmax();
-    dvar_vector cp; cp = d;
-    dvar_vector r(mn,mx-1);
-    r = cp(mn+1,mx).shift(mn)-cp(mn,mx-1);
+//    int mn = d.indexmin();
+//    int mx = d.indexmax();
+//    dvar_vector cp = 1.0*d;
+//    dvar_vector r(mn,mx-1);
+//    r = cp(mn+1,mx).shift(mn)-cp(mn,mx-1);
+    dvar_vector r = first_difference(d);
     RETURN_ARRAYS_DECREMENT();
 //    cout<<"Finished calc1stDiffs"<<endl;
     return r;
@@ -3426,9 +3486,10 @@ FUNCTION dvar_vector calc1stDiffs(const dvar_vector& d)
 FUNCTION dvar_vector calc2ndDiffs(const dvar_vector& d)
 //    cout<<"Starting calc2ndDiffs"<<endl;
     RETURN_ARRAYS_INCREMENT();
-    int mn = d.indexmin();
-    int mx = d.indexmax();
-    dvar_vector r = calc1stDiffs(calc1stDiffs(d));
+//    int mn = d.indexmin();
+//    int mx = d.indexmax();
+//    dvar_vector r = calc1stDiffs(calc1stDiffs(d));
+    dvar_vector r = first_difference(first_difference(d));
     RETURN_ARRAYS_DECREMENT();
 //    cout<<"Finished calc2ndDiffs"<<endl;
     return r;
@@ -3644,11 +3705,10 @@ FUNCTION void calcNormalNLL(double wgt, dvar_vector& mod, dvector& obs, dvector&
             y = yrs(i);
             if ((zscr.indexmin()<=y)&&(y<=zscr.indexmax())) {
                 zscr(y) = (obs[i]-mod[y])/stdv[i];
-                //  nll += log(stdv[i]);
             }
         }
+        nll += 0.5*norm2(zscr);
     }
-    nll += 0.5*norm2(zscr);
     objFun += wgt*nll;
     if (debug<0){
         adstring obsyrs = wts::to_qcsv(yrs);
@@ -3674,11 +3734,10 @@ FUNCTION void calcLognormalNLL(double wgt, dvar_vector& mod, dvector& obs, dvect
             y = yrs(i);
             if ((zscr.indexmin()<=y)&&(y<=zscr.indexmax())) {
                 zscr(y) = (log(obs[i]+smlVal)-log(mod[y]+smlVal))/stdv[i];
-                //nll += log(stdv[i]);
             }
         }
+        nll += 0.5*norm2(zscr);
     }
-    nll += 0.5*norm2(zscr);
     objFun += wgt*nll;
     if (debug<0){
         adstring obsyrs = wts::to_qcsv(yrs);
@@ -3704,7 +3763,7 @@ FUNCTION void calcNoneNLL(double wgt, dvar_vector& mod, dvector& obs, dvector& s
     
 //-------------------------------------------------------------------------------------
 //Calculate multinomial NLL contribution to objective function
-FUNCTION void calcMultinomialNLL(double wgt, dvar_vector& mod, dvector& obs, double& ss, int debug, ostream& cout)
+FUNCTION void calcMultinomialNLL(double wgt, dvar_vector& mod, dvector& obs, double& ss, int& yr, int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"Starting calcMultinomialNLL()"<<endl;
     dvariable nll = -ss*(obs*(log(mod+smlVal)-log(obs+smlVal)));//note dot-product sums
     objFun += wgt*nll;
@@ -3714,7 +3773,7 @@ FUNCTION void calcMultinomialNLL(double wgt, dvar_vector& mod, dvector& obs, dou
         dvector zscrs = elem_div(obs-vmod,sqrt(elem_prod((vmod+smlVal),1.0-(vmod+smlVal))/ss));//pearson residuals
         double effN = 0.0;
         if (ss>0) effN = (vmod*(1.0-vmod))/norm2(obs-vmod);
-        cout<<"list(nll.type='multinomial',wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<"ss="<<ss<<cc<<"effN="<<effN<<cc<<endl; 
+        cout<<"list(nll.type='multinomial',yr="<<yr<<cc<<"wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<"ss="<<ss<<cc<<"effN="<<effN<<cc<<endl; 
         adstring dzbs = "size=c("+ptrMC->csvZBs+")";
         cout<<"nlls=";  wts::writeToR(cout,nlls, dzbs); cout<<cc<<endl;
         cout<<"obs=";   wts::writeToR(cout,obs,  dzbs); cout<<cc<<endl;
@@ -3726,10 +3785,10 @@ FUNCTION void calcMultinomialNLL(double wgt, dvar_vector& mod, dvector& obs, dou
  
 //-------------------------------------------------------------------------------------
 //Pass through for no NLL contribution to objective function for size comps
-FUNCTION void calcNoneNLL(double wgt, dvar_vector& mod, dvector& obs, double& ss, int debug, ostream& cout)
+FUNCTION void calcNoneNLL(double wgt, dvar_vector& mod, dvector& obs, double& ss, int& yr, int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"Starting calcNoneNLL(size comps)"<<endl;
     if (debug<0){
-        cout<<"list(nll.type='none',wgt="<<wgt<<cc<<"nll="<<0.0<<cc<<"objfun="<<0.0<<cc<<"ss="<<0<<cc<<"effN="<<0<<cout<<")";
+        cout<<"list(nll.type='none',yr="<<yr<<cc<<"wgt="<<wgt<<cc<<"nll="<<0.0<<cc<<"objfun="<<0.0<<cc<<"ss="<<0<<cc<<"effN="<<0<<cout<<")";
     }
     if (debug>=dbgAll) cout<<"Finished calcNoneNLL(size comps)"<<endl;
  
@@ -3758,13 +3817,13 @@ FUNCTION void calcNLL(int llType, double wgt, dvar_vector& mod, dvector& obs, dv
 
 //-------------------------------------------------------------------------------------
 //Calculate size frequency contribution to objective function
-FUNCTION void calcNLL(int llType, double wgt, dvar_vector& mod, dvector& obs, double& ss, int debug, ostream& cout)
+FUNCTION void calcNLL(int llType, double wgt, dvar_vector& mod, dvector& obs, double& ss, int& yr, int debug, ostream& cout)
     switch (llType){
         case tcsam::LL_NONE:
-            calcNoneNLL(wgt,mod,obs,ss,debug,cout);
+            calcNoneNLL(wgt,mod,obs,ss,yr,debug,cout);
             break;
         case tcsam::LL_MULTINOMIAL:
-            calcMultinomialNLL(wgt,mod,obs,ss,debug,cout);
+            calcMultinomialNLL(wgt,mod,obs,ss,yr,debug,cout);
             break;
         default:
             cout<<"Unrecognized likelihood type in calcNLL(2)"<<endl;
@@ -4007,7 +4066,7 @@ FUNCTION void calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_yxms
                         cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
                         cout<<"fit=";
                     }
-                    calcNLL(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,debug,cout);
+                    calcNLL(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,y,debug,cout);
                     if (debug<0) cout<<")"<<cc<<endl;
                 }
                 //FIT_BY_TOT
@@ -4044,7 +4103,7 @@ FUNCTION void calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_yxms
                             cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
                             cout<<"fit=";
                         }
-                        calcNLL(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,debug,cout);
+                        calcNLL(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,y,debug,cout);
                         if (debug<0) cout<<")"<<cc<<endl;
                     }//nT>0
                 }//x
@@ -4079,7 +4138,7 @@ FUNCTION void calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_yxms
                                 cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
                                 cout<<"fit=";
                             }
-                            calcNLL(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,debug,cout);
+                            calcNLL(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,y,debug,cout);
                             if (debug<0) cout<<")"<<cc<<endl;
                         }//nT>0
                     }//m
@@ -4116,7 +4175,7 @@ FUNCTION void calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_yxms
                                 cout<<"s='"<<tcsam::getShellType(s)<<"'"<<cc;
                                 cout<<"fit=";
                             }
-                            calcNLL(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,debug,cout);
+                            calcNLL(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,y,debug,cout);
                             if (debug<0) cout<<")"<<cc<<endl;
                         }//nT>0
                     }//m
@@ -4151,7 +4210,7 @@ FUNCTION void calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_yxms
                                     cout<<"s='"<<tcsam::getShellType(s)<<"'"<<cc;
                                     cout<<"fit=";
                                 }
-                                calcNLL(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,debug,cout);
+                                calcNLL(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,y,debug,cout);
                                 if (debug<0) cout<<")"<<cc<<endl;
                             }//nT>0
                         }//s
@@ -4199,7 +4258,7 @@ FUNCTION void calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_yxms
                             cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
                             cout<<"fit=";
                         }
-                        calcNLL(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,debug,cout);
+                        calcNLL(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,y,debug,cout);
                         if (debug<0) cout<<")"<<cc<<endl;
                     }//x
                 }//nT>0
@@ -4244,7 +4303,7 @@ FUNCTION void calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_yxms
                                 cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
                                 cout<<"fit=";
                             }
-                            calcNLL(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,debug,cout);
+                            calcNLL(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,y,debug,cout);
                             if (debug<0) cout<<")"<<cc<<endl;
                         }//m
                     }//nT>0
@@ -4290,7 +4349,7 @@ FUNCTION void calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_yxms
                                 cout<<"s='"<<tcsam::getShellType(s)<<"'"<<cc;
                                 cout<<"fit=";
                             }
-                            calcNLL(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,debug,cout);
+                            calcNLL(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,y,debug,cout);
                             if (debug<0) cout<<")"<<cc<<endl;
                         }//s
                     }//nT>0
@@ -4340,7 +4399,7 @@ FUNCTION void calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_yxms
                                 cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
                                 cout<<"fit=";
                             }
-                            calcNLL(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,debug,cout);
+                            calcNLL(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,y,debug,cout);
                             if (debug<0) cout<<")"<<cc<<endl;
                         }//m
                     }//x
@@ -4383,7 +4442,7 @@ FUNCTION void calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_yxms
                                     cout<<"s='"<<tcsam::getShellType(s)<<"'"<<cc;
                                     cout<<"fit=";
                                 }
-                                calcNLL(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,debug,cout);
+                                calcNLL(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,y,debug,cout);
                                 if (debug<0) cout<<")"<<cc<<endl;
                             }//s
                         }//nT>0
@@ -4417,18 +4476,21 @@ FUNCTION void calcNLLs_Fisheries(int debug, ostream& cout)
             if (ptrObs->ptrRCD->hasN && ptrObs->ptrRCD->ptrN->optFit){
                 if (debug>=dbgAll) cout<<"---retained catch abundance"<<endl;
                 if (debug<0) cout<<"abundance="<<endl;
+                smlVal = 0.0001;//match to TCSAM2013
                 calcNLLs_AggregateCatch(ptrObs->ptrRCD->ptrN,rmN_fyxmsz(f),debug,cout);
                 if (debug<0) cout<<","<<endl;
             }
             if (ptrObs->ptrRCD->hasB && ptrObs->ptrRCD->ptrB->optFit){
                 if (debug>=dbgAll) cout<<"---retained catch biomass"<<endl;
                 if (debug<0) cout<<"biomass="<<endl;
+                smlVal = 0.0001;//match to TCSAM2013
                 calcNLLs_AggregateCatch(ptrObs->ptrRCD->ptrB,rmN_fyxmsz(f),debug,cout);
                 if (debug<0) cout<<","<<endl;
             }
             if (ptrObs->ptrRCD->hasZFD && ptrObs->ptrRCD->ptrZFD->optFit){
                 if (debug>=dbgAll) cout<<"---retained catch size frequencies"<<endl;
                 if (debug<0) cout<<"n.at.z="<<endl;
+                smlVal = 0.001;//match to TCSAM2013
                 calcNLLs_CatchNatZ(ptrObs->ptrRCD->ptrZFD,rmN_fyxmsz(f),debug,cout);
                 if (debug<0) cout<<","<<endl;
             }
@@ -4439,18 +4501,21 @@ FUNCTION void calcNLLs_Fisheries(int debug, ostream& cout)
             if (ptrObs->ptrTCD->hasN && ptrObs->ptrTCD->ptrN->optFit){
                 if (debug>=dbgAll) cout<<"---total catch abundance"<<endl;
                 if (debug<0) cout<<"abundance="<<endl;
+                smlVal = 0.0001;//match to TCSAM2013
                 calcNLLs_AggregateCatch(ptrObs->ptrTCD->ptrN,cpN_fyxmsz(f),debug,cout);
                 if (debug<0) cout<<","<<endl;
             }
             if (ptrObs->ptrTCD->hasB && ptrObs->ptrTCD->ptrB->optFit){
                 if (debug>=dbgAll) cout<<"---total catch biomass"<<endl;
                 if (debug<0) cout<<"biomass="<<endl;
+                smlVal = 0.0001;//match to TCSAM2013
                 calcNLLs_AggregateCatch(ptrObs->ptrTCD->ptrB,cpN_fyxmsz(f),debug,cout);
                 if (debug<0) cout<<","<<endl;
             }
             if (ptrObs->ptrTCD->hasZFD && ptrObs->ptrTCD->ptrZFD->optFit){
                 if (debug>=dbgAll) cout<<"---total catch size frequencies"<<endl;
                 if (debug<0) cout<<"n.at.z="<<endl;
+                smlVal = 0.001;//match to TCSAM2013
                 calcNLLs_CatchNatZ(ptrObs->ptrTCD->ptrZFD,cpN_fyxmsz(f),debug,cout);
                 if (debug<0) cout<<","<<endl;
             }
@@ -4461,18 +4526,21 @@ FUNCTION void calcNLLs_Fisheries(int debug, ostream& cout)
             if (ptrObs->ptrDCD->hasN && ptrObs->ptrDCD->ptrN->optFit){
                 if (debug>=dbgAll) cout<<"---discard catch abundance"<<endl;
                 if (debug<0) cout<<"abundance="<<endl;
+                smlVal = 0.0001;//match to TCSAM2013
                 calcNLLs_AggregateCatch(ptrObs->ptrDCD->ptrN,dsN_fyxmsz(f),debug,cout);
                 if (debug<0) cout<<","<<endl;
             }
             if (ptrObs->ptrDCD->hasB && ptrObs->ptrDCD->ptrB->optFit){
                 if (debug>=dbgAll) cout<<"---discard catch biomass"<<endl;
                 if (debug<0) cout<<"biomass="<<endl;
+                smlVal = 0.0001;//match to TCSAM2013
                 calcNLLs_AggregateCatch(ptrObs->ptrDCD->ptrB,dsN_fyxmsz(f),debug,cout);
                 if (debug<0) cout<<","<<endl;
             }
             if (ptrObs->ptrDCD->hasZFD && ptrObs->ptrDCD->ptrZFD->optFit){
                 if (debug>=dbgAll) cout<<"---discard catch size frequencies"<<endl;
                 if (debug<0) cout<<"n.at.z="<<endl;
+                smlVal = 0.001;//match to TCSAM2013
                 calcNLLs_CatchNatZ(ptrObs->ptrDCD->ptrZFD,dsN_fyxmsz(f),debug,cout);
                 if (debug<0) cout<<","<<endl;
             }
@@ -4499,18 +4567,21 @@ FUNCTION void calcNLLs_Surveys(int debug, ostream& cout)
             if (ptrObs->ptrICD->hasN && ptrObs->ptrICD->ptrN->optFit){
                 if (debug>=dbgAll) cout<<"---index catch abundance"<<endl;
                 if (debug<0) cout<<"abundance="<<endl;
+                smlVal = 0.000001;//match to TCSAM2013
                 calcNLLs_AggregateCatch(ptrObs->ptrICD->ptrN,n_vyxmsz(v),debug,cout);
                 if (debug<0) cout<<","<<endl;
             }
             if (ptrObs->ptrICD->hasB && ptrObs->ptrICD->ptrB->optFit){
                 if (debug>=dbgAll) cout<<"---index catch biomass"<<endl;
                 if (debug<0) cout<<"biomass="<<endl;
+                smlVal = 0.000001;//match to TCSAM2013
                 calcNLLs_AggregateCatch(ptrObs->ptrICD->ptrB,n_vyxmsz(v),debug,cout);
                 if (debug<0) cout<<","<<endl;
             }
             if (ptrObs->ptrICD->hasZFD && ptrObs->ptrICD->ptrZFD->optFit){
                 if (debug>=dbgAll) cout<<"---index catch size frequencies"<<endl;
                 if (debug<0) cout<<"n.at.z="<<endl;
+                smlVal = 0.001;//match to TCSAM2013
                 calcNLLs_CatchNatZ(ptrObs->ptrICD->ptrZFD,n_vyxmsz(v),debug,cout);
                 if (debug<0) cout<<","<<endl;
             }

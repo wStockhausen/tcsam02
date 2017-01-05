@@ -14,12 +14,12 @@
 //----------------------------------------------------------------------
 //          Model Functions
 //----------------------------------------------------------------------
-typedef dvar_vector (*ModFcnPtr)          (dvector&,                dvar_vector,      dvector&);
+typedef dvar_vector (*ModFcnPtr)          (dvector&,                dvar_vector,       dvector&);
 typedef double      (*TransformFcnPtr)    (double,                  const dvector&);
-typedef dvariable   (*dvarTransformFcnPtr)(const prevariable&,     const dvector&);
-typedef dvariable   (*PdfFcnPtr)          (const prevariable&,     const dvar_vector&,const dvector&);
+typedef dvariable   (*dvarTransformFcnPtr)(const prevariable&,      const dvector&);
+typedef dvariable   (*PdfFcnPtr)          (const prevariable&,      const dvar_vector&,const dvector&);
 typedef double      (*PdfSamplerPtr)      (random_number_generator&,const dvector&,    const dvector&);
-typedef dvar_vector (*vPdfFcnPtr)         (const dvar_vector&,     const dvar_vector&,const dvector&);
+typedef dvar_vector (*vPdfFcnPtr)         (const dvar_vector&,      const dvar_vector&,const dvector&);
 typedef dvector     (*vPdfSamplerPtr)     (int n, random_number_generator&,const dvector&,    const dvector&);
 
 namespace tcsam{
@@ -116,10 +116,12 @@ namespace tcsam{
     class ModelPDFInfo {
     public:
         const static adstring PDFTYPE_NONE;
+        const static adstring PDFTYPE_AR1_NORMAL;
 //        const static adstring PDFTYPE_BETA;
         const static adstring PDFTYPE_CAUCHY;
         const static adstring PDFTYPE_CHISQ;
         const static adstring PDFTYPE_CONSTANT;
+        const static adstring PDFTYPE_EXPNORMAL;
         const static adstring PDFTYPE_EXPONENTIAL;
         const static adstring PDFTYPE_GAMMA;
         const static adstring PDFTYPE_INVCHISQ;
@@ -133,8 +135,6 @@ namespace tcsam{
         const static adstring PDFTYPE_T;
         const static adstring PDFTYPE_TRUNCATED_NORMAL;
         
-        const static adstring PDFTYPE_AR1_NORMAL;
-        const static adstring PDFTYPE_EXPNORMAL;
 
         public:
             static ModelPDFInfo* getInfo(adstring pdfType);
