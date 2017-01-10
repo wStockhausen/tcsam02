@@ -202,6 +202,10 @@
 //              2. revised prM2M smoothness penalties to use 0.5*norm2(...).
 //              3. calcNLL functions now change value of smlVal to reflect
 //                  parallel values in TCSAM2013.
+//--2017-01-08: 1. Added jitter seed, if used, to model report file as "jitter".
+//              2. Added objFun to ReportToR_ModelFits as "objfun".
+//--2017-01-09: 1. Added checkParams functions.
+//              2. added ctrDebugParams commandline option.
 //
 // =============================================================================
 // =============================================================================
@@ -253,6 +257,7 @@ GLOBALS_SECTION
     int usePin     = 0;//flag to initialize parameter values using a pin file
     int doRetro    = 0;//flag to facilitate a retrospective model run
     int fitSimData = 0;//flag to fit model to simulated data calculated in the PRELIMINARY_CALCs section
+    int ctrDebugParams = 0;//PROCEDURE_SECTION call counter value to start debugging output
     
     int yRetro = 0; //number of years to decrement for retrospective model run
     int iSeed = -1; //default random number generator seed
@@ -439,6 +444,13 @@ DATA_SECTION
         rpt::echo<<"#-------------------------------------------"<<endl;
         flg = 1;
     }
+    //ctrDebugParams
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-ctrDebugParams"))>-1) {
+        ctrDebugParams=atoi(ad_comm::argv[on+1]);
+        rpt::echo<<"Starting debugParams at counter "<<ctrDebugParams<<endl;
+        rpt::echo<<"#-------------------------------------------"<<endl;
+        flg = 1;
+    }
     //jitter
     if ((on=option_match(ad_comm::argc,ad_comm::argv,"-jitter"))>-1) {
         jitter=1;
@@ -452,6 +464,9 @@ DATA_SECTION
         rpt::echo<<"#Jittering for initial parameter values turned ON "<<endl;
         rpt::echo<<iSeed<<"  #iSeed"<<endl;
         rpt::echo<<"#-------------------------------------------"<<endl;
+        ofstream fs("jitterInfo.dat");
+        fs<<"seed = "<<iSeed<<endl;
+        fs.close();
         flg = 1;
     }
     //resample
@@ -1306,9 +1321,30 @@ PROCEDURE_SECTION
     ctrProcCallsInPhase++;//increment in-phase procedure section calls counter
     
     int dbg = 0; //dbgAll;
-    if (dbg){
-        std::cout<<"---ctrProcCalls = "<<ctrProcCalls<<tb<<ctrProcCallsInPhase<<endl;
+    //if (current_phase()==4) dbg=1;
+    
+    if (ctrDebugParams&&(ctrProcCalls>=ctrDebugParams)){
+        std::cout<<endl<<endl<<"---------------------"<<endl;
+        std::cout<<"---phase="<<current_phase()<<". ctrProcCalls = "<<ctrProcCalls<<tb<<ctrProcCallsInPhase<<endl;
+        rpt::echo<<endl<<endl<<"---------------------"<<endl;
+        rpt::echo<<"---phase="<<current_phase()<<". ctrProcCalls = "<<ctrProcCalls<<tb<<ctrProcCallsInPhase<<endl;
         writeParameters(std::cout,0,1);
+        writeParameters(rpt::echo,0,1);
+        adstring fn = "tcsam02.Debug."+str(current_phase())+"."+str(ctrProcCalls)+".rep";
+        ofstream os; os.open((char*) fn, ios::trunc);
+        ReportToR(os,1,cout);
+    }
+    
+    if (checkParams(0,std::cout)){
+        std::cout<<endl<<endl<<"---------------------"<<endl;
+        std::cout<<"---phase="<<current_phase()<<". ctrProcCalls = "<<ctrProcCalls<<tb<<ctrProcCallsInPhase<<endl;
+        rpt::echo<<endl<<endl<<"---------------------"<<endl;
+        rpt::echo<<"---phase="<<current_phase()<<". ctrProcCalls = "<<ctrProcCalls<<tb<<ctrProcCallsInPhase<<endl;
+        checkParams(1,std::cout);
+        checkParams(1,rpt::echo);
+        writeParameters(std::cout,0,1);
+        writeParameters(rpt::echo,0,1);
+        exit(-1);
     }
     
     runPopDyMod(dbg,rpt::echo);
@@ -1383,6 +1419,204 @@ FUNCTION setInitVals
     setInitVals(ptrMPI->ptrSrv->pLnDQX, pLnDQX, 0,rpt::echo);
     setInitVals(ptrMPI->ptrSrv->pLnDQM, pLnDQM, 0,rpt::echo);
     setInitVals(ptrMPI->ptrSrv->pLnDQXM,pLnDQXM,0,rpt::echo);
+
+//*****************************************
+FUNCTION int checkParams(int debug, ostream& os)
+    int res = 0;
+    //recruitment parameters
+    res += checkParams(ptrMPI->ptrRec->pLnR,    pLnR,    debug,os);
+    res += checkParams(ptrMPI->ptrRec->pLnRCV,  pLnRCV,  debug,os);
+    res += checkParams(ptrMPI->ptrRec->pLgtRX,  pLgtRX,  debug,os);
+    res += checkParams(ptrMPI->ptrRec->pLnRa,   pLnRa,   debug,os);
+    res += checkParams(ptrMPI->ptrRec->pLnRb,   pLnRb,   debug,os);
+    res += checkParams(ptrMPI->ptrRec->pDevsLnR,pDevsLnR,debug,os);
+
+    //natural mortality parameters
+    res += checkParams(ptrMPI->ptrNM->pLnM,   pLnM,   debug,os);
+    res += checkParams(ptrMPI->ptrNM->pLnDMT, pLnDMT, debug,os);
+    res += checkParams(ptrMPI->ptrNM->pLnDMX, pLnDMX, debug,os);
+    res += checkParams(ptrMPI->ptrNM->pLnDMM, pLnDMM, debug,os);
+    res += checkParams(ptrMPI->ptrNM->pLnDMXM,pLnDMXM,debug,os);
+
+    //growth parameters
+    res += checkParams(ptrMPI->ptrGrw->pLnGrA,   pLnGrA,   debug,os);
+    res += checkParams(ptrMPI->ptrGrw->pLnGrB,   pLnGrB,   debug,os);
+    res += checkParams(ptrMPI->ptrGrw->pLnGrBeta,pLnGrBeta,debug,os);
+
+    //maturity parameters
+    res += checkParams(ptrMPI->ptrM2M->pLgtPrM2M,pLgtPrM2M,debug,os);
+
+    //selectivity parameters
+    res += checkParams(ptrMPI->ptrSel->pS1, pS1,debug,os);
+    res += checkParams(ptrMPI->ptrSel->pS2, pS2,debug,os);
+    res += checkParams(ptrMPI->ptrSel->pS3, pS3,debug,os);
+    res += checkParams(ptrMPI->ptrSel->pS4, pS4,debug,os);
+    res += checkParams(ptrMPI->ptrSel->pS5, pS5,debug,os);
+    res += checkParams(ptrMPI->ptrSel->pS6, pS6,debug,os);
+    res += checkParams(ptrMPI->ptrSel->pDevsS1, pDevsS1,debug,os);
+    res += checkParams(ptrMPI->ptrSel->pDevsS2, pDevsS2,debug,os);
+    res += checkParams(ptrMPI->ptrSel->pDevsS3, pDevsS3,debug,os);
+    res += checkParams(ptrMPI->ptrSel->pDevsS4, pDevsS4,debug,os);
+    res += checkParams(ptrMPI->ptrSel->pDevsS5, pDevsS5,debug,os);
+    res += checkParams(ptrMPI->ptrSel->pDevsS6, pDevsS6,debug,os);
+
+    //fully-selected fishing capture rate parameters
+    res += checkParams(ptrMPI->ptrFsh->pHM,     pHM,     debug,os);
+    res += checkParams(ptrMPI->ptrFsh->pLnC,    pLnC,    debug,os);
+    res += checkParams(ptrMPI->ptrFsh->pLnDCT,  pLnDCT,  debug,os);
+    res += checkParams(ptrMPI->ptrFsh->pLnDCX,  pLnDCX,  debug,os);
+    res += checkParams(ptrMPI->ptrFsh->pLnDCM,  pLnDCM,  debug,os);
+    res += checkParams(ptrMPI->ptrFsh->pLnDCXM, pLnDCXM, debug,os);
+    res += checkParams(ptrMPI->ptrFsh->pDevsLnC,pDevsLnC,debug,os);
+
+    //survey catchability parameters
+    res += checkParams(ptrMPI->ptrSrv->pLnQ,   pLnQ,   debug,os);
+    res += checkParams(ptrMPI->ptrSrv->pLnDQT, pLnDQT, debug,os);
+    res += checkParams(ptrMPI->ptrSrv->pLnDQX, pLnDQX, debug,os);
+    res += checkParams(ptrMPI->ptrSrv->pLnDQM, pLnDQM, debug,os);
+    res += checkParams(ptrMPI->ptrSrv->pLnDQXM,pLnDQXM,debug,os);
+    
+    return res;
+
+//******************************************************************************
+//* Function: void checkParams(NumberVectorInfo* pI, param_init_number_vector& p, int debug, ostream& cout)
+//* 
+//* Description: Check values for a parameter vector.
+//*
+//* Inputs:
+//*  pI (NumberVectorInfo*) 
+//*     pointer to NumberVectorInfo object
+//*  p (param_init_number_vector&)
+//*     parameter vector
+//* Returns:
+//*  int - 0 = all good, 1 = nan detected
+//* Alters:
+//*  none
+//******************************************************************************
+FUNCTION int checkParams(NumberVectorInfo* pI, param_init_number_vector& p, int debug, ostream& cout)
+//    debug=dbgAll;
+    if (debug>=dbgAll) std::cout<<"Starting checkParams(NumberVectorInfo* pI, param_init_number_vector& p) for "<<p(1).label()<<endl; 
+    int np = pI->getSize();
+    int r = 0;
+    if (np){
+        for (int i=1;i<=np;i++) {
+            if (isnan(value(p(i)))){
+                r++;
+                if (debug) cout<<"NaN detected in checkParams() for "<<p(1).label()<<"["<<i<<"]"<<endl;
+            }
+        }
+    }
+    
+    if (debug>=dbgAll) {
+        std::cout<<"Finished checkParams(NumberVectorInfo* pI, param_init_number_vector& p) for "<<p(1).label()<<endl; 
+    }
+    return r;
+     
+//******************************************************************************
+//* Function: void checkParams(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p, int debug, ostream& cout)
+//* 
+//* Description: Check values for a parameter vector.
+//*
+//* Inputs:
+//*  pI (BoundedNumberVectorInfo*) 
+//*     pointer to BoundedNumberVectorInfo object
+//*  p (param_init_bounded_number_vector&)
+//*     parameter vector
+//* Returns:
+//*  int - 0 = all good, 1 = nan detected
+//* Alters:
+//*  none
+//******************************************************************************
+FUNCTION int checkParams(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p, int debug, ostream& cout)
+//    debug=dbgAll;
+    if (debug>=dbgAll) std::cout<<"Starting checkParams(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
+    int np = pI->getSize();
+    int r = 0;
+    if (np){
+        for (int i=1;i<=np;i++) {
+            if (isnan(value(p(i)))){
+                r++;
+                if (debug) cout<<"NaN detected in checkParams() for "<<p(1).label()<<"["<<i<<"]"<<endl;
+            }
+        }
+    }
+    
+    if (debug>=dbgAll) {
+        std::cout<<"Finished checkParams(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
+    }
+    return r;
+
+//******************************************************************************
+//* Function: void checkParams(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
+//* 
+//* Description: Checks values for a vector of parameter vectors.
+//*
+//* Inputs:
+//*  pI (BoundedVectorVectorInfo*) 
+//*     pointer to BoundedNumberVectorInfo object
+//*  p (param_init_bounded_vector_vector&)
+//*     parameter vector
+//* Returns:
+//*  int - 0 = all good, 1 = nan detected
+//* Alters:
+//*  none
+//******************************************************************************
+FUNCTION int checkParams(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
+//    debug=dbgAll;
+    if (debug>=dbgAll) std::cout<<"Starting checkParams(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
+    int np = pI->getSize();
+    int r = 0;
+    if (np){
+        for (int i=1;i<=np;i++) {
+            for (int j=p(i).indexmin();j<=p(i).indexmax();j++) {
+                if (isnan(value(p(i,j)))){
+                    r++;
+                    if (debug) cout<<"NaN detected in checkParams() for "<<p(1).label()<<"["<<i<<cc<<j<<"]"<<endl;
+                }
+            }
+        }
+    }
+    
+    if (debug>=dbgAll) {
+        std::cout<<"Finished checkParams(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
+    }
+    return r;
+
+//******************************************************************************
+//* Function: void checkParams(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
+//* 
+//* Description: Checks values for a vector of parameter vectors.
+//*
+//* Inputs:
+//*  pI (DevsVectorVectorInfo*) 
+//*     pointer to BoundedNumberVectorInfo object
+//*  p (param_init_bounded_vector_vector&)
+//*     parameter vector
+//* Returns:
+//*  int - 0 = all good, 1 = nan detected
+//* Alters:
+//*  none
+//******************************************************************************
+FUNCTION int checkParams(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
+//    debug=dbgAll;
+    if (debug>=dbgAll) std::cout<<"Starting checkParams(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
+    int np = pI->getSize();
+    int r = 0;
+    if (np){
+        for (int i=1;i<=np;i++) {
+            for (int j=p(i).indexmin();j<=p(i).indexmax();j++) {
+                if (isnan(value(p(i,j)))){
+                    r++;
+                    if (debug) cout<<"NaN detected in checkParams() for "<<p(1).label()<<"["<<i<<cc<<j<<"]"<<endl;
+                }
+            }
+        }
+    }
+    
+    if (debug>=dbgAll) {
+        std::cout<<"Finished checkParams(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
+    }
+    return r;
 
 //----------------------------------------------------------------------------------
 //write header to MCMC eval file
@@ -4825,6 +5059,7 @@ FUNCTION void ReportToR_ModelFits(ostream& os, int debug, ostream& cout)
     if (debug) cout<<"Starting ReportToR_ModelFits(...)"<<endl;
     //recalc objective function components and and write results to os
     os<<"model.fits=list("<<endl;
+        os<<tb<<"objfun="<<objFun<<cc<<endl;
         os<<tb<<"penalties="; calcPenalties(-1,os);      os<<cc<<endl;
         os<<tb<<"priors=";    calcAllPriors(-1,os);      os<<cc<<endl;
         os<<tb<<"components=list("<<endl;
@@ -4916,6 +5151,7 @@ FUNCTION void ReportToR(ostream& os, int debug, ostream& cout)
     updateMPI(debug,cout);
         
     os<<"res=list("<<endl;
+        if (jitter) os<<"jitter="<<iSeed<<cc<<endl;
         //model configuration
         ptrMC->writeToR(os,"mc",0); os<<","<<endl;
         
@@ -5039,6 +5275,7 @@ REPORT_SECTION
             ofstream fs("jitterInfo.csv");
             fs<<"seed"<<cc<<"objfun"<<endl;
             fs<<iSeed<<cc<<objFun<<endl;
+            fs.close();
         }
     }
     
