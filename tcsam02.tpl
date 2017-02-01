@@ -206,6 +206,7 @@
 //              2. Added objFun to ReportToR_ModelFits as "objfun".
 //--2017-01-09: 1. Added checkParams functions.
 //              2. added ctrDebugParams commandline option.
+//--2017-02-01: 1. Increased precision on all output to 12.
 //
 // =============================================================================
 // =============================================================================
@@ -1135,11 +1136,13 @@ PRELIMINARY_CALCS_SECTION
         
     {cout<<"writing data to R"<<endl;
      ofstream echo1; echo1.open("ModelData.R", ios::trunc);
+     echo1.precision(12);
      ReportToR_Data(echo1,0,cout);
     }
     
     {cout<<"writing parameters info to R"<<endl;
      ofstream echo1; echo1.open("ModelParametersInfo.R", ios::trunc);
+     echo1.precision(12);
      ptrMPI->writeToR(echo1);
      echo1.close();
      cout<<"finished writing parameters info to R"<<endl;
@@ -1147,9 +1150,11 @@ PRELIMINARY_CALCS_SECTION
      //write initial parameter values to csv
      cout<<"writing parameters info to csv"<<endl;
      ofstream os1("tcsam02.params.all.init.csv", ios::trunc);
+     os1.precision(12);
      writeParameters(os1,0,0);//all parameters
      os1.close();
      ofstream os2("tcsam02.params.active.init.csv", ios::trunc);
+     os2.precision(12);
      writeParameters(os2,0,1);//only parameters that will be active (i.e., phase>0)
      os2.close();
      cout<<"finished writing parameters info to csv"<<endl;
@@ -1253,6 +1258,7 @@ PRELIMINARY_CALCS_SECTION
         if (doOFL&&debugOFL){
             cout<<"Test OFL calculations"<<endl;
             ofstream echoOFL; echoOFL.open("calcOFL.init.txt", ios::trunc);
+            echoOFL.precision(12);
             echoOFL<<"----Testing calcOFL()"<<endl;
             calcOFL(mxYr+1,debugOFL,echoOFL);//updates oflResults
             oflResults.writeCSVHeader(echoOFL); echoOFL<<endl;
@@ -1269,6 +1275,7 @@ PRELIMINARY_CALCS_SECTION
             {cout<<"re-writing data to R"<<endl;
              rpt::echo<<"re-writing data to R"<<endl;
              ofstream echo1; echo1.open("ModelData.R", ios::trunc);
+             echo1.precision(12);
              ReportToR_Data(echo1,0,cout);
             }
         }
@@ -1283,12 +1290,14 @@ PRELIMINARY_CALCS_SECTION
         {cout<<"writing model results to R"<<endl;
             rpt::echo<<"writing initial model report to R"<<endl;
             ofstream echo1; echo1.open("tcsam02.init.rep", ios::trunc);
+            echo1.precision(12);
             ReportToR(echo1,1,cout);
         }
         
         {
             //write objective function components only
             ofstream os0("tcsam02.ModelFits.init.R", ios::trunc);
+            os0.precision(12);
             ReportToR_ModelFits(os0,0,cout);
             os0.close();
         }
@@ -1297,6 +1306,7 @@ PRELIMINARY_CALCS_SECTION
             rpt::echo<<"writing model sim data to file"<<endl;
             createSimData(1,rpt::echo,0,ptrSimMDS);//deterministic
             ofstream echo1; echo1.open("tcsam02.SimData.init.dat", ios::trunc);
+            echo1.precision(12);
             writeSimData(echo1,0,rpt::echo,ptrSimMDS);
         }
         cout<<"#finished PRELIMINARY_CALCS_SECTION"<<endl;
@@ -1332,6 +1342,7 @@ PROCEDURE_SECTION
         writeParameters(rpt::echo,0,1);
         adstring fn = "tcsam02.Debug."+str(current_phase())+"."+str(ctrProcCalls)+".rep";
         ofstream os; os.open((char*) fn, ios::trunc);
+        os.precision(12);
         ReportToR(os,1,cout);
     }
     
@@ -2834,6 +2845,7 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
         //check all mean molt increments are > 0
         if (isnan(value(sum(sqrt(mnIs))))){
             ofstream os("GrowthReport."+str(current_phase())+"."+str(ctrProcCallsInPhase)+".dat");
+            os.precision(12);
             std::cout<<"##Found negative growth increments!"<<endl;
             std::cout<<"jitter seed = "<<iSeed<<endl;
             std::cout<<"---Phase = "<<current_phase()<<". num PROC calls = "<<ctrProcCalls<<". num PROC calls in phase = "<<ctrProcCallsInPhase<<endl;
@@ -2894,6 +2906,7 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
                     std::cout<<"jitter seed = "<<iSeed<<endl;
                     std::cout<<"---Phase = "<<current_phase()<<". num PROC calls = "<<ctrProcCalls<<". num PROC calls in phase = "<<ctrProcCallsInPhase<<endl;
                     ofstream os("GrowthReportSum1."+str(current_phase())+"."+str(ctrProcCallsInPhase)+".dat");
+                    os.precision(12);
                     os<<"Errors in calculating growth transition matrix: sum NE 1"<<endl;
                     os<<"jitter seed = "<<iSeed<<endl;
                     os<<"---Phase = "<<current_phase()<<". num PROC calls = "<<ctrProcCalls<<". num PROC calls in phase = "<<ctrProcCallsInPhase<<endl;
@@ -2929,6 +2942,7 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
         
         if (isnan(value(sum(prGr_zz)))){
             ofstream os("GrowthReportPrZZ."+str(current_phase())+"."+str(ctrProcCallsInPhase)+".dat");
+            os.precision(12);
             std::cout<<"##Found NaN in prGz_zz in calcGrowth!"<<endl;
             std::cout<<"jitter seed = "<<iSeed<<endl;
             std::cout<<"---Phase = "<<current_phase()<<". num PROC calls = "<<ctrProcCalls<<". num PROC calls in phase = "<<ctrProcCallsInPhase<<endl;
@@ -3836,6 +3850,7 @@ FUNCTION void calcNLLs_GrowthData(int debug, ostream& cout)
                 dvariable nll = sum(nlls_n);
                 if (isnan(value(nll))){
                     ofstream os("GrowthData.NLLs.NanReport.dat");
+                    os.precision(12);
                     os<<"phase = "<<current_phase()<<endl;
                     os<<"sex   = "<<tcsam::getSexType(x)<<endl;
                     os<<"nll   = "<<nll<<endl;
@@ -3885,6 +3900,7 @@ FUNCTION void testNaNs(double v, adstring str)
         cout<<"----NaN detected: "<<str<<"---"<<endl;
         cout<<"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"<<endl;
         ofstream os("NaNReport.rep");
+        os.precision(12);
         os<<"#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"<<endl;
         os<<"#----NaN detected: "<<str<<"---"<<endl;
         os<<"#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"<<endl;
@@ -5178,6 +5194,7 @@ FUNCTION void ReportToR(ostream& os, int debug, ostream& cout)
         if (doOFL){
             cout<<"ReportToR: starting OFL calculations"<<endl;
             ofstream echoOFL; echoOFL.open("calcOFL.final.txt", ios::trunc);
+            echoOFL.precision(12);
             calcOFL(mxYr+1,1,echoOFL);//updates oflResults
             oflResults.writeCSVHeader(echoOFL); echoOFL<<endl;
             oflResults.writeToCSV(echoOFL);     echoOFL<<endl;
@@ -5256,23 +5273,28 @@ REPORT_SECTION
     {
         //write objective function components only
         ofstream os0("tcsam02.ModelFits."+itoa(current_phase(),10)+".R", ios::trunc);
+        os0.precision(12);
         ReportToR_ModelFits(os0,0,cout);
         os0.close();
     }
     if (last_phase()) {
         //write report as R file
+        report.precision(12);
         ReportToR(report,1,rpt::echo);
         //write parameter values to csv
         ofstream os1("tcsam02.params.all.final.csv", ios::trunc);
+        os1.precision(12);
         writeParameters(os1,0,0);
         os1.close();
         //write parameter values to csv
         ofstream os2("tcsam02.params.active.final.csv", ios::trunc);
+        os2.precision(12);
         writeParameters(os2,0,1);
         os2.close();
 
         if (option_match(ad_comm::argc,ad_comm::argv,"-jitter")>-1) {
             ofstream fs("jitterInfo.csv");
+            fs.precision(20);
             fs<<"seed"<<cc<<"objfun"<<endl;
             fs<<iSeed<<cc<<objFun<<endl;
             fs.close();
@@ -5291,11 +5313,13 @@ BETWEEN_PHASES_SECTION
 FINAL_SECTION
     {cout<<"writing model sim data to file"<<endl;
         ofstream echo1; echo1.open("ModelSimData.dat", ios::trunc);
+        echo1.precision(12);
         writeSimData(echo1,0,cout,ptrSimMDS);
     }
 
     if (option_match(ad_comm::argc,ad_comm::argv,"-mceval")>-1) {
         mcmc.open((char*)(fnMCMC),ofstream::out|ofstream::app);
+        precision(12);
         mcmc<<"NULL)"<<endl;
         mcmc.close();
     }
