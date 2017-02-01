@@ -5319,7 +5319,7 @@ FINAL_SECTION
 
     if (option_match(ad_comm::argc,ad_comm::argv,"-mceval")>-1) {
         mcmc.open((char*)(fnMCMC),ofstream::out|ofstream::app);
-        precision(12);
+        mcmc.precision(12);
         mcmc<<"NULL)"<<endl;
         mcmc.close();
     }
