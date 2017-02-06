@@ -207,6 +207,8 @@
 //--2017-01-09: 1. Added checkParams functions.
 //              2. added ctrDebugParams commandline option.
 //--2017-02-01: 1. Increased precision on all output to 12.
+//--2017-02-06: 1. changed mfexp to exp in calcGrowth for prsp to match TCSAM2013.
+//              2. Increment tcsam::VERSION to "2017.02.06".
 //
 // =============================================================================
 // =============================================================================
@@ -2869,7 +2871,7 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
                 dvar_vector prs  = wts::log_gamma_density(dZs,alIs(z),invBeta);
                 prs = mfexp(prs);//gamma pdf
                 dvar_vector prs1 = elem_prod(pow(dZs,alIs(z)-1.0),mfexp(-dZs/grBeta)); //pr(dZ|z)
-                dvar_vector prsp = elem_prod(pow(dpZs,alpIs(z)-1.0),mfexp(-dpZs/grBeta)); //pr(dZ|z)
+                dvar_vector prsp = elem_prod(pow(dpZs,alpIs(z)-1.0),exp(-dpZs/grBeta)); //pr(dZ|z): use exp like TCSAM2013
                 if (debug) {
                     cout<<"premolt z = "<<zBs(z)<<endl;
                     cout<<"prs  = "<<prs/sum(prs)<<endl;
