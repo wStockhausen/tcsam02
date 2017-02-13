@@ -209,9 +209,11 @@
 //--2017-02-01: 1. Increased precision on all output to 12.
 //--2017-02-06: 1. changed mfexp to exp in calcGrowth for prsp to match TCSAM2013.
 //              2. Increment tcsam::VERSION to "2017.02.06".
-//--2017-02-13: 1. revised calcGrowth for TCSAM2013 growth to match more closely.
+//--2017-02-13: 1. Revised calcGrowth for TCSAM2013 growth to match more closely.
 //                  Apparently fixed nan issue when estimating TCSAM2013-type growth.
 //              2. Incremented tcsam::VERSION to "2017.02.13".
+//              3. Changed penalty weights for prM2M so that they are vectors,
+//                  with weights assigned for each parameter combination.
 //
 // =============================================================================
 // =============================================================================
@@ -3501,48 +3503,48 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     if (debug<0) cout<<"list("<<endl;//start list of penalties by category
 
     if (debug<0) cout<<tb<<"maturity=list("<<endl;//start of maturity penalties list
+    //smoothness penalties
+    dvector penWgtSmthLgtPrMat = ptrMOs->wgtPenSmthPrM2M;
     if (ptrMOs->optPenSmthPrM2M==0){
         //smoothness penalties on maturity PARAMETERS (NOT maturity ogives)
-        double penWgtSmthLgtPrMat = ptrMOs->wgtPenSmthPrM2M;
         fPenSmoothLgtPrMat.initialize();
         if (debug<0) cout<<tb<<tb<<"smoothness=list(";//start of smoothness penalties list
         for (int i=1;i<npLgtPrMat;i++){
             dvar_vector v = 1.0*pLgtPrM2M(i);
             fPenSmoothLgtPrMat(i) = 0.5*norm2(calc2ndDiffs(v));
-            objFun += penWgtSmthLgtPrMat*fPenSmoothLgtPrMat(i);
-            if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrMat<<cc<<"pen="<<fPenSmoothLgtPrMat(i)<<cc<<"objfun="<<penWgtSmthLgtPrMat*fPenSmoothLgtPrMat(i)<<"),"<<endl;
+            objFun += penWgtSmthLgtPrMat(i)*fPenSmoothLgtPrMat(i);
+            if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrMat(i)<<cc<<"pen="<<fPenSmoothLgtPrMat(i)<<cc<<"objfun="<<penWgtSmthLgtPrMat(i)*fPenSmoothLgtPrMat(i)<<"),"<<endl;
         }
         {
             int i = npLgtPrMat;
             dvar_vector v = 1.0*pLgtPrM2M(i);
             fPenSmoothLgtPrMat(i) = 0.5*norm2(calc2ndDiffs(v));
-            objFun += penWgtSmthLgtPrMat*fPenSmoothLgtPrMat(i);
-            if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrMat<<cc<<"pen="<<fPenSmoothLgtPrMat(i)<<cc<<"objfun="<<penWgtSmthLgtPrMat*fPenSmoothLgtPrMat(i)<<")"<<endl;
+            objFun += penWgtSmthLgtPrMat(i)*fPenSmoothLgtPrMat(i);
+            if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrMat(i)<<cc<<"pen="<<fPenSmoothLgtPrMat(i)<<cc<<"objfun="<<penWgtSmthLgtPrMat(i)*fPenSmoothLgtPrMat(i)<<")"<<endl;
         }
         if (debug<0) cout<<tb<<tb<<")"<<cc<<endl;//end of smoothness penalties list
     } else if (ptrMOs->optPenSmthPrM2M==1){
         //smoothness penalties on maturity OGIVES (NOT maturity parameters)
-        double penWgtSmthLgtPrMat = ptrMOs->wgtPenSmthPrM2M;
         fPenSmoothLgtPrMat.initialize();
         if (debug<0) cout<<tb<<tb<<"smoothness=list(";//start of smoothness penalties list
         for (int i=1;i<ptrMPI->ptrM2M->nPCs;i++){
             dvar_vector v = 1.0*prM2M_cz(i);
             fPenSmoothLgtPrMat(i) = 0.5*norm2(calc2ndDiffs(v));
-            objFun += penWgtSmthLgtPrMat*fPenSmoothLgtPrMat(i);
-            if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrMat<<cc<<"pen="<<fPenSmoothLgtPrMat(i)<<cc<<"objfun="<<penWgtSmthLgtPrMat*fPenSmoothLgtPrMat(i)<<"),"<<endl;
+            objFun += penWgtSmthLgtPrMat(i)*fPenSmoothLgtPrMat(i);
+            if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrMat(i)<<cc<<"pen="<<fPenSmoothLgtPrMat(i)<<cc<<"objfun="<<penWgtSmthLgtPrMat(i)*fPenSmoothLgtPrMat(i)<<"),"<<endl;
         }
         {
             int i = ptrMPI->ptrM2M->nPCs;
             dvar_vector v = 1.0*prM2M_cz(i);
             fPenSmoothLgtPrMat(i) = 0.5*norm2(calc2ndDiffs(v));
-            objFun += penWgtSmthLgtPrMat*fPenSmoothLgtPrMat(i);
-            if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrMat<<cc<<"pen="<<fPenSmoothLgtPrMat(i)<<cc<<"objfun="<<penWgtSmthLgtPrMat*fPenSmoothLgtPrMat(i)<<")"<<endl;
+            objFun += penWgtSmthLgtPrMat(i)*fPenSmoothLgtPrMat(i);
+            if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrMat(i)<<cc<<"pen="<<fPenSmoothLgtPrMat(i)<<cc<<"objfun="<<penWgtSmthLgtPrMat(i)*fPenSmoothLgtPrMat(i)<<")"<<endl;
         }
         if (debug<0) cout<<tb<<tb<<")"<<cc<<endl;//end of smoothness penalties list
     }
 
     //non-decreasing penalties on maturity parameters/ogives
-    double penWgtNonDecLgtPrMat = ptrMOs->wgtPenNonDecPrM2M;
+    dvector penWgtNonDecLgtPrMat = ptrMOs->wgtPenNonDecPrM2M;
     fPenNonDecLgtPrMat.initialize();
     if (debug<0) cout<<tb<<tb<<"nondecreasing=list(";//start of non-decreasing penalties list
     int np;
@@ -3567,8 +3569,8 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
             v = calc1stDiffs(prM2M_cz(i));
             fPenNonDecLgtPrMat(i) = sum(mfexp(-10.0*v));
         }
-        objFun += penWgtNonDecLgtPrMat*fPenNonDecLgtPrMat(i);
-        if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtNonDecLgtPrMat<<cc<<"pen="<<fPenNonDecLgtPrMat(i)<<cc<<"objfun="<<penWgtNonDecLgtPrMat*fPenNonDecLgtPrMat(i)<<"),";
+        objFun += penWgtNonDecLgtPrMat(i)*fPenNonDecLgtPrMat(i);
+        if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtNonDecLgtPrMat(i)<<cc<<"pen="<<fPenNonDecLgtPrMat(i)<<cc<<"objfun="<<penWgtNonDecLgtPrMat(i)*fPenNonDecLgtPrMat(i)<<"),";
     }
     {
         int i = np;
@@ -3590,8 +3592,8 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
             v = calc1stDiffs(prM2M_cz(i));
             fPenNonDecLgtPrMat(i) = sum(mfexp(-10.0*v));
         }
-        objFun += penWgtNonDecLgtPrMat*fPenNonDecLgtPrMat(i);
-        if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtNonDecLgtPrMat<<cc<<"pen="<<fPenNonDecLgtPrMat(i)<<cc<<"objfun="<<penWgtNonDecLgtPrMat*fPenNonDecLgtPrMat(i)<<")";
+        objFun += penWgtNonDecLgtPrMat(i)*fPenNonDecLgtPrMat(i);
+        if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtNonDecLgtPrMat(i)<<cc<<"pen="<<fPenNonDecLgtPrMat(i)<<cc<<"objfun="<<penWgtNonDecLgtPrMat(i)*fPenNonDecLgtPrMat(i)<<")";
     }
     if (debug<0) cout<<tb<<tb<<")"<<endl;//end of non-decreasing penalties list    
     if (debug<0) cout<<tb<<"),";//end of maturity penalties list

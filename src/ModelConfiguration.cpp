@@ -11,7 +11,7 @@ using namespace std;
 //      ModelOptions
 //**********************************************************************
 const adstring ModelConfiguration::VERSION = "2016.11.15";
-const adstring ModelOptions::VERSION       = "2017.01.03";
+const adstring ModelOptions::VERSION       = "2017.02.13";
 
 int ModelConfiguration::debug=0;
 int ModelOptions::debug      =0;
@@ -199,7 +199,7 @@ void ModelConfiguration::setMaxModelYear(int yr){
 void ModelConfiguration::write(ostream & os) {
     if (debug) cout<<"#start ModelConfiguration::write(ostream)"<<endl;
     os<<"#######################################################"<<endl;
-    os<<"#TCSAM2015 Model Configuration File                   #"<<endl;
+    os<<"#TCSAM02 Model Configuration File                     #"<<endl;
     os<<"#######################################################"<<endl;
     os<<ModelConfiguration::VERSION<<tb<<"#ModelConfiguration version"<<endl;
     os<<cfgName<<tb<<"#Model configuration name"<<endl;
@@ -338,6 +338,8 @@ void ModelOptions::read(cifstream & is) {
     cout<<optGrowth<<tb<<"#"<<optsGrowth(optGrowth)<<endl;
     is>>optInitNatZ;
     cout<<optInitNatZ<<tb<<"#"<<optsInitNatZ(optInitNatZ)<<endl;
+    
+    //penalties on F-devs
     is>>cvFDevsPen;
     cout<<cvFDevsPen<<tb<<"#initial cv for F-devs penalties"<<endl;
     is>>phsDecrFDevsPen;
@@ -349,15 +351,22 @@ void ModelOptions::read(cifstream & is) {
     is>>phsLastDevsPen;
     cout<<phsLastDevsPen<<tb<<"#min phase to apply penalty"<<endl;
     
-    is>>wgtPenSmthPrM2M;
-    cout<<wgtPenSmthPrM2M<<tb<<"#weight for prM2M ogive smoothness penalties"<<endl;
-    is>>optPenSmthPrM2M;
-    cout<<optPenSmthPrM2M<<tb<<"#option for calculating prM2M smoothness penalties"<<endl;
+    //penalties on terminal molt parameters/ogives
+    int nw;
+    is>>nw;
+    cout<<nw<<tb<<"#number of defined prM2M parameter combinations"<<endl;
+    wgtPenSmthPrM2M.allocate(1,nw);
+    wgtPenNonDecPrM2M.allocate(1,nw);
     
-    is>>wgtPenNonDecPrM2M;
-    cout<<wgtPenNonDecPrM2M<<tb<<"#weight for maturity ogive non-decreasing penalties"<<endl;
+    is>>optPenSmthPrM2M;
+    cout<<optPenSmthPrM2M<<tb<<"#option for calculating smoothness penalties on prM2M"<<endl;
+    is>>wgtPenSmthPrM2M;
+    cout<<wgtPenSmthPrM2M<<tb<<"#weights for smoothness penalties on prM2M"<<endl;
+    
     is>>optPenNonDecPrM2M;
-    cout<<optPenNonDecPrM2M<<tb<<"#option for calculating maturity ogive non-decreasing penalties"<<endl;
+    cout<<optPenNonDecPrM2M<<tb<<"#option for calculating non-decreasing penalties on prM2M"<<endl;
+    is>>wgtPenNonDecPrM2M;
+    cout<<wgtPenNonDecPrM2M<<tb<<"#weights for non-decreasing penalties on prM2M"<<endl;
     if (debug){
         cout<<"enter 1 to continue : ";
         cin>>debug;
@@ -414,19 +423,20 @@ void ModelOptions::write(ostream & os) {
     
     //Penalties on maturity ogives
     os<<"#----Penalty options for prM2M"<<endl;
-    os<<wgtPenSmthPrM2M<<tb<<"#weight for prM2M smoothness penalties"<<endl;
+    os<<wgtPenSmthPrM2M.size()<<tb<<"#number of prM2M parameter combinations"<<endl;
     os<<"#----Options for penalties on prM2M smoothness"<<endl;
     for (int o=optsPenSmthPrM2M.indexmin();o<=optsPenSmthPrM2M.indexmax();o++) {
         os<<"#"<<o<<" - "<<optsPenSmthPrM2M(o)<<endl;
     }
     os<<optPenSmthPrM2M<<tb<<"#selected option"<<endl;
+    os<<wgtPenSmthPrM2M<<tb<<"#weights for prM2M smoothness penalties"<<endl;
     
-    os<<wgtPenNonDecPrM2M<<tb<<"#weight for prM2M non-decreasing penalties"<<endl;
     os<<"#----Options for penalties on non-decreasing prM2M"<<endl;
     for (int o=optsPenNonDecPrM2M.indexmin();o<=optsPenNonDecPrM2M.indexmax();o++) {
         os<<"#"<<o<<" - "<<optsPenNonDecPrM2M(o)<<endl;
     }
     os<<optPenNonDecPrM2M<<tb<<"#selected option"<<endl;
+    os<<wgtPenNonDecPrM2M<<tb<<"#weights for prM2M non-decreasing penalties"<<endl;
     
     if (debug) cout<<"#end ModelOptions::write(ostream)"<<endl;
 }

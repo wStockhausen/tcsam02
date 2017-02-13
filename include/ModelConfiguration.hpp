@@ -205,13 +205,13 @@
         /* integer indicating option for penalty on M2M parameters/ogives smoothness */
         int optPenSmthPrM2M;
         /* weight for penalties on M2M parameters/ogives smoothness */
-        double wgtPenSmthPrM2M;      
+        dvector wgtPenSmthPrM2M;      
         /* labels for options for penalties on non-decreasing M2M parameters/ogives */
         adstring_array optsPenNonDecPrM2M;
         /* integer indicating option for penalty on non-decreasing M2M parameters/ogives */
         int optPenNonDecPrM2M;
         /* weight for penalties on maturity non-decreasing M2M parameters/ogives */
-        double wgtPenNonDecPrM2M;    
+        dvector wgtPenNonDecPrM2M;    
 
     public:
         /**
