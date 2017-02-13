@@ -209,6 +209,9 @@
 //--2017-02-01: 1. Increased precision on all output to 12.
 //--2017-02-06: 1. changed mfexp to exp in calcGrowth for prsp to match TCSAM2013.
 //              2. Increment tcsam::VERSION to "2017.02.06".
+//--2017-02-13: 1. revised calcGrowth for TCSAM2013 growth to match more closely.
+//                  Apparently fixed nan issue when estimating TCSAM2013-type growth.
+//              2. Incremented tcsam::VERSION to "2017.02.13".
 //
 // =============================================================================
 // =============================================================================
@@ -2865,27 +2868,20 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
         }
         if (optGrowth==0) {
             //old style (TCSAM2013)
-            for (int z=1;z<nZBs;z++){//pre-molt growth bin
-                dvector dZs  =  zBs(z,nZBs) - zBs(z);      //realized growth increments (note non-neg. growth only)
+            for (int z=1;z<=nZBs;z++){//pre-molt growth bin
                 dvector dpZs =  zBs(z,nZBs) - (zBs(z)-2.5);//realized growth increments (note non-neg. growth only)
-                dvar_vector prs  = wts::log_gamma_density(dZs,alIs(z),invBeta);
-                prs = mfexp(prs);//gamma pdf
-                dvar_vector prs1 = elem_prod(pow(dZs,alIs(z)-1.0),mfexp(-dZs/grBeta)); //pr(dZ|z)
-                dvar_vector prsp = elem_prod(pow(dpZs,alpIs(z)-1.0),exp(-dpZs/grBeta)); //pr(dZ|z): use exp like TCSAM2013
-                if (debug) {
-                    cout<<"premolt z = "<<zBs(z)<<endl;
-                    cout<<"prs  = "<<prs/sum(prs)<<endl;
-                    cout<<"prs1 = "<<prs1/sum(prs1)<<endl;
-                    cout<<"prsp = "<<prsp/sum(prsp)<<endl;
-                    cout<<"Log(prs/prs1)  = "<<log(prs/sum(prs)+1.0e-10)-log(prs1/sum(prs1)+1.0e-10)<<endl;
-                    cout<<"Log(prs1/prsp) = "<<log(prs1/sum(prs1)+1.0e-10)-log(prsp/sum(prsp)+1.0e-10)<<endl;
-                }
-                prs = prsp;//NOTE: should be IDENTICAL to TCSAM2013
-                if (prs.size()>11) prs(z+11,nZBs) = 0.0;//limit growth range TODO: this assumes bin size is 5 mm
-                if (debug) cout<<prs<<endl;
-                prs = prs/sum(prs);//normalize to sum to 1
-                if (debug) cout<<prs<<endl;
-                prGr_zz(z)(z,nZBs) = prs;
+                dvar_vector prs  = elem_prod(pow(dpZs,alpIs(z)-1.0),exp(-dpZs/grBeta)); //pr(dZ|z): use exp like TCSAM2013
+//                if (debug) {
+//                    cout<<"premolt z = "<<zBs(z)<<endl;
+//                    cout<<"prs  = "<<prs/sum(prs)<<endl;
+//                }
+//                if (prs.size()>11) prs(z+11,nZBs) = 0.0;//limit growth range TODO: this assumes bin size is 5 mm
+//                if (debug) cout<<prs<<endl;
+//                prs = prs/sum(prs);//normalize to sum to 1
+//                if (debug) cout<<prs<<endl;
+                int mxIZ = min(nZBs,z+10);
+                prGr_zz(z)(z,mxIZ) = prs(z,mxIZ);
+                prGr_zz(z) /= sum(prGr_zz(z));
             }//zs
             prGr_zz(nZBs,nZBs) = 1.0; //no growth from max size
         } else if (optGrowth==1){
