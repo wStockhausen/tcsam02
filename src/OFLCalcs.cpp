@@ -1194,30 +1194,77 @@ double OFL_Calculator::calcPrjMMB(double Fofl, d3_array& n_msz, ostream& cout){
  * @return OFLResults object.
  */
 OFLResults OFL_Calculator::calcOFLResults(dvector R, d4_array& n_xmsz, ostream& cout){
-    if (debug) cout<<"starting double OFL_Calculator::calcOFLResults(R,n_xmsz,cout)"<<endl;
+    if (debug) cout<<"starting OFLResults OFL_Calculator::calcOFLResults(R,n_xmsz,cout)"<<endl;
     int nFsh = pTCM->pEC->pPP->pCI->nFsh;
     OFLResults res;
     
     res.avgRec_x = R;
     res.curB     = pTCM->pEC->pPP->pPI->calcMatureBiomass(n_xmsz(MALE),cout);
+    if (debug) cout<<"calcOFLResults: calculated curB"<<endl;
+    
+    res.eqNatZF0_xmsz.allocate(1,tcsam::nSXs,
+                               1,tcsam::nMSs,
+                               1,tcsam::nSCs,
+                               1,pTCM->pEC->pPP->nZBs);
+    if (debug) {
+        cout<<"calcOFLResults: allocated eq NatZ for F=0"<<endl;
+        Equilibrium_Calculator::debug=1;
+    }
+    res.eqNatZF0_xmsz(MALE) = pTCM->pEC->calcEqNatZF0(R(MALE),std::cout);
+    if (debug) cout<<"calcOFLResults: calculated eq NatZ(MALE) for F=0"<<endl;
+    if (tcsam::nSXs>1) {
+        res.eqNatZF0_xmsz(FEMALE) = pTCF->pEC->calcEqNatZF0(R(FEMALE),std::cout);
+        if (debug) cout<<"calcOFLResults: calculated eq NatZ(FEMALE) for F=0"<<endl;
+    }
+    if (debug) Equilibrium_Calculator::debug=0;
             
     res.Fmsy = pTCM->calcFmsy(R(MALE),cout);//also calculates B0 and Bmsy
     res.B0   = pTCM->B0;
     res.Bmsy = pTCM->Bmsy;
     res.MSY  = calcMSY(R,res.Fmsy,cout);
+    if (debug) cout<<"calcOFLResults: calculated MSY"<<endl;
     
     res.Fofl = calcFofl(res.Bmsy,res.Fmsy,n_xmsz(MALE),cout);
     res.prjB = prjMMB;
     res.OFL  = calcOFL(res.Fofl,n_xmsz,cout);
+    if (debug) cout<<"calcOFLResults: calculated OFL"<<endl;
     
     res.ofl_fx.allocate(0,nFsh,1,tcsam::nSXs);
     res.ofl_fx = ofl_fx;
-    if (debug) cout<<"finished double OFL_Calculator::calcOFLResults(R,n_xmsz,cout)"<<endl;
+    if (debug) cout<<"finished OFLResults OFL_Calculator::calcOFLResults(R,n_xmsz,cout)"<<endl;
     return res;
 }
 ////////////////////////////////////////////////////////////////////////////////
 //OFLResults
 ////////////////////////////////////////////////////////////////////////////////
+int OFLResults::debug = 0;
+/**
+ * Assignment operator for OFLResults class.
+ * 
+ * @param OFLResults object to copy.
+ * @return reference to the copied object
+ */
+OFLResults& OFLResults::operator=(const OFLResults& o){
+    if (debug) std::cout<<"starting OFLResults::operator=(const OFLResults&)"<<endl;
+    avgRec_x = o.avgRec_x;//average recruitment, by sex
+    B0       = o.B0;      //equilibrium MMB for unfished population
+    Fmsy     = o.Fmsy;    //equilibrium F on directed fishery for males resulting in MSY
+    Bmsy     = o.Bmsy;    //equilibrium MMB when fished at Fmsy 
+    MSY      = o.MSY;     //equilibrium yield (1000's t) when fished at Fmsy
+    Fofl     = o.Fofl;    //F on directed fishery for males resulting in the OFL
+    OFL      = o.OFL;     //total OFL (1000's t)
+    ofl_fx   = o.ofl_fx;  //fishery/sex-specific mortality components to OFL (f=0 is retained catch, f>0 is total catch mortality)
+    prjB     = o.prjB;    //projected MMB for projection year when current population is fished at Fofl.
+    curB     = o.curB;    //"current" MMB at beginning of projection year
+    eqNatZF0_xmsz.deallocate(); //unfished equilibrium size distribution
+    eqNatZF0_xmsz.allocate(o.eqNatZF0_xmsz);
+    if (debug) std::cout<<"got here 2"<<endl;
+    eqNatZF0_xmsz = o.eqNatZF0_xmsz;
+//    for (int x=eqNatZF0_xmsz.indexmin();x<=eqNatZF0_xmsz.indexmax();x++)
+//        eqNatZF0_xmsz(x) = 1.0*o.eqNatZF0_xmsz(x);
+    if (debug) std::cout<<"finished OFLResults::operator=(const OFLResults&)"<<endl;
+    return *this;
+}
 /**
  * Write csv header for OFL results to output stream.
  *  
@@ -1241,15 +1288,22 @@ void OFLResults::writeToCSV(ostream& os){
     os<<prjB<<cc<<prjB/Bmsy<<cc<<curB<<cc<<prjB/curB;
 }
 /**
- * Write values as R list to file
+ * Write values as R list to output stream
  * 
  * @param os - output stream to write to
+ * @param ptrMC - pointer to ModelConfiguration object
+ * @param name - name for R list
+ * @param debug - flag to print debugging info
  */
-void OFLResults::writeToR(ostream& os, adstring name, int debug){
+void OFLResults::writeToR(ostream& os, ModelConfiguration* ptrMC, adstring name, int debug){
+    adstring xDms = ptrMC->dimSXsToR;//sex
+    adstring mDms = ptrMC->dimMSsToR;//maturity
+    adstring sDms = ptrMC->dimSCsToR;//shell condition
+    adstring zDms = ptrMC->dimZBsToR;//size bin midpoints
     os<<name<<"=list(OFL="<<OFL<<cc<<"Fofl="<<Fofl<<cc<<"prjB="<<prjB<<cc<<"curB="<<curB;
     os<<cc<<"Fmsy="<<Fmsy<<cc<<"Bmsy="<<Bmsy<<cc<<"MSY="<<MSY;
     os<<cc<<"B100="<<B0<<cc<<"avgRecM="<<avgRec_x(MALE);
     if (tcsam::nSXs>1) os<<cc<<"avgRecF="<<avgRec_x(FEMALE);
-    //os<<cc<<"OFL_fx="; wts::writeToR(os,OFL_fx); 
+    os<<cc<<"eqNatZF0_xmsz="; wts::writeToR(os,eqNatZF0_xmsz,xDms,mDms,sDms,zDms); 
     os<<")";
 }

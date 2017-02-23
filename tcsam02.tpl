@@ -214,6 +214,12 @@
 //              2. Incremented tcsam::VERSION to "2017.02.13".
 //              3. Changed penalty weights for prM2M so that they are vectors,
 //                  with weights assigned for each parameter combination.
+//--2017-02-20: 1. Adjusted setInitVals for jittered devs vectors to ensure all values
+//                  were within bounds.
+//              2. Set jittering fraction for devs to 0.1*jitFrac
+//              3. Added maxGrad to ReportToR() and ReportToR_ModelFits()
+//--2017-02-22: 1. Added equilibrium unfished size distribution to OFL output.
+//              2. Incremented model version to "2012.02.22".
 //
 // =============================================================================
 // =============================================================================
@@ -1298,14 +1304,14 @@ PRELIMINARY_CALCS_SECTION
             rpt::echo<<"writing initial model report to R"<<endl;
             ofstream echo1; echo1.open("tcsam02.init.rep", ios::trunc);
             echo1.precision(12);
-            ReportToR(echo1,1,cout);
+            ReportToR(echo1,-1.0,1,cout);
         }
         
         {
             //write objective function components only
             ofstream os0("tcsam02.ModelFits.init.R", ios::trunc);
             os0.precision(12);
-            ReportToR_ModelFits(os0,0,cout);
+            ReportToR_ModelFits(os0,-1.0,0,cout);
             os0.close();
         }
         
@@ -1350,7 +1356,7 @@ PROCEDURE_SECTION
         adstring fn = "tcsam02.Debug."+str(current_phase())+"."+str(ctrProcCalls)+".rep";
         ofstream os; os.open((char*) fn, ios::trunc);
         os.precision(12);
-        ReportToR(os,1,cout);
+        ReportToR(os,-1.0,1,cout);
     }
     
     if (checkParams(0,std::cout)){
@@ -1724,7 +1730,7 @@ FUNCTION void writeMCMCtoR(ofstream& mcmc)
         if (doOFL){
             mcmc<<cc<<endl;
             calcOFL(mxYr+1,0,cout);//updates oflresults
-            oflResults.writeToR(mcmc,"oflResults",0);//mcm<<cc<<endl;
+            oflResults.writeToR(mcmc,ptrMC,"oflResults",0);//mcm<<cc<<endl;
         }
         
     mcmc<<")"<<cc<<endl;
@@ -1970,15 +1976,26 @@ FUNCTION void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_ve
             dvector pns = value(p(i));
             dvector vls = (*pI)[i]->getInitVals();//initial values from parameter info
             if (debug>=dbgAll) std::cout<<"pc "<<i<<" :"<<tb<<p(i).indexmin()<<tb<<p(i).indexmax()<<tb<<vls.indexmin()<<tb<<vls.indexmax()<<endl;
-            for (int j=p(i).indexmin();j<=p(i).indexmax();j++) p(i,j)=vls(j);
+            //for (int j=p(i).indexmin();j<=p(i).indexmax();j++) p(i,j)=vls(j);
+            p(i) = vls(p(i).indexmin(),p(i).indexmax());
             DevsVectorInfo* ptrI = (*pI)[i];
             if ((p(i).get_phase_start()>0)&&(ptrMC->jitter)&&(ptrI->jitter)){
                 rpt::echo<<tb<<"jittering "<<p(i).label()<<endl;
-                dvector rvs = wts::jitterParameter(p(i), ptrMC->jitFrac, rng);//get jittered values
-                for (int j=p(i).indexmin();j<=p(i).indexmax();j++) p(i,j)=rvs(j);
                 rpt::echo<<tb<<"pin values       = "<<pns<<endl;
                 rpt::echo<<tb<<"info values      = "<<vls<<endl;
-                rpt::echo<<tb<<"resampled values = "<<rvs<<endl;
+                dvector rvs = wts::jitterParameter(p(i), 0.1*ptrMC->jitFrac, rng);//get jittered values
+                //scale all devs values such that final dev is within bounds
+                double sm = -sum(rvs);//nominally, this would be the final dev
+                rpt::echo<<tb<<"rvs              = "<<rvs<<tb<<sm<<endl;
+                if (sm<=p(i).get_minb()){
+                    rvs *= 0.99*fabs(p(i).get_minb())/fabs(sm);
+                } else
+                if (p(i).get_maxb()<=sm){
+                    rvs *= 0.99*p(i).get_maxb()/sm;
+                }
+                //for (int j=p(i).indexmin();j<=p(i).indexmax();j++) p(i,j)=rvs(j);
+                p(i) = rvs(p(i).indexmin(),p(i).indexmax());
+                rpt::echo<<tb<<"adjusted values  = "<<rvs<<endl;
                 rpt::echo<<tb<<"final values     = "<<p(i)<<endl;
             } else
             if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
@@ -2266,20 +2283,17 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
 //                OFL_Calculator::debug=1;
 //                Tier3_Calculator::debug=1;
 //                Equilibrium_Calculator::debug=0;
+                cout<<"Calculating oflResults"<<endl;
             }
             oflResults = pOC->calcOFLResults(avgRec_x,n_xmsz,cout);
             if (debug) {
                 cout<<"calculated oflResults."<<endl;
                 oflResults.writeCSVHeader(cout); cout<<endl;
                 oflResults.writeToCSV(cout); cout<<endl;
+                oflResults.writeToR(cout,ptrMC,"oflResults",0);
 //                OFL_Calculator::debug=0;
 //                Tier3_Calculator::debug=0;
 //                Equilibrium_Calculator::debug=0;
-            }
-            
-            if (debug){
-                oflResults.writeCSVHeader(cout); cout<<endl;
-                oflResults.writeToCSV(cout); cout<<endl;
             }
         }//Tier 3 calculation
     
@@ -3803,7 +3817,7 @@ FUNCTION void calcObjFun(int debug, ostream& cout)
     if ((debug>=dbgObjFun)||(debug<0)){
         cout<<"proc call          = "<<ctrProcCalls<<endl;
         cout<<"proc call in phase = "<<ctrProcCallsInPhase<<endl;
-        cout<<"total objFun       = "<<objFun<<endl;
+        cout<<"total objFun       = "<<value(objFun)<<endl;
         cout<<"Finished calcObjFun"<<endl<<endl;
     }
     
@@ -3909,7 +3923,7 @@ FUNCTION void testNaNs(double v, adstring str)
         ReportToR_Params(os,0,cout);         os<<","<<endl;
         ReportToR_ModelProcesses(os,0,cout); os<<","<<endl;
         ReportToR_ModelResults(os,0,cout);   os<<","<<endl;
-        ReportToR_ModelFits(os,-1,cout);     os<<endl;
+        ReportToR_ModelFits(os,-1.0,-1,cout);     os<<endl;
         os<<")"<<endl;
         os.close();
         exit(-1);
@@ -5071,11 +5085,12 @@ FUNCTION void ReportToR_ModelResults(ostream& os, int debug, ostream& cout)
     
 //-------------------------------------------------------------------------------------
 //Write quantities related to model fits to file as R list
-FUNCTION void ReportToR_ModelFits(ostream& os, int debug, ostream& cout)
+FUNCTION void ReportToR_ModelFits(ostream& os, double maxGrad, int debug, ostream& cout)
     if (debug) cout<<"Starting ReportToR_ModelFits(...)"<<endl;
-    //recalc objective function components and and write results to os
     os<<"model.fits=list("<<endl;
-        os<<tb<<"objfun="<<objFun<<cc<<endl;
+        os<<tb<<"objfun="<<value(objFun)<<cc<<"maxGrad="<<maxGrad<<cc<<endl;
+        //recalc objective function components and and write results to os
+        objFun.initialize();
         os<<tb<<"penalties="; calcPenalties(-1,os);      os<<cc<<endl;
         os<<tb<<"priors=";    calcAllPriors(-1,os);      os<<cc<<endl;
         os<<tb<<"components=list("<<endl;
@@ -5161,13 +5176,14 @@ FUNCTION void updateMPI(int debug, ostream& cout)
 
 //-------------------------------------------------------------------------------------
 //Write results to file as R list
-FUNCTION void ReportToR(ostream& os, int debug, ostream& cout)
+FUNCTION void ReportToR(ostream& os, double maxGrad, int debug, ostream& cout)
     if (debug) cout<<"Starting ReportToR(...)"<<endl;
 
     updateMPI(debug,cout);
         
     os<<"res=list("<<endl;
         if (jitter) os<<"jitter="<<iSeed<<cc<<endl;
+        os<<"objFun="<<value(objFun)<<cc<<"maxGrad="<<maxGrad<<cc<<endl;
         //model configuration
         ptrMC->writeToR(os,"mc",0); os<<","<<endl;
         
@@ -5184,7 +5200,7 @@ FUNCTION void ReportToR(ostream& os, int debug, ostream& cout)
         ReportToR_ModelResults(os,debug,cout); os<<","<<endl;
 
         //model fit quantities
-        ReportToR_ModelFits(os,debug,cout); os<<","<<endl;
+        ReportToR_ModelFits(os,maxGrad,debug,cout); os<<","<<endl;
         
         //simulated model data
         createSimData(debug, cout, 0, ptrSimMDS);//deterministic
@@ -5200,7 +5216,7 @@ FUNCTION void ReportToR(ostream& os, int debug, ostream& cout)
             oflResults.writeToCSV(echoOFL);     echoOFL<<endl;
             echoOFL.close();
             os<<","<<endl;
-            oflResults.writeToR(os,"oflResults",0);
+            oflResults.writeToR(os,ptrMC,"oflResults",0);
             cout<<"ReportToR: finished OFL calculations"<<endl;
         }
 
@@ -5268,19 +5284,23 @@ FUNCTION void writeParameters(ostream& os,int toR, int willBeActive)
 // =============================================================================
 REPORT_SECTION
         
+    //max gradient
+    double maxGrad = max(fabs(gradients));
+
     //write active parameters to rpt::echo
     rpt::echo<<"Finished phase "<<current_phase()<<endl;
     {
         //write objective function components only
         ofstream os0("tcsam02.ModelFits."+itoa(current_phase(),10)+".R", ios::trunc);
         os0.precision(12);
-        ReportToR_ModelFits(os0,0,cout);
+        ReportToR_ModelFits(os0,maxGrad,0,cout);
         os0.close();
     }
     if (last_phase()) {
+        std::cout<<"last phase objFun ="<<value(objFun)<<endl;
         //write report as R file
         report.precision(12);
-        ReportToR(report,1,rpt::echo);
+        ReportToR(report,maxGrad,1,rpt::echo);
         //write parameter values to csv
         ofstream os1("tcsam02.params.all.final.csv", ios::trunc);
         os1.precision(12);
@@ -5295,8 +5315,8 @@ REPORT_SECTION
         if (option_match(ad_comm::argc,ad_comm::argv,"-jitter")>-1) {
             ofstream fs("jitterInfo.csv");
             fs.precision(20);
-            fs<<"seed"<<cc<<"objfun"<<endl;
-            fs<<iSeed<<cc<<objFun<<endl;
+            fs<<"seed"<<cc<<"objfun"<<cc<<"maxGrad"<<endl;
+            fs<<iSeed<<cc<<value(objFun)<<cc<<maxGrad<<endl;
             fs.close();
         }
     }

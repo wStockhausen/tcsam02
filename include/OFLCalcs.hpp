@@ -602,6 +602,8 @@ class Tier3_Calculator : public Tier_Calculator {
  */
 class OFLResults {
     public:
+        static int debug;//flag to print debugging info
+    public:
         dvector avgRec_x;//average recruitment, by sex
         double B0;       //equilibrium MMB for unfished population
         double Fmsy;     //equilibrium F on directed fishery for males resulting in MSY
@@ -612,12 +614,21 @@ class OFLResults {
         dmatrix ofl_fx;  //fishery/sex-specific mortality components to OFL (f=0 is retained catch, f>0 is total catch mortality)
         double prjB;     //projected MMB for projection year when current population is fished at Fofl.
         double curB;     //"current" MMB at beginning of projection year
+        d4_array eqNatZF0_xmsz; //unfished equilibrium size distribution
         
     public:
         OFLResults(){}
         ~OFLResults(){}
         
     public:
+        /**
+         * Assignment operator for OFLResults class.
+         * 
+         * @param o - OFLResults object to copy.
+         * @return - reference to the copied object
+         */
+        OFLResults& operator=(const OFLResults& o);
+        
         /**
          * Write csv header for OFL results to output stream
          *  
@@ -634,10 +645,11 @@ class OFLResults {
          * Write values as R list to output stream
          * 
          * @param os - output stream to write to
+         * @param ptrMC - pointer to ModelConfiguration object
          * @param name - name for R list
          * @param debug - flag to print debugging info
          */
-        void writeToR(ostream& os, adstring name, int debug);
+        void writeToR(ostream& os, ModelConfiguration* ptrMC, adstring name, int debug);
 };//OFLResults
 /**
  * Class to calculate OFL results.
