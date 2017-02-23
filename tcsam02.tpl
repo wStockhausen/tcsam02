@@ -220,6 +220,11 @@
 //              3. Added maxGrad to ReportToR() and ReportToR_ModelFits()
 //--2017-02-22: 1. Added equilibrium unfished size distribution to OFL output.
 //              2. Incremented model version to "2012.02.22".
+//--2017-02-23: 1. Added equilibrium fished size distribution to OFL output.
+//              2. Added option to parameterize natural mortality on arithmetic
+//                  scale as in TCSAM2013 in ModelOptions. 
+//              3. Incremented model options version to "2012.02.23".
+//              4. Incremented model version to "2012.02.23".
 //
 // =============================================================================
 // =============================================================================
@@ -2682,35 +2687,61 @@ FUNCTION void calcNatMort(int debug, ostream& cout)
         ivector pids = ptrNM->getPCIDs(pc);
         int k=ptrNM->nIVs+1;//1st parameter variable column
         if (debug>dbgCalcProcs) cout<<"pids = "<<pids(k,pids.indexmax())<<endl;
-        //add in base (ln-scale) natural mortality (all crab, immature males)
-        if (pids[k]) {
-            if (debug>dbgCalcProcs) cout<<"Adding pLnM["<<pids[k]<<"]: "<<pLnM(pids[k])<<endl;
-            for (int x=1;x<=nSXs;x++) lnM(x) += pLnM(pids[k]);
-        }   k++;
-        //add in main offset from base (all crab, immature males)
-        if (pids[k]) {
-            if (debug>dbgCalcProcs) cout<<"Adding pLnDMT["<<pids[k]<<"]: "<<pLnDMT(pids[k])<<endl;
-            for (int x=1;x<=nSXs;x++) lnM(x) += pLnDMT(pids[k]);
-        } k++;
-        if (FEMALE<=nSXs){
-            //add in offset for all females
+        if (ptrMOs->optParamNM==0){
+            //add in base (ln-scale) natural mortality (all crab, immature males)
             if (pids[k]) {
-                if (debug>dbgCalcProcs) cout<<"Adding pLnDMX["<<pids[k]<<"]: "<<pLnDMX(pids[k])<<endl;
-                lnM(FEMALE) += pLnDMX(pids[k]);
-            }          k++;
-        }
-        //add in offset for all mature crab
-        if (pids[k]) {
-            if (debug>dbgCalcProcs) cout<<"Adding pLnMM["<<pids[k]<<"]: "<<pLnDMM(pids[k])<<endl;
-            for (int x=1;x<=nSXs;x++) lnM(x,MATURE) += pLnDMM(pids[k]);
-        } k++;
-        if (FEMALE<=nSXs){
-            //add in offset for mature females
+                if (debug>dbgCalcProcs) cout<<"Adding pLnM["<<pids[k]<<"]: "<<pLnM(pids[k])<<endl;
+                for (int x=1;x<=nSXs;x++) lnM(x) += pLnM(pids[k]);
+            }   k++;
+            //add in main offset from base (all crab, immature males)
             if (pids[k]) {
-                if (debug>dbgCalcProcs) cout<<"Adding pLnDMXM["<<pids[k]<<"]: "<<pLnDMXM(pids[k])<<endl;
-                lnM(FEMALE,MATURE) += pLnDMXM(pids[k]);
-            }  k++; //advance k to zScaling in pids
-        }
+                if (debug>dbgCalcProcs) cout<<"Adding pLnDMT["<<pids[k]<<"]: "<<pLnDMT(pids[k])<<endl;
+                for (int x=1;x<=nSXs;x++) lnM(x) += pLnDMT(pids[k]);
+            } k++;
+            if (FEMALE<=nSXs){
+                //add in offset for all females
+                if (pids[k]) {
+                    if (debug>dbgCalcProcs) cout<<"Adding pLnDMX["<<pids[k]<<"]: "<<pLnDMX(pids[k])<<endl;
+                    lnM(FEMALE) += pLnDMX(pids[k]);
+                }          k++;
+            }
+            //add in offset for all mature crab
+            if (pids[k]) {
+                if (debug>dbgCalcProcs) cout<<"Adding pLnMM["<<pids[k]<<"]: "<<pLnDMM(pids[k])<<endl;
+                for (int x=1;x<=nSXs;x++) lnM(x,MATURE) += pLnDMM(pids[k]);
+            } k++;
+            if (FEMALE<=nSXs){
+                //add in offset for mature females
+                if (pids[k]) {
+                    if (debug>dbgCalcProcs) cout<<"Adding pLnDMXM["<<pids[k]<<"]: "<<pLnDMXM(pids[k])<<endl;
+                    lnM(FEMALE,MATURE) += pLnDMXM(pids[k]);
+                }  k++; //advance k to zScaling in pids
+            }
+        } else if (ptrMOs->optParamNM==1){
+            //TCSAM2013 parameterization: arithmetic scale
+            lnM = log(0.23);//base natural mortality
+            //add in offset for immature crab
+            if (pids[k]) {
+                if (debug>dbgCalcProcs) cout<<"Adding immature crab offset log(pLnM["<<pids[k]<<"]): "<<pLnM(pids[k])<<endl;
+                for (int x=1;x<=nSXs;x++) lnM(x,IMMATURE) += log(pLnM(pids[k]));
+            } k++;
+            if (pids[k]) {
+                if (debug>dbgCalcProcs) cout<<"Adding mature male crab offset pLnDMT["<<pids[k]<<"]: "<<pLnDMT(pids[k])<<endl;
+                lnM(MALE,MATURE) += log(pLnDMT(pids[k]));
+            } k++;
+            if (pids[k]) {
+                if (debug>dbgCalcProcs) cout<<"Adding mature female offset pLnDMX["<<pids[k]<<"]: "<<pLnDMX(pids[k])<<endl;
+                lnM(FEMALE,MATURE) += log(pLnDMX(pids[k]));
+            } k++;
+            if (pids[k]) {
+                if (debug>dbgCalcProcs) cout<<"Adding time offset for mature males pLnDMM["<<pids[k]<<"]: "<<pLnDMM(pids[k])<<endl;
+                lnM(MALE,MATURE) += log(pLnDMM(pids[k]));
+            } k++;
+            if (pids[k]) {
+                if (debug>dbgCalcProcs) cout<<"Adding time offset for mature females pLnDMXM["<<pids[k]<<"]: "<<pLnDMXM(pids[k])<<endl;
+                lnM(FEMALE,MATURE) += log(pLnDMXM(pids[k]));
+            } k++;
+        }//optParamNM
         
         //convert from ln-scale to arithmetic scale
         M_cxm(pc) = mfexp(lnM);

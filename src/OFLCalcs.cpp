@@ -1210,10 +1210,10 @@ OFLResults OFL_Calculator::calcOFLResults(dvector R, d4_array& n_xmsz, ostream& 
         cout<<"calcOFLResults: allocated eq NatZ for F=0"<<endl;
         Equilibrium_Calculator::debug=1;
     }
-    res.eqNatZF0_xmsz(MALE) = pTCM->pEC->calcEqNatZF0(R(MALE),std::cout);
+    res.eqNatZF0_xmsz(MALE) = pTCM->pEC->calcEqNatZF0(R(MALE),cout);
     if (debug) cout<<"calcOFLResults: calculated eq NatZ(MALE) for F=0"<<endl;
     if (tcsam::nSXs>1) {
-        res.eqNatZF0_xmsz(FEMALE) = pTCF->pEC->calcEqNatZF0(R(FEMALE),std::cout);
+        res.eqNatZF0_xmsz(FEMALE) = pTCF->pEC->calcEqNatZF0(R(FEMALE),cout);
         if (debug) cout<<"calcOFLResults: calculated eq NatZ(FEMALE) for F=0"<<endl;
     }
     if (debug) Equilibrium_Calculator::debug=0;
@@ -1224,6 +1224,22 @@ OFLResults OFL_Calculator::calcOFLResults(dvector R, d4_array& n_xmsz, ostream& 
     res.MSY  = calcMSY(R,res.Fmsy,cout);
     if (debug) cout<<"calcOFLResults: calculated MSY"<<endl;
     
+    res.eqNatZFM_xmsz.allocate(1,tcsam::nSXs,
+                               1,tcsam::nMSs,
+                               1,tcsam::nSCs,
+                               1,pTCM->pEC->pPP->nZBs);
+    if (debug) {
+        cout<<"calcOFLResults: allocated eq NatZ for F=Fmsy"<<endl;
+        Equilibrium_Calculator::debug=1;
+    }
+    res.eqNatZFM_xmsz(MALE) = pTCM->pEC->calcEqNatZFM(R(MALE),res.Fmsy,cout);
+    if (debug) cout<<"calcOFLResults: calculated eq NatZ(MALE) for F=Fmsy"<<endl;
+    if (tcsam::nSXs>1) {
+        res.eqNatZFM_xmsz(FEMALE) = pTCF->pEC->calcEqNatZFM(R(FEMALE),res.Fmsy,cout);
+        if (debug) cout<<"calcOFLResults: calculated eq NatZ(FEMALE) for F=Fmsy"<<endl;
+    }
+    if (debug) Equilibrium_Calculator::debug=0;
+            
     res.Fofl = calcFofl(res.Bmsy,res.Fmsy,n_xmsz(MALE),cout);
     res.prjB = prjMMB;
     res.OFL  = calcOFL(res.Fofl,n_xmsz,cout);
@@ -1258,10 +1274,12 @@ OFLResults& OFLResults::operator=(const OFLResults& o){
     curB     = o.curB;    //"current" MMB at beginning of projection year
     eqNatZF0_xmsz.deallocate(); //unfished equilibrium size distribution
     eqNatZF0_xmsz.allocate(o.eqNatZF0_xmsz);
-    if (debug) std::cout<<"got here 2"<<endl;
+    if (debug) std::cout<<"got here 1"<<endl;
     eqNatZF0_xmsz = o.eqNatZF0_xmsz;
-//    for (int x=eqNatZF0_xmsz.indexmin();x<=eqNatZF0_xmsz.indexmax();x++)
-//        eqNatZF0_xmsz(x) = 1.0*o.eqNatZF0_xmsz(x);
+    eqNatZFM_xmsz.deallocate(); //unfished equilibrium size distribution
+    eqNatZFM_xmsz.allocate(o.eqNatZF0_xmsz);
+    if (debug) std::cout<<"got here 2"<<endl;
+    eqNatZFM_xmsz = o.eqNatZF0_xmsz;
     if (debug) std::cout<<"finished OFLResults::operator=(const OFLResults&)"<<endl;
     return *this;
 }
@@ -1305,5 +1323,6 @@ void OFLResults::writeToR(ostream& os, ModelConfiguration* ptrMC, adstring name,
     os<<cc<<"B100="<<B0<<cc<<"avgRecM="<<avgRec_x(MALE);
     if (tcsam::nSXs>1) os<<cc<<"avgRecF="<<avgRec_x(FEMALE);
     os<<cc<<"eqNatZF0_xmsz="; wts::writeToR(os,eqNatZF0_xmsz,xDms,mDms,sDms,zDms); 
+    os<<cc<<"eqNatZFM_xmsz="; wts::writeToR(os,eqNatZFM_xmsz,xDms,mDms,sDms,zDms); 
     os<<")";
 }

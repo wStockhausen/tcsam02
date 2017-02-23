@@ -212,6 +212,10 @@
         int optPenNonDecPrM2M;
         /* weight for penalties on maturity non-decreasing M2M parameters/ogives */
         dvector wgtPenNonDecPrM2M;    
+        /* labels for options for penalties on non-decreasing M2M parameters/ogives */
+        adstring_array optsParamNM;
+        /* integer indicating option for natural mortality parameterization */
+        int optParamNM;
 
     public:
         /**

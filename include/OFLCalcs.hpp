@@ -615,6 +615,7 @@ class OFLResults {
         double prjB;     //projected MMB for projection year when current population is fished at Fofl.
         double curB;     //"current" MMB at beginning of projection year
         d4_array eqNatZF0_xmsz; //unfished equilibrium size distribution
+        d4_array eqNatZFM_xmsz; //fished equilibrium size distribution
         
     public:
         OFLResults(){}

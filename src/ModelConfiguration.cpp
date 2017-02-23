@@ -11,7 +11,7 @@ using namespace std;
 //      ModelOptions
 //**********************************************************************
 const adstring ModelConfiguration::VERSION = "2016.11.15";
-const adstring ModelOptions::VERSION       = "2017.02.13";
+const adstring ModelOptions::VERSION       = "2017.02.23";
 
 int ModelConfiguration::debug=0;
 int ModelOptions::debug      =0;
@@ -308,6 +308,10 @@ ModelOptions::ModelOptions(ModelConfiguration& mc){
     optsPenNonDecPrM2M(1) = "use exponential function on parameters";    
     optsPenNonDecPrM2M(2) = "use posfun function on ogives";
     optsPenNonDecPrM2M(3) = "use exponential function on ogives";    
+    //options for natural mortality parameterization
+    optsParamNM.allocate(0,1);
+    optsParamNM(0) = "use log-scale parameterization (default)";
+    optsParamNM(1) = "use TCSAM2013 parameterization (arithmetic scale)";    
 }
 /***************************************************************
 *   function to read from file in ADMB format                  *
@@ -367,6 +371,9 @@ void ModelOptions::read(cifstream & is) {
     cout<<optPenNonDecPrM2M<<tb<<"#option for calculating non-decreasing penalties on prM2M"<<endl;
     is>>wgtPenNonDecPrM2M;
     cout<<wgtPenNonDecPrM2M<<tb<<"#weights for non-decreasing penalties on prM2M"<<endl;
+    
+    is>>optParamNM;
+    cout<<optParamNM<<tb<<"#option for parameterizing natural mortality"<<endl;
     if (debug){
         cout<<"enter 1 to continue : ";
         cin>>debug;
@@ -437,6 +444,12 @@ void ModelOptions::write(ostream & os) {
     }
     os<<optPenNonDecPrM2M<<tb<<"#selected option"<<endl;
     os<<wgtPenNonDecPrM2M<<tb<<"#weights for prM2M non-decreasing penalties"<<endl;
+    
+    os<<"#----Options for parameterizing natural mortality"<<endl;
+    for (int o=optsParamNM.indexmin();o<=optsParamNM.indexmax();o++) {
+        os<<"#"<<o<<" - "<<optsParamNM(o)<<endl;
+    }
+    os<<optParamNM<<tb<<"#selected option"<<endl;
     
     if (debug) cout<<"#end ModelOptions::write(ostream)"<<endl;
 }
