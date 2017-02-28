@@ -11,6 +11,7 @@
     #include <wtsADMB.hpp>
     #include "ModelConstants.hpp"
     #include "ModelConfiguration.hpp"
+    #include "ModelOptions.hpp"
     #include "ModelIndexBlocks.hpp"
     #include "ModelSelectivities.hpp"
     #include "ModelParameterInfoTypes.hpp"
