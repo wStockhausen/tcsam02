@@ -90,9 +90,10 @@ adstring tcsamDims::getSCsForR(int mn,int mx){
 
 int tcsam::getMaturityType(adstring s){
     s.to_upper();
-    if (s==STR_IMMATURE)     return IMMATURE;     else
-    if (s==STR_MATURE)       return MATURE;       else
-    if (s==STR_ALL_MSs) return ALL_MSs; else
+    if (s==STR_IMMATURE) return IMMATURE; else
+    if (s==STR_MATURE)   return MATURE;   else
+    if (s==STR_ALL_MSs)  return ALL_MSs;  else
+    if (s==STR_ALL)      return ALL_MSs;  else
     std::cout<<"Unrecognized MaturityType '"<<s<<"'"<<std::endl;
     std::cout<<"Aborting..."<<std::endl;
     exit(-1);
@@ -100,8 +101,8 @@ int tcsam::getMaturityType(adstring s){
 }
 adstring tcsam::getMaturityType(int i){
     if (i<=ALL_SXs){
-        if (i==IMMATURE) return STR_IMMATURE;     else
-        if (i==MATURE)   return STR_MATURE;       else
+        if (i==IMMATURE) return STR_IMMATURE; else
+        if (i==MATURE)   return STR_MATURE;   else
         if (i==ALL_MSs)  return STR_ALL_MSs; 
     }
     std::cout<<"Unrecognized or inappropriate MaturityType '"<<i<<"'"<<std::endl;
@@ -115,6 +116,7 @@ int tcsam::getSexType(adstring s){
     if (s==STR_MALE)    return MALE;    else
     if (s==STR_FEMALE)  return FEMALE;  else
     if (s==STR_ALL_SXs) return ALL_SXs; else
+    if (s==STR_ALL)     return ALL_SXs; else
     std::cout<<"Unrecognized SexType '"<<s<<"'"<<std::endl;
     std::cout<<"Potential values are:"<<endl;
     std::cout<<"'"<<STR_MALE<<"'"<<std::endl;
@@ -139,7 +141,8 @@ int tcsam::getShellType(adstring s){
     s.to_upper();
     if (s==STR_NEW_SHELL) return NEW_SHELL; else
     if (s==STR_OLD_SHELL) return OLD_SHELL; else
-    if (s==STR_ALL_SCs) return ALL_SCs; else
+    if (s==STR_ALL_SCs)   return ALL_SCs;   else
+    if (s==STR_ALL)       return ALL_SCs;   else
     std::cout<<"Unrecognized ShellType '"<<s<<"'"<<std::endl;
     std::cout<<"Aborting..."<<std::endl;
     exit(-1);
@@ -149,7 +152,7 @@ adstring tcsam::getShellType(int i){
     if (i<=ALL_SCs){
         if (i==NEW_SHELL) return STR_NEW_SHELL; else
         if (i==OLD_SHELL) return STR_OLD_SHELL; else
-        if (i==ALL_SCs) return STR_ALL_SCs;
+        if (i==ALL_SCs)   return STR_ALL_SCs;
     }
     std::cout<<"Unrecognized or inappropriate ShellType '"<<i<<"'"<<std::endl;
     std::cout<<"Aborting..."<<std::endl;

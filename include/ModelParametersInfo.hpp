@@ -131,7 +131,11 @@ class RecruitmentInfo: public ParameterGroupInfo {
  *   pLnDMM : immature offsets
  *   pLnDMXM: female-immature offsets    
  * Notes:
- *  1. YEAR_BLOCK is the index variable for the parameters
+ *  1. index variables for parameters
+ *      a. YEAR_BLOCK
+ *      b. SEX
+ *      c. MATURITY
+ *      d. SHELL
 *----------------------------------------------------------------------------*/
 class NaturalMortalityInfo : public ParameterGroupInfo {
     public:
@@ -299,11 +303,17 @@ class SelectivityInfo : public ParameterGroupInfo {
  *   pLnDCX : ln-scale female offsets
  *   pLnDCM : ln-scale immature offsets
  *   pLnDCXM: ln-scale female-immature offsets    
+ *   pLnEffX: ln-scale effort extrapolation parameters
  *
  *   pDevsLnC : annual ln-scale devs w/in year_blocks
  * 
  * Notes:
- *  1. FISHERY, YEAR_BLOCK, SEX are the index variables for the parameters
+ *  1. index variables for parameters:
+ *      a. SURVEY
+ *      b. YEAR_BLOCK
+ *      c. SEX
+ *      d. MATURITY
+ *      e. SHELL
 *----------------------------------------------------------------------------*/
 class FisheriesInfo : public ParameterGroupInfo {
     public:
@@ -311,13 +321,14 @@ class FisheriesInfo : public ParameterGroupInfo {
     protected:
         static adstring NAME;//"fisheries"
     public:
-        int idxUseER;//column in parameter combinations matrix w/ useEffortRatio flag
+        int idxUseEX;//column in parameter combinations matrix w/ useEffortRatio flag
         BoundedNumberVectorInfo* pHM;    //handling mortality (0-1)
         BoundedNumberVectorInfo* pLnC;   //ln-scale base mean capture rate (mature males)
         BoundedNumberVectorInfo* pLnDCT; //main year_block ln-scale offsets
         BoundedNumberVectorInfo* pLnDCX; //ln-scale female offsets
         BoundedNumberVectorInfo* pLnDCM; //ln-scale immature offsets
         BoundedNumberVectorInfo* pLnDCXM;//ln-scale female-immature offsets 
+        BoundedNumberVectorInfo* pLnEffX;//ln-scale effort extrapolation 
         
         DevsVectorVectorInfo* pDevsLnC;//annual ln-scale devs w/in year_blocks
         
@@ -338,7 +349,12 @@ class FisheriesInfo : public ParameterGroupInfo {
  *   pLnDQM : immature offsets
  *   pLnDQXM: female-immature offsets    
  * Notes:
- *  1. SURVEY, YEAR_BLOCK, SEX are the index variables for the parameters
+ *  1. index variables for parameters:
+ *      a. SURVEY
+ *      b. YEAR_BLOCK
+ *      c. SEX
+ *      d. MATURITY
+ *      e. SHELL
 *----------------------------------------------------------------------------*/
 class SurveysInfo : public ParameterGroupInfo {
     public:

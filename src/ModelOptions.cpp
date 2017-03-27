@@ -14,7 +14,7 @@ using namespace std;
 //          ModelOptions
 //--------------------------------------------------------------------------------
 int ModelOptions::debug = 0;
-const adstring ModelOptions::VERSION = "2017.02.27";
+const adstring ModelOptions::VERSION = "2017.03.24";
 
 ModelOptions::ModelOptions(ModelConfiguration& mc){
     ptrMC=&mc;
@@ -80,43 +80,53 @@ void ModelOptions::read(cifstream & is) {
     cout<<ModelOptions::VERSION<<tb<<"# Model Options version"<<endl;
     
     //initial numbers-at-size options
+    cout<<"##Initial numbers-at-size options:"<<endl;
     is>>optInitNatZ;
     cout<<optInitNatZ<<tb<<"#"<<optsInitNatZ(optInitNatZ)<<endl;
     
+    //natural mortality options
+    cout << "##Natural mortality options:"<<endl;
+    is>>optParamNM;
+    cout<<optParamNM<<tb<<"#"<<optsParamNM(optParamNM)<<endl;
+    
     //growth options
+    cout<<"##Growth options:"<<endl;
     is>>optGrowth;
     cout<<optGrowth<<tb<<"#"<<optsGrowth(optGrowth)<<endl;
     
     //terminal molt (prM2M) options
+    cout<<"##Terminal molt (prM2M) options:"<<endl;
     int nw; is>>nw;
     cout<<nw<<tb<<"#number of defined prM2M parameter combinations"<<endl;
-    wgtPenSmthPrM2M.allocate(1,nw);
-    wgtPenNonDecPrM2M.allocate(1,nw);
     //--options for smoothness penalties on prM2M in likelihood
     is>>optPenSmthPrM2M;
     cout<<optPenSmthPrM2M<<tb<<"#option for calculating smoothness penalties on prM2M"<<endl;
+    wgtPenSmthPrM2M.allocate(1,nw);
     is>>wgtPenSmthPrM2M;
     cout<<wgtPenSmthPrM2M<<tb<<"#weights for smoothness penalties on prM2M"<<endl;
     //--options for non-decreasing penalties on prM2M in likelihood
     is>>optPenNonDecPrM2M;
     cout<<optPenNonDecPrM2M<<tb<<"#option for calculating non-decreasing penalties on prM2M"<<endl;
+    wgtPenNonDecPrM2M.allocate(1,nw);
     is>>wgtPenNonDecPrM2M;
     cout<<wgtPenNonDecPrM2M<<tb<<"#weights for non-decreasing penalties on prM2M"<<endl;
     
     //effort extrapolation options
     //--effort extrapolation estimation options
+    cout<<"##Effort extrapolation estimation options:"<<endl;
     optEffXtrEst.allocate(1,ptrMC->nFsh);
     for (int f=1;f<=ptrMC->nFsh;f++){
-        is>>str; cout<<str<<"# fishery"<<tb;
+        is>>str; cout<<str<<"fishery"<<tb;
         idx = wts::which(str,ptrMC->lblsFsh);
         cout<<idx<<tb;
         is>>optEffXtrEst(idx);
         cout<<"= "<<optEffXtrEst(idx)<<endl;
     }
-    //--effort extrapolation capture rate averaging options
+    //--effort extrapolation estimation options
+    cout<<"##Effort extrapolation estimation options:"<<endl;
     optEffXtrAvgFc.allocate(1,ptrMC->nFsh);
     for (int f=1;f<=ptrMC->nFsh;f++){
-        is>>str; cout<<str<<"# fishery"<<tb;
+        is>>str; cout<<str<<"fishery"<<tb;
         idx = wts::which(str,ptrMC->lblsFsh);
         cout<<idx<<tb;
         is>>optEffXtrAvgFc(idx);
@@ -124,15 +134,17 @@ void ModelOptions::read(cifstream & is) {
     }
     
     //likelihood penalties on F-devs
+    cout<<"##Likelihood pnalties on F-devs:"<<endl;
     is>>cvFDevsPen;
     cout<<cvFDevsPen<<tb<<"#initial cv for F-devs penalties"<<endl;
     is>>phsDecrFDevsPen;
     cout<<phsDecrFDevsPen<<tb<<"#phase at which to start decreasing the penalties on F-devs"<<endl;
     is>>phsZeroFDevsPen;
     cout<<phsZeroFDevsPen<<tb<<"#phase at which to turn off the penalties on F-devs"<<endl;
-    is>>wgtLastDevsPen;
     
     //likelihood penalties on last element in devs vectors
+    cout<<"##Likelihood pnalties on last element in devs vectors:"<<endl;
+    is>>wgtLastDevsPen;
     cout<<wgtLastDevsPen<<tb<<"#weight for last-devs penalties"<<endl;
     is>>phsLastDevsPen;
     cout<<phsLastDevsPen<<tb<<"#min phase to apply penalty"<<endl;
@@ -141,6 +153,7 @@ void ModelOptions::read(cifstream & is) {
     //--averaging options for capture rate/selectivity functions
     cout<<"#OFL capture rate/selectivity functions averaging options"<<endl;
     optOFLAvgCapRate.allocate(1,ptrMC->nFsh);
+    optOFLAvgCapRate.initialize();
     for (int f=1;f<=ptrMC->nFsh;f++){
         is>>str; cout<<str<<"# fishery"<<tb;
         idx = wts::which(str,ptrMC->lblsFsh);
@@ -149,17 +162,18 @@ void ModelOptions::read(cifstream & is) {
         cout<<"= "<<optOFLAvgCapRate(idx)<<endl;
     }
     //--averaging periods
-    cout<<"#OFL averaging periods"<<endl;
+    cout<<"##OFL averaging periods"<<endl;
     oflNumYrsForAvgCapRate.allocate(1,ptrMC->nFsh);
+    oflNumYrsForAvgCapRate.initialize();
     for (int f=1;f<=ptrMC->nFsh;f++){
         is>>str; cout<<str<<"# fishery"<<tb;
         idx = wts::which(str,ptrMC->lblsFsh);
         cout<<idx<<tb;
-        is>>optOFLAvgCapRate(idx);
-        cout<<"= "<<optOFLAvgCapRate(idx)<<endl;
+        is>>oflNumYrsForAvgCapRate(idx);
+        cout<<"= "<<oflNumYrsForAvgCapRate(idx)<<endl;
     }
     //externally-calculated max capture rates
-    cout<<"#externally-calculated max capture rates for OFL calculations"<<endl;
+    cout<<"##Externally-calculated max capture rates for OFL calculations"<<endl;
     oflAvgCapRateInfo.allocate(1,ptrMC->nFsh);
     for (int f=1;f<=ptrMC->nFsh;f++){
         is>>str; cout<<str<<"# fishery"<<tb;

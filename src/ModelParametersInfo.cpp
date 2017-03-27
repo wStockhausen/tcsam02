@@ -114,7 +114,7 @@ ivector ParameterGroupInfo::getPCIDs(int pc){
 }
 
 /**
- * Gets a matrix of model indces corresponding 
+ * Gets a matrix of model indices corresponding 
  * to the given parameter combination pc.
  * 
  * @param pc
@@ -177,7 +177,7 @@ IndexBlockSet* ParameterGroupInfo::getIndexBlockSet(adstring type){
 }
 
 /**
- * Creates the set of imatrices representing the model indices 
+ * Creates the set of imatrix's representing the model indices 
  * corresponding to each parameter combination.
  */
 void ParameterGroupInfo::createIndices(void){
@@ -613,18 +613,29 @@ void RecruitmentInfo::writeToR(std::ostream & os){
  -----------------------------------------------------------------------------*/
 adstring NaturalMortalityInfo::NAME = "natural_mortality";
 NaturalMortalityInfo::NaturalMortalityInfo(){
+    if (debug) cout<<"starting NaturalMortalityInfo::NaturalMortalityInfo()"<<endl;
     name = NAME;//assign static NAME to ParameterGroupInfo::name
+    if (debug) cout<<1<<endl;
     
     int k;
-    nIVs = 1;
+    //define index variables for parameters
+    nIVs = 4;
     lblIVs.allocate(1,nIVs);
-    lblIVs(k=1) = "YEAR_BLOCK";
+    k = 1;
+    lblIVs(k++) = "YEAR_BLOCK";
+    lblIVs(k++) = tcsam::STR_SEX;
+    lblIVs(k++) = tcsam::STR_MATURITY_STATE;
+    lblIVs(k++) = tcsam::STR_SHELL_CONDITION;
+    if (debug) cout<<2<<endl;
+    //define index block sets for index variables
     nIBSs = 1;
     ibsIdxs.allocate(1,nIBSs);
     ibsIdxs(1) = 1;
     ParameterGroupInfo::createIndexBlockSets();
     for (int i=1;i<=nIBSs;i++) ppIBSs[i-1]->setType(lblIVs(ibsIdxs(i)));
+    if (debug) cout<<3<<endl;
     
+    //define parameters
     nPVs=5;
     lblPVs.allocate(1,nPVs); dscPVs.allocate(1,nPVs);
     k=1;
@@ -633,15 +644,20 @@ NaturalMortalityInfo::NaturalMortalityInfo(){
     lblPVs(k) = "pLnDMX";    dscPVs(k++) = "ln-scale natural mortality offset for female crabs";
     lblPVs(k) = "pLnDMM";    dscPVs(k++) = "ln-scale natural mortality offset for mature crabs";
     lblPVs(k) = "pLnDMXM";   dscPVs(k++) = "ln-scale natural mortality offset for mature female crabs";
+    if (debug) cout<<3<<endl;
     pLnM    = 0;
     pLnDMT  = 0;
     pLnDMX  = 0;
     pLnDMM  = 0;
     pLnDMXM = 0;
+    if (debug) cout<<4<<endl;
     
+    //define "extra" indices
     nXIs=1;
     lblXIs.allocate(1,nXIs);
     lblXIs(k=1) = "zScaling";    
+    if (debug) cout<<5<<endl;
+    if (debug) cout<<"finished NaturalMortalityInfo::NaturalMortalityInfo()"<<endl;
 }
 
 NaturalMortalityInfo::~NaturalMortalityInfo(){
@@ -665,7 +681,9 @@ void NaturalMortalityInfo::read(cifstream & is){
     }
     is>>zRef;    
     rpt::echo<<"zRef = "<<zRef<<endl;
+    if (debug) ParameterGroupInfo::debug=1;
     ParameterGroupInfo::read(is);
+    if (debug) ParameterGroupInfo::debug=0;
     
     is>>str;
     rpt::echo<<str<<tb<<"#Required keyword (PARAMETERS)"<<endl;
@@ -740,7 +758,7 @@ GrowthInfo::GrowthInfo(){
     nIVs = 2;
     lblIVs.allocate(1,nIVs);
     lblIVs(1) = "YEAR_BLOCK";
-    lblIVs(2) = "SEX";
+    lblIVs(2) = tcsam::STR_SEX;
     nIBSs = 1;
     ibsIdxs.allocate(1,nIBSs);
     ibsIdxs(1) = 1;
@@ -843,7 +861,7 @@ Molt2MaturityInfo::Molt2MaturityInfo(){
     nIVs = 2;
     lblIVs.allocate(1,nIVs);
     lblIVs(1) = "YEAR_BLOCK";
-    lblIVs(2) = "SEX";
+    lblIVs(2) = tcsam::STR_SEX;
     nIBSs = 1;
     ibsIdxs.allocate(1,nIBSs);
     ibsIdxs(1) = 1;
@@ -1103,26 +1121,33 @@ adstring FisheriesInfo::NAME = "fisheries";
  *
  *   pDevsLnC : annual ln-scale devs w/in year_blocks
  * 
+ *   pLnEffX: ln-scale effort extrapolation parameters
+ *
  * Notes:
- *  1. FISHERY, YEAR_BLOCK, SEX are the index variables for the parameters
+ *  1. FISHERY, YEAR_BLOCK, SEX, MATURITY_STATE, SHELL_CONDITION are the index variables for the parameters
 *----------------------------------------------------------------------------*/
 FisheriesInfo::FisheriesInfo(){
+    if (debug) cout<<"starting FisheriesInfo::FisheriesInfo()"<<endl;
     name = NAME;//assign static NAME to ParameterGroupInfo::name
     
     int k;
-    nIVs = 3;
+    //create "independent variables" for parameter group assignment
+    nIVs = 5;//number of independent variables
     lblIVs.allocate(1,nIVs);
     k=1;
-    lblIVs(k++) = "FISHERY";
+    lblIVs(k++) = tcsam::STR_FISHERY;
     lblIVs(k++) = "YEAR_BLOCK";
-    lblIVs(k++) = "SEX";
+    lblIVs(k++) = tcsam::STR_SEX;
+    lblIVs(k++) = tcsam::STR_MATURITY_STATE;
+    lblIVs(k++) = tcsam::STR_SHELL_CONDITION;
+    //create index block sets for "BLOCKS" (e.g. year blocks)
     nIBSs = 1;
     ibsIdxs.allocate(1,nIBSs);
-    ibsIdxs(1) = 2;
+    ibsIdxs(1) = 2; //YEAR_BLOCK
     ParameterGroupInfo::createIndexBlockSets();
     for (int i=1;i<=nIBSs;i++) ppIBSs[i-1]->setType(lblIVs(ibsIdxs(i)));
     
-    nPVs=7;
+    nPVs=8;
     lblPVs.allocate(1,nPVs); dscPVs.allocate(1,nPVs);
     k=1;
     lblPVs(k) = "pHM";       dscPVs(k++) = "handling mortality (0-1)";
@@ -1132,6 +1157,7 @@ FisheriesInfo::FisheriesInfo(){
     lblPVs(k) = "pLnDCM";    dscPVs(k++) = "ln-scale capture rate offset for immature crabs";
     lblPVs(k) = "pLnDCXM";   dscPVs(k++) = "ln-scale capture rate offset for immature female crabs";
     lblPVs(k) = "pDevsLnC";  dscPVs(k++) = "ln-scale annual capture rate devs";
+    lblPVs(k) = "pLnEffX";   dscPVs(k++) = "ln-scale effort extrapolation parameters";
     pHM     = 0;
     pLnC    = 0;
     pLnDCT  = 0;
@@ -1139,14 +1165,18 @@ FisheriesInfo::FisheriesInfo(){
     pLnDCM  = 0;
     pLnDCXM = 0;
     pDevsLnC = 0;
+    pLnEffX  = 0;
     
+    //create "extra indices"
     nXIs=3;
     lblXIs.allocate(1,nXIs);
-    lblXIs(1) = "idx.SelFcn";
-    lblXIs(2) = "idx.RetFcn";
-    lblXIs(3) = "useEffortRatio";
-    idxUseER = nIVs+nPVs+3;//column in parameter combinations matrix for useEffortRatio flag
+    k=1;
+    lblXIs(k++) = "idx.SelFcn";
+    lblXIs(k++) = "idx.RetFcn";
+    lblXIs(k++) = "useEffX";
+    idxUseEX = nIVs+nPVs+3;//column in parameter combinations matrix for useEffortExtrapolation flag
     
+    if (debug) cout<<"finished FisheriesInfo::FisheriesInfo()"<<endl;
 }
 
 FisheriesInfo::~FisheriesInfo(){
@@ -1157,6 +1187,7 @@ FisheriesInfo::~FisheriesInfo(){
     if (pLnDCM)  delete pLnDCM;   pLnDCM =0;
     if (pLnDCXM) delete pLnDCXM;  pLnDCXM=0;
     if (pLnDCXM) delete pLnDCXM;  pLnDCXM=0;
+    if (pLnEffX) delete pLnEffX;  pLnEffX=0;
 }
 
 void FisheriesInfo::read(cifstream & is){
@@ -1190,6 +1221,8 @@ void FisheriesInfo::read(cifstream & is){
         rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnDCXM)<<endl;  k++;
         pDevsLnC = ParameterGroupInfo::read(is,lblPVs(k),pDevsLnC); 
         rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDevsLnC)<<endl;  k++;
+        pLnEffX = ParameterGroupInfo::read(is,lblPVs(k),pLnEffX); 
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnEffX)<<endl;  k++;
     } else {
         cout<<"Error reading FisheriesInfo from "<<is.get_file_name()<<endl;
         cout<<"Expected keyword 'PARAMETERS' but got '"<<str<<"'."<<endl;
@@ -1227,6 +1260,8 @@ void FisheriesInfo::write(std::ostream & os){
     os<<(*pLnDCXM)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
     os<<(*pDevsLnC)<<endl;
+    os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
+    os<<(*pLnEffX)<<endl;
  }
 
 void FisheriesInfo::writeToR(std::ostream & os){
@@ -1238,6 +1273,7 @@ void FisheriesInfo::writeToR(std::ostream & os){
         pLnDCX->writeToR(os,  "pLnDCX",  indent++); os<<cc<<endl;
         pLnDCM->writeToR(os,  "pLnDCM",  indent++); os<<cc<<endl;
         pLnDCXM->writeToR(os, "pLnDCXM", indent++); os<<cc<<endl;
+        pLnEffX->writeToR(os, "pLnEffX", indent++); os<<cc<<endl;
         pDevsLnC->writeToR(os,"pDevsLnC",indent++); os<<endl;
     os<<")";
 }
@@ -1250,16 +1286,18 @@ SurveysInfo::SurveysInfo(){
     name = NAME;//assign static NAME to ParameterGroupInfo::name
     
     int k;
-    nIVs = 3;
+    nIVs = 5;
     lblIVs.allocate(1,nIVs);
     k=1;
-    lblIVs(k++) = "SURVEY";
+    lblIVs(k++) = tcsam::STR_SURVEY;
     lblIVs(k++) = "YEAR_BLOCK";
-    lblIVs(k++) = "SEX";
+    lblIVs(k++) = tcsam::STR_SEX;
+    lblIVs(k++) = tcsam::STR_MATURITY_STATE;
+    lblIVs(k++) = tcsam::STR_SHELL_CONDITION;
     
     nIBSs = 1;
     ibsIdxs.allocate(1,nIBSs);
-    ibsIdxs(1) = 2;
+    ibsIdxs(1) = 2;//index for YEAR_BLOCK
     ParameterGroupInfo::createIndexBlockSets();
     for (int i=1;i<=nIBSs;i++) ppIBSs[i-1]->setType(lblIVs(ibsIdxs(i)));
     
@@ -1277,9 +1315,11 @@ SurveysInfo::SurveysInfo(){
     pLnDQM  = 0;
     pLnDQXM = 0;
     
-    nXIs=1;
+    nXIs=2;
     lblXIs.allocate(1,nXIs);
-    lblXIs(k=1) = "idx.SelFcn";
+    k=1;
+    lblXIs(k++) = "idx.AvlFcn";
+    lblXIs(k++) = "idx.SelFcn";
     
 }
 
