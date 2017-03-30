@@ -8,6 +8,137 @@
 #ifndef MODELOPTIONS_HPP
 #define MODELOPTIONS_HPP
 
+#include <admodel.h>
+#include "ModelConfiguration.hpp"
+#include "ModelIndexBlocks.hpp"
+#include "ModelParameterInfoTypes.hpp"
+
+/*------------------------------------------------------------------------------\n
+ * EffAvgScenario: class encapsulating effort averaging information \n
+ *----------------------------------------------------------------------------*/
+class EffAvgScenario{
+    public:
+        static int debug;
+    private:
+        ModelConfiguration* ptrMC;
+    public:
+        int id;
+        int f;//fishery index
+        IndexBlock* ptrIB;//pointer to an IndexBlock object
+    private:
+        adstring_array strVals;//names for index variables
+    public:
+        EffAvgScenario(ModelConfiguration& mc);
+        ~EffAvgScenario();
+        
+        void read(cifstream & is);
+        void write(std::ostream & os);
+        void writeToR(std::ostream & os);
+
+        friend cifstream& operator >>(cifstream & is, EffAvgScenario & obj){obj.read(is); return is;}
+        friend std::ostream& operator <<(std::ostream & os, EffAvgScenario & obj){obj.write(os); return os;}
+};
+
+/*------------------------------------------------------------------------------\n
+ * EffAvgOptions: scenarios for effort averaging \n
+ *----------------------------------------------------------------------------*/
+class EffAvgScenarios{
+    public:
+        static int debug;
+    private:
+        ModelConfiguration* ptrMC;
+    public:
+        int nAvgs; //number of effort averaging info objects
+        EffAvgScenario** ppEASs;//pointer to array of EffAvgInfo pointers 
+    public:
+        EffAvgScenarios(ModelConfiguration& mc);
+        ~EffAvgScenarios();
+        
+        void read(cifstream & is);
+        void write(std::ostream & os);
+        void writeToR(std::ostream & os);
+
+        friend cifstream& operator >>(cifstream & is, EffAvgScenarios & obj){obj.read(is); return is;}
+        friend std::ostream& operator <<(std::ostream & os, EffAvgScenarios & obj){obj.write(os); return os;}
+};
+
+/*------------------------------------------------------------------------------\n
+ * CapRateAvgScenario: fishery capture rate averaging info \n
+ *----------------------------------------------------------------------------*/
+class CapRateAvgScenario{
+    public:
+        static int debug;
+    public:
+        ModelConfiguration* ptrMC;
+        int id;
+        int f;//fishery index
+        int x;//sex index
+        int m;//maturity state index
+        int s;//shell condition index
+        int idEffAvgInfo;//id of associated effort averaging info object
+        int optAvg;      //averaging option
+        double llWgt;    //likelihood weight
+    private:
+        adstring_array strVals;//names for index variables
+    public:
+        CapRateAvgScenario(ModelConfiguration& mc);
+        ~CapRateAvgScenario();
+        
+        void read(cifstream & is);
+        void write(std::ostream & os);
+        void writeToR(std::ostream & os);
+
+        friend cifstream& operator >>(cifstream & is, CapRateAvgScenario & obj){obj.read(is); return is;}
+        friend std::ostream& operator <<(std::ostream & os, CapRateAvgScenario & obj){obj.write(os); return os;}
+};
+
+/*------------------------------------------------------------------------------\n
+ * CapRateAvgScenarios: scenarios for capture rate averaging \n
+ *----------------------------------------------------------------------------*/
+class CapRateAvgScenarios{
+    public:
+        static int debug;
+    public:
+        ModelConfiguration* ptrMC;
+        int nAvgs; //number of capture rate averaging info objects
+        CapRateAvgScenario** ppCRASs;//pointer to array of CapRateAvgInfo pointers 
+    public:
+        CapRateAvgScenarios(ModelConfiguration& mc);
+        ~CapRateAvgScenarios();
+        
+        void read(cifstream & is);
+        void write(std::ostream & os);
+        void writeToR(std::ostream & os);
+
+        friend cifstream& operator >>(cifstream & is, CapRateAvgScenarios & obj){obj.read(is); return is;}
+        friend std::ostream& operator <<(std::ostream & os, CapRateAvgScenarios & obj){obj.write(os); return os;}
+};
+
+/*------------------------------------------------------------------------------\n
+ * EffXtrapScenarios: effort extrapolation scenarios\n
+ *----------------------------------------------------------------------------*/
+class EffXtrapScenarios{
+    public:
+        static int debug;
+    private:
+        ModelConfiguration* ptrMC;
+    public:
+        EffAvgScenarios* ptrEffAvgScenarios;//pointer to effort averaging scenarios object 
+        CapRateAvgScenarios* ptrCapRateAvgScenarios;//pointer to capture rate averaging scenarios object 
+    public:
+        EffXtrapScenarios(ModelConfiguration& mc);
+        ~EffXtrapScenarios();
+        
+        ivector getTimePeriodForCapRateAveraging(int id);
+        
+        void read(cifstream & is);
+        void write(std::ostream & os);
+        void writeToR(std::ostream & os);
+
+        friend cifstream& operator >>(cifstream & is, EffXtrapScenarios & obj){obj.read(is); return is;}
+        friend std::ostream& operator <<(std::ostream & os, EffXtrapScenarios & obj){obj.write(os); return os;}
+};
+
 /**
  * ModelOptions class definition.
  */
@@ -49,14 +180,8 @@
         /* weight for penalties on maturity non-decreasing M2M parameters/ogives */
         dvector wgtPenNonDecPrM2M;    
         
-        /* labels for effort extrapolation estimation */
-        adstring_array optsEffXtrEst;       
-        /* selected options (by fishery) for average capture rate estimation */
-        ivector optEffXtrEst;               
-        /* labels for effort extrapolation estimation */
-        adstring_array optsEffXtrAvgFc;       
-        /* selected options (by fishery) for average capture rate estimation */
-        ivector optEffXtrAvgFc;               
+        /* pointer to effort extrapolation scenarios object */
+        EffXtrapScenarios* ptrEffXtrapScenarios;
         
         /* likelihood penalties for F-devs */
         double cvFDevsPen;              
