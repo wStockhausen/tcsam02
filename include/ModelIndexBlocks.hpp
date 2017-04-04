@@ -93,6 +93,8 @@ class IndexBlock{
         ivector ivFwd;//forward index vector from block indices to model indices (1:nIDs)
         ivector ivRev;//reverse index vector from model indices to block indices (modMin:modMax)
         IndexRange** ppIRs;//pointer to vector of IndexRange pointers
+    private:
+        adstring rDim;//as an R array dimension
     public:
         IndexBlock(int modMn, int modMx){nRCs=0;nIDs=0;ppIRs=0;modMin=modMn;modMax=modMx;}
         ~IndexBlock();
@@ -157,6 +159,14 @@ class IndexBlock{
          * Writes an IndexBlock as an un-named R list.\n
          */
         void writeToR(std::ostream& os);//write object to R file as list
+        /**
+         * Creates a representation of the IndexBlock as an R array dimension
+         */
+        void createRDim();
+        /*
+         * Returns IndexBlock as an R array dimension.\n
+         */
+        adstring getAsRDim(){return rDim;}
         /*
          * Returns an IndexBlock as an adstring object.
          */

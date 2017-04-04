@@ -210,7 +210,23 @@ void IndexBlock::parse(adstring str1){
         cin>>debug;
     }
     createIndexVectors();
+    createRDim();
 }
+
+/**
+ * Representation of IndexBlock as an R array dimension
+ */
+void IndexBlock::createRDim(){
+    rDim = "";
+    if (nRCs){
+        rDim = "c("+str(ppIRs[0]->getMin())+":"+str(ppIRs[0]->getMax())+")";
+        for (int rc=2;rc<nRCs;rc++){
+            rDim = rDim+",c("+str(ppIRs[rc-1]->getMin())+":"+str(ppIRs[rc-1]->getMax())+")";
+        }
+        rDim = "c("+rDim+")";
+    }
+}
+
 /* 
  * Reads an adstring from an input stream and parses it
  * to define the IndexBlock.

@@ -18,7 +18,7 @@ using namespace std;
 //--------------------------------------------------------------------------------
 //          EffAvgScenario
 //--------------------------------------------------------------------------------
-int EffAvgScenario::debug = 1;
+int EffAvgScenario::debug = 0;
 EffAvgScenario::EffAvgScenario(ModelConfiguration& mc){
     ptrMC = &mc;
     ptrIB = new IndexBlock(ptrMC->mnYr,ptrMC->mxYr);
@@ -55,12 +55,12 @@ void EffAvgScenario::write(std::ostream& os){
 }
 
 void EffAvgScenario::writeToR(std::ostream& os){
-    cout<<"TODO: implement EffAvgScenario::writeToR(ostream& os)"<<endl;
+    os<<"list(f="<<f<<cc<<"years="<<getYDimsForR()<<")";
 }
 //--------------------------------------------------------------------------------
 //          EffAvgOptions
 //--------------------------------------------------------------------------------
-int EffAvgScenarios::debug = 1;
+int EffAvgScenarios::debug = 0;
 EffAvgScenarios::EffAvgScenarios(ModelConfiguration& mc){
     ptrMC = &mc;
     nAvgs = 0;
@@ -89,19 +89,22 @@ void EffAvgScenarios::read(cifstream& is){
 }
 
 void EffAvgScenarios::write(std::ostream& os){
-    os<<"#------effort averaging scenarios"<<endl;
+    os<<"#----effort averaging scenarios"<<endl;
     os<<nAvgs<<tb<<"#number of effort averaging scenarios"<<endl;
     os<<"#id  fishery  year_block"<<endl;
     for (int p=0;p<nAvgs;p++) {ppEASs[p]->write(os); os<<endl;}
 }
 
 void EffAvgScenarios::writeToR(std::ostream& os){
-    
+    os<<"list("<<"nAvgs="<<nAvgs<<cc<<endl;
+    for (int n=1;n<nAvgs;n++) {os<<"`"<<n<<"`="; ppEASs[n-1]->writeToR(os); os<<","<<endl;}
+    os<<"`"<<nAvgs<<"`="; ppEASs[nAvgs-1]->writeToR(os); os<<endl;
+    os<<")"<<endl;
 }
 //--------------------------------------------------------------------------------
 //          CapRateAvgScenario
 //--------------------------------------------------------------------------------
-int CapRateAvgScenario::debug = 1;
+int CapRateAvgScenario::debug = 0;
 CapRateAvgScenario::CapRateAvgScenario(ModelConfiguration& mc){
     ptrMC = &mc;
     strVals.allocate(1,4);
@@ -113,6 +116,7 @@ void CapRateAvgScenario::read(cifstream& is){
     if (debug) cout<<"starting CapRateAvgScenario::read(cifstream& is)"<<endl;
     is>>id;
     for (int i=strVals.indexmin();i<=strVals.indexmax(); i++) is>>strVals(i);
+    is>>idParam;
     is>>idEffAvgInfo;
     is>>optAvg;
     is>>llWgt;
@@ -137,6 +141,7 @@ void CapRateAvgScenario::write(std::ostream& os){
     if (debug) cout<<"starting CapRateAvgScenario::write(ostream& os)"<<endl;
     os<<id<<tb;
     for (int i=strVals.indexmin();i<=strVals.indexmax(); i++) os<<strVals(i)<<tb;
+    os<<idParam<<tb;
     os<<idEffAvgInfo<<tb;
     os<<optAvg<<tb;
     os<<llWgt;
@@ -144,7 +149,12 @@ void CapRateAvgScenario::write(std::ostream& os){
 }
 
 void CapRateAvgScenario::writeToR(std::ostream& os){
-    cout<<"TODO: implement CapRateAvgScenario::writeToR(ostream& os)"<<endl;
+    os<<"list(f="<<f<<cc;
+    os<<"x='"<<tcsam::getSexType(x)<<"', ";
+    os<<"m='"<<tcsam::getSexType(m)<<"', ";
+    os<<"s='"<<tcsam::getSexType(s)<<"', ";
+    os<<"paramID="<<idParam<<",effAvgID="<<idEffAvgInfo<<",llWgt="<<llWgt<<",optAvg="<<optAvg;
+    os<<")";
 }
 //--------------------------------------------------------------------------------
 //          CapRateAvgScenarios
@@ -178,22 +188,25 @@ void CapRateAvgScenarios::read(cifstream& is){
 }
 
 void CapRateAvgScenarios::write(std::ostream& os){
-    os<<"#------fishery capture rate averaging scenarios"<<endl;
-    os<<"#---averaging options:"<<endl;
+    os<<"#----fishery capture rate averaging scenarios"<<endl;
+    os<<"#-----capture rate averaging options:"<<endl;
     os<<"# 1 - average fully-selected capture rate"<<endl;
     os<<"# 2 - average mean size-specific capture rate"<<endl;
     os<<nAvgs<<tb<<"#number of capture rate averaging scenarios"<<endl;
-    os<<"#id  fishery  sex   maturity  shell   effort_averaging_id   averaging_option   llWgt"<<endl;
+    os<<"#id  fishery  sex   maturity  shell   param_id  effort_averaging_id   averaging_option   llWgt"<<endl;
     for (int p=0;p<nAvgs;p++) {ppCRASs[p]->write(os); os<<endl;}
 }
 
 void CapRateAvgScenarios::writeToR(std::ostream& os){
-    
+    os<<"list("<<"nAvgs="<<nAvgs<<cc<<endl;
+    for (int n=1;n<nAvgs;n++) {os<<"`"<<n<<"`="; ppCRASs[n-1]->writeToR(os); os<<","<<endl;}
+    os<<"`"<<nAvgs<<"`="; ppCRASs[nAvgs-1]->writeToR(os); os<<endl;
+    os<<")"<<endl;
 }
 //--------------------------------------------------------------------------------
 //          EffXtrapOptions
 //--------------------------------------------------------------------------------
-int EffXtrapScenarios::debug = 1;
+int EffXtrapScenarios::debug = 0;
 EffXtrapScenarios::EffXtrapScenarios(ModelConfiguration& mc){
     ptrMC = &mc;
     ptrEffAvgScenarios = new EffAvgScenarios(*ptrMC);
@@ -233,7 +246,7 @@ void EffXtrapScenarios::writeToR(std::ostream& os){
 //          ModelOptions
 //--------------------------------------------------------------------------------
 int ModelOptions::debug = 0;
-const adstring ModelOptions::VERSION = "2017.03.30";
+const adstring ModelOptions::VERSION = "2017.04.02";
 
 ModelOptions::ModelOptions(ModelConfiguration& mc){
     ptrMC=&mc;

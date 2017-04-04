@@ -31,6 +31,12 @@ class EffAvgScenario{
         EffAvgScenario(ModelConfiguration& mc);
         ~EffAvgScenario();
         
+        /**
+         * Get the time block as an R array dimension
+         * @return 
+         */
+        adstring getYDimsForR(){return ptrIB->getAsRDim();}
+        
         void read(cifstream & is);
         void write(std::ostream & os);
         void writeToR(std::ostream & os);
@@ -75,6 +81,7 @@ class CapRateAvgScenario{
         int x;//sex index
         int m;//maturity state index
         int s;//shell condition index
+        int idParam;//id of associated pLnEffX parameter in ModelParametersInfo file
         int idEffAvgInfo;//id of associated effort averaging info object
         int optAvg;      //averaging option
         double llWgt;    //likelihood weight

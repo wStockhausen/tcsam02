@@ -28,6 +28,7 @@ int SelectivityInfo::debug      = 0;
 int FisheriesInfo::debug        = 0;
 int SurveysInfo::debug          = 0;
 int ModelParametersInfo::debug  = 0;
+const adstring ModelParametersInfo::version = "2017.04.03";
     
 /*----------------------------------------------------------------------------*/
 /**
@@ -1174,6 +1175,9 @@ FisheriesInfo::FisheriesInfo(){
     lblXIs(k++) = "idx.SelFcn";
     lblXIs(k++) = "idx.RetFcn";
     lblXIs(k++) = "useEffX";
+    
+    idxHM    = nIVs+1;     //1st PV column
+    idxLnEX  = nIVs+nPVs;  //last PV column
     idxUseEX = nIVs+nPVs+3;//column in parameter combinations matrix for useEffortExtrapolation flag
     
     if (debug) cout<<"finished FisheriesInfo::FisheriesInfo()"<<endl;
@@ -1435,6 +1439,17 @@ void ModelParametersInfo::read(cifstream & is){
     rpt::echo<<"#------Reading Model Parameters Info file-----"<<endl;
     rpt::echo<<"file is '"<<is.get_file_name()<<"'."<<endl;
     
+    adstring str;
+    is>>str;
+    if (str!=ModelParametersInfo::version){
+        cout<<"-----------------------------------------------------------"<<endl;
+        cout<<"Model Parameters Info file '"<<is.get_file_name()<<"'"<<endl;
+        cout<<"has incorrect version number!!!"<<endl;
+        cout<<"Expected '"<<ModelParametersInfo::version<<"'. Got '"<<str<<"'."<<endl;
+        cout<<"Terminating run..."<<endl;
+        exit(-1);
+    }
+    
     //read recruitment parameters
     rpt::echo<<"#---reading  Recruitment Info"<<endl;
     ptrRec = new RecruitmentInfo();
@@ -1481,6 +1496,8 @@ void ModelParametersInfo::read(cifstream & is){
 }
     
 void ModelParametersInfo::write(std::ostream & os){
+    os<<version<<tb<<"#model parameters info version"<<endl;
+    
     os<<"#-------------------------------"<<endl;
     os<<"# Recruitment parameters  "<<endl;
     os<<"#-------------------------------"<<endl;
@@ -1519,7 +1536,7 @@ void ModelParametersInfo::write(std::ostream & os){
 
 void ModelParametersInfo::writeToR(std::ostream & os){
     int indent=0;
-    os<<"mpi=list("<<endl;
+    os<<"mpi=list(version='"<<version<<"'"<<cc<<endl;
     ptrRec->writeToR(os); os<<cc<<endl;
     ptrNM->writeToR(os);  os<<cc<<endl;
     ptrGrw->writeToR(os); os<<cc<<endl;

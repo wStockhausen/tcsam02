@@ -309,7 +309,7 @@ class SelectivityInfo : public ParameterGroupInfo {
  * 
  * Notes:
  *  1. index variables for parameters:
- *      a. SURVEY
+ *      a. FISHERY
  *      b. YEAR_BLOCK
  *      c. SEX
  *      d. MATURITY
@@ -321,7 +321,9 @@ class FisheriesInfo : public ParameterGroupInfo {
     protected:
         static adstring NAME;//"fisheries"
     public:
-        int idxUseEX;//column in parameter combinations matrix w/ useEffortRatio flag
+        int idxHM;   //column in parameter combinations matrix indicating handling mortality parameters
+        int idxLnEX; //column in parameter combinations matrix indicating effort extrapolation parameters
+        int idxUseEX;//column in parameter combinations matrix indicating effort extrapolation
         BoundedNumberVectorInfo* pHM;    //handling mortality (0-1)
         BoundedNumberVectorInfo* pLnC;   //ln-scale base mean capture rate (mature males)
         BoundedNumberVectorInfo* pLnDCT; //main year_block ln-scale offsets
@@ -382,6 +384,7 @@ class SurveysInfo : public ParameterGroupInfo {
 class ModelParametersInfo{
     public:
         static int debug;        
+        static const adstring version;
     public:
         ModelConfiguration* ptrMC;
         
