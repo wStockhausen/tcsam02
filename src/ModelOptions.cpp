@@ -99,7 +99,7 @@ void EffAvgScenarios::writeToR(std::ostream& os){
     os<<"list("<<"nAvgs="<<nAvgs<<cc<<endl;
     for (int n=1;n<nAvgs;n++) {os<<"`"<<n<<"`="; ppEASs[n-1]->writeToR(os); os<<","<<endl;}
     os<<"`"<<nAvgs<<"`="; ppEASs[nAvgs-1]->writeToR(os); os<<endl;
-    os<<")"<<endl;
+    os<<")";
 }
 //--------------------------------------------------------------------------------
 //          CapRateAvgScenario
@@ -201,7 +201,7 @@ void CapRateAvgScenarios::writeToR(std::ostream& os){
     os<<"list("<<"nAvgs="<<nAvgs<<cc<<endl;
     for (int n=1;n<nAvgs;n++) {os<<"`"<<n<<"`="; ppCRASs[n-1]->writeToR(os); os<<","<<endl;}
     os<<"`"<<nAvgs<<"`="; ppCRASs[nAvgs-1]->writeToR(os); os<<endl;
-    os<<")"<<endl;
+    os<<")";
 }
 //--------------------------------------------------------------------------------
 //          EffXtrapOptions

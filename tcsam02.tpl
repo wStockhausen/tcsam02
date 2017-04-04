@@ -5270,8 +5270,8 @@ FUNCTION void ReportToR_ModelProcesses(ostream& os, int debug, ostream& cout)
             os<<"capRateScenarios="; ptrMOs->ptrEffXtrapScenarios->ptrCapRateAvgScenarios->writeToR(os); os<<cc<<endl;
             os<<"avgEff=list("<<endl;
             for (int n=eff_ny.indexmin();n<=eff_ny.indexmax();n++){
-                os<<"`"<<n<<"=list(avgEff="<<avgEff_n(n)<<cc;
-                os<<"eff="; wts::writeToR(os,eff_ny(n),ptrMOs->ptrEffXtrapScenarios->ptrEffAvgScenarios->ppEASs[n-1]->getYDimsForR()); os<<cc<<endl;
+                os<<"`"<<n<<"`=list(avgEff="<<avgEff_n(n)<<cc;
+                os<<"eff="; wts::writeToR(os,eff_ny(n),ptrMOs->ptrEffXtrapScenarios->ptrEffAvgScenarios->ppEASs[n-1]->getYDimsForR()); os<<"), "<<endl;
             }
             os<<"NULL)"<<endl;
         os<<")"<<cc<<endl;
