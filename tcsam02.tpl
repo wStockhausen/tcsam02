@@ -240,6 +240,7 @@
 //                  effort extrapolation scenario.
 //              4. Added "version" to ModelParametersInfo file as consistency check.
 //              5. Working on output for effort extrapolation.
+//--2017-04-05: 1. Revised debug output for OFL calculations.
 //
 // =============================================================================
 // =============================================================================
@@ -2271,7 +2272,7 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
                         for (int z=1;z<=nZBs;z++){
                             ny = 0;
                             for (int y=(yr-oflAvgPeriodYrs+1);y<=yr;y++) {
-                                if (debug) cout<<"y = "<<y<<endl;
+                                //if (debug) cout<<"y = "<<y<<endl;
                                 ny += hasF_fy(f,y);
                                 avgCapF_xfms(x,f,m,s) += value(cpF_fyxms(f,y,x,m,s));
                                 avgCapF_xfmsz(x,f,m,s,z) += value(cpF_fyxmsz(f,y,x,m,s,z));
@@ -2302,12 +2303,14 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
         for (int f=1;f<=nFsh;f++){
             if (ptrMOs->optOFLAvgCapRate(f)==0){
                 //use averaged selectivity functions, max capture rates
+                if (debug) cout<<"Using average selectivity functions for fishery "<<f<<" for OFL calculations"<<endl;
                 for (int x=1;x<=nSXs;x++){
                     for (int m=1;m<=nMSs;m++){
                         for (int s=1;s<=nSCs;s++) avgCapF_xfmsz(x,f,m,s) = avgCapF_xfms(x,f,m,s)*avgSFcn_xfmsz(x,f,m,s);
                     }//m
                 }//x
             } else {
+                if (debug) cout<<"Using size-specific average capture rates for fishery "<<f<<" for OFL calculations"<<endl;
                 //use size-specific averaged capture rates
                 //do nothing
             }
@@ -3477,52 +3480,6 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
             }//m
         }//x
     }//n - capture rate averaging
-//    for (int f=1;f<=nFsh;f++){//model fishery objects
-//        int fd = mapM2DFsh(f);//index of corresponding fishery data object
-//        if (debug>dbgCalcProcs) cout<<"optEffXtrAvgFc("<<f<<") = "<<ptrMOs->optEffXtrAvgFc(f)<<endl;
-//        for (int x=1;x<=nSXs;x++){
-//            for (int m=1;m<=nMSs;m++){
-//                for (int s=1;s<=nSCs;s++){
-//                    //calculate average ratio for effort extrapolation
-//                    switch (ptrMOs->optEffXtrAvgFc(f)){
-//                        case 0:
-//                            //won't use effort to fill in
-//                            avgFc_nxms(f,x,m,s) = -1; 
-//                            break;
-//                        case 1:
-//                            //average fully-selected capture rate
-//                            for (int y=yrsAvgEff_ny(f).indexmin();y<=yrsAvgEff_ny(f).indexmax();y++) 
-//                                obsFc_nxmsy(f,x,m,s,yrsAvgEff_ny(f,y)) = cpF_fyxms(f,yrsAvgEff_ny(f,y),x,m,s);
-//                            avgFc_nxms(f,x,m,s) = sum(obsFc_nxmsy(f,x,m,s))/yrsAvgEff_ny(f).size(); 
-//                            avgFc2Eff_nxms(f,x,m,s) = avgFc_nxms(f,x,m,s)/avgEff_n(f);
-//                            break;
-//                        case 2:
-//                            //average mean size-specific capture rate
-//                            for (int y=yrsAvgEff_ny(f).indexmin();y<=yrsAvgEff_ny(f).indexmax();y++)
-//                                obsFc_nxmsy(f,x,m,s,yrsAvgEff_ny(f,y)) = mean(cpF_fyxmsz(f,yrsAvgEff_ny(f,y),x,m,s));
-//                            avgFc_nxms(f,x,m,s) = sum(obsFc_nxmsy(f,x,m,s))/yrsAvgEff_ny(f).size(); 
-//                            avgFc2Eff_nxms(f,x,m,s) = avgFc_nxms(f,x,m,s)/avgEff_n(f);
-//                            break;
-//                        default:
-//                            cout<<"optsEffXtrAvgFc("<<f<<") = "<<ptrMOs->optsEffXtrAvgFc(f)<<" to calculate average Fc is invalid."<<endl;
-//                            cout<<"Aborting..."<<endl;
-//                            exit(-1);
-//                    }
-//                    //predict "observed" F's for effort-averaging period
-//                    switch(ptrMOs->optEffXtrEst(f)) {
-//                        case 0:
-//                            break; //don't extrapolate
-//                        case 1:
-//                            //extrapolation based strictly on the ratio
-//                            prdFc_nxmsy(f,x,m,s) = avgFc2Eff_nxms(f,x,m,s)*eff_ny(f); break;
-//                        case 2:
-//                            //extrapolation based on effort extrapolation parameters, as well as ratio
-//                            prdFc_nxmsy(f,x,m,s) = effX_f(f)*avgFc2Eff_nxms(f,x,m,s)*eff_ny(f); break;
-//                    }
-//                }//s
-//            }//m
-//        }//x
-//    }//f
     if (debug>dbgCalcProcs) cout<<"calculated avgFc2Eff_nxms"<<endl;
     
     //Pass 2: calculations based on effort and effort extrapolation parameters or average effort:capture rate ratios
@@ -5613,6 +5570,10 @@ BETWEEN_PHASES_SECTION
     rpt::echo<<endl<<endl<<"#---------------------"<<endl;
     rpt::echo<<"Starting phase "<<current_phase()<<" of "<<initial_params::max_number_phases<<endl;
     ctrProcCallsInPhase=0;//reset in-phase counter
+    for (int n=1;n<=npLnEffX;n++){
+        rpt::echo<<"is pLnEffX["<<n<<"] active? "<<active(pLnEffX[n])<<endl;
+    }
+    rpt::echo<<endl<<endl<<"#---------------------"<<endl;
 
 // =============================================================================
 // =============================================================================
