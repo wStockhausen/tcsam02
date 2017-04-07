@@ -241,6 +241,8 @@
 //              4. Added "version" to ModelParametersInfo file as consistency check.
 //              5. Working on output for effort extrapolation.
 //--2017-04-05: 1. Revised debug output for OFL calculations.
+//--2017-04-07: 1. Revised effort extrapolation to use observed, predicted effort,
+//                  not "observed", "predicted" capture rates in the likelihood.
 //
 // =============================================================================
 // =============================================================================
@@ -919,14 +921,15 @@ DATA_SECTION
 
     //Model Options
     //--effort averaging scenarios
-    int nAvgEffScenarios;//number of effort averaging scenarios
-    !!nAvgEffScenarios = ptrMOs->ptrEffXtrapScenarios->ptrEffAvgScenarios->nAvgs;
-    imatrix yrsAvgEff_ny(1,nAvgEffScenarios,mnYr,mxYr);//years for effort averaging scenarios
-    matrix eff_ny(1,nAvgEffScenarios,mnYr,mxYr);       //effort for averaging over fishery-specific time periods
-    vector avgEff_n(1,nAvgEffScenarios);               //average effort over fishery-specific time periods
+    int nEASs;//number of effort averaging scenarios
+    !!nEASs = ptrMOs->ptrEffXtrapScenarios->ptrEffAvgScenarios->nAvgs;
+    imatrix yrsAvgEff_ny(1,nEASs,mnYr,mxYr);//years for effort averaging scenarios
+    matrix eff_ny(1,nEASs,mnYr,mxYr);       //effort for averaging over fishery-specific time periods
+    vector avgEff_n(1,nEASs);               //average effort over fishery-specific time periods
     //--capture rate averaging scenarios
-    int nAvgCapRateScenarios;//number of effort averaging scenarios
-    !!nAvgCapRateScenarios = ptrMOs->ptrEffXtrapScenarios->ptrCapRateAvgScenarios->nAvgs;
+    int nCRASs;//number of effort averaging scenarios
+    !!nCRASs = ptrMOs->ptrEffXtrapScenarios->ptrCapRateAvgScenarios->nAvgs;
+    5darray obsEff_nxmsy(1,nCRASs,1,nSXs,1,nMSs,1,nSCs,mnYr,mxYr);         //observed effort for averaging by capture rate averaging scenario
 
     //number of parameter combinations for various processes
     int npcRec;
@@ -1086,10 +1089,11 @@ PARAMETER_SECTION
     3darray sel_cyz(1,nSel,mnYr,mxYr+1,1,nZBs);//all selectivity functions (fisheries and surveys) by year
     
     //fishery-related quantities
-    4darray avgFc_nxms(1,1,1,1,1,1,1,1);         //avg capture rates for capture rate averaging scenarios  (will be reallocated)
-    4darray avgFc2Eff_nxms(1,1,1,1,1,1,1,1);     //ratios of avg capture rate to effort for capture rate averaging scenarios (will be reallocated)
-    5darray obsFc_nxmsy(1,1,1,1,1,1,1,1,1,1);    //"observed" capture rates for capture rate averaging scenarios (will be reallocated)
-    5darray prdFc_nxmsy(1,1,1,1,1,1,1,1,1,1);    //"predicted" capture rates for capture rate averaging scenarios (will be reallocated)
+    4darray avgFc_nxms(1,nCRASs,1,nSXs,1,nMSs,1,nSCs);         //avg capture rates for capture rate averaging scenarios
+    4darray avgFc2Eff_nxms(1,nCRASs,1,nSXs,1,nMSs,1,nSCs);     //ratios of avg capture rate to effort for capture rate averaging scenarios
+    5darray prdEff_nxmsy(1,nCRASs,1,nSXs,1,nMSs,1,nSCs,mnYr,mxYr);   //"predicted" effort for capture rate averaging scenarios
+    5darray obsFc_nxmsy(1,nCRASs,1,nSXs,1,nMSs,1,nSCs,mnYr,mxYr);    //"observed" capture rates for capture rate averaging scenarios
+    5darray prdFc_nxmsy(1,nCRASs,1,nSXs,1,nMSs,1,nSCs,mnYr,mxYr);    //"predicted" capture rates for capture rate averaging scenarios
     
     matrix  hmF_fy(1,nFsh,mnYr,mxYr);                        //handling mortality
     matrix dvsLnC_fy(1,nFsh,mnYr,mxYr);                      //matrix to capture lnC-devs
@@ -1204,12 +1208,11 @@ PRELIMINARY_CALCS_SECTION
     //allocate associated arrays
     cout<<"\n--calculating average effort"<<endl;
     rpt::echo<<"\n--calculating average effort"<<endl;
-    rpt::echo<<"mapD2MFsh = "<<mapD2MFsh<<endl;
-    
-    EffAvgScenarios* pEASs = ptrMOs->ptrEffXtrapScenarios->ptrEffAvgScenarios;
-    int nEASs = pEASs->nAvgs;
+    rpt::echo<<"mapD2MFsh = "<<mapD2MFsh<<endl;    
+    rpt::echo<<"nEASs     = "<<nEASs<<endl;    
+    EffAvgScenarios* ptrEASs = ptrMOs->ptrEffXtrapScenarios->ptrEffAvgScenarios;
     for (int n=1;n<=nEASs;n++){//effort averaging scenarios
-        EffAvgScenario* ptrEAS = pEASs->ppEASs[n-1];
+        EffAvgScenario* ptrEAS = ptrEASs->ppEASs[n-1];
         int fm = ptrEAS->f;    //index for fishery associate with this averaging scenario
         int fd = mapM2DFsh(fm);//index for corresponding fishery data object
         rpt::echo<<"n = "<<n<<". fm = "<<fm<<". fd = "<<fd<<endl;
@@ -1238,17 +1241,43 @@ PRELIMINARY_CALCS_SECTION
     cout<<"finished calculating average effort scenarios"<<endl;
     
     cout<<"\n--starting allocation of arrays for average capture rates and effort extrapolation"<<endl;
-    CapRateAvgScenarios* pCRASs = ptrMOs->ptrEffXtrapScenarios->ptrCapRateAvgScenarios;
-    int nCRASs = pCRASs->nAvgs;
-    avgFc_nxms.deallocate();
-    avgFc_nxms.allocate(1,nCRASs,1,nSXs,1,nMSs,1,nSCs,"avgFc_nxms");
-    avgFc2Eff_nxms.deallocate();
-    avgFc2Eff_nxms.allocate(1,nCRASs,1,nSXs,1,nMSs,1,nSCs,"avgFc2Eff_nxms");
-    obsFc_nxmsy.deallocate();
-    obsFc_nxmsy.allocate(1,nCRASs,1,nSXs,1,nMSs,1,nSCs,mnYr,mxYr,"obsFc_nxmsy");
-    prdFc_nxmsy.deallocate();
-    prdFc_nxmsy.allocate(1,nCRASs,1,nSXs,1,nMSs,1,nSCs,mnYr,mxYr,"prdFc_nxmsy");
+    rpt::echo<<"\n--starting allocation of arrays for average capture rates and effort extrapolation"<<endl;
+//    avgFc_nxms.deallocate();
+//    avgFc_nxms.allocate(1,nCRASs,1,nSXs,1,nMSs,1,nSCs,"avgFc_nxms");
+//    avgFc2Eff_nxms.deallocate();
+//    avgFc2Eff_nxms.allocate(1,nCRASs,1,nSXs,1,nMSs,1,nSCs,"avgFc2Eff_nxms");
+//    obsFc_nxmsy.deallocate();
+//    obsFc_nxmsy.allocate(1,nCRASs,1,nSXs,1,nMSs,1,nSCs,mnYr,mxYr,"obsFc_nxmsy");
+//    prdFc_nxmsy.deallocate();
+//    prdFc_nxmsy.allocate(1,nCRASs,1,nSXs,1,nMSs,1,nSCs,mnYr,mxYr,"prdFc_nxmsy");
+//    prdEff_nxmsy.deallocate();
+//    prdEff_nxmsy.allocate(1,nCRASs,1,nSXs,1,nMSs,1,nSCs,mnYr,mxYr,"prdFc_nxmsy");
+    obsEff_nxmsy.initialize();
+    for (int n=1;n<=nCRASs;n++){
+        CapRateAvgScenario* ptrCRAS = ptrMOs->ptrEffXtrapScenarios->ptrCapRateAvgScenarios->ppCRASs[n-1];
+        int idEAS = ptrCRAS->idEffAvgInfo;
+        int mnx, mxx, mnm, mxm, mns, mxs;
+        mnx = mxx = ptrCRAS->x;//sex index
+        if (mnx==tcsam::ALL_SXs) {mnx=1; mxx=tcsam::nSXs;}
+        mnm = mxm = ptrCRAS->m;//maturity index
+        if (mnm==tcsam::ALL_MSs) {mnm=1; mxm=tcsam::nMSs;}
+        mns = mxs = ptrCRAS->s;//shell index
+        if (mns==tcsam::ALL_SCs) {mns=1; mxs=tcsam::nSCs;}
+        for (int x=mnx;x<=mxx;x++){
+            for (int m=mnm;m<=mxm;m++){
+                for (int s=mns;s<=mxs;s++) {
+                    for (int iy=yrsAvgEff_ny(idEAS).indexmin();iy<=yrsAvgEff_ny(idEAS).indexmax();iy++)
+                        obsEff_nxmsy(n,x,m,s)(yrsAvgEff_ny(idEAS,iy)) = eff_ny(idEAS,iy);
+                    rpt::echo<<"n = "<<n<<". idEAS = "<<idEAS<<endl;
+                    rpt::echo<<"yrsAvgEff_ny(idEAS) = "<<yrsAvgEff_ny(idEAS)<<endl;
+                    rpt::echo<<"eff_ny(idEAS)       ="<<eff_ny(idEAS)<<endl;
+                    rpt::echo<<"obsEff_nxmsy("<<n<<cc<<x<<cc<<m<<cc<<s<<") = "<<obsEff_nxmsy(n,x,m,s)<<endl;
+                }//s
+            }//m
+        }//x
+    }//n
     cout<<"--finished allocation of arrays for average capture rates and effort extrapolation\n"<<endl;
+    rpt::echo<<"--finished allocation of arrays for average capture rates and effort extrapolation\n"<<endl;
     
     if (option_match(ad_comm::argc,ad_comm::argv,"-mceval")<0) {
         cout<<"testing calcRecruitment():"<<endl;
@@ -2993,14 +3022,6 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
             for (int z=1;z<=nZBs;z++){//pre-molt growth bin
                 dvector dpZs =  zBs(z,nZBs) - (zBs(z)-2.5);//realized growth increments (note non-neg. growth only)
                 dvar_vector prs  = elem_prod(pow(dpZs,alpIs(z)-1.0),exp(-dpZs/grBeta)); //pr(dZ|z): use exp like TCSAM2013
-//                if (debug) {
-//                    cout<<"premolt z = "<<zBs(z)<<endl;
-//                    cout<<"prs  = "<<prs/sum(prs)<<endl;
-//                }
-//                if (prs.size()>11) prs(z+11,nZBs) = 0.0;//limit growth range TODO: this assumes bin size is 5 mm
-//                if (debug) cout<<prs<<endl;
-//                prs = prs/sum(prs);//normalize to sum to 1
-//                if (debug) cout<<prs<<endl;
                 int mxIZ = min(nZBs,z+10);
                 prGr_zz(z)(z,mxIZ) = prs(z,mxIZ);
                 prGr_zz(z) /= sum(prGr_zz(z));
@@ -3342,6 +3363,7 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
     int y; int f; int mnx; int mxx; int mnm; int mxm; int mns; int mxs; 
     int idSel; int idRet; int useDevs;
     //Pass 1: calculations based on parameter values
+    if (debug>dbgCalcProcs) cout<<"starting pass 1"<<endl;
     for (int pc=1;pc<=ptrFsh->nPCs;pc++){
         ivector pids = ptrFsh->getPCIDs(pc);
         if (debug>dbgCalcProcs) cout<<"pc: "<<pc<<tb<<"pids: "<<pids<<endl;
@@ -3371,14 +3393,14 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
             if (useDevs) {
                 dvsLnC     = devsLnC(useDevs);
                 idxDevsLnC = idxsDevsLnC(useDevs);
-                if (debug>dbgCalcProcs){
-                    cout<<"y   idx    devsLnC"<<endl;
-                    for (int i=idxDevsLnC.indexmin();i<=idxDevsLnC.indexmax();i++) {
-                        cout<<i<<tb<<idxDevsLnC(i)<<tb;
-                        if (idxDevsLnC(i)) cout<<dvsLnC[idxDevsLnC(i)];
-                        cout<<endl;
-                    }//i
-                }
+//                if (debug>dbgCalcProcs){
+//                    cout<<"y   idx    devsLnC"<<endl;
+//                    for (int i=idxDevsLnC.indexmin();i<=idxDevsLnC.indexmax();i++) {
+//                        cout<<i<<tb<<idxDevsLnC(i)<<tb;
+//                        if (idxDevsLnC(i)) cout<<dvsLnC[idxDevsLnC(i)];
+//                        cout<<endl;
+//                    }//i
+//                }
             } else {
                 arC_m = mfexp(lnC_m);
             }
@@ -3440,20 +3462,24 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
             }//idx
         }//useEX=FALSE
     }//pc
-    if (debug) cout<<"finished pass 1"<<endl;
+    if (debug>dbgCalcProcs) cout<<"finished pass 1"<<endl;
     
     //calculate ratio of average capture rate to effort
-    if (debug>dbgCalcProcs) cout<<"calculating average capture rates"<<endl;
+    if (debug>dbgCalcProcs) cout<<"--calculating average capture rates"<<endl;
     avgFc_nxms.initialize();
     avgFc2Eff_nxms.initialize();
     obsFc_nxmsy.initialize();
     prdFc_nxmsy.initialize();
+    prdEff_nxmsy.initialize();
     CapRateAvgScenarios* pCRASs = ptrMOs->ptrEffXtrapScenarios->ptrCapRateAvgScenarios;
     int nCRASs = pCRASs->nAvgs;
     for (int n=1;n<=nCRASs;n++){//capture rate averaging scenarios
         CapRateAvgScenario* ptrCRAS = pCRASs->ppCRASs[n-1];
         int idEAS = ptrCRAS->idEffAvgInfo;//index to associated average effort
-        int f     = ptrCRAS->f;//fishery
+        int idPar = ptrCRAS->idParam;     //index to associated extrapolation parameter
+        int f     = ptrCRAS->f;  //fishery
+        int fd    = mapM2DFsh(f);//index of corresponding fishery data object
+        dvector eff_y = ptrMDS->ppFsh[fd-1]->ptrEff->eff_y;//corresponding effort time series
         mnx = mxx = ptrCRAS->x;//sex index
         if (mnx==tcsam::ALL_SXs) {mnx=1; mxx=tcsam::nSXs;}
         mnm = mxm = ptrCRAS->m;//maturity index
@@ -3463,18 +3489,43 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
         for (int x=mnx;x<=mxx;x++){
             for (int m=mnm;m<=mxm;m++){
                 for (int s=mns;s<=mxs;s++){
-                    if (debug) cout<<"capture rate averaging for n="<<n<<cc<<" f="<<f<<cc<<" x="<<x<<cc<<" m="<<m<<cc<<" s="<<s<<endl;
+                    if (debug>dbgCalcProcs)cout<<"capture rate averaging for n="<<n<<"idEAS="<<idEAS<<cc<<" avgEff_n(idEAS)="<<avgEff_n(idEAS)<<cc
+                                               <<" f="<<f<<cc<<" x="<<x<<cc<<" m="<<m<<cc<<" s="<<s<<endl;
+                    //loop over years to extract "observed" F's and calculate averages
                     for (int iy=yrsAvgEff_ny(idEAS).indexmin();iy<=yrsAvgEff_ny(idEAS).indexmax();iy++){
-                        cout<<iy<<cc<<yrsAvgEff_ny(idEAS,iy)<<endl;
+                        //cout<<iy<<cc<<yrsAvgEff_ny(idEAS,iy)<<endl;
                         obsFc_nxmsy(n,x,m,s,yrsAvgEff_ny(idEAS,iy)) = cpF_fyxms(f,yrsAvgEff_ny(idEAS,iy),x,m,s);
                     }
                     avgFc_nxms(n,x,m,s) = sum(obsFc_nxmsy(n,x,m,s))/yrsAvgEff_ny(idEAS).size();
                     avgFc2Eff_nxms(n,x,m,s) = avgFc_nxms(n,x,m,s)/avgEff_n(idEAS);
-                    if (debug) {
-                        cout<<"idEAS="<<idEAS<<cc<<" avgEff_n(idEAS)="<<avgEff_n(idEAS)<<cc<<" yrsAvgEff_ny(idEAS)="<<yrsAvgEff_ny(idEAS)<<endl;
-                        cout<<"obsFc_nxmsy(n,x,m,s)(yrs) = "<<obsFc_nxmsy(n,x,m,s)(yrsAvgEff_ny(idEAS))<<endl;
+                    
+                    //loop over year again to calculate "predicted" F's based on effort
+                    for (int iy=yrsAvgEff_ny(idEAS).indexmin();iy<=yrsAvgEff_ny(idEAS).indexmax();iy++){
+                        //fully-selected capture rate
+                        if (idPar==0){
+                            //extrapolation based on effort extrapolation ratio only
+                            prdFc_nxmsy(n,x,m,s,yrsAvgEff_ny(idEAS,iy)) =                      
+                                                          avgFc2Eff_nxms(n,x,m,s)*eff_y(yrsAvgEff_ny(idEAS,iy)); 
+                            //predicted effort from "observed" capture rates
+                            prdEff_nxmsy(n,x,m,s,yrsAvgEff_ny(idEAS,iy)) = 
+                                    obsFc_nxmsy(n,x,m,s,yrsAvgEff_ny(idEAS,iy))/avgFc2Eff_nxms(n,x,m,s);
+                        } else {
+                            //extrapolation based on effort extrapolation parameters, as well as ratio
+                            prdFc_nxmsy(n,x,m,s,yrsAvgEff_ny(idEAS,iy)) = 
+                                    mfexp(pLnEffX(idPar))*avgFc2Eff_nxms(n,x,m,s)*eff_y(yrsAvgEff_ny(idEAS,iy));
+                            //predicted effort from "observed" capture rates
+                            prdEff_nxmsy(n,x,m,s,yrsAvgEff_ny(idEAS,iy)) = 
+                                    obsFc_nxmsy(n,x,m,s,yrsAvgEff_ny(idEAS,iy))/(mfexp(pLnEffX(idPar))*avgFc2Eff_nxms(n,x,m,s));
+                        }
+                    }
+                    if (debug>dbgCalcProcs){
+                        cout<<"yrsAvgEff_ny(idEAS)       = "<<yrsAvgEff_ny(idEAS)<<endl;
                         cout<<"avgFc_nxms(n,x,m,s)       = "<<avgFc_nxms(n,x,m,s)<<endl;
                         cout<<"avgFc2Eff_nxms(n,x,m,s)   = "<<avgFc2Eff_nxms(n,x,m,s)<<endl;
+                        cout<<"obsFc_nxmsy(n,x,m,s) = "<<obsFc_nxmsy(n,x,m,s)<<endl;
+                        cout<<"prdFc_nxmsy(n,x,m,s) = "<<prdFc_nxmsy(n,x,m,s)<<endl;
+                        cout<<"obsEff_nxmsy(n,x,m,s) = "<<obsEff_nxmsy(n,x,m,s)<<endl;
+                        cout<<"prdEff_nxmsy(n,x,m,s) = "<<prdEff_nxmsy(n,x,m,s)<<endl;
                     }
                 }//s
             }//m
@@ -3488,7 +3539,7 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
     for (int pc=1;pc<=ptrFsh->nPCs;pc++){
         ivector pids = ptrFsh->getPCIDs(pc);
         int useEX   = pids[ptrFsh->idxUseEX];//flag to use direct effort extrapolation (+ index to EX scenario [i.e., "n"])
-        int useLnEX = pids[ptrFsh->idxLnEX]; //flag to use parameterized effort extrapolation (+ index to EX parameters)
+        int idPar   = pids[ptrFsh->idxLnEX]; //flag to use parameterized effort extrapolation (+ index to EX parameters)
         if (useEX){//calculate capture rates from effort extrapolation
             //get handling mortality (default to 1)
             hm = 1.0;
@@ -3517,18 +3568,20 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
                         for (int m=mnm;m<=mxm;m++){
                             for (int s=mns;s<=mxs;s++){
                                 //fully-selected capture rate
-                                if (useLnEX==0){
+                                if (idPar==0){
                                         //extrapolation based on effort extrapolation ratio only
-                                    prdFc_nxmsy(useEX,x,m,s,y) = avgFc2Eff_nxms(useEX,x,m,s)*eff; 
-                                    cpF_fyxms(f,y,x,m,s)   = prdFc_nxmsy(useEX,x,m,s,y); 
+                                    //prdFc_nxmsy(useEX,x,m,s,y) = avgFc2Eff_nxms(useEX,x,m,s)*eff; 
+                                    //cpF_fyxms(f,y,x,m,s)   = prdFc_nxmsy(useEX,x,m,s,y); 
+                                    cpF_fyxms(f,y,x,m,s) = avgFc2Eff_nxms(useEX,x,m,s)*eff; 
                                 } else {
                                     //extrapolation based on effort extrapolation parameters, as well as ratio
-                                    prdFc_nxmsy(useEX,x,m,s,y) = mfexp(pLnEffX(useLnEX))*avgFc2Eff_nxms(useEX,x,m,s)*eff;
-                                    cpF_fyxms(f,y,x,m,s) = prdFc_nxmsy(useEX,x,m,s,y);
+                                    //prdFc_nxmsy(useEX,x,m,s,y) = mfexp(pLnEffX(idPar))*avgFc2Eff_nxms(useEX,x,m,s)*eff;
+                                    //cpF_fyxms(f,y,x,m,s) = prdFc_nxmsy(useEX,x,m,s,y);
+                                    cpF_fyxms(f,y,x,m,s) = mfexp(pLnEffX(idPar))*avgFc2Eff_nxms(useEX,x,m,s)*eff;
                                 }
                                 if (debug>dbgCalcProcs) {
-                                    if (useLnEX==0) cout<<f<<tb<<y<<useEX<<tb<<x<<tb<<0               <<avgFc2Eff_nxms(useEX,x,m,s)<<tb<<eff<<tb<<cpF_fyxms(f,y,x,m,s)<<endl;
-                                    if (useLnEX)    cout<<f<<tb<<y<<useEX<<tb<<x<<tb<<pLnEffX(useLnEX)<<avgFc2Eff_nxms(useEX,x,m,s)<<tb<<eff<<tb<<cpF_fyxms(f,y,x,m,s)<<endl;
+                                    if (idPar==0) cout<<f<<tb<<y<<useEX<<tb<<x<<tb<<0             <<avgFc2Eff_nxms(useEX,x,m,s)<<tb<<eff<<tb<<cpF_fyxms(f,y,x,m,s)<<endl;
+                                    if (idPar)    cout<<f<<tb<<y<<useEX<<tb<<x<<tb<<pLnEffX(idPar)<<avgFc2Eff_nxms(useEX,x,m,s)<<tb<<eff<<tb<<cpF_fyxms(f,y,x,m,s)<<endl;
                                 }
                                 if (!debug) testNaNs(value(cpF_fyxms(f,y,x,m,s)),"calcFisheryFs: 2nd pass");
                                 sel_fyxmsz(f,y,x,m,s) = sel_cyz(idSel,y);
@@ -3544,79 +3597,17 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
                         }//m
                     }//x
                 }//(mnYr<=y)&&(y<=mxYr)
-            }
+            }//idx
         }//useEX=TRUE
     }//pc
     if (debug>dbgCalcProcs) cout<<"Finished pass 2"<<endl;
  
-//    int fd; double eff;
-//    for (int pc=1;pc<=ptrFsh->nPCs;pc++){
-//        ivector pids = ptrFsh->getPCIDs(pc);
-//        useEX = pids[idxEX];//flag to use effort ratio
-//        if (useEX){//calculate capture rates from parameters
-//            int k=ptrFsh->nIVs+1;//1st parameter variable column
-//            //get handling mortality (default to 1)
-//            hm = 1.0;
-//            if (pids[k]) {hm = pHM(pids[k]);} k++;
-//            
-//            k = ptrFsh->nIVs+ptrFsh->nPVs+1;//1st extra variable column
-//            idSel = pids[k++];   //selectivity function id
-//            idRet = pids[k++];   //retention function id
-////            idEfX = pids[k++];   //effort extrapolation parameter id
-//            
-////            if (debug>dbgCalcProcs) cout<<"pc: "<<pc<<". hm = "<<hm<<". idSel = "<<idSel<<". idRet = "<<idRet<<". idEfX = "<<idEfX<<". Using ER"<<endl;
-//
-//            //loop over model indices as defined in the index blocks
-//            imatrix idxs = ptrFsh->getModelIndices(pc);
-////            for (int idx=idxs.indexmin();idx<=idxs.indexmax();idx++){
-////                f = idxs(idx,1);//fishery
-////                y = idxs(idx,2);//year
-////                if ((mnYr<=y)&&(y<=mxYr)){
-////                    fd = mapM2DFsh(f);//index of corresponding fishery data object
-////                    eff = ptrMDS->ppFsh[fd-1]->ptrEff->eff_y(y);
-////                    mnx = mxx = idxs(idx,3);//sex index
-////                    if (mnx==tcsam::ALL_SXs) {mnx=1; mxx=tcsam::nSXs;}
-////                    mnm = mxm = idxs(idx,4);//maturity index
-////                    if (mnm==tcsam::ALL_MSs) {mnm=1; mxm=tcsam::nMSs;}
-////                    mns = mxs = idxs(idx,5);//shell index
-////                    if (mns==tcsam::ALL_SCs) {mns=1; mxs=tcsam::nSCs;}
-////                    for (int x=mnx;x<=mxx;x++){
-////                        for (int m=mnm;m<=mxm;m++){
-////                            for (int s=mns;s<=mxs;s++){
-////                                //fully-selected capture rate
-////                                switch(ptrMOs->optEffXtrEst(f)) {
-////                                    case 0:
-////                                        cpF_fyxms(f,y,x,m,s) = 0.0; break; //don't extrapolate
-////                                    case 1:
-////                                        cpF_fyxms(f,y,x,m,s) = avgFc2Eff_nxms(f,x,m,s)*eff; break;
-////                                    case 2:
-////                                        //extrapolation based on effort extrapolation parameters, as well as ratio
-////                                        cpF_fyxms(f,y,x,m,s) = mfexp(pLnEffX(idxEX))*avgFc2Eff_nxms(f,x,m,s)*eff; break;
-////                                }
-////                                if (debug>dbgCalcProcs) cout<<"f, y, x, m, s, eff, avgRatFcp2E, cpF = "<<f<<tb<<y<<tb<<x<<tb<<eff<<tb<<avgFc2Eff_nxms(f,x,m,s)<<tb<<cpF_fyxms(f,y,x,m,s)<<endl;
-////                                if (!debug) testNaNs(value(cpF_fyxms(f,y,x,m,s)),"calcFisheryFs: 2nd pass");
-////                                sel_fyxmsz(f,y,x,m,s) = sel_cyz(idSel,y);
-////                                cpF_fyxmsz(f,y,x,m,s) = cpF_fyxms(f,y,x,m,s)*sel_cyz(idSel,y);//size-specific capture rate
-////                                if (idRet){//fishery has retention
-////                                    ret_fyxmsz(f,y,x,m,s) = sel_cyz(idRet,y);
-////                                    rmF_fyxmsz(f,y,x,m,s) = elem_prod(sel_cyz(idRet,y),         cpF_fyxmsz(f,y,x,m,s));//retention mortality rate
-////                                    dmF_fyxmsz(f,y,x,m,s) = elem_prod(hm*(1.0-sel_cyz(idRet,y)),cpF_fyxmsz(f,y,x,m,s));//discard mortality rate
-////                                } else {//discard only
-////                                    dmF_fyxmsz(f,y,x,m,s) = hm*cpF_fyxmsz(f,y,x,m,s);//discard mortality rate
-////                                }
-////                            }//s
-////                        }//m
-////                    }//x
-////                }//(mnYr<=y)&&(y<=mxYr)
-////            }
-//        }//useEX=TRUE
-//    }
     if (debug>dbgCalcProcs) {
         for (int f=1;f<=nFsh;f++){
-            for (int y=mnYr;y<=mxYr;y++){
-                cout<<"cpF_fyxmsz("<<f<<tb<<y<<tb<<"  MALE,m,s) = "<<cpF_fyxmsz(f,y,  MALE,MATURE,NEW_SHELL)<<endl;
-                cout<<"cpF_fyxmsz("<<f<<tb<<y<<tb<<"FEMALE,m,s) = "<<cpF_fyxmsz(f,y,FEMALE,MATURE,NEW_SHELL)<<endl;
-            }
+            cout<<"cpF_fyxmsz("<<f<<",mnYr:mxYr,  MALE,MATURE,NEW SHELL) = ";
+            for (int y=mnYr;y<=mxYr;y++) {cout<<cpF_fyxmsz(f,y,  MALE,MATURE,NEW_SHELL)<<tb;} cout<<endl;
+            cout<<"cpF_fyxmsz("<<f<<",mnYr:mxYr,FEMALE,MATURE,NEW SHELL) = ";
+            for (int y=mnYr;y<=mxYr;y++) {cout<<cpF_fyxmsz(f,y,FEMALE,MATURE,NEW_SHELL)<<tb;} cout<<endl;
         }
         cout<<"finished calcFisheryFs()"<<endl;
     }
@@ -5029,7 +5020,9 @@ FUNCTION void calcNLLs_ExtrapolatedEffort(int debug, ostream& cout)
         if (debug<0){
             cout<<"`"<<n<<"`=list(f="<<f<<cc<<"stdv="<<stdv<<cc<<"wgt="<<ptrCRAS->llWgt<<cc<<endl;
             cout<<"obsFc="; wts::writeToR(cout,obsFc_nxmsy(n),xDms,mDms,sDms,yDms);cout<<cc<<endl;
-            cout<<"prdFc="; wts::writeToR(cout,prdFc_nxmsy(n),xDms,mDms,sDms,yDms);cout<<endl;
+            cout<<"prdFc="; wts::writeToR(cout,prdFc_nxmsy(n),xDms,mDms,sDms,yDms);cout<<cc<<endl;
+            cout<<"obsEff="; wts::writeToR(cout,obsEff_nxmsy(n),xDms,mDms,sDms,yDms);cout<<cc<<endl;
+            cout<<"prdEff="; wts::writeToR(cout,prdEff_nxmsy(n),xDms,mDms,sDms,yDms);cout<<endl;
             cout<<")"<<cc<<endl;
         }
         mnx = mxx = ptrCRAS->x;//sex index
@@ -5041,12 +5034,15 @@ FUNCTION void calcNLLs_ExtrapolatedEffort(int debug, ostream& cout)
         for (int x=mnx;x<=mxx;x++){
             for (int m=mnm;m<=mxm;m++){
                 for (int s=mns;s<=mxs;s++){
-                    dvar_vector zscrs = (log(obsFc_nxmsy(n,x,m,s)+smlVal)-log(prdFc_nxmsy(n,x,m,s)+smlVal))/stdv;
+                    dvar_vector zscrs = (log(obsEff_nxmsy(n,x,m,s)+smlVal)-log(prdEff_nxmsy(n,x,m,s)+smlVal))/stdv;
                     dvariable nll = norm2(zscrs);
-                    cout<<"n    x   m    s      stdv   wgt     nll"<<endl;
-                    cout<<n<<tb<<x<<tb<<m<<tb<<s<<tb<<stdv<<tb<<ptrCRAS->llWgt<<tb<<nll<<endl;
-                    cout<<"obsFc_nxmsy(n,x,m,s) = "<<obsFc_nxmsy(n,x,m,s)<<endl;
-                    cout<<"prdFc_nxmsy(n,x,m,s) = "<<prdFc_nxmsy(n,x,m,s)<<endl;
+                    if (debug>dbgAll){
+                        cout<<"n    x   m    s      stdv   wgt     nll"<<endl;
+                        cout<<n<<tb<<x<<tb<<m<<tb<<s<<tb<<stdv<<tb<<ptrCRAS->llWgt<<tb<<nll<<endl;
+                        cout<<"obsEff_nxmsy(n,x,m,s) = "<<obsEff_nxmsy(n,x,m,s)<<endl;
+                        cout<<"prdEff_nxmsy(n,x,m,s) = "<<prdEff_nxmsy(n,x,m,s)<<endl;
+                        cout<<"zscores              = "<<zscrs<<endl;
+                    }
                     if ((ptrCRAS->idParam)&&(active(pLnEffX(ptrCRAS->idParam)))){
                         objFun += (ptrCRAS->llWgt)*nll;
                     } else {
