@@ -246,7 +246,7 @@ void IndexBlock::write(std::ostream & os){
  * Writes an IndexBlock as an unnamed character string.
  */
 void IndexBlock::writeToR(std::ostream& os){
-    os<<"'"<<asString()<<os<<"'";
+    os<<"'"<<asString()<<"'";
 }
 /*
  * Returns an IndexBlock as an adstring object.

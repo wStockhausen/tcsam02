@@ -243,6 +243,9 @@
 //--2017-04-05: 1. Revised debug output for OFL calculations.
 //--2017-04-07: 1. Revised effort extrapolation to use observed, predicted effort,
 //                  not "observed", "predicted" capture rates in the likelihood.
+//--2017-04-13: 1. Fixed error in WriteToR for an IndexBlock.
+//              2. Added output from calcNLLs_ExtrapolatedEffort to rep file 
+//                  via ReportToR_ModelFits.
 //
 // =============================================================================
 // =============================================================================
@@ -5333,9 +5336,10 @@ FUNCTION void ReportToR_ModelFits(ostream& os, double maxGrad, int debug, ostrea
         os<<tb<<"components=list("<<endl;
             os<<tb<<tb<<"recruitment="; calcNLLs_Recruitment(-1,os); os<<endl;
         os<<tb<<")"<<cc<<endl;
-        os<<tb<<"fisheries=";  calcNLLs_Fisheries(-1,os);  os<<cc<<endl; 
-        os<<tb<<"surveys=";    calcNLLs_Surveys(-1,os);    os<<cc<<endl;  
-        os<<tb<<"growthdata="; calcNLLs_GrowthData(-1,os); os<<endl;
+        os<<tb<<"fisheries=";  calcNLLs_Fisheries(-1,os);          os<<cc<<endl; 
+        os<<tb<<"surveys=";    calcNLLs_Surveys(-1,os);            os<<cc<<endl;  
+        os<<tb<<"growthdata="; calcNLLs_GrowthData(-1,os);         os<<cc<<endl;
+        os<<tb<<"effortdata="; calcNLLs_ExtrapolatedEffort(-1,os); os<<cc<<endl;
     os<<")";
     if (debug) cout<<"Finished ReportToR_ModelFits(...)"<<endl;
 
