@@ -246,6 +246,8 @@
 //--2017-04-13: 1. Fixed error in WriteToR for an IndexBlock.
 //              2. Added output from calcNLLs_ExtrapolatedEffort to rep file 
 //                  via ReportToR_ModelFits.
+//--2017-04-14: 1. Added zscrEffX_nxmsy and nllEffX_nxms arrays, updated 
+//                  R output in calcNLLs_ExtrapolatedEffort().
 //
 // =============================================================================
 // =============================================================================
@@ -1094,9 +1096,11 @@ PARAMETER_SECTION
     //fishery-related quantities
     4darray avgFc_nxms(1,nCRASs,1,nSXs,1,nMSs,1,nSCs);         //avg capture rates for capture rate averaging scenarios
     4darray avgFc2Eff_nxms(1,nCRASs,1,nSXs,1,nMSs,1,nSCs);     //ratios of avg capture rate to effort for capture rate averaging scenarios
-    5darray prdEff_nxmsy(1,nCRASs,1,nSXs,1,nMSs,1,nSCs,mnYr,mxYr);   //"predicted" effort for capture rate averaging scenarios
     5darray obsFc_nxmsy(1,nCRASs,1,nSXs,1,nMSs,1,nSCs,mnYr,mxYr);    //"observed" capture rates for capture rate averaging scenarios
     5darray prdFc_nxmsy(1,nCRASs,1,nSXs,1,nMSs,1,nSCs,mnYr,mxYr);    //"predicted" capture rates for capture rate averaging scenarios
+    5darray prdEff_nxmsy(1,nCRASs,1,nSXs,1,nMSs,1,nSCs,mnYr,mxYr);   //"predicted" effort for capture rate averaging scenarios
+    5darray zscrEffX_nxmsy(1,nCRASs,1,nSXs,1,nMSs,1,nSCs,mnYr,mxYr); //effort z-scores for effort extrapolation/capture rate averaging scenarios
+    4darray nllEffX_nxms(1,nCRASs,1,nSXs,1,nMSs,1,nSCs);             //nlls for effort extrapolation/capture rate averaging scenarios
     
     matrix  hmF_fy(1,nFsh,mnYr,mxYr);                        //handling mortality
     matrix dvsLnC_fy(1,nFsh,mnYr,mxYr);                      //matrix to capture lnC-devs
@@ -5016,18 +5020,12 @@ FUNCTION void calcNLLs_ExtrapolatedEffort(int debug, ostream& cout)
     CapRateAvgScenarios* ptrCRASs = ptrMOs->ptrEffXtrapScenarios->ptrCapRateAvgScenarios;
     double stdv = sqrt(log(1.0+square(0.1)));//TODO: check this!!
     int mnx, mxx, mnm, mxm, mns, mxs;
+    nllEffX_nxms.initialize();
+    zscrEffX_nxmsy.initialize();
     for (int n=1;n<=ptrCRASs->nAvgs;n++){
         CapRateAvgScenario* ptrCRAS = ptrCRASs->ppCRASs[n-1];
         int idEAS = ptrCRAS->idEffAvgInfo;//index to associated average effort
         int f     = ptrCRAS->f;//fishery
-        if (debug<0){
-            cout<<"`"<<n<<"`=list(f="<<f<<cc<<"stdv="<<stdv<<cc<<"wgt="<<ptrCRAS->llWgt<<cc<<endl;
-            cout<<"obsFc="; wts::writeToR(cout,obsFc_nxmsy(n),xDms,mDms,sDms,yDms);cout<<cc<<endl;
-            cout<<"prdFc="; wts::writeToR(cout,prdFc_nxmsy(n),xDms,mDms,sDms,yDms);cout<<cc<<endl;
-            cout<<"obsEff="; wts::writeToR(cout,obsEff_nxmsy(n),xDms,mDms,sDms,yDms);cout<<cc<<endl;
-            cout<<"prdEff="; wts::writeToR(cout,prdEff_nxmsy(n),xDms,mDms,sDms,yDms);cout<<endl;
-            cout<<")"<<cc<<endl;
-        }
         mnx = mxx = ptrCRAS->x;//sex index
         if (mnx==tcsam::ALL_SXs) {mnx=1; mxx=tcsam::nSXs;}
         mnm = mxm = ptrCRAS->m;//maturity index
@@ -5037,23 +5035,33 @@ FUNCTION void calcNLLs_ExtrapolatedEffort(int debug, ostream& cout)
         for (int x=mnx;x<=mxx;x++){
             for (int m=mnm;m<=mxm;m++){
                 for (int s=mns;s<=mxs;s++){
-                    dvar_vector zscrs = (log(obsEff_nxmsy(n,x,m,s)+smlVal)-log(prdEff_nxmsy(n,x,m,s)+smlVal))/stdv;
-                    dvariable nll = norm2(zscrs);
+                    zscrEffX_nxmsy(n,x,m,s) = (log(obsEff_nxmsy(n,x,m,s)+smlVal)-log(prdEff_nxmsy(n,x,m,s)+smlVal))/stdv;
+                    nllEffX_nxms(n,x,m,s)   = norm2(zscrEffX_nxmsy(n,x,m,s));
                     if (debug>dbgAll){
                         cout<<"n    x   m    s      stdv   wgt     nll"<<endl;
-                        cout<<n<<tb<<x<<tb<<m<<tb<<s<<tb<<stdv<<tb<<ptrCRAS->llWgt<<tb<<nll<<endl;
+                        cout<<n<<tb<<x<<tb<<m<<tb<<s<<tb<<stdv<<tb<<ptrCRAS->llWgt<<tb<<nllEffX_nxms(n,x,m,s)<<endl;
                         cout<<"obsEff_nxmsy(n,x,m,s) = "<<obsEff_nxmsy(n,x,m,s)<<endl;
                         cout<<"prdEff_nxmsy(n,x,m,s) = "<<prdEff_nxmsy(n,x,m,s)<<endl;
-                        cout<<"zscores              = "<<zscrs<<endl;
+                        cout<<"zscores               = "<<zscrEffX_nxmsy(n,x,m,s)<<endl;
                     }
                     if ((ptrCRAS->idParam)&&(active(pLnEffX(ptrCRAS->idParam)))){
-                        objFun += (ptrCRAS->llWgt)*nll;
+                        objFun += (ptrCRAS->llWgt)*nllEffX_nxms(n,x,m,s);
                     } else {
                         objFun += 0.0;//add nothing, for now
                     }
                 }//s
             }//m
         }//x
+        if (debug<0){
+            cout<<"`"<<n<<"`=list(n="<<n<<",f='"<<ptrMC->lblsFsh(f)<<"',stdv="<<stdv<<",wgt="<<ptrCRAS->llWgt<<cc<<endl;
+            cout<<"obsFc="; wts::writeToR(cout,obsFc_nxmsy(n),xDms,mDms,sDms,yDms);cout<<cc<<endl;
+            cout<<"prdFc="; wts::writeToR(cout,prdFc_nxmsy(n),xDms,mDms,sDms,yDms);cout<<cc<<endl;
+            cout<<"obsEff="; wts::writeToR(cout,obsEff_nxmsy(n),xDms,mDms,sDms,yDms);cout<<cc<<endl;
+            cout<<"prdEff="; wts::writeToR(cout,prdEff_nxmsy(n),xDms,mDms,sDms,yDms);cout<<cc<<endl;
+            cout<<"zscores="; wts::writeToR(cout,zscrEffX_nxmsy(n),xDms,mDms,sDms,yDms);cout<<cc<<endl;
+            cout<<"nlls="; wts::writeToR(cout,nllEffX_nxms(n),xDms,mDms,sDms);cout<<endl;
+            cout<<")"<<cc<<endl;
+        }
     }//n
     if (debug<0) cout<<"NULL)"<<endl;
     if (debug>=dbgAll) cout<<"Finished calcNLLs_ExtrapolatedEffort()"<<endl;
@@ -5332,14 +5340,21 @@ FUNCTION void ReportToR_ModelFits(ostream& os, double maxGrad, int debug, ostrea
         //recalc objective function components and and write results to os
         objFun.initialize();
         os<<tb<<"penalties="; calcPenalties(-1,os);      os<<cc<<endl;
+        os<<tb<<"#end of penalties"<<endl;
         os<<tb<<"priors=";    calcAllPriors(-1,os);      os<<cc<<endl;
+        os<<tb<<"#end of priors"<<endl;
         os<<tb<<"components=list("<<endl;
             os<<tb<<tb<<"recruitment="; calcNLLs_Recruitment(-1,os); os<<endl;
         os<<tb<<")"<<cc<<endl;
+        os<<tb<<"#end of components"<<endl;
         os<<tb<<"fisheries=";  calcNLLs_Fisheries(-1,os);          os<<cc<<endl; 
+        os<<tb<<"#end of fisheries"<<endl;
         os<<tb<<"surveys=";    calcNLLs_Surveys(-1,os);            os<<cc<<endl;  
+        os<<tb<<"#end of surveys"<<endl;
         os<<tb<<"growthdata="; calcNLLs_GrowthData(-1,os);         os<<cc<<endl;
-        os<<tb<<"effortdata="; calcNLLs_ExtrapolatedEffort(-1,os); os<<cc<<endl;
+        os<<tb<<"#end of growthdata"<<endl;
+        os<<tb<<"effortdata="; calcNLLs_ExtrapolatedEffort(-1,os); os<<endl;
+        os<<tb<<"#end of effortdata"<<endl;
     os<<")";
     if (debug) cout<<"Finished ReportToR_ModelFits(...)"<<endl;
 
@@ -5428,25 +5443,32 @@ FUNCTION void ReportToR(ostream& os, double maxGrad, int debug, ostream& cout)
         os<<"objFun="<<value(objFun)<<cc<<"maxGrad="<<maxGrad<<cc<<endl;
         //model configuration
         ptrMC->writeToR(os,"mc",0); os<<","<<endl;
+        os<<"#end of mc"<<endl;
         
         //model data
         ptrMDS->writeToR(os,"data",0); os<<","<<endl;
+        os<<"#end of data"<<endl;
         
         //parameter values
         ReportToR_Params(os,debug,cout); os<<","<<endl;
+        os<<"#end of params"<<endl;
         
         //model processes
         ReportToR_ModelProcesses(os,debug,cout); os<<","<<endl;
+        os<<"#end of modelprodesses"<<endl;
         
         //model results
         ReportToR_ModelResults(os,debug,cout); os<<","<<endl;
+        os<<"#end of modelresults"<<endl;
 
         //model fit quantities
         ReportToR_ModelFits(os,maxGrad,debug,cout); os<<","<<endl;
+        os<<"#end of modelfits"<<endl;
         
         //simulated model data
         createSimData(debug, cout, 0, ptrSimMDS);//deterministic
         ptrSimMDS->writeToR(os,"sim.data",0); 
+        os<<"#end of sim.data"<<endl;
         
         //do OFL calculations
         if (doOFL){
@@ -5459,6 +5481,7 @@ FUNCTION void ReportToR(ostream& os, double maxGrad, int debug, ostream& cout)
             echoOFL.close();
             os<<","<<endl;
             oflResults.writeToR(os,ptrMC,"oflResults",0);
+            os<<"#end of oflResults"<<endl;
             cout<<"ReportToR: finished OFL calculations"<<endl;
         }
 
