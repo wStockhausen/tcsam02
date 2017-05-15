@@ -251,7 +251,8 @@
 //--2017-05-10: 1. Added labels to I/O for GrowthData datasets
 //              2. Added labels to parameter combinations and parameters via
 //                  ModelParametersInfo file.
-//
+//--2017-05-15: 1. Added pLgtRet as retained catch fraction (for old shell crab)
+//                  in directed fisheries.
 // =============================================================================
 // =============================================================================
 GLOBALS_SECTION
@@ -905,6 +906,9 @@ DATA_SECTION
     int npLnEffX; ivector phsLnEffX; vector lbLnEffX; vector ubLnEffX;
     !!tcsam::setParameterInfo(ptrMPI->ptrFsh->pLnEffX,npLnEffX,lbLnEffX,ubLnEffX,phsLnEffX,rpt::echo);
     
+    int npLgtRet; ivector phsLgtRet; vector lbLgtRet; vector ubLgtRet;
+    !!tcsam::setParameterInfo(ptrMPI->ptrFsh->pLgtRet,npLgtRet,lbLgtRet,ubLgtRet,phsLgtRet,rpt::echo);
+    
     //surveys parameters
     int npLnQ; ivector phsLnQ; vector lbLnQ; vector ubLnQ;
     !!tcsam::setParameterInfo(ptrMPI->ptrSrv->pLnQ,npLnQ,lbLnQ,ubLnQ,phsLnQ,rpt::echo);
@@ -1046,6 +1050,7 @@ PARAMETER_SECTION
     init_bounded_number_vector pLnDCXM(1,npLnDCXM,lbLnDCXM,ubLnDCXM,phsLnDCXM);//female-immature offsets
     init_bounded_vector_vector pDevsLnC(1,npDevsLnC,mniDevsLnC,mxiDevsLnC,lbDevsLnC,ubDevsLnC,phsDevsLnC);//ln-scale deviations
     init_bounded_number_vector pLnEffX(1,npLnEffX,lbLnEffX,ubLnEffX,phsLnEffX);//ln-scale effort extrapolation parameters
+    init_bounded_number_vector pLgtRet(1,npLgtRet,lbLgtRet,ubLgtRet,phsLgtRet);//lgt-scale retained fraction parameters
     matrix devsLnC(1,npDevsLnC,mniDevsLnC,mxiDevsLnC+1);
     
     //survey catchability parameters
@@ -1516,6 +1521,7 @@ FUNCTION setInitVals
     setInitVals(ptrMPI->ptrFsh->pLnDCXM, pLnDCXM, 0,rpt::echo);
     setInitVals(ptrMPI->ptrFsh->pDevsLnC,pDevsLnC,0,rpt::echo);
     setInitVals(ptrMPI->ptrFsh->pLnEffX, pLnEffX, 0,rpt::echo);
+    setInitVals(ptrMPI->ptrFsh->pLgtRet, pLgtRet, 0,rpt::echo);
 
     //survey catchability parameters
     setInitVals(ptrMPI->ptrSrv->pLnQ,   pLnQ,   0,rpt::echo);
@@ -1573,6 +1579,7 @@ FUNCTION int checkParams(int debug, ostream& os)
     res += checkParams(ptrMPI->ptrFsh->pLnDCXM, pLnDCXM, debug,os);
     res += checkParams(ptrMPI->ptrFsh->pDevsLnC,pDevsLnC,debug,os);
     res += checkParams(ptrMPI->ptrFsh->pLnEffX, pLnEffX, debug,os);
+    res += checkParams(ptrMPI->ptrFsh->pLgtRet, pLgtRet, debug,os);
 
     //survey catchability parameters
     res += checkParams(ptrMPI->ptrSrv->pLnQ,   pLnQ,   debug,os);
@@ -1797,6 +1804,7 @@ FUNCTION void writeMCMCtoR(ofstream& mcmc)
         writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pLnDCXM); mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pDevsLnC); mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pLnEffX); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pLgtRet); mcmc<<cc<<endl;
 
         //survey catchability parameters
         writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pLnQ);    mcmc<<cc<<endl;
@@ -5424,6 +5432,7 @@ FUNCTION void updateMPI(int debug, ostream& cout)
     //cout<<"setting final vals for pDevsLnC"<<endl;
     for (int p=1;p<=ptrMPI->ptrFsh->pDevsLnC->getSize();p++) (*ptrMPI->ptrFsh->pDevsLnC)[p]->setFinalVals(pDevsLnC(p));
     ptrMPI->ptrFsh->pLnEffX->setFinalVals(pLnEffX);
+    ptrMPI->ptrFsh->pLgtRet->setFinalVals(pLgtRet);
     
     //survey catchability parameters
     ptrMPI->ptrSrv->pLnQ->setFinalVals(pLnQ);
@@ -5541,6 +5550,7 @@ FUNCTION void writeParameters(ostream& os,int toR, int willBeActive)
     wts::writeParameter(os,pLnDCXM,toR,willBeActive);      
     wts::writeParameter(os,pDevsLnC,toR,willBeActive);      
     wts::writeParameter(os,pLnEffX,toR,willBeActive);      
+    wts::writeParameter(os,pLgtRet,toR,willBeActive);      
     
     //survey parameters
     wts::writeParameter(os,pLnQ,toR,willBeActive);      

@@ -28,7 +28,7 @@ int SelectivityInfo::debug      = 0;
 int FisheriesInfo::debug        = 0;
 int SurveysInfo::debug          = 0;
 int ModelParametersInfo::debug  = 0;
-const adstring ModelParametersInfo::version = "2017.05.10";
+const adstring ModelParametersInfo::version = "2017.05.15";
     
 /*----------------------------------------------------------------------------*/
 /**
@@ -1148,17 +1148,18 @@ FisheriesInfo::FisheriesInfo(){
     ParameterGroupInfo::createIndexBlockSets();
     for (int i=1;i<=nIBSs;i++) ppIBSs[i-1]->setType(lblIVs(ibsIdxs(i)));
     
-    nPVs=8;
+    nPVs=9;
     lblPVs.allocate(1,nPVs); dscPVs.allocate(1,nPVs);
     k=1;
-    lblPVs(k) = "pHM";       dscPVs(k++) = "handling mortality (0-1)";
-    lblPVs(k) = "pLnC";      dscPVs(k++) = "ln-scale base mean capture rate (mature male crab)";
-    lblPVs(k) = "pLnDCT";    dscPVs(k++) = "main year_block offset for ln-scale capture rate";
-    lblPVs(k) = "pLnDCX";    dscPVs(k++) = "ln-scale capture rate offset for female crabs";
-    lblPVs(k) = "pLnDCM";    dscPVs(k++) = "ln-scale capture rate offset for immature crabs";
-    lblPVs(k) = "pLnDCXM";   dscPVs(k++) = "ln-scale capture rate offset for immature female crabs";
-    lblPVs(k) = "pDevsLnC";  dscPVs(k++) = "ln-scale annual capture rate devs";
-    lblPVs(k) = "pLnEffX";   dscPVs(k++) = "ln-scale effort extrapolation parameters";
+    lblPVs(k) = "pHM";         dscPVs(k++) = "handling mortality (0-1)";
+    lblPVs(k) = "pLnC";        dscPVs(k++) = "ln-scale base mean capture rate (mature male crab)";
+    lblPVs(k) = "pLnDCT";      dscPVs(k++) = "main year_block offset for ln-scale capture rate";
+    lblPVs(k) = "pLnDCX";      dscPVs(k++) = "ln-scale capture rate offset for female crabs";
+    lblPVs(k) = "pLnDCM";      dscPVs(k++) = "ln-scale capture rate offset for immature crabs";
+    lblPVs(k) = "pLnDCXM";     dscPVs(k++) = "ln-scale capture rate offset for immature female crabs";
+    lblPVs(k) = "pDevsLnC";    dscPVs(k++) = "ln-scale annual capture rate devs";
+    lblPVs(k) = "pLnEffX";     dscPVs(k++) = "ln-scale effort extrapolation parameters";
+    lblPVs(k) = "pLgtRet";     dscPVs(k++) = "logit-scale retained fraction parameters";
     pHM     = 0;
     pLnC    = 0;
     pLnDCT  = 0;
@@ -1167,6 +1168,7 @@ FisheriesInfo::FisheriesInfo(){
     pLnDCXM = 0;
     pDevsLnC = 0;
     pLnEffX  = 0;
+    pLgtRet = 0;
     
     //create "extra indices"
     nXIs=3;
@@ -1192,6 +1194,7 @@ FisheriesInfo::~FisheriesInfo(){
     if (pLnDCXM) delete pLnDCXM;  pLnDCXM=0;
     if (pLnDCXM) delete pLnDCXM;  pLnDCXM=0;
     if (pLnEffX) delete pLnEffX;  pLnEffX=0;
+    if (pLgtRet) delete pLgtRet;  pLgtRet=0;
 }
 
 void FisheriesInfo::read(cifstream & is){
@@ -1227,6 +1230,8 @@ void FisheriesInfo::read(cifstream & is){
         rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDevsLnC)<<endl;  k++;
         pLnEffX = ParameterGroupInfo::read(is,lblPVs(k),pLnEffX); 
         rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnEffX)<<endl;  k++;
+        pLgtRet = ParameterGroupInfo::read(is,lblPVs(k),pLgtRet); 
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLgtRet)<<endl;  k++;
     } else {
         cout<<"Error reading FisheriesInfo from "<<is.get_file_name()<<endl;
         cout<<"Expected keyword 'PARAMETERS' but got '"<<str<<"'."<<endl;
@@ -1266,6 +1271,8 @@ void FisheriesInfo::write(std::ostream & os){
     os<<(*pDevsLnC)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
     os<<(*pLnEffX)<<endl;
+    os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
+    os<<(*pLgtRet)<<endl;
  }
 
 void FisheriesInfo::writeToR(std::ostream & os){
@@ -1278,6 +1285,7 @@ void FisheriesInfo::writeToR(std::ostream & os){
         pLnDCM->writeToR(os,  "pLnDCM",  indent++); os<<cc<<endl;
         pLnDCXM->writeToR(os, "pLnDCXM", indent++); os<<cc<<endl;
         pLnEffX->writeToR(os, "pLnEffX", indent++); os<<cc<<endl;
+        pLgtRet->writeToR(os, "pLgtRet", indent++); os<<cc<<endl;
         pDevsLnC->writeToR(os,"pDevsLnC",indent++); os<<endl;
     os<<")";
 }

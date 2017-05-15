@@ -332,6 +332,7 @@ class FisheriesInfo : public ParameterGroupInfo {
         BoundedNumberVectorInfo* pLnDCM; //ln-scale immature offsets
         BoundedNumberVectorInfo* pLnDCXM;//ln-scale female-immature offsets 
         BoundedNumberVectorInfo* pLnEffX;//ln-scale effort extrapolation 
+        BoundedNumberVectorInfo* pLgtRet;//logit-scale retained fraction (for old shell crab)
         
         DevsVectorVectorInfo* pDevsLnC;//annual ln-scale devs w/in year_blocks
         
