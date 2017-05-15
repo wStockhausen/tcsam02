@@ -1316,16 +1316,16 @@ SurveysInfo::SurveysInfo(){
     nPVs=5;
     lblPVs.allocate(1,nPVs); dscPVs.allocate(1,nPVs);
     k=1;
-    lblPVs(k) = "pLnQ";      dscPVs(k++) = "ln-scale base catchability (mature male crab)";
-    lblPVs(k) = "pLnDQT";    dscPVs(k++) = "main temporal offset for ln-scale catchability";
-    lblPVs(k) = "pLnDQX";    dscPVs(k++) = "ln-scale catchability offset for female crabs";
-    lblPVs(k) = "pLnDQM";    dscPVs(k++) = "ln-scale catchability offset for immature crabs";
-    lblPVs(k) = "pLnDQXM";   dscPVs(k++) = "ln-scale catchability offset for immature female crabs";
-    pLnQ    = 0;
-    pLnDQT  = 0;
-    pLnDQX  = 0;
-    pLnDQM  = 0;
-    pLnDQXM = 0;
+    lblPVs(k) = "pLnQ";   dscPVs(k++) = "ln-scale base catchability (mature male crab)";
+    lblPVs(k) = "pDQ1";   dscPVs(k++) = "offset 1 for ln-scale catchability";
+    lblPVs(k) = "pDQ2";   dscPVs(k++) = "offset 2 for ln-scale catchability";
+    lblPVs(k) = "pDQ3";   dscPVs(k++) = "offset 3 for ln-scale catchability";
+    lblPVs(k) = "pDQ4";   dscPVs(k++) = "offset 4 for ln-scale catchability";
+    pLnQ = 0;
+    pDQ1 = 0;
+    pDQ2 = 0;
+    pDQ3 = 0;
+    pDQ4 = 0;
     
     nXIs=2;
     lblXIs.allocate(1,nXIs);
@@ -1336,11 +1336,11 @@ SurveysInfo::SurveysInfo(){
 }
 
 SurveysInfo::~SurveysInfo(){
-    if (pLnQ)    delete pLnQ;     pLnQ   =0;
-    if (pLnDQT)  delete pLnDQT;   pLnDQT =0;
-    if (pLnDQX)  delete pLnDQX;   pLnDQX =0;
-    if (pLnDQM)  delete pLnDQM;   pLnDQM =0;
-    if (pLnDQXM) delete pLnDQXM;  pLnDQXM=0;
+    if (pLnQ)  delete pLnQ;   pLnQ =0;
+    if (pDQ1)  delete pDQ1;   pDQ1 =0;
+    if (pDQ2)  delete pDQ2;   pDQ2 =0;
+    if (pDQ3)  delete pDQ3;   pDQ3 =0;
+    if (pDQ4)  delete pDQ4;   pDQ4 =0;
 }
 
 void SurveysInfo::read(cifstream & is){
@@ -1360,16 +1360,16 @@ void SurveysInfo::read(cifstream & is){
     rpt::echo<<str<<tb<<"#Required keyword (PARAMETERS)"<<endl;
     if (str=="PARAMETERS"){
         int k=1;
-        pLnQ    = ParameterGroupInfo::read(is,lblPVs(k),pLnQ);    
+        pLnQ = ParameterGroupInfo::read(is,lblPVs(k),pLnQ);    
         rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnQ)<<endl;  k++;
-        pLnDQT  = ParameterGroupInfo::read(is,lblPVs(k),pLnDQT);  
-        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnDQT)<<endl;  k++;
-        pLnDQX  = ParameterGroupInfo::read(is,lblPVs(k),pLnDQX);  
-        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnDQX)<<endl;  k++;
-        pLnDQM  = ParameterGroupInfo::read(is,lblPVs(k),pLnDQM);  
-        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnDQM)<<endl;  k++;
-        pLnDQXM = ParameterGroupInfo::read(is,lblPVs(k),pLnDQXM); 
-        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnDQXM)<<endl;  k++;
+        pDQ1 = ParameterGroupInfo::read(is,lblPVs(k),pDQ1);  
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDQ1)<<endl;  k++;
+        pDQ2 = ParameterGroupInfo::read(is,lblPVs(k),pDQ2);  
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDQ2)<<endl;  k++;
+        pDQ3 = ParameterGroupInfo::read(is,lblPVs(k),pDQ3);  
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDQ3)<<endl;  k++;
+        pDQ4 = ParameterGroupInfo::read(is,lblPVs(k),pDQ4); 
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDQ4)<<endl;  k++;
     } else {
         cout<<"Error reading SurveysInfo from "<<is.get_file_name()<<endl;
         cout<<"Expected keyword 'PARAMETERS' but got '"<<str<<"'."<<endl;
@@ -1396,24 +1396,24 @@ void SurveysInfo::write(std::ostream & os){
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
     os<<(*pLnQ)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
-    os<<(*pLnDQT)<<endl;
+    os<<(*pDQ1)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
-    os<<(*pLnDQX)<<endl;
+    os<<(*pDQ2)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
-    os<<(*pLnDQM)<<endl;
+    os<<(*pDQ3)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
-    os<<(*pLnDQXM)<<endl;
+    os<<(*pDQ4)<<endl;
  }
 
 void SurveysInfo::writeToR(std::ostream & os){
     int indent=0;
     os<<"srv=list("<<endl;
-        ParameterGroupInfo::writeToR(os);         os<<cc<<endl;
-        pLnQ->writeToR(os,"pLnQ",indent++);       os<<cc<<endl;
-        pLnDQT->writeToR(os,"pLnDXT",indent++);   os<<cc<<endl;
-        pLnDQX->writeToR(os,"pLnDQX",indent++);   os<<cc<<endl;
-        pLnDQM->writeToR(os,"pLnDQM",indent++);   os<<cc<<endl;
-        pLnDQXM->writeToR(os,"pLnDQXM",indent++); os<<endl;
+        ParameterGroupInfo::writeToR(os);   os<<cc<<endl;
+        pLnQ->writeToR(os,"pLnQ",indent++); os<<cc<<endl;
+        pDQ1->writeToR(os,"pDQ1",indent++); os<<cc<<endl;
+        pDQ2->writeToR(os,"pDQ2",indent++); os<<cc<<endl;
+        pDQ3->writeToR(os,"pDQ3",indent++); os<<cc<<endl;
+        pDQ4->writeToR(os,"pDQ4",indent++); os<<endl;
     os<<")";
 }
 

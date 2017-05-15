@@ -253,6 +253,11 @@
 //                  ModelParametersInfo file.
 //--2017-05-15: 1. Added pLgtRet as retained catch fraction (for old shell crab)
 //                  in directed fisheries.
+//              2. Refactored survey LnDQ parameter names from 
+//                  pLnDQT,pLnDQX,pLnDQM,pLnDQXM
+//                 to
+//                  pDQ1,pDQ2,pDQ3,pDQ4
+//                 to reflect more generic usage
 // =============================================================================
 // =============================================================================
 GLOBALS_SECTION
@@ -913,17 +918,17 @@ DATA_SECTION
     int npLnQ; ivector phsLnQ; vector lbLnQ; vector ubLnQ;
     !!tcsam::setParameterInfo(ptrMPI->ptrSrv->pLnQ,npLnQ,lbLnQ,ubLnQ,phsLnQ,rpt::echo);
     
-    int npLnDQT; ivector phsLnDQT; vector lbLnDQT; vector ubLnDQT;
-    !!tcsam::setParameterInfo(ptrMPI->ptrSrv->pLnDQT,npLnDQT,lbLnDQT,ubLnDQT,phsLnDQT,rpt::echo);
+    int npDQ1; ivector phsDQ1; vector lbDQ1; vector ubDQ1;
+    !!tcsam::setParameterInfo(ptrMPI->ptrSrv->pDQ1,npDQ1,lbDQ1,ubDQ1,phsDQ1,rpt::echo);
     
-    int npLnDQX; ivector phsLnDQX; vector lbLnDQX; vector ubLnDQX;
-    !!tcsam::setParameterInfo(ptrMPI->ptrSrv->pLnDQX,npLnDQX,lbLnDQX,ubLnDQX,phsLnDQX,rpt::echo);
+    int npDQ2; ivector phsDQ2; vector lbDQ2; vector ubDQ2;
+    !!tcsam::setParameterInfo(ptrMPI->ptrSrv->pDQ2,npDQ2,lbDQ2,ubDQ2,phsDQ2,rpt::echo);
     
-    int npLnDQM; ivector phsLnDQM; vector lbLnDQM; vector ubLnDQM;
-    !!tcsam::setParameterInfo(ptrMPI->ptrSrv->pLnDQM,npLnDQM,lbLnDQM,ubLnDQM,phsLnDQM,rpt::echo);
+    int npDQ3; ivector phsDQ3; vector lbDQ3; vector ubDQ3;
+    !!tcsam::setParameterInfo(ptrMPI->ptrSrv->pDQ3,npDQ3,lbDQ3,ubDQ3,phsDQ3,rpt::echo);
     
-    int npLnDQXM; ivector phsLnDQXM; vector lbLnDQXM; vector ubLnDQXM;
-    !!tcsam::setParameterInfo(ptrMPI->ptrSrv->pLnDQXM,npLnDQXM,lbLnDQXM,ubLnDQXM,phsLnDQXM,rpt::echo);
+    int npDQ4; ivector phsDQ4; vector lbDQ4; vector ubDQ4;
+    !!tcsam::setParameterInfo(ptrMPI->ptrSrv->pDQ4,npDQ4,lbDQ4,ubDQ4,phsDQ4,rpt::echo);
 
     //other data
     vector dtF_y(mnYr,mxYr);//timing of midpoint of fishing season (by year)
@@ -1055,10 +1060,10 @@ PARAMETER_SECTION
     
     //survey catchability parameters
     init_bounded_number_vector pLnQ(1,npLnQ,lbLnQ,ubLnQ,phsLnQ);               //base (mature male))
-    init_bounded_number_vector pLnDQT(1,npLnDQT,lbLnDQT,ubLnDQT,phsLnDQT);     //main temporal offsets
-    init_bounded_number_vector pLnDQX(1,npLnDQX,lbLnDQX,ubLnDQX,phsLnDQX);     //female offsets
-    init_bounded_number_vector pLnDQM(1,npLnDQM,lbLnDQM,ubLnDQM,phsLnDQM);     //immature offsets
-    init_bounded_number_vector pLnDQXM(1,npLnDQXM,lbLnDQXM,ubLnDQXM,phsLnDQXM);//female-immature offsets
+    init_bounded_number_vector pDQ1(1,npDQ1,lbDQ1,ubDQ1,phsDQ1);     //main temporal offsets
+    init_bounded_number_vector pDQ2(1,npDQ2,lbDQ2,ubDQ2,phsDQ2);     //female offsets
+    init_bounded_number_vector pDQ3(1,npDQ3,lbDQ3,ubDQ3,phsDQ3);     //immature offsets
+    init_bounded_number_vector pDQ4(1,npDQ4,lbDQ4,ubDQ4,phsDQ4);//female-immature offsets
     
     //objective function value
     objective_function_value objFun;
@@ -1525,10 +1530,10 @@ FUNCTION setInitVals
 
     //survey catchability parameters
     setInitVals(ptrMPI->ptrSrv->pLnQ,   pLnQ,   0,rpt::echo);
-    setInitVals(ptrMPI->ptrSrv->pLnDQT, pLnDQT, 0,rpt::echo);
-    setInitVals(ptrMPI->ptrSrv->pLnDQX, pLnDQX, 0,rpt::echo);
-    setInitVals(ptrMPI->ptrSrv->pLnDQM, pLnDQM, 0,rpt::echo);
-    setInitVals(ptrMPI->ptrSrv->pLnDQXM,pLnDQXM,0,rpt::echo);
+    setInitVals(ptrMPI->ptrSrv->pDQ1, pDQ1, 0,rpt::echo);
+    setInitVals(ptrMPI->ptrSrv->pDQ2, pDQ2, 0,rpt::echo);
+    setInitVals(ptrMPI->ptrSrv->pDQ3, pDQ3, 0,rpt::echo);
+    setInitVals(ptrMPI->ptrSrv->pDQ4,pDQ4,0,rpt::echo);
 
 //*****************************************
 FUNCTION int checkParams(int debug, ostream& os)
@@ -1582,11 +1587,11 @@ FUNCTION int checkParams(int debug, ostream& os)
     res += checkParams(ptrMPI->ptrFsh->pLgtRet, pLgtRet, debug,os);
 
     //survey catchability parameters
-    res += checkParams(ptrMPI->ptrSrv->pLnQ,   pLnQ,   debug,os);
-    res += checkParams(ptrMPI->ptrSrv->pLnDQT, pLnDQT, debug,os);
-    res += checkParams(ptrMPI->ptrSrv->pLnDQX, pLnDQX, debug,os);
-    res += checkParams(ptrMPI->ptrSrv->pLnDQM, pLnDQM, debug,os);
-    res += checkParams(ptrMPI->ptrSrv->pLnDQXM,pLnDQXM,debug,os);
+    res += checkParams(ptrMPI->ptrSrv->pLnQ, pLnQ, debug,os);
+    res += checkParams(ptrMPI->ptrSrv->pDQ1, pDQ1, debug,os);
+    res += checkParams(ptrMPI->ptrSrv->pDQ2, pDQ2, debug,os);
+    res += checkParams(ptrMPI->ptrSrv->pDQ3, pDQ3, debug,os);
+    res += checkParams(ptrMPI->ptrSrv->pDQ4,pDQ4,debug,os);
     
     return res;
 
@@ -1808,10 +1813,10 @@ FUNCTION void writeMCMCtoR(ofstream& mcmc)
 
         //survey catchability parameters
         writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pLnQ);    mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pLnDQT);  mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pLnDQX);  mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pLnDQM);  mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pLnDQXM); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ1);  mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ2);  mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ3);  mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ4); mcmc<<cc<<endl;
     
         //write other quantities
         mcmc<<"R_y="; wts::writeToR(mcmc,value(R_y)); mcmc<<cc<<endl;
@@ -3648,8 +3653,8 @@ FUNCTION void calcSurveyQs(int debug, ostream& cout)
     
     SurveysInfo* ptrSrv = ptrMPI->ptrSrv;
     
-    dvar_vector lnQ_m(1,nMSs);//ln-scale Q's
-    dvar_vector arQ_m(1,nMSs);//arithmetic-scale Q's
+    dvariable lnQ;//ln-scale Q's
+    dvariable arQ;//arithmetic-scale Q's
     
     q_vyxms.initialize();
     a_vyxmsz.initialize();
@@ -3658,31 +3663,30 @@ FUNCTION void calcSurveyQs(int debug, ostream& cout)
     int y; int v; int mnx; int mxx; int mnm; int mxm; int mns; int mxs;
     int idAvl; int idSel;
     for (int pc=1;pc<=ptrSrv->nPCs;pc++){
-        lnQ_m.initialize();
-        arQ_m.initialize();
+        lnQ.initialize();
+        arQ.initialize();
         ivector pids = ptrSrv->getPCIDs(pc);
         if (debug>dbgCalcProcs) cout<<"pc: "<<pc<<tb<<"pids = "<<pids<<endl;
         
         int k=ptrSrv->nIVs+1;//1st parameter variable column
-        //add in base (ln-scale) catchability (mature males)
-        if (pids[k]) {lnQ_m += pLnQ(pids[k]);}   k++;
-        //add in main offset 1 (for time period, for example)
-        if (pids[k]) {lnQ_m += pLnDQT(pids[k]);} k++;
-        //add in main offset 2 (for females, for example)
-        if (pids[k]) {lnQ_m += pLnDQX(pids[k]);} k++;
-        //add in immature offset 1
-        if (pids[k]) {lnQ_m(IMMATURE) += pLnDQM(pids[k]);}  k++;
-        //add in immature offset 2 (for females, for example)
-        if (pids[k]) {lnQ_m(IMMATURE) += pLnDQXM(pids[k]);} k++; 
+        //add in base (ln-scale) catchability (e.g., for mature male)
+        if (pids[k]) {lnQ += pLnQ(pids[k]);} k++;
+        //add in ln-scale offset 1            (e.g., for time period)
+        if (pids[k]) {lnQ += pDQ1(pids[k]);} k++;
+        //add in ln-scale offset 2            (e.g., for females)
+        if (pids[k]) {lnQ += pDQ2(pids[k]);} k++;
+        //add in ln-scale offset 3            (e.g., for immature crab)
+        if (pids[k]) {lnQ += pDQ3(pids[k]);} k++;
+        //add in ln-scale offset 4            (e.g., for immature females)
+        if (pids[k]) {lnQ += pDQ4(pids[k]);} k++; 
         
         idAvl = pids[k++];//availability function id
         idSel = pids[k++];//selectivity function id
         
         //convert from ln-scale to arithmetic scale
-        arQ_m = mfexp(lnQ_m);
+        arQ = mfexp(lnQ);
         if (debug>dbgCalcProcs){
-            cout<<"lnQ_m:"<<endl<<lnQ_m<<endl;
-            cout<<"arQ_m:"<<endl<<arQ_m<<endl;
+            cout<<"lnQ:"<<lnQ<<tb<<"arQ:"<<endl<<arQ<<endl;
         }
         
         //loop over model indices as defined in the index blocks
@@ -3693,18 +3697,18 @@ FUNCTION void calcSurveyQs(int debug, ostream& cout)
             if ((mnYr<=y)&&(y<=mxYrp1)){
                 mnx = mxx = idxs(idx,3);//sex index
                 if (mnx==tcsam::ALL_SXs) {mnx=1; mxx=tcsam::nSXs;}
-                mnm = mxm = idxs(idx,4);//sex index
+                mnm = mxm = idxs(idx,4);//maturity state index
                 if (mnm==tcsam::ALL_MSs) {mnm=1; mxm=tcsam::nMSs;}
-                mns = mxs = idxs(idx,5);//sex index
+                mns = mxs = idxs(idx,5);//shell condition index
                 if (mns==tcsam::ALL_SCs) {mns=1; mxs=tcsam::nSCs;}
                 for (int x=mnx;x<=mxx;x++){
                     for (int m=mnm;m<=mxm;m++){
-                        q_vyxms(v,y,x,m) = arQ_m(m);//indep of s currently
+                        q_vyxms(v,y,x,m) = arQ;
                         for (int s=mns;s<=mxs;s++){
                             a_vyxmsz(v,y,x,m,s) = 1.0;//default: availability = 1
                             if (idAvl>0) a_vyxmsz(v,y,x,m,s) = sel_cyz(idAvl,y);
                             if (idSel>0) s_vyxmsz(v,y,x,m,s) = sel_cyz(idSel,y);
-                            q_vyxmsz(v,y,x,m,s) = arQ_m(m)*elem_prod(a_vyxmsz(v,y,x,m,s),s_vyxmsz(v,y,x,m,s));
+                            q_vyxmsz(v,y,x,m,s) = arQ*elem_prod(a_vyxmsz(v,y,x,m,s),s_vyxmsz(v,y,x,m,s));
                         }//s
                     }//m
                 }//x
@@ -5184,10 +5188,10 @@ FUNCTION void calcAllPriors(int debug, ostream& cout)
     //survey catchability parameters
     if (debug<0) cout<<tb<<"surveys=list("<<endl;
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pLnQ,    pLnQ,   debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pLnDQT,  pLnDQT, debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pLnDQX,  pLnDQX, debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pLnDQM,  pLnDQM, debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pLnDQXM, pLnDQXM,debug,cout); if (debug<0){cout<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pDQ1,  pDQ1, debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pDQ2,  pDQ2, debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pDQ3,  pDQ3, debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pDQ4, pDQ4,debug,cout); if (debug<0){cout<<endl;}
     if (debug<0) cout<<tb<<")"<<endl;
     
     if (debug<0) cout<<")"<<endl;
@@ -5436,10 +5440,10 @@ FUNCTION void updateMPI(int debug, ostream& cout)
     
     //survey catchability parameters
     ptrMPI->ptrSrv->pLnQ->setFinalVals(pLnQ);
-    ptrMPI->ptrSrv->pLnDQT->setFinalVals(pLnDQT);
-    ptrMPI->ptrSrv->pLnDQX->setFinalVals(pLnDQX);
-    ptrMPI->ptrSrv->pLnDQM->setFinalVals(pLnDQM);
-    ptrMPI->ptrSrv->pLnDQXM->setFinalVals(pLnDQXM);
+    ptrMPI->ptrSrv->pDQ1->setFinalVals(pDQ1);
+    ptrMPI->ptrSrv->pDQ2->setFinalVals(pDQ2);
+    ptrMPI->ptrSrv->pDQ3->setFinalVals(pDQ3);
+    ptrMPI->ptrSrv->pDQ4->setFinalVals(pDQ4);
     
     if (debug) cout<<"Finished updateMPI(...)"<<endl;
 
@@ -5554,10 +5558,10 @@ FUNCTION void writeParameters(ostream& os,int toR, int willBeActive)
     
     //survey parameters
     wts::writeParameter(os,pLnQ,toR,willBeActive);      
-    wts::writeParameter(os,pLnDQT,toR,willBeActive);      
-    wts::writeParameter(os,pLnDQX,toR,willBeActive);      
-    wts::writeParameter(os,pLnDQM,toR,willBeActive);      
-    wts::writeParameter(os,pLnDQXM,toR,willBeActive);      
+    wts::writeParameter(os,pDQ1,toR,willBeActive);      
+    wts::writeParameter(os,pDQ2,toR,willBeActive);      
+    wts::writeParameter(os,pDQ3,toR,willBeActive);      
+    wts::writeParameter(os,pDQ4,toR,willBeActive);      
     
 // =============================================================================
 // =============================================================================

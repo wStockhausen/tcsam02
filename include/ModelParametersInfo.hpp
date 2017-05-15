@@ -367,10 +367,10 @@ class SurveysInfo : public ParameterGroupInfo {
         static adstring NAME;//"surveys"
     public:
         BoundedNumberVectorInfo* pLnQ;
-        BoundedNumberVectorInfo* pLnDQT;
-        BoundedNumberVectorInfo* pLnDQX;
-        BoundedNumberVectorInfo* pLnDQM;
-        BoundedNumberVectorInfo* pLnDQXM;
+        BoundedNumberVectorInfo* pDQ1;
+        BoundedNumberVectorInfo* pDQ2;
+        BoundedNumberVectorInfo* pDQ3;
+        BoundedNumberVectorInfo* pDQ4;
         
         SurveysInfo();
         ~SurveysInfo();
