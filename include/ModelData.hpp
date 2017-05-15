@@ -434,6 +434,8 @@ class IndexBlock;
         /* keyword indicating effort data */
         const static adstring KW_GROWTH_DATA;
     public:
+        /* dataset name */
+        adstring name;
         /* likelihood function type */
         int llType; 
         /* likelihood weight (i.e., multiplier) */
@@ -493,6 +495,8 @@ class IndexBlock;
         /* keyword indicating effort data */
         const static adstring KW_CHELAHEIGHT_DATA;
     public:
+        /* dataset name */
+        adstring name;
         /* likelihood function type */
         int llType; 
         /* likelihood weight (i.e., multiplier) */

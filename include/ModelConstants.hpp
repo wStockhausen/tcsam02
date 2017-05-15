@@ -47,8 +47,10 @@ namespace tcsam{
     /* minimum debugging level that will print debug info for prior calcs */
     const int dbgPriors = 30;
     
-    /* Model constant for generic "all" */
+    /* Model constant for generic "ALL" */
     const adstring STR_ALL = "ALL";
+    /* Model constant for generic "NONE" */
+    const adstring STR_NONE = "NONE";
     
     /* Model dimension name for sex */
     const adstring STR_SEX = "SEX";

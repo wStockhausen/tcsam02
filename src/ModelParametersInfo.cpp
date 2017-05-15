@@ -28,7 +28,7 @@ int SelectivityInfo::debug      = 0;
 int FisheriesInfo::debug        = 0;
 int SurveysInfo::debug          = 0;
 int ModelParametersInfo::debug  = 0;
-const adstring ModelParametersInfo::version = "2017.04.03";
+const adstring ModelParametersInfo::version = "2017.05.10";
     
 /*----------------------------------------------------------------------------*/
 /**
@@ -358,12 +358,14 @@ void ParameterGroupInfo::read(cifstream& is){
         for (int i=1;i<=nIVs;i++) rpt::echo<<lblIVs(i)<<tb; 
         for (int i=1;i<=nPVs;i++) rpt::echo<<lblPVs(i)<<tb; 
         for (int i=1;i<=nXIs;i++) rpt::echo<<lblXIs(i)<<tb; 
+        rpt::echo<<tb<<"label"<<tb;
         rpt::echo<<endl;
         for (int i=0;i<nIBSs;i++) ppIBSs[i]->allocate(nPCs);
         //read parameters combinations definition matrix
         int ibsIdx=1;
         in.allocate(1,nPCs,1,nIVs+nPVs+nXIs);
         if (nXIs) xd.allocate(1,nPCs,1,nXIs);
+        pcLabels.allocate(1,nPCs);
         for (int r=1;r<=nPCs;r++){//loop over rows
             is>>str; //read id
             rpt::echo<<str<<tb;
@@ -393,6 +395,8 @@ void ParameterGroupInfo::read(cifstream& is){
                 }
                 //rpt::echo<<"x = "<<x<<tb<<"str = "<<str<<tb<<"in() = "<<in(r,nIVs+nPVs+x)<<tb<<"xd() = "<<xd(r,x)<<endl;
             }
+            is>>pcLabels(r);
+            rpt::echo<<pcLabels(r)<<tb;
             rpt::echo<<endl;
             if (debug) cout<<"pc row "<<r<<": "<<in(r)<<tb<<"xd: "<<xd(r)<<endl;
         }
@@ -419,6 +423,7 @@ void ParameterGroupInfo::write(std::ostream& os){
     for (int i=1;i<=nIVs;i++) os<<lblIVs(i)<<tb; 
     for (int i=1;i<=nPVs;i++) os<<lblPVs(i)<<tb; 
     for (int i=1;i<=nXIs;i++) os<<lblXIs(i)<<tb; 
+    os<<"label"<<tb;
     os<<endl;
     for (int r=1;r<=nPCs;r++){//loop over rows
         os<<r<<tb;
@@ -439,8 +444,9 @@ void ParameterGroupInfo::write(std::ostream& os){
     //        os<<in(r,nIVs+nPVs+x)<<tb;
             
         }
+        os<<pcLabels(r)<<tb;
         os<<endl;
-    }
+    }//r
 }
 /**
  * This should be called from sub-classes to write generic information to R.
@@ -453,22 +459,16 @@ void ParameterGroupInfo::writeToR(std::ostream& os){
     if (nPVs) lbls += wts::to_qcsv(lblPVs);
     if (nXIs) {if (lbls=="") lbls += wts::to_qcsv(lblXIs); else lbls += cc+wts::to_qcsv(lblXIs);}
     os<<"pgi=list(name="<<qt<<name<<qt<<cc<<endl;
-//        if (nIVs) {os<<"IVs=c("<<wts::to_qcsv(lblIVs)<<")"<<cc;} else {os<<"IVs=NULL"<<cc;}
-//        if (nPVs) {os<<"PVs=c("<<wts::to_qcsv(lblPVs)<<")"<<cc;} else {os<<"PVs=NULL"<<cc;}
-//        if (nXIs) {os<<"XIs=c("<<wts::to_qcsv(lblXIs)<<")"<<cc;} else {os<<"XIs=NULL"<<cc;}
-//        os<<"nPVs="<<nPVs<<cc;
-//        os<<"nXIs="<<nXIs<<cc;
-//        os<<"nPCs="<<nPCs<<cc;
-//        os<<endl;
         os<<"pcs=list("<<endl;
             for (int p=1;p<=nPCs;p++){
                 os<<qt<<p<<qt<<"=list(";
+                os<<"label='"<<pcLabels(p)<<"',"<<endl;
                 int ibsIdx = 1;
                 for (int i=1;i<=nIVs;i++){//loop over index variables
                     os<<lblIVs(i)<<"='";
-                    if (lblIVs(i)==tcsam::STR_SEX)             {os<<tcsam::getSexType(in(p,i))<<"',";} else
+                    if (lblIVs(i)==tcsam::STR_SEX)             {os<<tcsam::getSexType(in(p,i))     <<"',";} else
                     if (lblIVs(i)==tcsam::STR_MATURITY_STATE)  {os<<tcsam::getMaturityType(in(p,i))<<"',";} else
-                    if (lblIVs(i)==tcsam::STR_SHELL_CONDITION) {os<<tcsam::getShellType(in(p,i))<<"',";} else 
+                    if (lblIVs(i)==tcsam::STR_SHELL_CONDITION) {os<<tcsam::getShellType(in(p,i))   <<"',";} else 
                     if (i==ibsIdxs(ibsIdx)){
                         os<<(*ppIBSs[ibsIdx-1]->getIndexBlock(p))<<"',";
                         if (ibsIdx<nIBSs) ibsIdx++;//increment to next

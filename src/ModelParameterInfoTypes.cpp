@@ -105,11 +105,29 @@ void NumberInfo::read(cifstream & is){
     if (pMPI->getNumParams()) {
         is>>priorParams;
         if (debug) rpt::echo<<priorParams<<tb<<"#prior params"<<endl;
+    } else {
+        is>>str; str.to_upper();
+        if (str!=tcsam::STR_NONE){
+            rpt::echo<<"no prior params, so input should be 'none', but got '"<<str<<"'"<<endl;
+            rpt::echo<<"Please fix!!"<<endl;
+            exit(-1);
+        }
+        if (debug) rpt::echo<<"#no prior params"<<endl;
     }
     if (pMPI->getNumConsts()) {
         is>>priorConsts;
         if (debug) rpt::echo<<priorConsts<<tb<<"#prior consts"<<endl;
+    } else {
+        is>>str; str.to_upper();
+        if (str!=tcsam::STR_NONE){
+            rpt::echo<<"no prior consts, so input should be 'none', but got '"<<str<<"'"<<endl;
+            rpt::echo<<"Please fix!!"<<endl;
+            exit(-1);
+        }
+        if (debug) rpt::echo<<"#no prior consts"<<endl;
     }
+    is>>label;
+    if (debug) rpt::echo<<label<<tb<<"#label"<<endl;
     if (debug) rpt::echo<<"Done NumberInfo::read(cifstream & is) "<<this<<endl;
 }
 
@@ -125,13 +143,22 @@ void NumberInfo::write(ostream & os){
     os<<wts::getOnOffType(resample)<<tb;
     os<<priorWgt<<tb;
     os<<priorType<<tb;
-    if (pMPI->getNumParams()) os<<priorParams<<tb<<tb;
-    if (pMPI->getNumConsts()) os<<priorParams<<tb;
-    adstring_array pNames = pMPI->getNamesForParams();
-    adstring_array cNames = pMPI->getNamesForConsts();
+    if (pMPI->getNumParams()) os<<priorParams<<tb<<tb; else os<<"none"<<tb<<tb;
+    if (pMPI->getNumConsts()) os<<priorConsts<<tb<<tb; else os<<"none"<<tb<<tb;
+    os<<label<<tb<<tb;
     os<<"#";
-    for (int p=pNames.indexmax();p<=pNames.indexmax();p++) os<<pNames(p)<<tb;
-    for (int c=cNames.indexmax();c<=cNames.indexmax();c++) os<<cNames(c)<<tb;
+    if (pMPI->getNumParams()){
+        os<<"prior params are ";
+        adstring_array pNames = pMPI->getNamesForParams();
+        for (int p=pNames.indexmin();p<=pNames.indexmax()-1;p++) os<<pNames(p)<<cc;
+        os<<pNames(pNames.indexmax())<<". ";
+    } else {os<<"no prior params. ";}
+    if (pMPI->getNumConsts()){
+        os<<"prior consts are ";
+        adstring_array cNames = pMPI->getNamesForConsts();
+        for (int c=cNames.indexmin();c<=cNames.indexmax();c++) os<<cNames(c)<<tb;
+        os<<cNames(cNames.indexmax())<<". ";
+    } else {os<<"no prior consts. ";}
 }
 
 /**
@@ -151,6 +178,7 @@ void NumberInfo::writeToR(ostream& os){
  * @param os - the output stream object, by reference
  */
 void NumberInfo::writeToR1(ostream& os){
+    os<<"label='"<<label<<"'"<<cc;
     os<<"initVal="<<initVal<<cc;
     os<<"finalVal="<<finlVal<<cc;
     os<<"phase="<<phase<<cc;
@@ -784,7 +812,7 @@ void NumberVectorInfo::read(cifstream & is){
 ***************************************************************/
 void NumberVectorInfo::write(ostream & os){
     os<<tb<<nNIs<<"  #number of parameters"<<endl;
-    os<<"#id init_val phase resample? prior_wgt prior_type prior_params prior_consts"<<endl;
+    os<<"#id init_val phase resample? prior_wgt prior_type prior_params prior_consts  label"<<endl;
     if (nNIs){
         for (int p=0;p<(nNIs-1);p++) os<<(p+1)<<tb<<(*ppNIs[p])<<endl;
         os<<nNIs<<tb<<(*ppNIs[nNIs-1]);
@@ -923,7 +951,7 @@ void BoundedNumberVectorInfo::read(cifstream & is){
 void BoundedNumberVectorInfo::write(ostream & os){
     if (debug) rpt::echo<<"Starting BoundedNumberVectorInfo::write(ostream & os) for "<<name<<endl;
     os<<tb<<nNIs<<"  #number of bounded parameters"<<endl;
-    os<<"#id lb ub jitter? init_val phase resample? prior_wgt prior_type prior_params prior_consts"<<endl;
+    os<<"#id lb ub jitter? init_val phase resample? prior_wgt prior_type prior_params prior_consts  label"<<endl;
     if (nNIs){
         for (int p=0;p<(nNIs-1);p++) os<<(p+1)<<tb<<(*ppNIs[p])<<endl;
         os<<nNIs<<tb<<(*ppNIs[nNIs-1]);
@@ -1054,7 +1082,7 @@ void VectorVectorInfo::read(cifstream & is){
 ***************************************************************/
 void VectorVectorInfo::write(ostream & os){
     os<<tb<<nVIs<<"  #number of parameters"<<endl;
-    os<<"#id idx.type  idx.block  read? init_val phase resample? prior_wgt prior_type prior_params prior_consts"<<endl;
+    os<<"#id idx.type  idx.block  read? init_val phase resample? prior_wgt prior_type prior_params prior_consts  label"<<endl;
     if (nVIs){
         for (int p=0;p<=(nVIs-1);p++) os<<(p+1)<<tb<<(*ppVIs[p])<<endl;
         os<<"#--initial values read in (index  values):";
@@ -1167,7 +1195,7 @@ void BoundedVectorVectorInfo::read(cifstream & is){
 ***************************************************************/
 void BoundedVectorVectorInfo::write(ostream & os){
     os<<tb<<nVIs<<"  #number of bounded parameters"<<endl;
-    os<<"#id   idx.block   read? lb ub jitter? init_val phase resample? prior_wgt prior_type prior_params prior_consts"<<endl;
+    os<<"#id   idx.block   read? lb ub jitter? init_val phase resample? prior_wgt prior_type prior_params prior_consts  label"<<endl;
     if (nVIs){
         for (int p=0;p<=(nVIs-1);p++) os<<(p+1)<<tb<<(*ppVIs[p])<<endl;
         os<<"#--initial values read in (index  values):";
@@ -1339,7 +1367,7 @@ void DevsVectorVectorInfo::read(cifstream & is){
 ***************************************************************/
 void DevsVectorVectorInfo::write(ostream & os){
     os<<tb<<nVIs<<"  #number of devs vectors"<<endl;
-    os<<"#id   idx.block   read? lb ub jitter? init_val phase resample? prior_wgt prior_type prior_params prior_consts"<<endl;
+    os<<"#id   idx.block   read? lb ub jitter? init_val phase resample? prior_wgt prior_type prior_params prior_consts  label"<<endl;
     if (nVIs){
         for (int p=0;p<=(nVIs-1);p++) os<<(p+1)<<tb<<(*ppVIs[p])<<endl;
         os<<"#--initial values read in (index  values):";

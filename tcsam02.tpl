@@ -248,6 +248,9 @@
 //                  via ReportToR_ModelFits.
 //--2017-04-14: 1. Added zscrEffX_nxmsy and nllEffX_nxms arrays, updated 
 //                  R output in calcNLLs_ExtrapolatedEffort().
+//--2017-05-10: 1. Added labels to I/O for GrowthData datasets
+//              2. Added labels to parameter combinations and parameters via
+//                  ModelParametersInfo file.
 //
 // =============================================================================
 // =============================================================================

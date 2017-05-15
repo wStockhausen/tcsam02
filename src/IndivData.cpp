@@ -61,6 +61,8 @@ void GrowthData::read(cifstream & is){
         cout<<"Aborting..."<<std::endl;
         exit(-1);
     }
+    is>>name;
+    rpt::echo<<name<<tb<<"#dataset name"<<endl;
     is>>str; llType = tcsam::getLikelihoodType(str);
     rpt::echo<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood function type"<<std::endl;
     is>>llWgt;
@@ -97,6 +99,7 @@ void GrowthData::write(ostream & os){
     if (debug) cout<<"start GrowthData::write(...) "<<this<<std::endl;
     os<<KW_GROWTH_DATA<<tb<<"#required keyword"<<std::endl;
     os<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood function type"<<std::endl;
+    os<<name<<tb<<"#dataset name"<<std::endl;
     os<<llWgt<<tb<<"#likelihood weight (multiplier)"<<std::endl;
     os<<nSXs<<tb<<"#number of sex categories"<<std::endl;
     for (int x=1;x<=tcsam::nSXs;x++){
@@ -110,7 +113,7 @@ void GrowthData::write(ostream & os){
     if (debug) cout<<"end GrowthData::write(...) "<<this<<std::endl;
 }
 /**
- * Write to an output stream as an R list named "growth". 
+ * Write to an output stream as an R list with name given by name variable. 
  * 
  * @param os - the output stream
  * @param nm - the name of the list (ignored)
@@ -119,15 +122,17 @@ void GrowthData::write(ostream & os){
 void GrowthData::writeToR(ostream& os, std::string nm, int indent) {
     if (debug) cout<<"GrowthData::writing to R"<<std::endl;
     for (int n=0;n<indent;n++) os<<tb;
-        os<<"growth=list("<<std::endl;
+        os<<"`"<<name<<"`"<<"=list("<<std::endl;
         indent++; 
             for (int n=0;n<indent;n++) os<<tb;
-            os<<"llType="<<qt<<tcsam::getLikelihoodType(llType)<<qt<<cc<<std::endl;
+            os<<"name="<<qt<<name<<qt<<cc;
+            os<<"llType="<<qt<<tcsam::getLikelihoodType(llType)<<qt<<cc;
             os<<"llWgt="<<llWgt<<cc<<std::endl;
+            adstring colnames="'y','z','zp'";
             for (int x=1;x<=tcsam::nSXs;x++){
                 if (nObs_x(x)>0){
                     for (int n=0;n<indent;n++) os<<tb;
-                    os<<tcsam::getSexType(x)<<"="; wts::writeToR(os,trans(inpData_xcn(x))); os<<cc<<std::endl;
+                    os<<tcsam::getSexType(x)<<"="; wts::writeToR(os,trans(inpData_xcn(x)),colnames); os<<cc<<std::endl;
                 }
             }//x
             os<<"NULL"<<std::endl;
@@ -173,6 +178,8 @@ void ChelaHeightData::read(cifstream & is){
         cout<<"Aborting..."<<std::endl;
         exit(-1);
     }
+    is>>name;
+    rpt::echo<<name<<tb<<"#dataset name"<<endl;
     is>>str; llType = tcsam::getLikelihoodType(str);
     rpt::echo<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood function type"<<std::endl;
     is>>llWgt;
@@ -192,6 +199,7 @@ void ChelaHeightData::read(cifstream & is){
 void ChelaHeightData::write(ostream & os){
     if (debug) cout<<"start ChelaHeightData::write(...) "<<this<<std::endl;
     os<<KW_CHELAHEIGHT_DATA<<tb<<"#required keyword"<<std::endl;
+    os<<name<<tb<<"#dataset name"<<std::endl;
     os<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood function type"<<std::endl;
     os<<llWgt<<tb<<"#likelihood weight (multiplier)"<<std::endl;
     os<<nObs<<tb<<"#number of observations"<<std::endl;
@@ -199,7 +207,7 @@ void ChelaHeightData::write(ostream & os){
     if (debug) cout<<"end ChelaHeightData::write(...) "<<this<<std::endl;
 }
 /**
- * Write to an output stream as an R list named "growth". 
+ * Write to an output stream as an R list with name given by name variable. 
  * 
  * @param os - the output stream
  * @param nm - the name of the list (ignored)
@@ -208,13 +216,15 @@ void ChelaHeightData::write(ostream & os){
 void ChelaHeightData::writeToR(ostream& os, std::string nm, int indent) {
     if (debug) cout<<"ChelaHeightData::writing to R"<<std::endl;
     for (int n=0;n<indent;n++) os<<tb;
-        os<<"chelaheight=list("<<std::endl;
+        os<<"`"<<name<<"`"<<"=list("<<std::endl;
         indent++; 
             for (int n=0;n<indent;n++) os<<tb;
-            os<<"llType="<<qt<<tcsam::getLikelihoodType(llType)<<qt<<cc<<std::endl;
+            os<<"name="<<qt<<name<<qt<<cc;
+            os<<"llType="<<qt<<tcsam::getLikelihoodType(llType)<<qt<<cc;
             os<<"llWgt="<<llWgt<<cc<<std::endl;
             for (int n=0;n<indent;n++) os<<tb;
-            os<<"data="; wts::writeToR(os,inpData_nc); os<<std::endl;
+            adstring colnames="'y','z','nIndivs','fraction mature'";
+            os<<"data="; wts::writeToR(os,inpData_nc,colnames); os<<std::endl;
         indent--;
     for (int n=0;n<indent;n++) os<<tb; os<<")"<<std::endl;
     if (debug) cout<<"ChelaHeightData::done writing to R"<<std::endl;

@@ -39,6 +39,7 @@ class ParameterGroupInfo{
         imatrix in;//input parameter combinations matrix (all integers)
         dmatrix xd;//extra values by parameter combination as doubles
         imatrix** ppIdxs; //pointer to array of pointers to indices matrices for use via getModelIndices(pc)     
+        adstring_array pcLabels; //array of labels, one for each pc
     public:
         ParameterGroupInfo();
         ~ParameterGroupInfo();

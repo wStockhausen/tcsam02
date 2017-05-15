@@ -30,6 +30,7 @@
  *      priorType
  *      priorParams
  *      priorConsts
+ *      label
  *----------------------------------------------------------------------------*/
     class NumberInfo {
         public:
@@ -43,9 +44,14 @@
             dvector priorParams;//specified on "natural" scale
             dvector priorConsts;//specified on "natural" scale
         public:
-            adstring      name;
-            bool          resample; //flag to do resampling of initial values
-            ModelPDFInfo* pMPI;
+            /* parameter name */
+            adstring name;
+            /* parameter label */
+            adstring label;
+            /* flag to do resampling of initial values */
+            bool     resample;
+            /* info for resmapling pdf */
+            ModelPDFInfo*  pMPI;
         public:
             NumberInfo(){this->name="";pMPI=0;}
             NumberInfo(adstring& name){this->name=name;pMPI=0;}
@@ -126,10 +132,10 @@
             int N;       //size of initVals vector
             int readVals;//flag to read initial values
         protected:
-            adstring idxType;//index type (ie., model dimension, e.g., YEAR)
-            IndexBlock* ptrIB;//pointer to index block
-            dvector initVals;//initial values
-            dvector finlVals;//final values (for output to R)
+            adstring    idxType;//index type (ie., model dimension, e.g., YEAR)
+            IndexBlock* ptrIB;  //pointer to index block
+            dvector     initVals;//initial values
+            dvector     finlVals;//final values (for output to R)
         public:
             adstring      name;
             ModelPDFInfo* pMPI;
