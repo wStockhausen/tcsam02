@@ -103,8 +103,8 @@
 //  2016-03-30: 1. added csv output file of ALL parameters in last phase Report section
 //              2. updated version number. 
 //  2016-03-31: 1. Revised NM calc.s so pLnM represents natural mortality rates
-//                  on immature male crab (was mature male crab, previously). pLnDMM
-//                  and pLnDMXM now reprsent corresponding offsets for mature, not
+//                  on immature male crab (was mature male crab, previously). pDM3
+//                  and pDM4 now reprsent corresponding offsets for mature, not
 //                  immature, crab.
 //              2. updated version number. 
 //              3. added command line flag (-calcOFL) to enable OFL calculations
@@ -251,13 +251,19 @@
 //--2017-05-10: 1. Added labels to I/O for GrowthData datasets
 //              2. Added labels to parameter combinations and parameters via
 //                  ModelParametersInfo file.
-//--2017-05-15: 1. Added pLgtRet as retained catch fraction (for old shell crab)
+//--2017-05-15: 1. Added pLgtRet as parameter for retained catch fraction (for old shell crab)
 //                  in directed fisheries.
 //              2. Refactored survey LnDQ parameter names from 
 //                  pLnDQT,pLnDQX,pLnDQM,pLnDQXM
 //                 to
 //                  pDQ1,pDQ2,pDQ3,pDQ4
 //                 to reflect more generic usage
+//              3. Refactored natural mortality LnDM parameter names from 
+//                  pDM1,pDM2,pDM3,pDM4
+//                 to
+//                  pDM1,pDM2,pDM3,pDM4
+//                 to reflect more generic usage
+//              4. Added logic to apply pLgtRet as retFrac.
 // =============================================================================
 // =============================================================================
 GLOBALS_SECTION
@@ -820,17 +826,17 @@ DATA_SECTION
     int npLnM; ivector phsLnM; vector lbLnM; vector ubLnM;
     !!tcsam::setParameterInfo(ptrMPI->ptrNM->pLnM,npLnM,lbLnM,ubLnM,phsLnM,rpt::echo);
     
-    int npLnDMT; ivector phsLnDMT; vector lbLnDMT; vector ubLnDMT;
-    !!tcsam::setParameterInfo(ptrMPI->ptrNM->pLnDMT,npLnDMT,lbLnDMT,ubLnDMT,phsLnDMT,rpt::echo);
+    int npDM1; ivector phsDM1; vector lbDM1; vector ubDM1;
+    !!tcsam::setParameterInfo(ptrMPI->ptrNM->pDM1,npDM1,lbDM1,ubDM1,phsDM1,rpt::echo);
     
-    int npLnDMX; ivector phsLnDMX; vector lbLnDMX; vector ubLnDMX;
-    !!tcsam::setParameterInfo(ptrMPI->ptrNM->pLnDMX,npLnDMX,lbLnDMX,ubLnDMX,phsLnDMX,rpt::echo);
+    int npDM2; ivector phsDM2; vector lbDM2; vector ubDM2;
+    !!tcsam::setParameterInfo(ptrMPI->ptrNM->pDM2,npDM2,lbDM2,ubDM2,phsDM2,rpt::echo);
     
-    int npLnDMM; ivector phsLnDMM; vector lbLnDMM; vector ubLnDMM;
-    !!tcsam::setParameterInfo(ptrMPI->ptrNM->pLnDMM,npLnDMM,lbLnDMM,ubLnDMM,phsLnDMM,rpt::echo);
+    int npDM3; ivector phsDM3; vector lbDM3; vector ubDM3;
+    !!tcsam::setParameterInfo(ptrMPI->ptrNM->pDM3,npDM3,lbDM3,ubDM3,phsDM3,rpt::echo);
     
-    int npLnDMXM; ivector phsLnDMXM; vector lbLnDMXM; vector ubLnDMXM;
-    !!tcsam::setParameterInfo(ptrMPI->ptrNM->pLnDMXM,npLnDMXM,lbLnDMXM,ubLnDMXM,phsLnDMXM,rpt::echo);
+    int npDM4; ivector phsDM4; vector lbDM4; vector ubDM4;
+    !!tcsam::setParameterInfo(ptrMPI->ptrNM->pDM4,npDM4,lbDM4,ubDM4,phsDM4,rpt::echo);
     
     number zMref;
     !!zMref = ptrMPI->ptrNM->zRef;
@@ -1012,11 +1018,11 @@ PARAMETER_SECTION
     matrix devsLnR(1,npDevsLnR,mniDevsLnR,mxiDevsLnR+1);
    
     //natural mortality parameters
-    init_bounded_number_vector pLnM(1,npLnM,lbLnM,ubLnM,phsLnM);               //base (immature males)
-    init_bounded_number_vector pLnDMT(1,npLnDMT,lbLnDMT,ubLnDMT,phsLnDMT);     //main temporal offsets
-    init_bounded_number_vector pLnDMX(1,npLnDMX,lbLnDMX,ubLnDMX,phsLnDMX);     //female offsets
-    init_bounded_number_vector pLnDMM(1,npLnDMM,lbLnDMM,ubLnDMM,phsLnDMM);     //mature offsets
-    init_bounded_number_vector pLnDMXM(1,npLnDMXM,lbLnDMXM,ubLnDMXM,phsLnDMXM);//female-mature offsets
+    init_bounded_number_vector pLnM(1,npLnM,lbLnM,ubLnM,phsLnM);//base ln-scale
+    init_bounded_number_vector pDM1(1,npDM1,lbDM1,ubDM1,phsDM1);//offset 1s
+    init_bounded_number_vector pDM2(1,npDM2,lbDM2,ubDM2,phsDM2);//offset 2s
+    init_bounded_number_vector pDM3(1,npDM3,lbDM3,ubDM3,phsDM3);//offset 3s
+    init_bounded_number_vector pDM4(1,npDM4,lbDM4,ubDM4,phsDM4);//offset 4s
     
     //growth parameters
     init_bounded_number_vector pLnGrA(1,npLnGrA,lbLnGrA,ubLnGrA,phsLnGrA); //ln-scale mean growth coefficient "a"
@@ -1045,6 +1051,7 @@ PARAMETER_SECTION
     matrix devsS4(1,npDevsS4,mniDevsS4,mxiDevsS4+1);
     matrix devsS5(1,npDevsS5,mniDevsS5,mxiDevsS5+1);
     matrix devsS6(1,npDevsS6,mniDevsS6,mxiDevsS6+1);
+    !!cout<<"got past Sels"<<endl;
     
     //fishing capture rate parameters
     init_bounded_number_vector pHM(1,npHM,lbHM,ubHM,phsHM);                    //handling mortality
@@ -1086,7 +1093,7 @@ PARAMETER_SECTION
     matrix zscrDevsLnR_cy(1,npcRec,mnYr,mxYr); //standardized ln-scale recruitment residuals by parameter combination and year
     
     //natural mortality-related quantities
-    3darray M_cxm(1,npcNM,1,nSXs,1,nMSs);                  //natural mortality rate by parameter combination
+    vector M_c(1,npcNM);                                   //natural mortality rate by parameter combination
     5darray M_yxmsz(mnYr,mxYr,1,nSXs,1,nMSs,1,nSCs,1,nZBs);//size-specific natural mortality rate
     
     //maturity-related quantities
@@ -1489,11 +1496,11 @@ FUNCTION setInitVals
     setInitVals(ptrMPI->ptrRec->pDevsLnR,pDevsLnR,0,rpt::echo);
 
     //natural mortality parameters
-    setInitVals(ptrMPI->ptrNM->pLnM,   pLnM,   0,rpt::echo);
-    setInitVals(ptrMPI->ptrNM->pLnDMT, pLnDMT, 0,rpt::echo);
-    setInitVals(ptrMPI->ptrNM->pLnDMX, pLnDMX, 0,rpt::echo);
-    setInitVals(ptrMPI->ptrNM->pLnDMM, pLnDMM, 0,rpt::echo);
-    setInitVals(ptrMPI->ptrNM->pLnDMXM,pLnDMXM,0,rpt::echo);
+    setInitVals(ptrMPI->ptrNM->pLnM, pLnM, 0,rpt::echo);
+    setInitVals(ptrMPI->ptrNM->pDM1, pDM1, 0,rpt::echo);
+    setInitVals(ptrMPI->ptrNM->pDM2, pDM2, 0,rpt::echo);
+    setInitVals(ptrMPI->ptrNM->pDM3, pDM3, 0,rpt::echo);
+    setInitVals(ptrMPI->ptrNM->pDM4, pDM4, 0,rpt::echo);
 
     //growth parameters
     setInitVals(ptrMPI->ptrGrw->pLnGrA,   pLnGrA,   0,rpt::echo);
@@ -1547,11 +1554,11 @@ FUNCTION int checkParams(int debug, ostream& os)
     res += checkParams(ptrMPI->ptrRec->pDevsLnR,pDevsLnR,debug,os);
 
     //natural mortality parameters
-    res += checkParams(ptrMPI->ptrNM->pLnM,   pLnM,   debug,os);
-    res += checkParams(ptrMPI->ptrNM->pLnDMT, pLnDMT, debug,os);
-    res += checkParams(ptrMPI->ptrNM->pLnDMX, pLnDMX, debug,os);
-    res += checkParams(ptrMPI->ptrNM->pLnDMM, pLnDMM, debug,os);
-    res += checkParams(ptrMPI->ptrNM->pLnDMXM,pLnDMXM,debug,os);
+    res += checkParams(ptrMPI->ptrNM->pLnM, pLnM, debug,os);
+    res += checkParams(ptrMPI->ptrNM->pDM1, pDM1, debug,os);
+    res += checkParams(ptrMPI->ptrNM->pDM2, pDM2, debug,os);
+    res += checkParams(ptrMPI->ptrNM->pDM3, pDM3, debug,os);
+    res += checkParams(ptrMPI->ptrNM->pDM4, pDM4, debug,os);
 
     //growth parameters
     res += checkParams(ptrMPI->ptrGrw->pLnGrA,   pLnGrA,   debug,os);
@@ -1773,10 +1780,10 @@ FUNCTION void writeMCMCtoR(ofstream& mcmc)
 
         //natural mortality parameters
         writeMCMCtoR(mcmc,ptrMPI->ptrNM->pLnM); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrNM->pLnDMT); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrNM->pLnDMX); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrNM->pLnDMM); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrNM->pLnDMXM); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrNM->pDM1); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrNM->pDM2); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrNM->pDM3); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrNM->pDM4); mcmc<<cc<<endl;
 
         //growth parameters
         writeMCMCtoR(mcmc,ptrMPI->ptrGrw->pLnGrA); mcmc<<cc<<endl;
@@ -2794,10 +2801,10 @@ FUNCTION void calcNatMort(int debug, ostream& cout)
     
     NaturalMortalityInfo* ptrNM = ptrMPI->ptrNM;
     
-    dvar_matrix lnM(1,nSXs,1,nMSs);
-    dvar3_array M_xmz(1,nSXs,1,nMSs,1,nZBs);
+    dvariable lnM;
+    dvar_vector M_z(1,nZBs);
     
-    M_cxm.initialize();
+    M_c.initialize();
     M_yxmsz.initialize();
 
     int y; int mnx; int mxx; int mnm; int mxm; int mns; int mxs;
@@ -2808,82 +2815,74 @@ FUNCTION void calcNatMort(int debug, ostream& cout)
         int k=ptrNM->nIVs+1;//1st parameter variable column
         if (debug>dbgCalcProcs) cout<<"pids = "<<pids(k,pids.indexmax())<<endl;
         if (ptrMOs->optParamNM==0){
-            //add in base (ln-scale) natural mortality (all crab, immature males)
+            //add in base (ln-scale) natural mortality
             if (pids[k]) {
                 if (debug>dbgCalcProcs) cout<<"Adding pLnM["<<pids[k]<<"]: "<<pLnM(pids[k])<<endl;
-                for (int x=1;x<=nSXs;x++) lnM(x) += pLnM(pids[k]);
-            }   k++;
-            //add in main offset from base (all crab, immature males)
-            if (pids[k]) {
-                if (debug>dbgCalcProcs) cout<<"Adding pLnDMT["<<pids[k]<<"]: "<<pLnDMT(pids[k])<<endl;
-                for (int x=1;x<=nSXs;x++) lnM(x) += pLnDMT(pids[k]);
+                lnM += pLnM(pids[k]);
             } k++;
-            if (FEMALE<=nSXs){
-                //add in offset for all females
-                if (pids[k]) {
-                    if (debug>dbgCalcProcs) cout<<"Adding pLnDMX["<<pids[k]<<"]: "<<pLnDMX(pids[k])<<endl;
-                    lnM(FEMALE) += pLnDMX(pids[k]);
-                }          k++;
-            }
-            //add in offset for all mature crab
+            //add in ln-scale offset 1
             if (pids[k]) {
-                if (debug>dbgCalcProcs) cout<<"Adding pLnMM["<<pids[k]<<"]: "<<pLnDMM(pids[k])<<endl;
-                for (int x=1;x<=nSXs;x++) lnM(x,MATURE) += pLnDMM(pids[k]);
+                if (debug>dbgCalcProcs) cout<<"Adding pDM1["<<pids[k]<<"]: "<<pDM1(pids[k])<<endl;
+                lnM += pDM1(pids[k]);
             } k++;
-            if (FEMALE<=nSXs){
-                //add in offset for mature females
-                if (pids[k]) {
-                    if (debug>dbgCalcProcs) cout<<"Adding pLnDMXM["<<pids[k]<<"]: "<<pLnDMXM(pids[k])<<endl;
-                    lnM(FEMALE,MATURE) += pLnDMXM(pids[k]);
-                }  k++; //advance k to zScaling in pids
-            }
+            //add in ln-scale offset 2
+            if (pids[k]) {
+                if (debug>dbgCalcProcs) cout<<"Adding pDM2["<<pids[k]<<"]: "<<pDM2(pids[k])<<endl;
+                lnM += pDM2(pids[k]);
+            } k++;
+            //add in ln-scale offset 3
+            if (pids[k]) {
+                if (debug>dbgCalcProcs) cout<<"Adding pDM2["<<pids[k]<<"]: "<<pDM3(pids[k])<<endl;
+                lnM += pDM3(pids[k]);
+            } k++;
+            //add in ln-scale offset 4
+            if (pids[k]) {
+                if (debug>dbgCalcProcs) cout<<"Adding pDM4["<<pids[k]<<"]: "<<pDM4(pids[k])<<endl;
+                lnM += pDM4(pids[k]);
+            }  k++; //advance k to zScaling in pids
         } else if (ptrMOs->optParamNM==1){
-            //TCSAM2013 parameterization: arithmetic scale
-            lnM = log(0.23);//base natural mortality
-            //add in offset for immature crab
+            //TCSAM2013 parameterization: arithmetic scale multipliers to base
+            //cout<<"k = "<<k<<tb<<"pids[k] = "<<pids[k]<<endl;
             if (pids[k]) {
-                if (debug>dbgCalcProcs) cout<<"Adding immature crab offset log(pLnM["<<pids[k]<<"]): "<<pLnM(pids[k])<<endl;
-                for (int x=1;x<=nSXs;x++) lnM(x,IMMATURE) += log(pLnM(pids[k]));
+                if (debug>dbgCalcProcs) cout<<"Adding pLnM["<<pids[k]<<"]: "<<pLnM(pids[k])<<endl;
+                lnM += pLnM(pids[k]);//on ln-scale already
             } k++;
+            //multiply offset 1 (for immature crab)
+            //cout<<"k = "<<k<<tb<<"pids[k] = "<<pids[k]<<endl;
             if (pids[k]) {
-                if (debug>dbgCalcProcs) cout<<"Adding mature male crab offset pLnDMT["<<pids[k]<<"]: "<<pLnDMT(pids[k])<<endl;
-                lnM(MALE,MATURE) += log(pLnDMT(pids[k]));
+                if (debug>dbgCalcProcs) cout<<"Multiplying by offset pDM1["<<pids[k]<<"]: "<<pDM1(pids[k])<<endl;
+                lnM += log(pDM1(pids[k]));//add on ln-scale
             } k++;
+            //cout<<"k = "<<k<<tb<<"pids[k] = "<<pids[k]<<endl;
             if (pids[k]) {
-                if (debug>dbgCalcProcs) cout<<"Adding mature female offset pLnDMX["<<pids[k]<<"]: "<<pLnDMX(pids[k])<<endl;
-                lnM(FEMALE,MATURE) += log(pLnDMX(pids[k]));
+                if (debug>dbgCalcProcs) cout<<"Multiplying by offset pDM2["<<pids[k]<<"]: "<<pDM2(pids[k])<<endl;
+                lnM += log(pDM2(pids[k]));
             } k++;
+            //cout<<"k = "<<k<<tb<<"pids[k] = "<<pids[k]<<endl;
             if (pids[k]) {
-                if (debug>dbgCalcProcs) cout<<"Adding time offset for mature males pLnDMM["<<pids[k]<<"]: "<<pLnDMM(pids[k])<<endl;
-                lnM(MALE,MATURE) += log(pLnDMM(pids[k]));
+                if (debug>dbgCalcProcs) cout<<"Multiplying by offset pDM3["<<pids[k]<<"]: "<<pDM3(pids[k])<<endl;
+                lnM += log(pDM3(pids[k]));
             } k++;
+            //cout<<"k = "<<k<<tb<<"pids[k] = "<<pids[k]<<endl;
             if (pids[k]) {
-                if (debug>dbgCalcProcs) cout<<"Adding time offset for mature females pLnDMXM["<<pids[k]<<"]: "<<pLnDMXM(pids[k])<<endl;
-                lnM(FEMALE,MATURE) += log(pLnDMXM(pids[k]));
+                if (debug>dbgCalcProcs) cout<<"Multiplying by offset pDM4["<<pids[k]<<"]: "<<pDM4(pids[k])<<endl;
+                lnM += log(pDM4(pids[k]));
             } k++;
         }//optParamNM
         
         //convert from ln-scale to arithmetic scale
-        M_cxm(pc) = mfexp(lnM);
-        if (debug>dbgCalcProcs){
-            cout<<"lnM:"<<endl;
-            for (int x=1;x<=nSXs;x++) cout<<"lnM("<<x<<")= "<<lnM(x)<<endl;
-            cout<<"M_xm:"<<endl;
-            for (int x=1;x<=nSXs;x++) cout<<"M_xm("<<x<<")= "<<M_cxm(pc,x)<<endl;
-        }
+        M_c(pc) = mfexp(lnM);
+        if (debug>dbgCalcProcs) cout<<"lnM= "<<lnM<<tb<<"M_c = "<<M_c(pc)<<endl;
         
         //add in size-scaling, if requested
-        M_xmz.initialize();
+        M_z.initialize();
+        //cout<<"k = "<<k<<tb<<"pids[k] = "<<pids[k]<<endl;
         if (pids[k]&&(current_phase()>=pids[k])) {
             if (debug>dbgCalcProcs) cout<<"adding size scaling"<<endl;
-            for (int x=1;x<=nSXs;x++){
-                for (int m=1;m<=nMSs;m++) M_xmz(x,m) = M_cxm(pc,x,m)*(zMref/zBs);//factor in size dependence
-            }
+            M_z = M_c(pc)*(zMref/zBs);//factor in size dependence
         } else {
             if (debug>dbgCalcProcs) cout<<"not adding size scaling"<<endl;
-            for (int x=1;x<=nSXs;x++){
-                for (int m=1;m<=nMSs;m++) M_xmz(x,m) = M_cxm(pc,x,m);//no size dependence
-            }
+            M_z = M_c(pc);//no size dependence
         }
         if (debug>dbgCalcProcs) cout<<"finished scaling"<<endl;
         
@@ -2900,7 +2899,7 @@ FUNCTION void calcNatMort(int debug, ostream& cout)
                 if (mns==tcsam::ALL_SCs){mns = 1; mxs = tcsam::nSCs;}
                 for (int x=mnx;x<=mxx;x++){
                     for (int m=mnm;m<=mxm;m++){
-                        for (int s=mns;s<=mxs;s++) M_yxmsz(y,x,m,s) = M_xmz(x,m);
+                        for (int s=mns;s<=mxs;s++) M_yxmsz(y,x,m,s) = 1.0*M_z;
                     }
                 }
             }
@@ -3383,8 +3382,8 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
     ***********************************************************/
 
     int idxEX = ptrFsh->idxUseEX;//index into pids below for flag to use effort extrapolation
-    int y; int f; int mnx; int mxx; int mnm; int mxm; int mns; int mxs; 
-    int idSel; int idRet; int useDevs;
+    int y, f, k, mnx, mxx, mnm, mxm, mns, mxs; 
+    int idSel, idRet, useDevs;
     //Pass 1: calculations based on parameter values
     if (debug>dbgCalcProcs) cout<<"starting pass 1"<<endl;
     for (int pc=1;pc<=ptrFsh->nPCs;pc++){
@@ -3394,47 +3393,54 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
         if (!useEX){//calculate capture rates from parameters
             lnC_m.initialize();
             arC_m.initialize();
-            int k=ptrFsh->nIVs+1;//1st parameter variable column
-            //get handling mortality (default to 1)
+             //get handling mortality (default to 1)
             hm = 1.0;
-            if (pids[k]) {hm = pHM(pids[k]);}        k++;
+            k = FisheriesInfo::idxHM;
+            if (pids[k]) {hm = pHM(pids[k]);}
             //set base (ln-scale) capture rate (mature males)
-            if (pids[k]) {lnC_m += pLnC(pids[k]);}   k++;
+            k = FisheriesInfo::idxLnC;
+            if (pids[k]) {lnC_m += pLnC(pids[k]);}
             //add in main offset 1 (temporal, perhaps)
-            if (pids[k]) {lnC_m += pLnDCT(pids[k]);} k++;
+            k = FisheriesInfo::idxLnDCT;
+            if (pids[k]) {lnC_m += pLnDCT(pids[k]);}
             //add in main offset 2 (for females, perhaps)
-            if (pids[k]) {lnC_m += pLnDCX(pids[k]);} k++;
+            k = FisheriesInfo::idxLnDCX;
+            if (pids[k]) {lnC_m += pLnDCX(pids[k]);}
             //add in immature offset 1
-            if (pids[k]) {lnC_m(IMMATURE) += pLnDCM(pids[k]);} k++;
+            k = FisheriesInfo::idxLnDCM;
+            if (pids[k]) {lnC_m(IMMATURE) += pLnDCM(pids[k]);}
             //add in immature offset 2 (for immature females, perhaps)
-            if (pids[k]) {lnC_m(IMMATURE) += pLnDCXM(pids[k]);} k++;
+            k = FisheriesInfo::idxLnDCXM;
+            if (pids[k]) {lnC_m(IMMATURE) += pLnDCXM(pids[k]);}
 
             //extract devs vector
-            useDevs = pids[k]; k++;
+            k = FisheriesInfo::idxLnDevs;
+            useDevs = pids[k];
             dvar_vector dvsLnC;             
             ivector idxDevsLnC;
             if (useDevs) {
                 dvsLnC     = devsLnC(useDevs);
                 idxDevsLnC = idxsDevsLnC(useDevs);
-//                if (debug>dbgCalcProcs){
-//                    cout<<"y   idx    devsLnC"<<endl;
-//                    for (int i=idxDevsLnC.indexmin();i<=idxDevsLnC.indexmax();i++) {
-//                        cout<<i<<tb<<idxDevsLnC(i)<<tb;
-//                        if (idxDevsLnC(i)) cout<<dvsLnC[idxDevsLnC(i)];
-//                        cout<<endl;
-//                    }//i
-//                }
             } else {
                 arC_m = mfexp(lnC_m);
             }
+            
+            //extract logistic scale retention fraction for old shell crab
+            k = FisheriesInfo::idxLgtRet;
+            dvariable retFrac = 1.0;
+            if (pids[k]) {
+                retFrac = 1.0/(1.0+mfexp(-pLgtRet[pids[k]]));
+                if (debug>dbgCalcProcs) {
+                    cout<<"pc: "<<pc<<". retFrac = "<<retFrac<<endl;
+                }
+            } k++;
 
-            k = ptrFsh->nIVs+ptrFsh->nPVs+1;//1st extra variable column
-            idSel = pids[k++];//selectivity function id
-            idRet = pids[k++];//retention function id
+            idSel = pids[FisheriesInfo::idxSelFcn];//selectivity function id
+            idRet = pids[FisheriesInfo::idxRetFcn];//retention function id
 
             //convert from ln-scale to arithmetic scale
             if (debug>dbgCalcProcs){
-                cout<<"pc: "<<pc<<". idSel = "<<idSel<<". idRet = "<<idRet<<tb<<"lnC:"<<lnC_m<<endl;
+                cout<<"pc: "<<pc<<". idSel = "<<idSel<<". idRet = "<<idRet<<". lnC = "<<lnC_m<<". retFrac = "<<retFrac<<endl;
                 if (useDevs) {
                     cout<<tb<<tb<<"dvsLnC["<<dvsLnC.indexmin()<<cc<<dvsLnC.indexmax()<<"] = "<<dvsLnC<<endl;
                 } else {
@@ -3473,8 +3479,9 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
                                 cpF_fyxmsz(f,y,x,m,s) = cpF_fyxms(f,y,x,m,s)*sel_cyz(idSel,y);//size-specific capture rate
                                 if (idRet){//fishery has retention
                                     ret_fyxmsz(f,y,x,m,s) = sel_cyz(idRet,y);      //retention curves
-                                    rmF_fyxmsz(f,y,x,m,s) = elem_prod(sel_cyz(idRet,y),         cpF_fyxmsz(f,y,x,m,s));//retention mortality
-                                    dmF_fyxmsz(f,y,x,m,s) = elem_prod(hm*(1.0-sel_cyz(idRet,y)),cpF_fyxmsz(f,y,x,m,s));//discard mortality
+                                    if (s==OLD_SHELL) ret_fyxmsz(f,y,x,m,s) *= retFrac; 
+                                    rmF_fyxmsz(f,y,x,m,s) = elem_prod(ret_fyxmsz(f,y,x,m,s),         cpF_fyxmsz(f,y,x,m,s));//retention mortality
+                                    dmF_fyxmsz(f,y,x,m,s) = elem_prod(hm*(1.0-ret_fyxmsz(f,y,x,m,s)),cpF_fyxmsz(f,y,x,m,s));//discard mortality
                                 } else {//discard only
                                     dmF_fyxmsz(f,y,x,m,s) = hm*cpF_fyxmsz(f,y,x,m,s);//discard mortality
                                 }
@@ -3561,16 +3568,25 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
     int fd; double eff;
     for (int pc=1;pc<=ptrFsh->nPCs;pc++){
         ivector pids = ptrFsh->getPCIDs(pc);
-        int useEX   = pids[ptrFsh->idxUseEX];//flag to use direct effort extrapolation (+ index to EX scenario [i.e., "n"])
-        int idPar   = pids[ptrFsh->idxLnEX]; //flag to use parameterized effort extrapolation (+ index to EX parameters)
+        int useEX   = pids[FisheriesInfo::idxUseEX];  //flag to use direct effort extrapolation (+ index to EX scenario [i.e., "n"])
+        int idPar   = pids[FisheriesInfo::idxLnEffX]; //index to parameters for effort extrapolation
         if (useEX){//calculate capture rates from effort extrapolation
             //get handling mortality (default to 1)
             hm = 1.0;
             if (pids[ptrFsh->idxHM]) {hm = pHM(pids[ptrFsh->idxHM]);}
             
-            int k = ptrFsh->nIVs+ptrFsh->nPVs+1;//1st extra variable column
-            idSel = pids[k++];   //selectivity function id
-            idRet = pids[k++];   //retention function id
+            //extract logistic scale retention fraction for old shell crab
+            dvariable retFrac = 1.0;
+            k = FisheriesInfo::idxLgtRet;
+            if (pids[k]) {
+                retFrac = 1.0/(1.0+mfexp(-pLgtRet[pids[k]]));
+                if (debug>dbgCalcProcs) {
+                    cout<<"pc: "<<pc<<". retFrac = "<<retFrac<<endl;
+                }
+            }
+
+            idSel = pids[FisheriesInfo::idxSelFcn];//selectivity function id
+            idRet = pids[FisheriesInfo::idxRetFcn];//retention function id
 
             //loop over model indices as defined in the index blocks
             imatrix idxs = ptrFsh->getModelIndices(pc);
@@ -3611,8 +3627,9 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
                                 cpF_fyxmsz(f,y,x,m,s) = cpF_fyxms(f,y,x,m,s)*sel_cyz(idSel,y);//size-specific capture rate
                                 if (idRet){//fishery has retention
                                     ret_fyxmsz(f,y,x,m,s) = sel_cyz(idRet,y);
-                                    rmF_fyxmsz(f,y,x,m,s) = elem_prod(sel_cyz(idRet,y),         cpF_fyxmsz(f,y,x,m,s));//retention mortality rate
-                                    dmF_fyxmsz(f,y,x,m,s) = elem_prod(hm*(1.0-sel_cyz(idRet,y)),cpF_fyxmsz(f,y,x,m,s));//discard mortality rate
+                                    if (s==OLD_SHELL) ret_fyxmsz(f,y,x,m,s) *= retFrac; 
+                                    rmF_fyxmsz(f,y,x,m,s) = elem_prod(ret_fyxmsz(f,y,x,m,s),         cpF_fyxmsz(f,y,x,m,s));//retention mortality rate
+                                    dmF_fyxmsz(f,y,x,m,s) = elem_prod(hm*(1.0-ret_fyxmsz(f,y,x,m,s)),cpF_fyxmsz(f,y,x,m,s));//discard mortality rate
                                 } else {//discard only
                                     dmF_fyxmsz(f,y,x,m,s) = hm*cpF_fyxmsz(f,y,x,m,s);//discard mortality rate
                                 }
@@ -5141,10 +5158,10 @@ FUNCTION void calcAllPriors(int debug, ostream& cout)
     //natural mortality parameters
     if (debug<0) cout<<tb<<"'natural mortality'=list("<<endl;
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrNM->pLnM,   pLnM,   debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrNM->pLnDMT, pLnDMT, debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrNM->pLnDMX, pLnDMX, debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrNM->pLnDMM, pLnDMM, debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrNM->pLnDMXM,pLnDMXM,debug,cout); if (debug<0){cout<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrNM->pDM1, pDM1, debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrNM->pDM2, pDM2, debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrNM->pDM3, pDM3, debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrNM->pDM4,pDM4,debug,cout); if (debug<0){cout<<endl;}
     if (debug<0) cout<<tb<<")"<<cc<<endl;
     
     //growth parameters
@@ -5220,11 +5237,11 @@ FUNCTION void ReportToR_ModelProcesses(ostream& os, int debug, ostream& cout)
 //    wts::adstring_matrix aM2M = tcsam::convertPCs(ptrMPI->ptrM2M);
 //    wts::adstring_matrix aGr  = tcsam::convertPCs(ptrMPI->ptrGrw);
     os<<"mp=list("<<endl;
-        os<<"M_cxm    ="; wts::writeToR(os,value(M_cxm),   adstring("pc=1:"+str(npcNM )),xDms,mDms);   os<<cc<<endl;
-        os<<"prM2M_cz ="; wts::writeToR(os,value(prM2M_cz),adstring("pc=1:"+str(npcM2M)),zbDms);       os<<cc<<endl;
-        os<<"sel_cz   ="; wts::writeToR(os,value(sel_cz),  adstring("pc=1:"+str(npcSel)),zbDms);       os<<cc<<endl;
-        os<<"M_yxmsz  ="; wts::writeToR(os,wts::value(M_yxmsz),   yDms,xDms,mDms,sDms,zbDms);  os<<cc<<endl;
-        os<<"prM2M_yxz =";wts::writeToR(os,     value(prM2M_yxz), yDms,xDms,zbDms);            os<<cc<<endl;
+        os<<"M_c      ="; wts::writeToR(os,value(M_c),     adstring("pc=1:"+str(npcNM )));      os<<cc<<endl;
+        os<<"prM2M_cz ="; wts::writeToR(os,value(prM2M_cz),adstring("pc=1:"+str(npcM2M)),zbDms);os<<cc<<endl;
+        os<<"sel_cz   ="; wts::writeToR(os,value(sel_cz),  adstring("pc=1:"+str(npcSel)),zbDms);os<<cc<<endl;
+        os<<"M_yxmsz  ="; wts::writeToR(os,wts::value(M_yxmsz),   yDms,xDms,mDms,sDms,zbDms);   os<<cc<<endl;
+        os<<"prM2M_yxz =";wts::writeToR(os,     value(prM2M_yxz), yDms,xDms,zbDms);             os<<cc<<endl;
         os<<"T_list=list("<<endl;
             os<<"mnZAM_cz   ="; wts::writeToR(os,value(mnGrZ_cz),adstring("pc=1:"+str(npcGrw )),zbDms);       os<<cc<<endl;
             os<<"T_czz      ="; wts::writeToR(os,value(prGr_czz),adstring("pc=1:"+str(npcGrw )),zbDms,zpDms); os<<cc<<endl;
@@ -5392,10 +5409,10 @@ FUNCTION void updateMPI(int debug, ostream& cout)
      
     //natural mortality parameters
     ptrMPI->ptrNM->pLnM->setFinalVals(pLnM);
-    ptrMPI->ptrNM->pLnDMT->setFinalVals(pLnDMT);
-    ptrMPI->ptrNM->pLnDMX->setFinalVals(pLnDMX);
-    ptrMPI->ptrNM->pLnDMM->setFinalVals(pLnDMM);
-    ptrMPI->ptrNM->pLnDMXM->setFinalVals(pLnDMXM);
+    ptrMPI->ptrNM->pDM1->setFinalVals(pDM1);
+    ptrMPI->ptrNM->pDM2->setFinalVals(pDM2);
+    ptrMPI->ptrNM->pDM3->setFinalVals(pDM3);
+    ptrMPI->ptrNM->pDM4->setFinalVals(pDM4);
     
     //growth parameters
     ptrMPI->ptrGrw->pLnGrA->setFinalVals(pLnGrA);
@@ -5518,10 +5535,10 @@ FUNCTION void writeParameters(ostream& os,int toR, int willBeActive)
     
     //natural mortality parameters
     wts::writeParameter(os,pLnM,toR,willBeActive);      
-    wts::writeParameter(os,pLnDMT,toR,willBeActive);      
-    wts::writeParameter(os,pLnDMX,toR,willBeActive);      
-    wts::writeParameter(os,pLnDMM,toR,willBeActive);      
-    wts::writeParameter(os,pLnDMXM,toR,willBeActive);      
+    wts::writeParameter(os,pDM1,toR,willBeActive);      
+    wts::writeParameter(os,pDM2,toR,willBeActive);      
+    wts::writeParameter(os,pDM3,toR,willBeActive);      
+    wts::writeParameter(os,pDM4,toR,willBeActive);      
     
     //growth parameters
     wts::writeParameter(os,pLnGrA,toR,willBeActive);      

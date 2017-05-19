@@ -640,17 +640,17 @@ NaturalMortalityInfo::NaturalMortalityInfo(){
     nPVs=5;
     lblPVs.allocate(1,nPVs); dscPVs.allocate(1,nPVs);
     k=1;
-    lblPVs(k) = "pLnM";      dscPVs(k++) = "ln-scale base natural mortality rate (immature male crab)";
-    lblPVs(k) = "pLnDMT";    dscPVs(k++) = "main temporal ln-scale natural mortality offsets";
-    lblPVs(k) = "pLnDMX";    dscPVs(k++) = "ln-scale natural mortality offset for female crabs";
-    lblPVs(k) = "pLnDMM";    dscPVs(k++) = "ln-scale natural mortality offset for mature crabs";
-    lblPVs(k) = "pLnDMXM";   dscPVs(k++) = "ln-scale natural mortality offset for mature female crabs";
+    lblPVs(k) = "pLnM"; dscPVs(k++) = "ln-scale base natural mortality rate";
+    lblPVs(k) = "pDM1"; dscPVs(k++) = "offset 1";
+    lblPVs(k) = "pDM2"; dscPVs(k++) = "offset 2";
+    lblPVs(k) = "pDM3"; dscPVs(k++) = "offset 3";
+    lblPVs(k) = "pDM4"; dscPVs(k++) = "offset 4";
     if (debug) cout<<3<<endl;
-    pLnM    = 0;
-    pLnDMT  = 0;
-    pLnDMX  = 0;
-    pLnDMM  = 0;
-    pLnDMXM = 0;
+    pLnM  = 0;
+    pDM1  = 0;
+    pDM2  = 0;
+    pDM3  = 0;
+    pDM4 = 0;
     if (debug) cout<<4<<endl;
     
     //define "extra" indices
@@ -662,11 +662,11 @@ NaturalMortalityInfo::NaturalMortalityInfo(){
 }
 
 NaturalMortalityInfo::~NaturalMortalityInfo(){
-    if (pLnM)    delete pLnM;     pLnM   =0;
-    if (pLnDMT)  delete pLnDMT;   pLnDMT =0;
-    if (pLnDMX)  delete pLnDMX;   pLnDMX =0;
-    if (pLnDMM)  delete pLnDMM;   pLnDMM =0;
-    if (pLnDMXM) delete pLnDMXM;  pLnDMXM=0;
+    if (pLnM) delete pLnM;  pLnM =0;
+    if (pDM1) delete pDM1;  pDM1 =0;
+    if (pDM2) delete pDM2;  pDM2 =0;
+    if (pDM3) delete pDM3;  pDM3 =0;
+    if (pDM4) delete pDM4;  pDM4 =0;
 }
 
 void NaturalMortalityInfo::read(cifstream & is){
@@ -692,14 +692,14 @@ void NaturalMortalityInfo::read(cifstream & is){
         int k=1;
         pLnM    = ParameterGroupInfo::read(is,lblPVs(k),pLnM);    
         rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnM)<<endl;    k++;
-        pLnDMT  = ParameterGroupInfo::read(is,lblPVs(k),pLnDMT);  
-        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnDMT)<<endl;  k++;
-        pLnDMX  = ParameterGroupInfo::read(is,lblPVs(k),pLnDMX);  
-        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnDMX)<<endl;  k++;
-        pLnDMM  = ParameterGroupInfo::read(is,lblPVs(k),pLnDMM);  
-        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnDMM)<<endl;  k++;
-        pLnDMXM = ParameterGroupInfo::read(is,lblPVs(k),pLnDMXM); 
-        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnDMXM)<<endl; k++;
+        pDM1  = ParameterGroupInfo::read(is,lblPVs(k),pDM1);  
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDM1)<<endl;  k++;
+        pDM2  = ParameterGroupInfo::read(is,lblPVs(k),pDM2);  
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDM2)<<endl;  k++;
+        pDM3  = ParameterGroupInfo::read(is,lblPVs(k),pDM3);  
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDM3)<<endl;  k++;
+        pDM4 = ParameterGroupInfo::read(is,lblPVs(k),pDM4); 
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDM4)<<endl; k++;
     } else {
         cout<<"Error reading NaturalMortalityInfo from "<<is.get_file_name()<<endl;
         cout<<"Expected keyword 'PARAMETERS' but got '"<<str<<"'."<<endl;
@@ -727,24 +727,24 @@ void NaturalMortalityInfo::write(std::ostream & os){
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
     os<<(*pLnM)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
-    os<<(*pLnDMT)<<endl;
+    os<<(*pDM1)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
-    os<<(*pLnDMX)<<endl;
+    os<<(*pDM2)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
-    os<<(*pLnDMM)<<endl;
+    os<<(*pDM3)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
-    os<<(*pLnDMXM)<<endl;
+    os<<(*pDM4)<<endl;
  }
 
 void NaturalMortalityInfo::writeToR(std::ostream & os){
     int indent=0;
     os<<"nm=list("<<endl;
-        ParameterGroupInfo::writeToR(os);         os<<cc<<endl;
-        pLnM->writeToR(os,   "pLnM",   indent+1); os<<cc<<endl;
-        pLnDMT->writeToR(os, "pLnDXT", indent+1); os<<cc<<endl;
-        pLnDMX->writeToR(os, "pLnDMX", indent+1); os<<cc<<endl;
-        pLnDMM->writeToR(os, "pLnDMM", indent+1); os<<cc<<endl;
-        pLnDMXM->writeToR(os,"pLnDMXM",indent+1); os<<endl;
+        ParameterGroupInfo::writeToR(os);    os<<cc<<endl;
+        pLnM->writeToR(os,"pLnM", indent+1); os<<cc<<endl;
+        pDM1->writeToR(os,"pDM1", indent+1); os<<cc<<endl;
+        pDM2->writeToR(os,"pDM2", indent+1); os<<cc<<endl;
+        pDM3->writeToR(os,"pDM3", indent+1); os<<cc<<endl;
+        pDM4->writeToR(os,"pDM4", indent+1); os<<endl;
     os<<")";
 }
         
@@ -1110,6 +1110,18 @@ void SelectivityInfo::writeToR(std::ostream & os){
  * FisheriesInfo
  -----------------------------------------------------------------------------*/
 adstring FisheriesInfo::NAME = "fisheries";
+int FisheriesInfo::idxHM     = 5+1;//column in parameter combinations matrix with parameter index for column in parameter combinations matrix indicating handling mortality parameters
+int FisheriesInfo::idxLnC    = 5+2;//column in parameter combinations matrix with parameter index for ln-scale base mean capture rate (mature males)
+int FisheriesInfo::idxLnDCT  = 5+3;//column in parameter combinations matrix with parameter index for main year_block ln-scale offsets
+int FisheriesInfo::idxLnDCX  = 5+4;//column in parameter combinations matrix with parameter index for ln-scale female offsets
+int FisheriesInfo::idxLnDCM  = 5+5;//column in parameter combinations matrix with parameter index for ln-scale immature offsets
+int FisheriesInfo::idxLnDCXM = 5+6;//column in parameter combinations matrix with parameter index for ln-scale female-immature offsets 
+int FisheriesInfo::idxLnDevs = 5+7;//column in parameter combinations matrix with parameter index for annual ln-scale devs w/in year_blocks
+int FisheriesInfo::idxLnEffX = 5+8;//column in parameter combinations matrix with parameter index for ln-scale effort extrapolation 
+int FisheriesInfo::idxLgtRet = 5+9;//column in parameter combinations matrix with parameter index for logit-scale retained fraction (for old shell crab)
+int FisheriesInfo::idxSelFcn = 5+9+1;//column in parameter combinations matrix indicating selectivity function index
+int FisheriesInfo::idxRetFcn = 5+9+2;//column in parameter combinations matrix indicating retention function index
+int FisheriesInfo::idxUseEX  = 5+9+3;//column in parameter combinations matrix indicating effort extrapolation use
 /*------------------------------------------------------------------------------
  * FisheriesInfo\n
  * Encapsulates the following fishery-related parameters:\n
@@ -1160,15 +1172,15 @@ FisheriesInfo::FisheriesInfo(){
     lblPVs(k) = "pDevsLnC";    dscPVs(k++) = "ln-scale annual capture rate devs";
     lblPVs(k) = "pLnEffX";     dscPVs(k++) = "ln-scale effort extrapolation parameters";
     lblPVs(k) = "pLgtRet";     dscPVs(k++) = "logit-scale retained fraction parameters";
-    pHM     = 0;
-    pLnC    = 0;
-    pLnDCT  = 0;
-    pLnDCX  = 0;
-    pLnDCM  = 0;
-    pLnDCXM = 0;
+    pHM      = 0;
+    pLnC     = 0;
+    pLnDCT   = 0;
+    pLnDCX   = 0;
+    pLnDCM   = 0;
+    pLnDCXM  = 0;
     pDevsLnC = 0;
     pLnEffX  = 0;
-    pLgtRet = 0;
+    pLgtRet  = 0;
     
     //create "extra indices"
     nXIs=3;
@@ -1178,15 +1190,11 @@ FisheriesInfo::FisheriesInfo(){
     lblXIs(k++) = "idx.RetFcn";
     lblXIs(k++) = "useEffX";
     
-    idxHM    = nIVs+1;     //1st PV column
-    idxLnEX  = nIVs+nPVs;  //last PV column
-    idxUseEX = nIVs+nPVs+3;//column in parameter combinations matrix for useEffortExtrapolation flag
-    
     if (debug) cout<<"finished FisheriesInfo::FisheriesInfo()"<<endl;
 }
 
 FisheriesInfo::~FisheriesInfo(){
-    if (pHM)     delete pHM;      pHM=0;
+    if (pHM)     delete pHM;      pHM    =0;
     if (pLnC)    delete pLnC;     pLnC   =0;
     if (pLnDCT)  delete pLnDCT;   pLnDCT =0;
     if (pLnDCX)  delete pLnDCX;   pLnDCX =0;

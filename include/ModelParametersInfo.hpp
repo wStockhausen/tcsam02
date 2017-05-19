@@ -150,14 +150,14 @@ class NaturalMortalityInfo : public ParameterGroupInfo {
         double zRef;
         /* info for base (immature male) natural mortality rates */
         BoundedNumberVectorInfo* pLnM;
-        /* info for ln-scale temporal offset */
-        BoundedNumberVectorInfo* pLnDMT;
-        /* info for ln-scale female offset */
-        BoundedNumberVectorInfo* pLnDMX;
-        /* info for ln-scale mature offset */
-        BoundedNumberVectorInfo* pLnDMM;
-        /* info for ln-scale mature female offset */
-        BoundedNumberVectorInfo* pLnDMXM;
+        /* info for offset 1 */
+        BoundedNumberVectorInfo* pDM1;
+        /* info for offset 2 */
+        BoundedNumberVectorInfo* pDM2;
+        /* info for offset 3 */
+        BoundedNumberVectorInfo* pDM3;
+        /* info for offset 4 */
+        BoundedNumberVectorInfo* pDM4;
         
         /**
          * Class constructor.
@@ -319,12 +319,21 @@ class SelectivityInfo : public ParameterGroupInfo {
 class FisheriesInfo : public ParameterGroupInfo {
     public:
         static int debug;
+        static int idxHM;    //column in parameter combinations matrix with parameter index for column in parameter combinations matrix indicating handling mortality parameters
+        static int idxLnC;   //column in parameter combinations matrix with parameter index for ln-scale base mean capture rate (mature males)
+        static int idxLnDCT; //column in parameter combinations matrix with parameter index for main year_block ln-scale offsets
+        static int idxLnDCX; //column in parameter combinations matrix with parameter index for ln-scale female offsets
+        static int idxLnDCM; //column in parameter combinations matrix with parameter index for ln-scale immature offsets
+        static int idxLnDCXM;//column in parameter combinations matrix with parameter index for ln-scale female-immature offsets 
+        static int idxLnDevs;//column in parameter combinations matrix with parameter index for annual ln-scale devs w/in year_blocks
+        static int idxLnEffX;//column in parameter combinations matrix with parameter index for ln-scale effort extrapolation 
+        static int idxLgtRet;//column in parameter combinations matrix with parameter index for logit-scale retained fraction (for old shell crab)
+        static int idxSelFcn;//column in parameter combinations matrix indicating selectivity function index
+        static int idxRetFcn;//column in parameter combinations matrix indicating retention function index
+        static int idxUseEX; //column in parameter combinations matrix indicating effort extrapolation use
     protected:
         static adstring NAME;//"fisheries"
     public:
-        int idxHM;   //column in parameter combinations matrix indicating handling mortality parameters
-        int idxLnEX; //column in parameter combinations matrix indicating effort extrapolation parameters
-        int idxUseEX;//column in parameter combinations matrix indicating effort extrapolation
         BoundedNumberVectorInfo* pHM;    //handling mortality (0-1)
         BoundedNumberVectorInfo* pLnC;   //ln-scale base mean capture rate (mature males)
         BoundedNumberVectorInfo* pLnDCT; //main year_block ln-scale offsets
