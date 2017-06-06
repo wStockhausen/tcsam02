@@ -264,6 +264,17 @@
 //                  pDM1,pDM2,pDM3,pDM4
 //                 to reflect more generic usage
 //              4. Added logic to apply pLgtRet as retFrac.
+//--2017-06-05: 1. Refactored survey LnDC parameter names from 
+//                  pDC1,pDC2,pDC3,pDC4 and associated idx's
+//                 to
+//                  pDC1,pDC2,pDC3,pDC4
+//                 to reflect more generic usage
+//              2. Refactored calcFisheryFs: replaced lnC_m, arC_m with lnC, arC
+//                  so function uses input sex/maturity/shell condition categories
+//--2017-06-06: 1. revised wts::writeParameter functions to tcsam::writeParameters
+//                  to include two categories and parameter labels in output
+//              2. Incremented model version to 2017.06.06.
+//
 // =============================================================================
 // =============================================================================
 GLOBALS_SECTION
@@ -898,17 +909,17 @@ DATA_SECTION
     int npLnC; ivector phsLnC; vector lbLnC; vector ubLnC;
     !!tcsam::setParameterInfo(ptrMPI->ptrFsh->pLnC,npLnC,lbLnC,ubLnC,phsLnC,rpt::echo);
     
-    int npLnDCT; ivector phsLnDCT; vector lbLnDCT; vector ubLnDCT;
-    !!tcsam::setParameterInfo(ptrMPI->ptrFsh->pLnDCT,npLnDCT,lbLnDCT,ubLnDCT,phsLnDCT,rpt::echo);
+    int npDC1; ivector phsDC1; vector lbDC1; vector ubDC1;
+    !!tcsam::setParameterInfo(ptrMPI->ptrFsh->pDC1,npDC1,lbDC1,ubDC1,phsDC1,rpt::echo);
     
-    int npLnDCX; ivector phsLnDCX; vector lbLnDCX; vector ubLnDCX;
-    !!tcsam::setParameterInfo(ptrMPI->ptrFsh->pLnDCX,npLnDCX,lbLnDCX,ubLnDCX,phsLnDCX,rpt::echo);
+    int npDC2; ivector phsDC2; vector lbDC2; vector ubDC2;
+    !!tcsam::setParameterInfo(ptrMPI->ptrFsh->pDC2,npDC2,lbDC2,ubDC2,phsDC2,rpt::echo);
     
-    int npLnDCM; ivector phsLnDCM; vector lbLnDCM; vector ubLnDCM;
-    !!tcsam::setParameterInfo(ptrMPI->ptrFsh->pLnDCM,npLnDCM,lbLnDCM,ubLnDCM,phsLnDCM,rpt::echo);
+    int npDC3; ivector phsDC3; vector lbDC3; vector ubDC3;
+    !!tcsam::setParameterInfo(ptrMPI->ptrFsh->pDC3,npDC3,lbDC3,ubDC3,phsDC3,rpt::echo);
     
-    int npLnDCXM; ivector phsLnDCXM; vector lbLnDCXM; vector ubLnDCXM;
-    !!tcsam::setParameterInfo(ptrMPI->ptrFsh->pLnDCXM,npLnDCXM,lbLnDCXM,ubLnDCXM,phsLnDCXM,rpt::echo);
+    int npDC4; ivector phsDC4; vector lbDC4; vector ubDC4;
+    !!tcsam::setParameterInfo(ptrMPI->ptrFsh->pDC4,npDC4,lbDC4,ubDC4,phsDC4,rpt::echo);
     
     int npDevsLnC; ivector mniDevsLnC; ivector mxiDevsLnC; imatrix idxsDevsLnC;
     vector lbDevsLnC; vector ubDevsLnC; ivector phsDevsLnC;
@@ -1056,10 +1067,10 @@ PARAMETER_SECTION
     //fishing capture rate parameters
     init_bounded_number_vector pHM(1,npHM,lbHM,ubHM,phsHM);                    //handling mortality
     init_bounded_number_vector pLnC(1,npLnC,lbLnC,ubLnC,phsLnC);               //ln-scale base fishing mortality (mature males)
-    init_bounded_number_vector pLnDCT(1,npLnDCT,lbLnDCT,ubLnDCT,phsLnDCT);     //ln-scale year-block offsets
-    init_bounded_number_vector pLnDCX(1,npLnDCX,lbLnDCX,ubLnDCX,phsLnDCX);     //female offsets
-    init_bounded_number_vector pLnDCM(1,npLnDCM,lbLnDCM,ubLnDCM,phsLnDCM);     //immature offsets
-    init_bounded_number_vector pLnDCXM(1,npLnDCXM,lbLnDCXM,ubLnDCXM,phsLnDCXM);//female-immature offsets
+    init_bounded_number_vector pDC1(1,npDC1,lbDC1,ubDC1,phsDC1);     //ln-scale year-block offsets
+    init_bounded_number_vector pDC2(1,npDC2,lbDC2,ubDC2,phsDC2);     //female offsets
+    init_bounded_number_vector pDC3(1,npDC3,lbDC3,ubDC3,phsDC3);     //immature offsets
+    init_bounded_number_vector pDC4(1,npDC4,lbDC4,ubDC4,phsDC4);//female-immature offsets
     init_bounded_vector_vector pDevsLnC(1,npDevsLnC,mniDevsLnC,mxiDevsLnC,lbDevsLnC,ubDevsLnC,phsDevsLnC);//ln-scale deviations
     init_bounded_number_vector pLnEffX(1,npLnEffX,lbLnEffX,ubLnEffX,phsLnEffX);//ln-scale effort extrapolation parameters
     init_bounded_number_vector pLgtRet(1,npLgtRet,lbLgtRet,ubLgtRet,phsLgtRet);//lgt-scale retained fraction parameters
@@ -1525,22 +1536,22 @@ FUNCTION setInitVals
     setInitVals(ptrMPI->ptrSel->pDevsS6, pDevsS6,0,rpt::echo);
 
     //fully-selected fishing capture rate parameters
-    setInitVals(ptrMPI->ptrFsh->pHM,     pHM,     0,rpt::echo);
-    setInitVals(ptrMPI->ptrFsh->pLnC,    pLnC,    0,rpt::echo);
-    setInitVals(ptrMPI->ptrFsh->pLnDCT,  pLnDCT,  0,rpt::echo);
-    setInitVals(ptrMPI->ptrFsh->pLnDCX,  pLnDCX,  0,rpt::echo);
-    setInitVals(ptrMPI->ptrFsh->pLnDCM,  pLnDCM,  0,rpt::echo);
-    setInitVals(ptrMPI->ptrFsh->pLnDCXM, pLnDCXM, 0,rpt::echo);
+    setInitVals(ptrMPI->ptrFsh->pHM,  pHM,  0,rpt::echo);
+    setInitVals(ptrMPI->ptrFsh->pLnC, pLnC, 0,rpt::echo);
+    setInitVals(ptrMPI->ptrFsh->pDC1, pDC1, 0,rpt::echo);
+    setInitVals(ptrMPI->ptrFsh->pDC2, pDC2, 0,rpt::echo);
+    setInitVals(ptrMPI->ptrFsh->pDC3, pDC3, 0,rpt::echo);
+    setInitVals(ptrMPI->ptrFsh->pDC4, pDC4, 0,rpt::echo);
     setInitVals(ptrMPI->ptrFsh->pDevsLnC,pDevsLnC,0,rpt::echo);
     setInitVals(ptrMPI->ptrFsh->pLnEffX, pLnEffX, 0,rpt::echo);
     setInitVals(ptrMPI->ptrFsh->pLgtRet, pLgtRet, 0,rpt::echo);
 
     //survey catchability parameters
-    setInitVals(ptrMPI->ptrSrv->pLnQ,   pLnQ,   0,rpt::echo);
+    setInitVals(ptrMPI->ptrSrv->pLnQ, pLnQ, 0,rpt::echo);
     setInitVals(ptrMPI->ptrSrv->pDQ1, pDQ1, 0,rpt::echo);
     setInitVals(ptrMPI->ptrSrv->pDQ2, pDQ2, 0,rpt::echo);
     setInitVals(ptrMPI->ptrSrv->pDQ3, pDQ3, 0,rpt::echo);
-    setInitVals(ptrMPI->ptrSrv->pDQ4,pDQ4,0,rpt::echo);
+    setInitVals(ptrMPI->ptrSrv->pDQ4, pDQ4, 0,rpt::echo);
 
 //*****************************************
 FUNCTION int checkParams(int debug, ostream& os)
@@ -1585,10 +1596,10 @@ FUNCTION int checkParams(int debug, ostream& os)
     //fully-selected fishing capture rate parameters
     res += checkParams(ptrMPI->ptrFsh->pHM,     pHM,     debug,os);
     res += checkParams(ptrMPI->ptrFsh->pLnC,    pLnC,    debug,os);
-    res += checkParams(ptrMPI->ptrFsh->pLnDCT,  pLnDCT,  debug,os);
-    res += checkParams(ptrMPI->ptrFsh->pLnDCX,  pLnDCX,  debug,os);
-    res += checkParams(ptrMPI->ptrFsh->pLnDCM,  pLnDCM,  debug,os);
-    res += checkParams(ptrMPI->ptrFsh->pLnDCXM, pLnDCXM, debug,os);
+    res += checkParams(ptrMPI->ptrFsh->pDC1,  pDC1,  debug,os);
+    res += checkParams(ptrMPI->ptrFsh->pDC2,  pDC2,  debug,os);
+    res += checkParams(ptrMPI->ptrFsh->pDC3,  pDC3,  debug,os);
+    res += checkParams(ptrMPI->ptrFsh->pDC4, pDC4, debug,os);
     res += checkParams(ptrMPI->ptrFsh->pDevsLnC,pDevsLnC,debug,os);
     res += checkParams(ptrMPI->ptrFsh->pLnEffX, pLnEffX, debug,os);
     res += checkParams(ptrMPI->ptrFsh->pLgtRet, pLgtRet, debug,os);
@@ -1810,10 +1821,10 @@ FUNCTION void writeMCMCtoR(ofstream& mcmc)
         //fully-selected fishing capture rate parameters
         writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pHM); mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pLnC); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pLnDCT); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pLnDCX); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pLnDCM); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pLnDCXM); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pDC1); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pDC2); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pDC3); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pDC4); mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pDevsLnC); mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pLnEffX); mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pLgtRet); mcmc<<cc<<endl;
@@ -3354,9 +3365,9 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
     
     FisheriesInfo* ptrFsh = ptrMPI->ptrFsh;
     
-    dvariable hm;           //handling mortality
-    dvar_vector lnC_m(1,nMSs);//ln-scale capture rate
-    dvar_vector arC_m(1,nMSs);//arithmetic-scale capture rate
+    dvariable hm; //handling mortality
+    dvariable lnC;//ln-scale capture rate
+    dvariable arC;//arithmetic-scale capture rate
     
     dvsLnC_fy.initialize();
     for (int f=1;f<=nFsh;f++) idxDevsLnC_fy(f) = -1;
@@ -3391,27 +3402,27 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
         if (debug>dbgCalcProcs) cout<<"pc: "<<pc<<tb<<"pids: "<<pids<<endl;
         int useEX = pids[ptrFsh->idxUseEX];//flag to use effort extrapolation
         if (!useEX){//calculate capture rates from parameters
-            lnC_m.initialize();
-            arC_m.initialize();
+            lnC.initialize();
+            arC.initialize();
              //get handling mortality (default to 1)
             hm = 1.0;
             k = FisheriesInfo::idxHM;
             if (pids[k]) {hm = pHM(pids[k]);}
-            //set base (ln-scale) capture rate (mature males)
+            //set base (ln-scale) capture rate
             k = FisheriesInfo::idxLnC;
-            if (pids[k]) {lnC_m += pLnC(pids[k]);}
-            //add in main offset 1 (temporal, perhaps)
-            k = FisheriesInfo::idxLnDCT;
-            if (pids[k]) {lnC_m += pLnDCT(pids[k]);}
-            //add in main offset 2 (for females, perhaps)
-            k = FisheriesInfo::idxLnDCX;
-            if (pids[k]) {lnC_m += pLnDCX(pids[k]);}
-            //add in immature offset 1
-            k = FisheriesInfo::idxLnDCM;
-            if (pids[k]) {lnC_m(IMMATURE) += pLnDCM(pids[k]);}
-            //add in immature offset 2 (for immature females, perhaps)
-            k = FisheriesInfo::idxLnDCXM;
-            if (pids[k]) {lnC_m(IMMATURE) += pLnDCXM(pids[k]);}
+            if (pids[k]) {lnC += pLnC(pids[k]);}
+            //add in offset 1 (temporal, perhaps)
+            k = FisheriesInfo::idxDC1;
+            if (pids[k]) {lnC += pDC1(pids[k]);}
+            //add in offset 2 (for females, perhaps)
+            k = FisheriesInfo::idxDC2;
+            if (pids[k]) {lnC += pDC2(pids[k]);}
+            //add in offset 3 (for immature crab, perhaps)
+            k = FisheriesInfo::idxDC3;
+            if (pids[k]) {lnC += pDC3(pids[k]);}
+            //add in offset 4 (for immature females, perhaps)
+            k = FisheriesInfo::idxDC4;
+            if (pids[k]) {lnC += pDC4(pids[k]);}
 
             //extract devs vector
             k = FisheriesInfo::idxLnDevs;
@@ -3422,7 +3433,7 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
                 dvsLnC     = devsLnC(useDevs);
                 idxDevsLnC = idxsDevsLnC(useDevs);
             } else {
-                arC_m = mfexp(lnC_m);
+                arC = mfexp(lnC);
             }
             
             //extract logistic scale retention fraction for old shell crab
@@ -3440,11 +3451,11 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
 
             //convert from ln-scale to arithmetic scale
             if (debug>dbgCalcProcs){
-                cout<<"pc: "<<pc<<". idSel = "<<idSel<<". idRet = "<<idRet<<". lnC = "<<lnC_m<<". retFrac = "<<retFrac<<endl;
+                cout<<"pc: "<<pc<<". idSel = "<<idSel<<". idRet = "<<idRet<<". lnC = "<<lnC<<". retFrac = "<<retFrac<<endl;
                 if (useDevs) {
                     cout<<tb<<tb<<"dvsLnC["<<dvsLnC.indexmin()<<cc<<dvsLnC.indexmax()<<"] = "<<dvsLnC<<endl;
                 } else {
-                    cout<<tb<<tb<<"arC_m:"<<arC_m<<endl;
+                    cout<<tb<<tb<<"arC:"<<arC<<endl;
                 }
             }
 
@@ -3467,19 +3478,18 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
                         if (useDevs) {
                             idxDevsLnC_fy(f,y) = idxDevsLnC[y];
                             dvsLnC_fy(f,y)     = dvsLnC[idxDevsLnC[y]];
-                            arC_m = mfexp(lnC_m+dvsLnC[idxDevsLnC[y]]);//recalculate C_xm w/ devs
+                            arC = mfexp(lnC+dvsLnC[idxDevsLnC[y]]);//recalculate arC w/ devs
                             if (debug>dbgCalcProcs) {
-                                cout<<"idxDevsLnC[y],dvsLnC[idxDevsLnC[y]], arC_m: "<<idxDevsLnC[y]<<tb<<dvsLnC[idxDevsLnC[y]]<<tb<<arC_m<<endl;
+                                cout<<"idxDevsLnC[y],dvsLnC[idxDevsLnC[y]], arC: "<<idxDevsLnC[y]<<tb<<dvsLnC[idxDevsLnC[y]]<<tb<<arC<<endl;
                             }
                         }
                         for (int m=mnm;m<=mxm;m++){
-                            cpF_fyxms(f,y,x,m)  = arC_m(m); //fully-selected capture rate (independent of shell condition)
+                            cpF_fyxms(f,y,x,m)  = arC; //fully-selected capture rate (independent of shell condition)
                             for (int s=mns;s<=mxs;s++){
                                 sel_fyxmsz(f,y,x,m,s) = sel_cyz(idSel,y);          //selectivity
                                 cpF_fyxmsz(f,y,x,m,s) = cpF_fyxms(f,y,x,m,s)*sel_cyz(idSel,y);//size-specific capture rate
                                 if (idRet){//fishery has retention
-                                    ret_fyxmsz(f,y,x,m,s) = sel_cyz(idRet,y);      //retention curves
-                                    if (s==OLD_SHELL) ret_fyxmsz(f,y,x,m,s) *= retFrac; 
+                                    ret_fyxmsz(f,y,x,m,s) = retFrac*sel_cyz(idRet,y);      //retention curves
                                     rmF_fyxmsz(f,y,x,m,s) = elem_prod(ret_fyxmsz(f,y,x,m,s),         cpF_fyxmsz(f,y,x,m,s));//retention mortality
                                     dmF_fyxmsz(f,y,x,m,s) = elem_prod(hm*(1.0-ret_fyxmsz(f,y,x,m,s)),cpF_fyxmsz(f,y,x,m,s));//discard mortality
                                 } else {//discard only
@@ -3626,8 +3636,7 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
                                 sel_fyxmsz(f,y,x,m,s) = sel_cyz(idSel,y);
                                 cpF_fyxmsz(f,y,x,m,s) = cpF_fyxms(f,y,x,m,s)*sel_cyz(idSel,y);//size-specific capture rate
                                 if (idRet){//fishery has retention
-                                    ret_fyxmsz(f,y,x,m,s) = sel_cyz(idRet,y);
-                                    if (s==OLD_SHELL) ret_fyxmsz(f,y,x,m,s) *= retFrac; 
+                                    ret_fyxmsz(f,y,x,m,s) = retFrac*sel_cyz(idRet,y);
                                     rmF_fyxmsz(f,y,x,m,s) = elem_prod(ret_fyxmsz(f,y,x,m,s),         cpF_fyxmsz(f,y,x,m,s));//retention mortality rate
                                     dmF_fyxmsz(f,y,x,m,s) = elem_prod(hm*(1.0-ret_fyxmsz(f,y,x,m,s)),cpF_fyxmsz(f,y,x,m,s));//discard mortality rate
                                 } else {//discard only
@@ -5195,10 +5204,10 @@ FUNCTION void calcAllPriors(int debug, ostream& cout)
     //fishing mortality parameters
     if (debug<0) cout<<tb<<"fisheries=list("<<endl;
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrFsh->pLnC,    pLnC,   debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrFsh->pLnDCT,  pLnDCT, debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrFsh->pLnDCX,  pLnDCX, debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrFsh->pLnDCM,  pLnDCM, debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrFsh->pLnDCXM, pLnDCXM,debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrFsh->pDC1,  pDC1, debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrFsh->pDC2,  pDC2, debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrFsh->pDC3,  pDC3, debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrFsh->pDC4, pDC4,debug,cout); if (debug<0){cout<<cc<<endl;}
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrFsh->pDevsLnC,devsLnC,debug,cout); if (debug<0){cout<<endl;}
     if (debug<0) cout<<tb<<")"<<cc<<endl;
    
@@ -5446,10 +5455,10 @@ FUNCTION void updateMPI(int debug, ostream& cout)
     //fully-selected fishing capture rate parameters
     ptrMPI->ptrFsh->pHM->setFinalVals(pHM);
     ptrMPI->ptrFsh->pLnC->setFinalVals(pLnC);
-    ptrMPI->ptrFsh->pLnDCT->setFinalVals(pLnDCT);
-    ptrMPI->ptrFsh->pLnDCX->setFinalVals(pLnDCX);
-    ptrMPI->ptrFsh->pLnDCM->setFinalVals(pLnDCM);
-    ptrMPI->ptrFsh->pLnDCXM->setFinalVals(pLnDCXM);
+    ptrMPI->ptrFsh->pDC1->setFinalVals(pDC1);
+    ptrMPI->ptrFsh->pDC2->setFinalVals(pDC2);
+    ptrMPI->ptrFsh->pDC3->setFinalVals(pDC3);
+    ptrMPI->ptrFsh->pDC4->setFinalVals(pDC4);
     //cout<<"setting final vals for pDevsLnC"<<endl;
     for (int p=1;p<=ptrMPI->ptrFsh->pDevsLnC->getSize();p++) (*ptrMPI->ptrFsh->pDevsLnC)[p]->setFinalVals(pDevsLnC(p));
     ptrMPI->ptrFsh->pLnEffX->setFinalVals(pLnEffX);
@@ -5523,62 +5532,77 @@ FUNCTION void ReportToR(ostream& os, double maxGrad, int debug, ostream& cout)
 
 //----------------------------------------------------------------------
 //Write parameter information to file
-FUNCTION void writeParameters(ostream& os,int toR, int willBeActive)           
-    os<<"index, phase, idx.mn, idx.mx, min, max, value, name, type"<<endl;
+FUNCTION void writeParameters(ostream& os,int toR, int willBeActive)      
+    adstring ctg1, ctg2;
+    os<<"index, phase, idx.mn, idx.mx, min, max, value, name, type, category, process, label"<<endl;
     //recruitment parameters
-    wts::writeParameter(os,pLnR,toR,willBeActive);      
-    wts::writeParameter(os,pLnRCV,toR,willBeActive);      
-    wts::writeParameter(os,pLgtRX,toR,willBeActive);      
-    wts::writeParameter(os,pLnRa,toR,willBeActive);      
-    wts::writeParameter(os,pLnRb,toR,willBeActive);      
-    wts::writeParameter(os,pDevsLnR,toR,willBeActive);      
+    ctg1="population processes";
+    ctg2="recruitment";
+    tcsam::writeParameters(os,pLnR,  ctg1,ctg2,ptrMPI->ptrRec->pLnR->getLabels(),  toR,willBeActive);      
+    tcsam::writeParameters(os,pLnRCV,ctg1,ctg2,ptrMPI->ptrRec->pLnRCV->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pLgtRX,ctg1,ctg2,ptrMPI->ptrRec->pLgtRX->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pLnRa, ctg1,ctg2,ptrMPI->ptrRec->pLnRa->getLabels(), toR,willBeActive);      
+    tcsam::writeParameters(os,pLnRb, ctg1,ctg2,ptrMPI->ptrRec->pLnRb->getLabels(), toR,willBeActive);      
+    tcsam::writeParameters(os,pDevsLnR,ctg1,ctg2,ptrMPI->ptrRec->pDevsLnR->getLabels(),toR,willBeActive);      
     
     //natural mortality parameters
-    wts::writeParameter(os,pLnM,toR,willBeActive);      
-    wts::writeParameter(os,pDM1,toR,willBeActive);      
-    wts::writeParameter(os,pDM2,toR,willBeActive);      
-    wts::writeParameter(os,pDM3,toR,willBeActive);      
-    wts::writeParameter(os,pDM4,toR,willBeActive);      
+    ctg1="population processes";
+    ctg2="natural mortality";
+    tcsam::writeParameters(os,pLnM,ctg1,ctg2,ptrMPI->ptrNM->pLnM->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pDM1,ctg1,ctg2,ptrMPI->ptrNM->pDM1->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pDM2,ctg1,ctg2,ptrMPI->ptrNM->pDM2->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pDM3,ctg1,ctg2,ptrMPI->ptrNM->pDM3->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pDM4,ctg1,ctg2,ptrMPI->ptrNM->pDM4->getLabels(),toR,willBeActive);      
     
     //growth parameters
-    wts::writeParameter(os,pLnGrA,toR,willBeActive);      
-    wts::writeParameter(os,pLnGrB,toR,willBeActive);      
-    wts::writeParameter(os,pLnGrBeta,toR,willBeActive);      
+    ctg1="population processes";
+    ctg2="growth";
+    tcsam::writeParameters(os,pLnGrA,ctg1,ctg2,ptrMPI->ptrGrw->pLnGrA->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pLnGrB,ctg1,ctg2,ptrMPI->ptrGrw->pLnGrB->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pLnGrBeta,ctg1,ctg2,ptrMPI->ptrGrw->pLnGrBeta->getLabels(),toR,willBeActive);      
     
     //maturity parameters
-    wts::writeParameter(os,pLgtPrM2M,toR,willBeActive);      
+    ctg1="population processes";
+    ctg2="maturity";
+    tcsam::writeParameters(os,pLgtPrM2M,ctg1,ctg2,ptrMPI->ptrM2M->pLgtPrM2M->getLabels(),toR,willBeActive);      
     
     //selectivity parameters
-    wts::writeParameter(os,pS1,toR,willBeActive);      
-    wts::writeParameter(os,pS2,toR,willBeActive);      
-    wts::writeParameter(os,pS3,toR,willBeActive);      
-    wts::writeParameter(os,pS4,toR,willBeActive);      
-    wts::writeParameter(os,pS5,toR,willBeActive);      
-    wts::writeParameter(os,pS6,toR,willBeActive);      
-    wts::writeParameter(os,pDevsS1,toR,willBeActive);      
-    wts::writeParameter(os,pDevsS2,toR,willBeActive);      
-    wts::writeParameter(os,pDevsS3,toR,willBeActive);      
-    wts::writeParameter(os,pDevsS4,toR,willBeActive);      
-    wts::writeParameter(os,pDevsS5,toR,willBeActive);      
-    wts::writeParameter(os,pDevsS6,toR,willBeActive);      
+    ctg1="selectivity";
+    ctg2="selectivity";
+    tcsam::writeParameters(os,pS1,ctg1,ctg2,ptrMPI->ptrSel->pS1->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pS2,ctg1,ctg2,ptrMPI->ptrSel->pS2->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pS3,ctg1,ctg2,ptrMPI->ptrSel->pS3->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pS4,ctg1,ctg2,ptrMPI->ptrSel->pS4->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pS5,ctg1,ctg2,ptrMPI->ptrSel->pS5->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pS6,ctg1,ctg2,ptrMPI->ptrSel->pS6->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pDevsS1,ctg1,ctg2,ptrMPI->ptrSel->pDevsS1->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pDevsS2,ctg1,ctg2,ptrMPI->ptrSel->pDevsS2->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pDevsS3,ctg1,ctg2,ptrMPI->ptrSel->pDevsS3->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pDevsS4,ctg1,ctg2,ptrMPI->ptrSel->pDevsS4->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pDevsS5,ctg1,ctg2,ptrMPI->ptrSel->pDevsS5->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pDevsS6,ctg1,ctg2,ptrMPI->ptrSel->pDevsS6->getLabels(),toR,willBeActive);      
     
     //fishery parameters
-    wts::writeParameter(os,pHM,toR,willBeActive);      
-    wts::writeParameter(os,pLnC,toR,willBeActive);      
-    wts::writeParameter(os,pLnDCT,toR,willBeActive);      
-    wts::writeParameter(os,pLnDCX,toR,willBeActive);      
-    wts::writeParameter(os,pLnDCM,toR,willBeActive);      
-    wts::writeParameter(os,pLnDCXM,toR,willBeActive);      
-    wts::writeParameter(os,pDevsLnC,toR,willBeActive);      
-    wts::writeParameter(os,pLnEffX,toR,willBeActive);      
-    wts::writeParameter(os,pLgtRet,toR,willBeActive);      
+    ctg1="fisheries";
+    ctg2="fisheries";
+    tcsam::writeParameters(os,pHM, ctg1,ctg2,ptrMPI->ptrFsh->pHM->getLabels(), toR,willBeActive);      
+    tcsam::writeParameters(os,pLnC,ctg1,ctg2,ptrMPI->ptrFsh->pLnC->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pDC1,ctg1,ctg2,ptrMPI->ptrFsh->pDC1->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pDC2,ctg1,ctg2,ptrMPI->ptrFsh->pDC2->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pDC3,ctg1,ctg2,ptrMPI->ptrFsh->pDC3->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pDC4,ctg1,ctg2,ptrMPI->ptrFsh->pDC4->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pDevsLnC,ctg1,ctg2,ptrMPI->ptrFsh->pDevsLnC->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pLnEffX, ctg1,ctg2,ptrMPI->ptrFsh->pLnEffX->getLabels(), toR,willBeActive);      
+    tcsam::writeParameters(os,pLgtRet, ctg1,ctg2,ptrMPI->ptrFsh->pLgtRet->getLabels(), toR,willBeActive);      
     
     //survey parameters
-    wts::writeParameter(os,pLnQ,toR,willBeActive);      
-    wts::writeParameter(os,pDQ1,toR,willBeActive);      
-    wts::writeParameter(os,pDQ2,toR,willBeActive);      
-    wts::writeParameter(os,pDQ3,toR,willBeActive);      
-    wts::writeParameter(os,pDQ4,toR,willBeActive);      
+    ctg1="surveys";
+    ctg2="surveys";
+    tcsam::writeParameters(os,pLnQ,ctg1,ctg2,ptrMPI->ptrSrv->pLnQ->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pDQ1,ctg1,ctg2,ptrMPI->ptrSrv->pDQ1->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pDQ2,ctg1,ctg2,ptrMPI->ptrSrv->pDQ2->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pDQ3,ctg1,ctg2,ptrMPI->ptrSrv->pDQ3->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pDQ4,ctg1,ctg2,ptrMPI->ptrSrv->pDQ4->getLabels(),toR,willBeActive);      
     
 // =============================================================================
 // =============================================================================

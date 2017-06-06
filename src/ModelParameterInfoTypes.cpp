@@ -845,6 +845,22 @@ void NumberVectorInfo::writeFinalValsToR(ostream& os){
         os<<"NULL";
     }
 }
+
+/**
+ * Function to return labels for individual parameters as an
+ * adstring_array.
+ * 
+ * @return adstring_array
+ */
+adstring_array NumberVectorInfo::getLabels(void){
+    adstring_array arr(1,1);
+    if (nNIs){
+        adstring_array arr(1,nNIs);
+        for (int i=1;i<=nNIs;i++) arr(i) = (*this)[i]->label;
+        return(arr);
+    }
+    return(arr);
+}
 ////////////////////////////NumberVectorInfo/////////////////////////////////
 
 /*------------------------------------------------------------------------------
@@ -852,7 +868,7 @@ void NumberVectorInfo::writeFinalValsToR(ostream& os){
  *----------------------------------------------------------------------------*/
 /**
  * Get a pointer to the ith BoundedNumberInfo element in the vector. 
- * i mustbe in the interval 1<=i<=nNIs.
+ * i must be in the interval 1<=i<=nNIs.
  * @param i - index (1-based) to BoundedNumberInfo
  * @return pointer to ith BoundedNumberInfo object
  */
@@ -1036,6 +1052,22 @@ dvector VectorVectorInfo::getPriorWgts(){
     return wts;
 }
 
+/**
+ * Function to return labels for individual parameters as an
+ * adstring_array.
+ * 
+ * @return adstring_array
+ */
+adstring_array VectorVectorInfo::getLabels(void){
+    adstring_array arr(1,1);
+    if (nVIs){
+        adstring_array arr(1,nVIs);
+        for (int i=1;i<=nVIs;i++) arr(i) = (*this)[i]->label;
+        return(arr);
+    }
+    return(arr);
+}
+
 /***************************************************************
 *   Read from stream.                                          *
 ***************************************************************/
@@ -1146,6 +1178,22 @@ dvector BoundedVectorVectorInfo::getUpperBounds(void){
     if (ppVIs) for (int i=1;i<=nVIs;i++) ubs(i) = (ppVIs[i-1])->getUpperBound();
     if (debug) rpt::echo<<"finished BoundedVectorVectorInfo::getUpperBounds(void) "<<this<<endl;
     return ubs;
+}
+
+/**
+ * Function to return labels for individual parameter vectors as an
+ * adstring_array.
+ * 
+ * @return adstring_array
+ */
+adstring_array BoundedVectorVectorInfo::getLabels(void){
+    adstring_array arr(1,1);
+    if (nVIs){
+        adstring_array arr(1,nVIs);
+        for (int i=1;i<=nVIs;i++) arr(i) = (*this)[i]->label;
+        return(arr);
+    }
+    return(arr);
 }
 
 /***************************************************************
@@ -1318,6 +1366,22 @@ dvector DevsVectorVectorInfo::getUpperBounds(void){
     if (ppVIs) for (int i=1;i<=nVIs;i++) ubs(i) = (ppVIs[i-1])->getUpperBound();
     if (debug) rpt::echo<<"finished DevsVectorVectorInfo::getUpperBounds(void) "<<this<<endl;
     return ubs;
+}
+
+/**
+ * Function to return labels for vector of parameter vectors as an
+ * adstring_array.
+ * 
+ * @return adstring_array
+ */
+adstring_array DevsVectorVectorInfo::getLabels(void){
+    adstring_array arr(1,1);
+    if (nVIs){
+        adstring_array arr(1,nVIs);
+        for (int i=1;i<=nVIs;i++) arr(i) = (*this)[i]->label;
+        return(arr);
+    }
+    return(arr);
 }
 
 /***************************************************************

@@ -383,4 +383,214 @@ void calcPriors(objective_function_value& objFun, DevsVectorVectorInfo* ptrVVI, 
     }
 }
 
+/**
+ * Function to write parameter information to an output stream.
+ * 
+ * @param os - output stream
+ * @param p - parameter (param_init_number)
+ * @param ctg1 - category 1 label
+ * @param ctg2 - category 2 label
+ * @param lbl - parameter-specific label
+ * @param toR - flag to write to R format
+ * @param willBeActive - flag to write only if parameter will be active
+ */
+void writeParameter(ostream& os, param_init_number& p, adstring& ctg1, adstring& ctg2, adstring& lbl,int toR, int willBeActive){
+    if (!willBeActive||(willBeActive&&(p.get_phase_start()>0))){
+        if (toR){
+            os<<p.get_name()<<"=list("<<"type='param_init_number'"<<cc
+                                <<"ctg1="<<qt<<ctg1<<qt<<cc
+                                <<"ctg2="<<qt<<ctg2<<qt<<cc
+                                <<"lbl="<<qt<<lbl<<qt<<cc
+                                <<"phase="<<p.get_phase_start()<<cc
+                                <<"value="<<value(p)
+                                <<"),";
+        } else {
+            os<<1<<cc<<p.get_phase_start()<<cc<<1<<cc<<1<<cc<<"-Inf"<<cc<<"Inf"<<cc<<p<<cc<<p.get_name()<<cc
+                     <<"'param_init_number','"<<ctg1<<"','"<<ctg2<<"','"<<lbl<<"'"<<endl;
+        }
+    }
+}    
+/**
+ * Function to write parameter information to an output stream.
+ * 
+ * @param os - output stream
+ * @param p - parameter (param_init_bounded_number)
+ * @param ctg1 - category 1 label
+ * @param ctg2 - category 2 label
+ * @param lbl - parameter-specific label
+ * @param toR - flag to write to R format
+ * @param willBeActive - flag to write only if parameter will be active
+ */
+void writeParameter(ostream& os, param_init_bounded_number& p,adstring& ctg1, adstring& ctg2, adstring& lbl, int toR, int willBeActive){
+    if (!willBeActive||(willBeActive&&(p.get_phase_start()>0))){
+        if (toR){
+            os<<p.get_name()<<"=list("<<"type='param_init_bounded_number'"<<cc
+                                <<"ctg1="<<qt<<ctg1<<qt<<cc
+                                <<"ctg2="<<qt<<ctg2<<qt<<cc
+                                <<"lbl="<<qt<<lbl<<qt<<cc
+                                <<"phase="<<p.phase_start<<cc
+                                <<"bounds=c("<<p.get_minb()<<cc<<p.get_maxb()<<")"<<cc
+                                <<"value="<<value(p)
+                                <<"),";
+        } else {
+            os<<1<<cc<<p.get_phase_start()<<cc<<1<<cc<<1<<cc<<p.get_minb()<<cc<<p.get_maxb()<<cc<<p<<cc<<p.get_name()<<cc
+                     <<"'param_init_bounded_number','"<<ctg1<<"','"<<ctg2<<"','"<<lbl<<"'"<<endl;;
+        }
+    }
+}    
+/**
+ * Function to write parameter vector information to an output stream.
+ * 
+ * @param os - output stream
+ * @param p - parameter vector (param_init_vector)
+ * @param ctg1 - category 1 label
+ * @param ctg2 - category 2 label
+ * @param lbl - parameter-specific label
+ * @param toR - flag to write to R format
+ * @param willBeActive - flag to write only if parameter vector will be active
+ */
+void writeParameter(ostream& os, param_init_vector& p,adstring& ctg1, adstring& ctg2, adstring& lbl, int toR, int willBeActive){
+    int mn = p.indexmin();
+    int mx = p.indexmax();
+    if (!willBeActive||(willBeActive&&(p.get_phase_start()>0))){
+        if (toR){
+            os<<p.get_name()<<"=list("<<"type='param_init_vector'"<<cc
+                                <<"ctg1="<<qt<<ctg1<<qt<<cc
+                                <<"ctg2="<<qt<<ctg2<<qt<<cc
+                                <<"lbl="<<qt<<lbl<<qt<<cc
+                                <<"dims=c("<<mn<<cc<<mx<<")"<<cc
+                                <<"phase="<<p.get_phase_start()<<cc
+                                <<"value=c("; {for (int i=mn;i<mx;i++) os<<value(p(i))<<cc;} os<<value(p(mx))<<")";
+            os<<"),";
+        } else {        
+            for (int i=mn;i<=mx;i++) os<< i<<cc<<p.get_phase_start()<<cc<<mn<<cc<<mx<<cc<<"-Inf"<<cc<<"Inf"<<cc<<p(i)<<cc<<p.get_name()<<cc
+                                               <<"'param_init_vector','"<<ctg1<<"','"<<ctg2<<"','"<<lbl<<"'"<<endl;
+        }
+    }
+}       
+
+/**
+ * Function to write parameter vector information to an output stream.
+ * 
+ * @param os - output stream
+ * @param p - parameter vector (param_init_bounded_vector)
+ * @param ctg1 - category 1 label
+ * @param ctg2 - category 2 label
+ * @param lbl - parameter-specific label
+ * @param toR - flag to write to R format
+ * @param willBeActive - flag to write only if parameter vector will be active
+ */
+void writeParameter(ostream& os, param_init_bounded_vector& p,adstring& ctg1, adstring& ctg2, adstring& lbl, int toR, int willBeActive){
+    int mn = p.indexmin();
+    int mx = p.indexmax();
+    if (!willBeActive||(willBeActive&&(p.get_phase_start()>0))){
+        if (toR){
+            os<<p.get_name()<<"=list("<<"type='param_init_bounded_vector'"<<cc
+                                <<"ctg1="<<qt<<ctg1<<qt<<cc
+                                <<"ctg2="<<qt<<ctg2<<qt<<cc
+                                <<"lbl="<<qt<<lbl<<qt<<cc
+                                <<"dims=c("<<mn<<cc<<mx<<")"<<cc
+                                <<"phase="<<p.get_phase_start()<<cc
+                                <<"bounds=c("<<p.get_minb()<<cc<<p.get_maxb()<<")"<<cc
+                                <<"value=c("; {for (int i=mn;i<mx;i++) os<<value(p(i))<<cc;} os<<value(p(mx))<<")";
+           os<<"),";
+        } else {
+            for (int i=mn;i<=mx;i++) os<< i<<cc<<p.get_phase_start()<<cc<<mn<<cc<<mx<<cc<<p.get_minb()<<cc<<p.get_maxb()<<cc<<p(i)<<cc<<p.get_name()<<cc
+                                               <<"'param_init_bounded_vector','"<<ctg1<<"','"<<ctg2<<"','"<<lbl<<"'"<<endl;
+        }
+    }
+}
+
+/**
+ * Function to write parameter vector information to an output stream.
+ * 
+ * @param os - output stream
+ * @param p - parameter vector (param_init_bounded_dev_vector)
+ * @param ctg1 - category 1 label
+ * @param ctg2 - category 2 label
+ * @param lbl - parameter-specific label
+ * @param toR - flag to write to R format
+ * @param willBeActive - flag to write only if parameter vector will be active
+ */
+void writeParameter(ostream& os, param_init_bounded_dev_vector& p,adstring& ctg1, adstring& ctg2, adstring& lbl, int toR, int willBeActive){
+    int mn = p.indexmin();
+    int mx = p.indexmax();
+    if (!willBeActive||(willBeActive&&(p.get_phase_start()>0))){
+        if (toR){
+            os<<p.get_name()<<"=list("<<"type=param_init_bounded_dev_vector"<<cc
+                                <<"ctg1="<<qt<<ctg1<<qt<<cc
+                                <<"ctg2="<<qt<<ctg2<<qt<<cc
+                                <<"lbl="<<qt<<lbl<<qt<<cc
+                                <<"dims=c("<<mn<<cc<<mx<<")"<<cc
+                                <<"phase="<<p.get_phase_start()<<cc
+                                <<"bounds=c("<<p.get_minb()<<cc<<p.get_maxb()<<")"<<cc
+                                <<"value=c("; {for (int i=mn;i<mx;i++) os<<value(p(i))<<cc;} os<<value(p(mx))<<")";
+           os<<"),";
+        } else {
+            for (int i=mn;i<=mx;i++) os<< i<<cc<<p.get_phase_start()<<cc<<mn<<cc<<mx<<cc<<p.get_minb()<<cc<<p.get_maxb()<<cc<<p(i)<<cc<<p.get_name()<<cc
+                                           <<"'param_init_bounded_dev_vector','"<<ctg1<<"','"<<ctg2<<"','"<<lbl<<"'"<<endl;
+        }
+    }
+}    
+
+/**
+ * Function to write a vector of parameters (param_init_number_vector) to R or csv.
+ * 
+ * @param os - output stream to write to
+ * @param p - a param_init_number_vector
+ * @param ctg1 - category 1 label
+ * @param ctg2 - category 2 label
+ * @param lbls - adstring_array of individual parameter labels
+ * @param toR - flag to write to R format (otherwise csv)
+ * @param willBeActive - flag to write if parameters will be active in some phase
+ */
+void writeParameters(ostream& os, param_init_number_vector& p, adstring& ctg1, adstring& ctg2, adstring_array lbls,int toR, int willBeActive){
+    for (int i=p.indexmin();i<=p.indexmax();i++) tcsam::writeParameter(os,p[i],ctg1,ctg2,lbls[i],toR,willBeActive);
+}
+
+/**
+ * Function to write a vector of parameters (param_init_bounded_number_vector) to R or csv.
+ * 
+ * @param os - output stream to write to
+ * @param p - a param_init_bounded_number_vector
+ * @param ctg1 - category 1 label
+ * @param ctg2 - category 2 label
+ * @param lbls - adstring_array of individual parameter labels
+ * @param toR - flag to write to R format (otherwise csv)
+ * @param willBeActive - flag to write if parameters will be active in some phase
+ */
+void writeParameters(ostream& os, param_init_bounded_number_vector& p, adstring& ctg1, adstring& ctg2, adstring_array lbls,int toR, int willBeActive){
+    for (int i=p.indexmin();i<=p.indexmax();i++) tcsam::writeParameter(os,p[i],ctg1,ctg2,lbls[i],toR,willBeActive);
+}
+
+/**
+ * Function to write a vector of parameters (param_init_vector_vector) to R or csv.
+ * 
+ * @param os - output stream to write to
+ * @param p - a param_init_vector_vector
+ * @param ctg1 - category 1 label
+ * @param ctg2 - category 2 label
+ * @param lbls - adstring_array of individual parameter labels
+ * @param toR - flag to write to R format (otherwise csv)
+ * @param willBeActive - flag to write if parameters will be active in some phase
+ */
+void writeParameters(ostream& os, param_init_vector_vector& p, adstring& ctg1, adstring& ctg2, adstring_array lbls,int toR, int willBeActive){
+    for (int i=p.indexmin();i<=p.indexmax();i++) tcsam::writeParameter(os,p[i],ctg1,ctg2,lbls[i],toR,willBeActive);
+}
+
+/**
+ * Function to write a vector of parameters (param_init_bounded_vector_vector) to R or csv.
+ * 
+ * @param os - output stream to write to
+ * @param p - a param_init_bounded_vector_vector
+ * @param ctg1 - category 1 label
+ * @param ctg2 - category 2 label
+ * @param lbls - adstring_array of individual parameter labels
+ * @param toR - flag to write to R format (otherwise csv)
+ * @param willBeActive - flag to write if parameters will be active in some phase
+ */
+void writeParameters(ostream& os, param_init_bounded_vector_vector& p, adstring& ctg1, adstring& ctg2, adstring_array lbls,int toR, int willBeActive){
+    for (int i=p.indexmin();i<=p.indexmax();i++) tcsam::writeParameter(os,p[i],ctg1,ctg2,lbls[i],toR,willBeActive);
+}
+
 } //namespace tcsam

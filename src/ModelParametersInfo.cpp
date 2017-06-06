@@ -28,7 +28,7 @@ int SelectivityInfo::debug      = 0;
 int FisheriesInfo::debug        = 0;
 int SurveysInfo::debug          = 0;
 int ModelParametersInfo::debug  = 0;
-const adstring ModelParametersInfo::version = "2017.05.15";
+const adstring ModelParametersInfo::version = "2017.06.05";
     
 /*----------------------------------------------------------------------------*/
 /**
@@ -1110,12 +1110,12 @@ void SelectivityInfo::writeToR(std::ostream & os){
  * FisheriesInfo
  -----------------------------------------------------------------------------*/
 adstring FisheriesInfo::NAME = "fisheries";
-int FisheriesInfo::idxHM     = 5+1;//column in parameter combinations matrix with parameter index for column in parameter combinations matrix indicating handling mortality parameters
-int FisheriesInfo::idxLnC    = 5+2;//column in parameter combinations matrix with parameter index for ln-scale base mean capture rate (mature males)
-int FisheriesInfo::idxLnDCT  = 5+3;//column in parameter combinations matrix with parameter index for main year_block ln-scale offsets
-int FisheriesInfo::idxLnDCX  = 5+4;//column in parameter combinations matrix with parameter index for ln-scale female offsets
-int FisheriesInfo::idxLnDCM  = 5+5;//column in parameter combinations matrix with parameter index for ln-scale immature offsets
-int FisheriesInfo::idxLnDCXM = 5+6;//column in parameter combinations matrix with parameter index for ln-scale female-immature offsets 
+int FisheriesInfo::idxHM   = 5+1;//column in parameter combinations matrix with parameter index for column in parameter combinations matrix indicating handling mortality parameters
+int FisheriesInfo::idxLnC  = 5+2;//column in parameter combinations matrix with parameter index for ln-scale base mean capture rate (mature males)
+int FisheriesInfo::idxDC1  = 5+3;//column in parameter combinations matrix with parameter index for main year_block ln-scale offsets
+int FisheriesInfo::idxDC2  = 5+4;//column in parameter combinations matrix with parameter index for ln-scale female offsets
+int FisheriesInfo::idxDC3  = 5+5;//column in parameter combinations matrix with parameter index for ln-scale immature offsets
+int FisheriesInfo::idxDC4  = 5+6;//column in parameter combinations matrix with parameter index for ln-scale female-immature offsets 
 int FisheriesInfo::idxLnDevs = 5+7;//column in parameter combinations matrix with parameter index for annual ln-scale devs w/in year_blocks
 int FisheriesInfo::idxLnEffX = 5+8;//column in parameter combinations matrix with parameter index for ln-scale effort extrapolation 
 int FisheriesInfo::idxLgtRet = 5+9;//column in parameter combinations matrix with parameter index for logit-scale retained fraction (for old shell crab)
@@ -1163,21 +1163,21 @@ FisheriesInfo::FisheriesInfo(){
     nPVs=9;
     lblPVs.allocate(1,nPVs); dscPVs.allocate(1,nPVs);
     k=1;
-    lblPVs(k) = "pHM";         dscPVs(k++) = "handling mortality (0-1)";
-    lblPVs(k) = "pLnC";        dscPVs(k++) = "ln-scale base mean capture rate (mature male crab)";
-    lblPVs(k) = "pLnDCT";      dscPVs(k++) = "main year_block offset for ln-scale capture rate";
-    lblPVs(k) = "pLnDCX";      dscPVs(k++) = "ln-scale capture rate offset for female crabs";
-    lblPVs(k) = "pLnDCM";      dscPVs(k++) = "ln-scale capture rate offset for immature crabs";
-    lblPVs(k) = "pLnDCXM";     dscPVs(k++) = "ln-scale capture rate offset for immature female crabs";
-    lblPVs(k) = "pDevsLnC";    dscPVs(k++) = "ln-scale annual capture rate devs";
-    lblPVs(k) = "pLnEffX";     dscPVs(k++) = "ln-scale effort extrapolation parameters";
-    lblPVs(k) = "pLgtRet";     dscPVs(k++) = "logit-scale retained fraction parameters";
-    pHM      = 0;
-    pLnC     = 0;
-    pLnDCT   = 0;
-    pLnDCX   = 0;
-    pLnDCM   = 0;
-    pLnDCXM  = 0;
+    lblPVs(k) = "pHM";      dscPVs(k++) = "handling mortality (0-1)";
+    lblPVs(k) = "pLnC";     dscPVs(k++) = "ln-scale base mean capture rate (mature male crab)";
+    lblPVs(k) = "pDC1";     dscPVs(k++) = "ln-scale capture rate offset 1";
+    lblPVs(k) = "pDC2";     dscPVs(k++) = "ln-scale capture rate offset 2";
+    lblPVs(k) = "pDC3";     dscPVs(k++) = "ln-scale capture rate offset 3";
+    lblPVs(k) = "pDC4";     dscPVs(k++) = "ln-scale capture rate offset 4";
+    lblPVs(k) = "pDevsLnC"; dscPVs(k++) = "ln-scale annual capture rate devs";
+    lblPVs(k) = "pLnEffX";  dscPVs(k++) = "ln-scale effort extrapolation parameters";
+    lblPVs(k) = "pLgtRet";  dscPVs(k++) = "logit-scale retained fraction parameters";
+    pHM   = 0;
+    pLnC  = 0;
+    pDC1  = 0;
+    pDC2  = 0;
+    pDC3  = 0;
+    pDC4  = 0;
     pDevsLnC = 0;
     pLnEffX  = 0;
     pLgtRet  = 0;
@@ -1194,13 +1194,13 @@ FisheriesInfo::FisheriesInfo(){
 }
 
 FisheriesInfo::~FisheriesInfo(){
-    if (pHM)     delete pHM;      pHM    =0;
-    if (pLnC)    delete pLnC;     pLnC   =0;
-    if (pLnDCT)  delete pLnDCT;   pLnDCT =0;
-    if (pLnDCX)  delete pLnDCX;   pLnDCX =0;
-    if (pLnDCM)  delete pLnDCM;   pLnDCM =0;
-    if (pLnDCXM) delete pLnDCXM;  pLnDCXM=0;
-    if (pLnDCXM) delete pLnDCXM;  pLnDCXM=0;
+    if (pHM)  delete pHM;   pHM=0;
+    if (pLnC) delete pLnC;  pLnC=0;
+    if (pDC1) delete pDC1;  pDC1=0;
+    if (pDC2) delete pDC2;  pDC2=0;
+    if (pDC3) delete pDC3;  pDC3=0;
+    if (pDC4) delete pDC4;  pDC4=0;
+    if (pDC4) delete pDC4;  pDC4=0;
     if (pLnEffX) delete pLnEffX;  pLnEffX=0;
     if (pLgtRet) delete pLgtRet;  pLgtRet=0;
 }
@@ -1226,14 +1226,14 @@ void FisheriesInfo::read(cifstream & is){
         rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pHM)<<endl;  k++;
         pLnC    = ParameterGroupInfo::read(is,lblPVs(k),pLnC);    
         rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnC)<<endl;  k++;
-        pLnDCT  = ParameterGroupInfo::read(is,lblPVs(k),pLnDCT);  
-        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnDCT)<<endl;  k++;
-        pLnDCX  = ParameterGroupInfo::read(is,lblPVs(k),pLnDCX);  
-        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnDCX)<<endl;  k++;
-        pLnDCM  = ParameterGroupInfo::read(is,lblPVs(k),pLnDCM);  
-        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnDCM)<<endl;  k++;
-        pLnDCXM = ParameterGroupInfo::read(is,lblPVs(k),pLnDCXM); 
-        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnDCXM)<<endl;  k++;
+        pDC1  = ParameterGroupInfo::read(is,lblPVs(k),pDC1);  
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDC1)<<endl;  k++;
+        pDC2  = ParameterGroupInfo::read(is,lblPVs(k),pDC2);  
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDC2)<<endl;  k++;
+        pDC3  = ParameterGroupInfo::read(is,lblPVs(k),pDC3);  
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDC3)<<endl;  k++;
+        pDC4 = ParameterGroupInfo::read(is,lblPVs(k),pDC4); 
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDC4)<<endl;  k++;
         pDevsLnC = ParameterGroupInfo::read(is,lblPVs(k),pDevsLnC); 
         rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDevsLnC)<<endl;  k++;
         pLnEffX = ParameterGroupInfo::read(is,lblPVs(k),pLnEffX); 
@@ -1268,13 +1268,13 @@ void FisheriesInfo::write(std::ostream & os){
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
     os<<(*pLnC)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
-    os<<(*pLnDCT)<<endl;
+    os<<(*pDC1)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
-    os<<(*pLnDCX)<<endl;
+    os<<(*pDC2)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
-    os<<(*pLnDCM)<<endl;
+    os<<(*pDC3)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
-    os<<(*pLnDCXM)<<endl;
+    os<<(*pDC4)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
     os<<(*pDevsLnC)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
@@ -1287,11 +1287,11 @@ void FisheriesInfo::writeToR(std::ostream & os){
     int indent=0;
     os<<"fsh=list("<<endl;
         ParameterGroupInfo::writeToR(os);           os<<cc<<endl;
-        pLnC->writeToR(os,    "pLnC",    indent++); os<<cc<<endl;
-        pLnDCT->writeToR(os,  "pLnDXT",  indent++); os<<cc<<endl;
-        pLnDCX->writeToR(os,  "pLnDCX",  indent++); os<<cc<<endl;
-        pLnDCM->writeToR(os,  "pLnDCM",  indent++); os<<cc<<endl;
-        pLnDCXM->writeToR(os, "pLnDCXM", indent++); os<<cc<<endl;
+        pLnC->writeToR(os, "pLnC", indent++); os<<cc<<endl;
+        pDC1->writeToR(os, "pDC1", indent++); os<<cc<<endl;
+        pDC2->writeToR(os, "pDC2", indent++); os<<cc<<endl;
+        pDC3->writeToR(os, "pDC3", indent++); os<<cc<<endl;
+        pDC4->writeToR(os, "pDC4", indent++); os<<cc<<endl;
         pLnEffX->writeToR(os, "pLnEffX", indent++); os<<cc<<endl;
         pLgtRet->writeToR(os, "pLgtRet", indent++); os<<cc<<endl;
         pDevsLnC->writeToR(os,"pDevsLnC",indent++); os<<endl;
@@ -1739,83 +1739,3 @@ void tcsam::setParameterInfo(DevsVectorVectorInfo* pDVVI,
     }
 }
 
-// ----------------------------------------------------------------------
-// ----------------------------------------------------------------------
-void tcsam::writeParameter(ofstream& os, param_init_number& p, int toR, int willBeActive){
-    if (!willBeActive||(willBeActive&&(p.get_phase_start()>0))){
-        if (toR){
-            os<<p.get_name()<<"=list("<<"type='param_init_number'"<<cc
-                                <<"phase="<<p.get_phase_start()<<cc
-                                <<"value="<<value(p)
-                                <<"),";
-        } else {
-            os<<1<<cc<<p.get_phase_start()<<cc<<1<<cc<<1<<cc<<"-Inf"<<cc<<"Inf"<<cc<<p<<cc<<p.get_name()<<cc<<"'param_init_number'"<<endl;
-        }
-    }
-}    
-// ----------------------------------------------------------------------
-// ----------------------------------------------------------------------
-void tcsam::writeParameter(ofstream& os, param_init_bounded_number& p,int toR, int willBeActive){
-    if (!willBeActive||(willBeActive&&(p.get_phase_start()>0))){
-        if (toR){
-            os<<p.get_name()<<"=list("<<"type='param_init_bounded_number'"<<cc
-                                <<"phase="<<p.phase_start<<cc
-                                <<"bounds=c("<<p.get_minb()<<cc<<p.get_maxb()<<")"<<cc
-                                <<"value="<<value(p)
-                                <<"),";
-        } else {
-            os<<1<<cc<<p.get_phase_start()<<cc<<1<<cc<<1<<cc<<p.get_minb()<<cc<<p.get_maxb()<<cc<<p<<cc<<p.get_name()<<cc<<"'param_init_bounded_number'"<<endl;
-        }
-    }
-}    
-// ----------------------------------------------------------------------
-// ----------------------------------------------------------------------
-void tcsam::writeParameter(ofstream& os, param_init_vector& p, int toR, int willBeActive){
-    int mn = p.indexmin();
-    int mx = p.indexmax();
-    if (!willBeActive||(willBeActive&&(p.get_phase_start()>0))){
-        if (toR){
-            os<<p.get_name()<<"=list("<<"type='param_init_vector'"<<cc
-                                <<"dims=c("<<mn<<cc<<mx<<")"<<cc
-                                <<"phase="<<p.get_phase_start()<<cc
-                                <<"value=c("; {for (int i=mn;i<mx;i++) os<<value(p(i))<<cc;} os<<value(p(mx))<<")";
-            os<<"),";
-        } else {        
-            for (int i=mn;i<=mx;i++) os<< i<<cc<<p.get_phase_start()<<cc<<mn<<cc<<mx<<cc<<"-Inf"<<cc<<"Inf"<<cc<<p(i)<<cc<<p.get_name()<<cc<<"'param_init_vector'"<<endl;
-        }
-    }
-}       
-
-void tcsam::writeParameter(ofstream& os, param_init_bounded_vector& p, int toR, int willBeActive){
-    int mn = p.indexmin();
-    int mx = p.indexmax();
-    if (!willBeActive||(willBeActive&&(p.get_phase_start()>0))){
-        if (toR){
-            os<<p.get_name()<<"=list("<<"type='param_init_bounded_vector'"<<cc
-                                <<"dims=c("<<mn<<cc<<mx<<")"<<cc
-                                <<"phase="<<p.get_phase_start()<<cc
-                                <<"bounds=c("<<p.get_minb()<<cc<<p.get_maxb()<<")"<<cc
-                                <<"value=c("; {for (int i=mn;i<mx;i++) os<<value(p(i))<<cc;} os<<value(p(mx))<<")";
-           os<<"),";
-        } else {
-            for (int i=mn;i<=mx;i++) os<< i<<cc<<p.get_phase_start()<<cc<<mn<<cc<<mx<<cc<<p.get_minb()<<cc<<p.get_maxb()<<cc<<p(i)<<cc<<p.get_name()<<cc<<"'param_init_bounded_vector'"<<endl;
-        }
-    }
-}
-
-void tcsam::writeParameterBounds(ofstream& os, param_init_bounded_dev_vector& p, int toR, int willBeActive){
-    int mn = p.indexmin();
-    int mx = p.indexmax();
-    if (!willBeActive||(willBeActive&&(p.get_phase_start()>0))){
-        if (toR){
-            os<<p.get_name()<<"=list("<<"type=param_init_bounded_dev_vector"<<cc
-                                <<"dims=c("<<mn<<cc<<mx<<")"<<cc
-                                <<"phase="<<p.get_phase_start()<<cc
-                                <<"bounds=c("<<p.get_minb()<<cc<<p.get_maxb()<<")"<<cc
-                                <<"value=c("; {for (int i=mn;i<mx;i++) os<<value(p(i))<<cc;} os<<value(p(mx))<<")";
-           os<<"),";
-        } else {
-            for (int i=mn;i<=mx;i++) os<< i<<cc<<p.get_phase_start()<<cc<<mn<<cc<<mx<<cc<<p.get_minb()<<cc<<p.get_maxb()<<cc<<p(i)<<cc<<p.get_name()<<cc<<"'param_init_bounded_dev_vector'"<<endl;
-        }
-    }
-}    

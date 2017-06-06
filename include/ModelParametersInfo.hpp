@@ -319,12 +319,12 @@ class SelectivityInfo : public ParameterGroupInfo {
 class FisheriesInfo : public ParameterGroupInfo {
     public:
         static int debug;
-        static int idxHM;    //column in parameter combinations matrix with parameter index for column in parameter combinations matrix indicating handling mortality parameters
-        static int idxLnC;   //column in parameter combinations matrix with parameter index for ln-scale base mean capture rate (mature males)
-        static int idxLnDCT; //column in parameter combinations matrix with parameter index for main year_block ln-scale offsets
-        static int idxLnDCX; //column in parameter combinations matrix with parameter index for ln-scale female offsets
-        static int idxLnDCM; //column in parameter combinations matrix with parameter index for ln-scale immature offsets
-        static int idxLnDCXM;//column in parameter combinations matrix with parameter index for ln-scale female-immature offsets 
+        static int idxHM;  //column in parameter combinations matrix with parameter index for column in parameter combinations matrix indicating handling mortality parameters
+        static int idxLnC; //column in parameter combinations matrix with parameter index for ln-scale base mean capture rate (mature males)
+        static int idxDC1; //column in parameter combinations matrix with parameter index for ln-scale offsets pDC1
+        static int idxDC2; //column in parameter combinations matrix with parameter index for ln-scale offsets pDC2
+        static int idxDC3; //column in parameter combinations matrix with parameter index for ln-scale offsets pDC3
+        static int idxDC4; //column in parameter combinations matrix with parameter index for ln-scale offsets pDC4
         static int idxLnDevs;//column in parameter combinations matrix with parameter index for annual ln-scale devs w/in year_blocks
         static int idxLnEffX;//column in parameter combinations matrix with parameter index for ln-scale effort extrapolation 
         static int idxLgtRet;//column in parameter combinations matrix with parameter index for logit-scale retained fraction (for old shell crab)
@@ -334,12 +334,12 @@ class FisheriesInfo : public ParameterGroupInfo {
     protected:
         static adstring NAME;//"fisheries"
     public:
-        BoundedNumberVectorInfo* pHM;    //handling mortality (0-1)
-        BoundedNumberVectorInfo* pLnC;   //ln-scale base mean capture rate (mature males)
-        BoundedNumberVectorInfo* pLnDCT; //main year_block ln-scale offsets
-        BoundedNumberVectorInfo* pLnDCX; //ln-scale female offsets
-        BoundedNumberVectorInfo* pLnDCM; //ln-scale immature offsets
-        BoundedNumberVectorInfo* pLnDCXM;//ln-scale female-immature offsets 
+        BoundedNumberVectorInfo* pHM;  //handling mortality (0-1)
+        BoundedNumberVectorInfo* pLnC; //ln-scale base mean capture rate (mature males)
+        BoundedNumberVectorInfo* pDC1; //ln-scale offsets
+        BoundedNumberVectorInfo* pDC2; //ln-scale offsets
+        BoundedNumberVectorInfo* pDC3; //ln-scale offsets
+        BoundedNumberVectorInfo* pDC4; //ln-scale offsets 
         BoundedNumberVectorInfo* pLnEffX;//ln-scale effort extrapolation 
         BoundedNumberVectorInfo* pLgtRet;//logit-scale retained fraction (for old shell crab)
         
@@ -450,11 +450,6 @@ namespace tcsam{
                           dvector& lb, dvector& ub,
                           ivector& phs,
                           ostream& os = std::cout);
-    void writeParameter(ofstream& os, param_init_number& p, int toR, int willBeActive);
-    void writeParameter(ofstream& os, param_init_bounded_number& p,int toR, int willBeActive);
-    void writeParameter(ofstream& os, param_init_vector& p, int toR, int willBeActive);
-    void writeParameter(ofstream& os, param_init_bounded_vector& p, int toR, int willBeActive);
-    void writeParameterBounds(ofstream& os, param_init_bounded_dev_vector& p, int toR, int willBeActive);
 }
 #endif	/* MODELPARAMETERSINFO_HPP */
 

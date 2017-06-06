@@ -16,6 +16,7 @@
  * 20160413: added tcsam::VERSION string to indicate model version
  * 20160424: added tcsam:FIT_BY_X_MATONLY to fit by sex for mature crab only
  * 20170206: incremented tcsam::VERSION to "2017.02.06"
+ * 20170606: incremented tcsam::VERSION to "2017.06.06"
  */
 
 #pragma once
@@ -40,7 +41,7 @@ namespace tcsam{
     /* adstring indicating model name */
     const adstring MODEL = "tcsam02";
     /* adstring indicating model version */
-    const adstring VERSION = "2017.03.27";
+    const adstring VERSION = "2017.06.06";
     
     /* minimum debugging level that will print ALL debug info */
     const int dbgAll = 100;

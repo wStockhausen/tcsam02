@@ -423,7 +423,10 @@
             ivector getPhases(void);
             dvector getPriorWgts(void);
             dvector getInitVals(void);
-            dvar_vector calcLogPriors(dvar_vector & pv);         
+            dvar_vector calcLogPriors(dvar_vector & pv);    
+            
+            /* Function to get array of labels corresponding to parameters*/
+            adstring_array getLabels(void);
             
             virtual dvector drawInitVals(random_number_generator& rng, double vif);
             virtual void setInitVals(param_init_number_vector& x);
@@ -486,7 +489,11 @@
             ivector getMaxIndices(void);
             ivector getPhases(void);
             dvector getPriorWgts(void);
-            virtual void read(cifstream & is);
+            
+             /* Function to get array of labels corresponding to parameters */
+            adstring_array getLabels(void);
+            
+           virtual void read(cifstream & is);
             virtual void write(std::ostream & os);
             virtual void writeToR(std::ostream& os, adstring nm, int indent=0);
             virtual void writeFinalValsToR(std::ostream& os);
@@ -521,6 +528,10 @@
             dvector getPriorWgts(void);
             dvector getLowerBounds(void);
             dvector getUpperBounds(void);
+            
+            /* Function to get array of labels corresponding to parameters */
+            adstring_array getLabels(void);
+            
             virtual void read(cifstream & is);
             virtual void write(std::ostream & os);
             virtual void writeToR(std::ostream& os, adstring nm, int indent=0);
@@ -556,6 +567,10 @@
             dvector getPriorWgts(void);
             dvector getLowerBounds(void);
             dvector getUpperBounds(void);
+            
+            /* Function to get array of labels corresponding to devs vectors */
+            adstring_array getLabels(void);
+            
             virtual void read(cifstream & is);
             virtual void write(std::ostream & os);
             virtual void writeToR(std::ostream& os, adstring nm, int indent=0);
