@@ -274,6 +274,9 @@
 //--2017-06-06: 1. revised wts::writeParameter functions to tcsam::writeParameters
 //                  to include two categories and parameter labels in output
 //              2. Incremented model version to 2017.06.06.
+//--2017-06-12: 1. revised calcOFL to avoid division by 0 when fisheries
+//                  are not conducted within the averaging periods for
+//                  handling mortality, fishery capture rates, selectivity and retention curves
 //
 // =============================================================================
 // =============================================================================
@@ -2321,7 +2324,7 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
                 ny         += hasF_fy(f,y);
                 avgHM_f(f) += value(hmF_fy(f,y));
             }
-            avgHM_f(f) /= 1.0*ny;
+            avgHM_f(f) /= wts::max(1.0,1.0*ny);
         }
         if (debug) cout<<"avgHm_f = "<<avgHM_f<<endl;
 
@@ -2349,10 +2352,11 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
                                 avgRFcn_xfmsz(x,f,m,s,z) += value(ret_fyxmsz(f,y,x,m,s,z));
                                 avgSFcn_xfmsz(x,f,m,s,z) += value(sel_fyxmsz(f,y,x,m,s,z));
                             }//y
-                            avgCapF_xfms(x,f,m,s) /= 1.0*ny;
-                            avgCapF_xfmsz(x,f,m,s,z) /= 1.0*ny;
-                            avgRFcn_xfmsz(x,f,m,s,z) /= 1.0*ny;
-                            avgSFcn_xfmsz(x,f,m,s,z) /= 1.0*ny;
+                            double fac = 1.0/max(1.0,1.0*ny);
+                            avgCapF_xfms(x,f,m,s) *= fac;
+                            avgCapF_xfmsz(x,f,m,s,z) *= fac;
+                            avgRFcn_xfmsz(x,f,m,s,z) *= fac;
+                            avgSFcn_xfmsz(x,f,m,s,z) *= fac;
                         }//z
                     }//s
                 }//m
