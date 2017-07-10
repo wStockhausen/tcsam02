@@ -258,13 +258,13 @@
 //                 to
 //                  pDQ1,pDQ2,pDQ3,pDQ4
 //                 to reflect more generic usage
-//              3. Refactored natural mortality LnDM parameter names from 
-//                  pDM1,pDM2,pDM3,pDM4
+//              3. Refactored natural mortality pLnDM parameter names from 
+//                  pDMT,pDMX,pDMM,pDMXM
 //                 to
 //                  pDM1,pDM2,pDM3,pDM4
 //                 to reflect more generic usage
 //              4. Added logic to apply pLgtRet as retFrac.
-//--2017-06-05: 1. Refactored survey LnDC parameter names from 
+//--2017-06-05: 1. Refactored survey pLnDC parameter names from 
 //                  pDC1,pDC2,pDC3,pDC4 and associated idx's
 //                 to
 //                  pDC1,pDC2,pDC3,pDC4
@@ -281,6 +281,7 @@
 //                  effective weights for size compositions
 //              2. added Mc-I harmonic mean and Francis weights calculations based
 //                  on Punt, 2017
+//--2017-07-08: 1. added cout's in parameter section to help with deviant pin files 
 //
 // =============================================================================
 // =============================================================================
@@ -1040,68 +1041,117 @@ PARAMETER_SECTION
  
     //recruitment parameters TODO: implement devs
     init_bounded_number_vector pLnR(1,npLnR,lbLnR,ubLnR,phsLnR);              //mean ln-scale recruitment
+    !!cout<<"pLnR = "<<pLnR<<endl;
     init_bounded_number_vector pLnRCV(1,npLnRCV,lbLnRCV,ubLnRCV,phsLnRCV);    //ln-scale recruitment cv
+    !!cout<<"pLnRCV = "<<pLnRCV<<endl;
     init_bounded_number_vector pLgtRX(1,npLgtRX,lbLgtRX,ubLgtRX,phsLgtRX);    //logit-scale male sex ratio
+    !!cout<<"pLgtRX = "<<pLgtRX<<endl;
     init_bounded_number_vector pLnRa(1,npLnRa,lbLnRa,ubLnRa,phsLnRa);         //size distribution parameter
+    !!cout<<"pLnRa = "<<pLnRa<<endl;
     init_bounded_number_vector pLnRb(1,npLnRb,lbLnRb,ubLnRb,phsLnRb);         //size distribution parameter
+    !!cout<<"pLnRb = "<<pLnRb<<endl;
     init_bounded_vector_vector pDevsLnR(1,npDevsLnR,mniDevsLnR,mxiDevsLnR,lbDevsLnR,ubDevsLnR,phsDevsLnR);//ln-scale rec devs
+    !!for (int p=1;p<=npDevsLnR;p++) cout<<"pDevsLnR["<<p<<"] = "<<pDevsLnR[p]<<endl;
     matrix devsLnR(1,npDevsLnR,mniDevsLnR,mxiDevsLnR+1);
+    !!cout<<"got past recruitment parameters"<<endl;
    
     //natural mortality parameters
     init_bounded_number_vector pLnM(1,npLnM,lbLnM,ubLnM,phsLnM);//base ln-scale
+    !!cout<<"pLnM = "<<pLnM<<endl;
     init_bounded_number_vector pDM1(1,npDM1,lbDM1,ubDM1,phsDM1);//offset 1s
+    !!cout<<"pDM1 = "<<pDM1<<endl;
     init_bounded_number_vector pDM2(1,npDM2,lbDM2,ubDM2,phsDM2);//offset 2s
+    !!cout<<"pDM2 = "<<pDM2<<endl;
     init_bounded_number_vector pDM3(1,npDM3,lbDM3,ubDM3,phsDM3);//offset 3s
+    !!cout<<"pDM3 = "<<pDM3<<endl;
     init_bounded_number_vector pDM4(1,npDM4,lbDM4,ubDM4,phsDM4);//offset 4s
+    !!cout<<"pDM4 = "<<pDM4<<endl;
+    !!cout<<"got past natural mortality parameters"<<endl;
     
     //growth parameters
     init_bounded_number_vector pLnGrA(1,npLnGrA,lbLnGrA,ubLnGrA,phsLnGrA); //ln-scale mean growth coefficient "a"
+    !!cout<<"pLnGrA = "<<pLnGrA<<endl;
     init_bounded_number_vector pLnGrB(1,npLnGrB,lbLnGrB,ubLnGrB,phsLnGrB); //ln-scale mean growth coefficient "b"
+    !!cout<<"pLnGrB = "<<pLnGrB<<endl;
     init_bounded_number_vector pLnGrBeta(1,npLnGrBeta,lbLnGrBeta,ubLnGrBeta,phsLnGrBeta);//ln-scale growth scale parameter
+    !!cout<<"pLnGrBeta = "<<pLnGrBeta<<endl;
+    !!cout<<"got past growth parameters"<<endl;
     
     //maturity parameters
     init_bounded_vector_vector pLgtPrM2M(1,npLgtPrMat,mniLgtPrMat,mxiLgtPrMat,lbLgtPrMat,ubLgtPrMat,phsLgtPrMat);//logit-scale maturity ogive parameters
+    !!for (int p=1;p<=npLgtPrMat;p++) cout<<"pLgtPrM2M["<<p<<"] = "<<pLgtPrM2M[p]<<endl;
+    !!cout<<"got past maturity parameters"<<endl;
     
     //selectivity parameters
     init_bounded_number_vector pS1(1,npS1,lbS1,ubS1,phsS1);
+    !!cout<<"pS1 = "<<pS1<<endl;
     init_bounded_number_vector pS2(1,npS2,lbS2,ubS2,phsS2);
+    !!cout<<"pS2 = "<<pS2<<endl;
     init_bounded_number_vector pS3(1,npS3,lbS3,ubS3,phsS3);
+    !!cout<<"pS3 = "<<pS3<<endl;
     init_bounded_number_vector pS4(1,npS4,lbS4,ubS4,phsS4);
+    !!cout<<"pS4 = "<<pS4<<endl;
     init_bounded_number_vector pS5(1,npS5,lbS5,ubS5,phsS5);
+    !!cout<<"pS5 = "<<pS5<<endl;
     init_bounded_number_vector pS6(1,npS6,lbS6,ubS6,phsS6);
+    !!cout<<"pS6 = "<<pS6<<endl;
     init_bounded_vector_vector pDevsS1(1,npDevsS1,mniDevsS1,mxiDevsS1,lbDevsS1,ubDevsS1,phsDevsS1);
+    !!for (int p=1;p<=npDevsS1;p++) cout<<"pDevsS1["<<p<<"] = "<<pDevsS1[p]<<endl;
     init_bounded_vector_vector pDevsS2(1,npDevsS2,mniDevsS2,mxiDevsS2,lbDevsS2,ubDevsS2,phsDevsS2);
+    !!for (int p=1;p<=npDevsS2;p++) cout<<"pDevsS2["<<p<<"] = "<<pDevsS2[p]<<endl;
     init_bounded_vector_vector pDevsS3(1,npDevsS3,mniDevsS3,mxiDevsS3,lbDevsS3,ubDevsS3,phsDevsS3);
+    !!for (int p=1;p<=npDevsS3;p++) cout<<"pDevsS3["<<p<<"] = "<<pDevsS3[p]<<endl;
     init_bounded_vector_vector pDevsS4(1,npDevsS4,mniDevsS4,mxiDevsS4,lbDevsS4,ubDevsS4,phsDevsS4);
+    !!for (int p=1;p<=npDevsS4;p++) cout<<"pDevsS4["<<p<<"] = "<<pDevsS4[p]<<endl;
     init_bounded_vector_vector pDevsS5(1,npDevsS5,mniDevsS5,mxiDevsS5,lbDevsS5,ubDevsS5,phsDevsS5);
+    !!for (int p=1;p<=npDevsS5;p++) cout<<"pDevsS5["<<p<<"] = "<<pDevsS5[p]<<endl;
     init_bounded_vector_vector pDevsS6(1,npDevsS6,mniDevsS6,mxiDevsS6,lbDevsS6,ubDevsS6,phsDevsS6);
+    !!for (int p=1;p<=npDevsS6;p++) cout<<"pDevsS6["<<p<<"] = "<<pDevsS6[p]<<endl;
     matrix devsS1(1,npDevsS1,mniDevsS1,mxiDevsS1+1);
     matrix devsS2(1,npDevsS2,mniDevsS2,mxiDevsS2+1);
     matrix devsS3(1,npDevsS3,mniDevsS3,mxiDevsS3+1);
     matrix devsS4(1,npDevsS4,mniDevsS4,mxiDevsS4+1);
     matrix devsS5(1,npDevsS5,mniDevsS5,mxiDevsS5+1);
     matrix devsS6(1,npDevsS6,mniDevsS6,mxiDevsS6+1);
-    !!cout<<"got past Sels"<<endl;
+    !!cout<<"got past selectivity parameters"<<endl;
     
     //fishing capture rate parameters
-    init_bounded_number_vector pHM(1,npHM,lbHM,ubHM,phsHM);                    //handling mortality
-    init_bounded_number_vector pLnC(1,npLnC,lbLnC,ubLnC,phsLnC);               //ln-scale base fishing mortality (mature males)
-    init_bounded_number_vector pDC1(1,npDC1,lbDC1,ubDC1,phsDC1);     //ln-scale year-block offsets
-    init_bounded_number_vector pDC2(1,npDC2,lbDC2,ubDC2,phsDC2);     //female offsets
-    init_bounded_number_vector pDC3(1,npDC3,lbDC3,ubDC3,phsDC3);     //immature offsets
-    init_bounded_number_vector pDC4(1,npDC4,lbDC4,ubDC4,phsDC4);//female-immature offsets
+    init_bounded_number_vector pHM(1,npHM,lbHM,ubHM,phsHM);     //handling mortality
+    !!cout<<"pHM = "<<pHM<<endl;
+    init_bounded_number_vector pLnC(1,npLnC,lbLnC,ubLnC,phsLnC);//ln-scale base fishing mortality (e.g., mature males)
+    !!cout<<"pLnC = "<<pLnC<<endl;
+    init_bounded_number_vector pDC1(1,npDC1,lbDC1,ubDC1,phsDC1);//ln-offset 1 (e.g., year-block offsets)
+    !!cout<<"pDC1 = "<<pDC1<<endl;
+    init_bounded_number_vector pDC2(1,npDC2,lbDC2,ubDC2,phsDC2);//ln-offset 2 (e.g., female offsets)
+    !!cout<<"pDC2 = "<<pDC2<<endl;
+    init_bounded_number_vector pDC3(1,npDC3,lbDC3,ubDC3,phsDC3);//ln-offset 3 (e.g., immature offsets)
+    !!cout<<"pDC3 = "<<pDC3<<endl;
+    init_bounded_number_vector pDC4(1,npDC4,lbDC4,ubDC4,phsDC4);//ln-offset 4 (e.g., female-immature offsets)
+    !!cout<<"pDC4 = "<<pDC4<<endl;
     init_bounded_vector_vector pDevsLnC(1,npDevsLnC,mniDevsLnC,mxiDevsLnC,lbDevsLnC,ubDevsLnC,phsDevsLnC);//ln-scale deviations
+    !!for (int p=1;p<=npDevsLnC;p++) cout<<"pDevsLnC["<<p<<"] = "<<pDevsLnC[p]<<endl;
+    !!cout<<npLnEffX<<tb<<lbLnEffX<<tb<<ubLnEffX<<tb<<phsLnEffX<<endl;
     init_bounded_number_vector pLnEffX(1,npLnEffX,lbLnEffX,ubLnEffX,phsLnEffX);//ln-scale effort extrapolation parameters
+    !!cout<<"pLnEffX = "<<pLnEffX<<endl;
+    !!cout<<npLgtRet<<tb<<lbLgtRet<<tb<<ubLgtRet<<tb<<phsLgtRet<<endl;
     init_bounded_number_vector pLgtRet(1,npLgtRet,lbLgtRet,ubLgtRet,phsLgtRet);//lgt-scale retained fraction parameters
+    !!cout<<"pLgtRet = "<<pLgtRet<<endl;
     matrix devsLnC(1,npDevsLnC,mniDevsLnC,mxiDevsLnC+1);
-    
+    !!cout<<"got past capture rate parameters"<<endl;
+   
     //survey catchability parameters
-    init_bounded_number_vector pLnQ(1,npLnQ,lbLnQ,ubLnQ,phsLnQ);               //base (mature male))
-    init_bounded_number_vector pDQ1(1,npDQ1,lbDQ1,ubDQ1,phsDQ1);     //main temporal offsets
-    init_bounded_number_vector pDQ2(1,npDQ2,lbDQ2,ubDQ2,phsDQ2);     //female offsets
-    init_bounded_number_vector pDQ3(1,npDQ3,lbDQ3,ubDQ3,phsDQ3);     //immature offsets
-    init_bounded_number_vector pDQ4(1,npDQ4,lbDQ4,ubDQ4,phsDQ4);//female-immature offsets
-    
+    init_bounded_number_vector pLnQ(1,npLnQ,lbLnQ,ubLnQ,phsLnQ);//base (e.g., mature male)
+    !!cout<<"pLnQ = "<<pLnQ<<endl;
+    init_bounded_number_vector pDQ1(1,npDQ1,lbDQ1,ubDQ1,phsDQ1);//ln-offset 1 (e.g., main temporal offsets)
+    !!cout<<"pDQ1 = "<<pDQ1<<endl;
+    init_bounded_number_vector pDQ2(1,npDQ2,lbDQ2,ubDQ2,phsDQ2);//ln-offset 2 (e.g., female offsets)
+    !!cout<<"pDQ2 = "<<pDQ2<<endl;
+    init_bounded_number_vector pDQ3(1,npDQ3,lbDQ3,ubDQ3,phsDQ3);//ln-offset 3 (e.g., immature offsets)
+    !!cout<<"pDQ3 = "<<pDQ3<<endl;
+    init_bounded_number_vector pDQ4(1,npDQ4,lbDQ4,ubDQ4,phsDQ4);//ln-offset 4 (e.g., female-immature offsets)
+    !!cout<<"pDQ4 = "<<pDQ4<<endl;
+    !!cout<<"got past survey catchability parameters"<<endl;
+   
     //objective function value
     objective_function_value objFun;
    
@@ -5977,9 +6027,9 @@ RUNTIME_SECTION
 // =============================================================================
 // =============================================================================
 TOP_OF_MAIN_SECTION
-  arrmblsize = 2000000000; //must be smaller than 2,147,483,647
+  arrmblsize = 2100000000; //must be smaller than 2,147,483,647
   gradient_structure::set_GRADSTACK_BUFFER_SIZE(40000000); // this may be incorrect in the AUTODIF manual.
   gradient_structure::set_CMPDIF_BUFFER_SIZE(1500000000);
-  gradient_structure::set_NUM_DEPENDENT_VARIABLES(6000);
+  gradient_structure::set_NUM_DEPENDENT_VARIABLES(7000);
   time(&start);
 

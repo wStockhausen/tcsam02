@@ -1127,14 +1127,15 @@ int FisheriesInfo::idxUseEX  = 5+9+3;//column in parameter combinations matrix i
  * Encapsulates the following fishery-related parameters:\n
  *   pHM    : handling mortality (0-1)
  *   pLnC   : ln-scale base mean capture rate (mature males)
- *   pLnCT  : main year_block offset
- *   pLnDCX : female offsets
- *   pLnDCM : immature offsets
- *   pLnDCXM: female-immature offsets    
+ *   pDC1   : ln-scale offset 1 (e.g., main year_block ln-scale offsets)
+ *   pDC2   : ln-scale offset 2 (e.g., female offsets)
+ *   pDC3   : ln-scale offset 3 (e.g., immature offsets)
+ *   pDC4   : ln-scale offset 4 (e.g., female-immature offsets)   
  *
  *   pDevsLnC : annual ln-scale devs w/in year_blocks
  * 
  *   pLnEffX: ln-scale effort extrapolation parameters
+ *   pLgtRet: logit-scale max retention parameter
  *
  * Notes:
  *  1. FISHERY, YEAR_BLOCK, SEX, MATURITY_STATE, SHELL_CONDITION are the index variables for the parameters
@@ -1299,8 +1300,21 @@ void FisheriesInfo::writeToR(std::ostream & os){
 }
 
 /*------------------------------------------------------------------------------
- * SurveysInfo
- -----------------------------------------------------------------------------*/
+ * SurveysInfo\n
+ * Encapsulates the following recruitment-related parameters:\n
+ *   pLnQ : base q (mature males)
+ *   pDQ1 : ln-scale offset 1 (e.g., main temporal offset)
+ *   pDQ2 : ln-scale offset 1 (e.g., female offsets)
+ *   pDQ3 : ln-scale offset 1 (e.g., immature offsets)
+ *   pDQ4 : ln-scale offset 1 (e.g., female-immature offsets)
+ * Notes:
+ *  1. index variables for parameters:
+ *      a. SURVEY
+ *      b. YEAR_BLOCK
+ *      c. SEX
+ *      d. MATURITY
+ *      e. SHELL
+*----------------------------------------------------------------------------*/
 adstring SurveysInfo::NAME = "surveys";
 SurveysInfo::SurveysInfo(){
     name = NAME;//assign static NAME to ParameterGroupInfo::name
@@ -1606,8 +1620,8 @@ void tcsam::setParameterInfo(BoundedNumberVectorInfo* pBNVI,
         for (int n=1;n<=np;n++) os<<n<<tb<<lb(n)<<tb<<ub(n)<<tb<<phs(n)<<endl;
     } else {
         phs = -1;
-        lb  = -1;
-        ub  = -1;
+        lb  = -1.0;
+        ub  =  1.0;
         os<<"bounded number parameter vector "<<pBNVI->name<<" has no parameter values"<<endl;
     }
 }

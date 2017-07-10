@@ -300,13 +300,15 @@ class SelectivityInfo : public ParameterGroupInfo {
  * Encapsulates the following fishery-related parameters:\n
  *   pHM    : handling mortality (0-1)
  *   pLnC   : ln-scale base mean capture rate (mature males)
- *   pLnCT  : main year_block ln-scale offsets
- *   pLnDCX : ln-scale female offsets
- *   pLnDCM : ln-scale immature offsets
- *   pLnDCXM: ln-scale female-immature offsets    
- *   pLnEffX: ln-scale effort extrapolation parameters
+ *   pDC1   : ln-scale offset 1 (e.g., main year_block ln-scale offsets)
+ *   pDC2   : ln-scale offset 2 (e.g., female offsets)
+ *   pDC3   : ln-scale offset 3 (e.g., immature offsets)
+ *   pDC4   : ln-scale offset 4 (e.g., female-immature offsets)   
  *
  *   pDevsLnC : annual ln-scale devs w/in year_blocks
+ * 
+ *   pLnEffX: ln-scale effort extrapolation parameters
+ *   pLgtRet: logit-scale max retention parameter
  * 
  * Notes:
  *  1. index variables for parameters:
@@ -356,11 +358,11 @@ class FisheriesInfo : public ParameterGroupInfo {
 /*------------------------------------------------------------------------------
  * SurveysInfo\n
  * Encapsulates the following recruitment-related parameters:\n
- *   pLnQ   : base q (mature males)
- *   pLnQT  : main temporal offset
- *   pLnDQX : female offsets
- *   pLnDQM : immature offsets
- *   pLnDQXM: female-immature offsets    
+ *   pLnQ : base q (mature males)
+ *   pDQ1 : ln-scale offset 1 (e.g., main temporal offset)
+ *   pDQ2 : ln-scale offset 1 (e.g., female offsets)
+ *   pDQ3 : ln-scale offset 1 (e.g., immature offsets)
+ *   pDQ4 : ln-scale offset 1 (e.g., female-immature offsets)
  * Notes:
  *  1. index variables for parameters:
  *      a. SURVEY
