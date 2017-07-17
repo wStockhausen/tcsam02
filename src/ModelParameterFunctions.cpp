@@ -406,7 +406,7 @@ void writeParameter(ostream& os, param_init_number& p, adstring& ctg1, adstring&
                                 <<"),";
         } else {
             os<<1<<cc<<p.get_phase_start()<<cc<<1<<cc<<1<<cc<<"-Inf"<<cc<<"Inf"<<cc<<p<<cc<<p.get_name()<<cc
-                     <<"'param_init_number','"<<ctg1<<"','"<<ctg2<<"','"<<lbl<<"'"<<endl;
+                     <<"\"param_init_number\",\""<<ctg1<<"\",\""<<ctg2<<"\",\""<<lbl<<"\""<<endl;
         }
     }
 }    
@@ -434,7 +434,7 @@ void writeParameter(ostream& os, param_init_bounded_number& p,adstring& ctg1, ad
                                 <<"),";
         } else {
             os<<1<<cc<<p.get_phase_start()<<cc<<1<<cc<<1<<cc<<p.get_minb()<<cc<<p.get_maxb()<<cc<<p<<cc<<p.get_name()<<cc
-                     <<"'param_init_bounded_number','"<<ctg1<<"','"<<ctg2<<"','"<<lbl<<"'"<<endl;;
+                     <<"\"param_init_bounded_number\",\""<<ctg1<<"\",\""<<ctg2<<"\",\""<<lbl<<"\""<<endl;;
         }
     }
 }    
@@ -464,7 +464,7 @@ void writeParameter(ostream& os, param_init_vector& p,adstring& ctg1, adstring& 
             os<<"),";
         } else {        
             for (int i=mn;i<=mx;i++) os<< i<<cc<<p.get_phase_start()<<cc<<mn<<cc<<mx<<cc<<"-Inf"<<cc<<"Inf"<<cc<<p(i)<<cc<<p.get_name()<<cc
-                                               <<"'param_init_vector','"<<ctg1<<"','"<<ctg2<<"','"<<lbl<<"'"<<endl;
+                                               <<"\"param_init_vector\",\""<<ctg1<<"\",\""<<ctg2<<"\",\""<<lbl<<"\""<<endl;
         }
     }
 }       
@@ -496,7 +496,7 @@ void writeParameter(ostream& os, param_init_bounded_vector& p,adstring& ctg1, ad
            os<<"),";
         } else {
             for (int i=mn;i<=mx;i++) os<< i<<cc<<p.get_phase_start()<<cc<<mn<<cc<<mx<<cc<<p.get_minb()<<cc<<p.get_maxb()<<cc<<p(i)<<cc<<p.get_name()<<cc
-                                               <<"'param_init_bounded_vector','"<<ctg1<<"','"<<ctg2<<"','"<<lbl<<"'"<<endl;
+                                               <<"\"param_init_bounded_vector\",\""<<ctg1<<"\",\""<<ctg2<<"\",\""<<lbl<<"\""<<endl;
         }
     }
 }

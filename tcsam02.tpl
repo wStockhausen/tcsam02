@@ -283,7 +283,7 @@
 //                  on Punt, 2017
 //--2017-07-08: 1. added cout's in parameter section to help with deviant pin files 
 //--2017-07-17: 1. changed single quotes to double quotes in csv-type output in
-//                  tcsam::writeParameter(...) so Excel does the correct thing.
+//                  all tcsam::writeParameter(...) functions so Excel does the correct thing.
 //
 // =============================================================================
 // =============================================================================
