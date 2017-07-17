@@ -282,6 +282,8 @@
 //              2. added Mc-I harmonic mean and Francis weights calculations based
 //                  on Punt, 2017
 //--2017-07-08: 1. added cout's in parameter section to help with deviant pin files 
+//--2017-07-17: 1. changed single quotes to double quotes in csv-type output in
+//                  tcsam::writeParameter(...) so Excel does the correct thing.
 //
 // =============================================================================
 // =============================================================================
@@ -2379,7 +2381,7 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
     if (debug) cout<<"calculated pPIM, pPIF."<<endl;
     
     //5. Determine fishery conditions for next year based on averages for recent years
-        int oflAvgPeriodYrs = 1;
+        int oflAvgPeriodYrs = 1;  //TODO: this should be an input
         //assumption here is that ALL fisheries EXCEPT the first are bycatch fisheries
         //a. Calculate average handling mortality, retention curves and capture rates
         int ny;   //number of years fishery is active

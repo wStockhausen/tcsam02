@@ -528,7 +528,7 @@ void writeParameter(ostream& os, param_init_bounded_dev_vector& p,adstring& ctg1
            os<<"),";
         } else {
             for (int i=mn;i<=mx;i++) os<< i<<cc<<p.get_phase_start()<<cc<<mn<<cc<<mx<<cc<<p.get_minb()<<cc<<p.get_maxb()<<cc<<p(i)<<cc<<p.get_name()<<cc
-                                           <<"'param_init_bounded_dev_vector','"<<ctg1<<"','"<<ctg2<<"','"<<lbl<<"'"<<endl;
+                                           <<"\"param_init_bounded_dev_vector\",\""<<ctg1<<"\",\""<<ctg2<<"\",\""<<lbl<<"\""<<endl;
         }
     }
 }    

@@ -201,6 +201,7 @@ namespace tcsam{
      * @return 
      */
     int getFitType(adstring fitType);
+    
     /**
      * Translate from integer fit type to adstring version.
      * @param i
