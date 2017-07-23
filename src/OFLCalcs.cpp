@@ -137,7 +137,7 @@ d3_array PopDyInfo::applyMG(d3_array& n_msz, ostream& cout){
  */
 d3_array PopDyInfo::addRecruitment(double R, d3_array& n_msz, ostream& cout){
     if (debug) cout<<"starting PopDyInfo::addRecruitment(R, n_msz)"<<endl;
-    d3_array np_msz = n_msz;
+    d3_array np_msz = 1.0*n_msz;
     np_msz(IMMATURE,NEW_SHELL) += R*R_z;
     if (debug) cout<<"finished PopDyInfo::addRecruitment(R, n_msz)"<<endl;
     return np_msz;
@@ -510,7 +510,7 @@ int MultiYearPopProjector::debug = 0;
  * Project multiple years at constant recruitment and directed F.
  * 
  * @param n - number of years to project
- * @param R - (constant) single-sex recruimtent
+ * @param R - (constant) single-sex recruitment
  * @param dirF - (constant) directed F
  * @param n_msz - initial abundance
  * @param cout - output stream for debug info

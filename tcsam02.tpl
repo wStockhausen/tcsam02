@@ -284,6 +284,7 @@
 //--2017-07-08: 1. added cout's in parameter section to help with deviant pin files 
 //--2017-07-17: 1. changed single quotes to double quotes in csv-type output in
 //                  all tcsam::writeParameter(...) functions so Excel does the correct thing.
+//--2017-07-19: 1. Added calcCohortProgression(...) and call to it in report section.
 //
 // =============================================================================
 // =============================================================================
@@ -2330,6 +2331,131 @@ FUNCTION dvar3_array calcEqNatZ(dvar_vector& R_z,dvar3_array& S1_msz, dvar_matri
     RETURN_ARRAYS_DECREMENT();
     return(n_msz);
 
+//-------------cohort progression calculations--------------
+FUNCTION d5_array calcCohortProgression(int yr, int debug, ostream& cout)
+    if (debug) {
+        cout<<endl<<endl<<"#------------------------"<<endl;
+        cout<<"starting calcCohortProgression(yr,debug,cout)"<<endl;
+        cout<<"year for progression = "<<yr<<endl;
+    }
+
+    int nyp = 20;//number of years to track cohorts
+    //1. set initial cohort abundance
+    int nzp = 3;//number of size bins to distribute cohort over initially
+    d5_array n_yxmsz(0,nyp,1,nSXs,1,nMSs,1,nSCs,1,nZBs);
+    n_yxmsz.initialize();
+    n_yxmsz(0,  MALE,IMMATURE,NEW_SHELL)(1,nzp) = value(R_yz(yr))(1,nzp)/sum(value(R_yz(yr))(1,nzp));//set initial abundance-at-size
+    n_yxmsz(0,FEMALE,IMMATURE,NEW_SHELL)(1,nzp) = value(R_yz(yr))(1,nzp)/sum(value(R_yz(yr))(1,nzp));//set initial abundance-at-size
+    
+    //2. Determine population rates, based on yr
+    double dtF = dtF_y(yr);//time at which fisheries occur
+    double dtM = dtM_y(yr);//time at which mating occurs
+    
+    PopDyInfo* pPIM = new PopDyInfo(nZBs,dtM);//  males info
+    pPIM->R_z   = value(R_yz(yr));
+    pPIM->w_mz  = ptrMDS->ptrBio->wAtZ_xmz(MALE);
+    pPIM->M_msz = value(M_yxmsz(yr,MALE));
+    pPIM->T_szz = value(prGr_yxszz(yr,MALE));
+    for (int s=1;s<=nSCs;s++) pPIM->Th_sz(s) = value(prM2M_yxz(yr,MALE));
+    
+    PopDyInfo* pPIF = new PopDyInfo(nZBs,dtM);//females info
+    pPIF->R_z   = value(R_yz(yr));
+    pPIF->w_mz  = ptrMDS->ptrBio->wAtZ_xmz(FEMALE);
+    pPIF->M_msz = value(M_yxmsz(yr,FEMALE));
+    pPIF->T_szz = value(prGr_yxszz(yr,FEMALE));
+    for (int s=1;s<=nSCs;s++) pPIF->Th_sz(s) = value(prM2M_yxz(yr,FEMALE));
+    if (debug) cout<<"calculated pPIM, pPIF."<<endl;
+    
+    //3. Determine fishery conditions based on yr
+    int avgPeriodYrs = 1;  
+    //assumption here is that ALL fisheries EXCEPT the first are bycatch fisheries
+    //a. Calculate average handling mortality, retention curves and capture rates
+    int ny;   //number of years fishery is active
+    dvector avgHM_f(1,nFsh);
+    avgHM_f.initialize();
+    for (int f=1;f<=nFsh;f++){
+        ny = 0;
+        for (int y=yr-avgPeriodYrs+1;y<=yr;y++){
+            ny         += hasF_fy(f,y);
+            avgHM_f(f) += value(hmF_fy(f,y));
+        }
+        avgHM_f(f) /= wts::max(1.0,1.0*ny);
+    }
+    if (debug) cout<<"avgHm_f = "<<avgHM_f<<endl;
+
+    d5_array avgCapF_xfmsz(1,nSXs,1,nFsh,1,nMSs,1,nSCs,1,nZBs);//averaged fishery capture rates
+    d5_array avgRFcn_xfmsz(1,nSXs,1,nFsh,1,nMSs,1,nSCs,1,nZBs);//averaged fishery retention functions
+    d5_array avgSFcn_xfmsz(1,nSXs,1,nFsh,1,nMSs,1,nSCs,1,nZBs);//averaged fishery selectivity functions
+    avgCapF_xfmsz.initialize();
+    avgRFcn_xfmsz.initialize();
+    avgSFcn_xfmsz.initialize();
+    for (int f=1;f<=nFsh;f++){
+        avgPeriodYrs = 1;
+        if (debug) cout<<"avgPeriodYrs("<<f<<") = "<<avgPeriodYrs<<endl;
+        for (int x=1;x<=nSXs;x++){
+            for (int m=1;m<=nMSs;m++){
+                for (int s=1;s<=nSCs;s++) {
+                    for (int z=1;z<=nZBs;z++){
+                        ny = 0;
+                        for (int y=(yr-avgPeriodYrs+1);y<=yr;y++) {
+                            //if (debug) cout<<"y = "<<y<<endl;
+                            ny += hasF_fy(f,y);
+                            avgCapF_xfmsz(x,f,m,s,z) += value(cpF_fyxmsz(f,y,x,m,s,z));
+                            avgRFcn_xfmsz(x,f,m,s,z) += value(ret_fyxmsz(f,y,x,m,s,z));
+                            avgSFcn_xfmsz(x,f,m,s,z) += value(sel_fyxmsz(f,y,x,m,s,z));
+                        }//y
+                        double fac = 1.0/max(1.0,1.0*ny);
+                        avgCapF_xfmsz(x,f,m,s,z) *= fac;
+                        avgRFcn_xfmsz(x,f,m,s,z) *= fac;
+                        avgSFcn_xfmsz(x,f,m,s,z) *= fac;
+                    }//z
+                }//s
+            }//m
+        }//x
+    }//f
+    if (debug){
+        for (int f=1;f<=nFsh;f++){
+            cout<<"avgCapF_xfmsz(  MALE,"<<f<<",MATURE,NEW_SHELL) = "<<endl<<tb<<avgCapF_xfmsz(  MALE,f,MATURE,NEW_SHELL)<<endl;
+            cout<<"avgCapF_xfmsz(FEMALE,"<<f<<",MATURE,NEW_SHELL) = "<<endl<<tb<<avgCapF_xfmsz(FEMALE,f,MATURE,NEW_SHELL)<<endl;
+            cout<<"avgRFcn_xfmsz(  MALE,"<<f<<",MATURE,NEW_SHELL) = "<<endl<<tb<<avgRFcn_xfmsz(  MALE,f,MATURE,NEW_SHELL)<<endl;
+            cout<<"avgRFcn_xfmsz(FEMALE,"<<f<<",MATURE,NEW_SHELL) = "<<endl<<tb<<avgRFcn_xfmsz(FEMALE,f,MATURE,NEW_SHELL)<<endl;
+            cout<<"avgSFcn_xfmsz(  MALE,"<<f<<",MATURE,NEW_SHELL) = "<<endl<<tb<<avgSFcn_xfmsz(  MALE,f,MATURE,NEW_SHELL)<<endl;
+            cout<<"avgSFcn_xfmsz(FEMALE,"<<f<<",MATURE,NEW_SHELL) = "<<endl<<tb<<avgSFcn_xfmsz(FEMALE,f,MATURE,NEW_SHELL)<<endl;
+        }
+    }
+
+    CatchInfo* pCIM = new CatchInfo(nZBs,nFsh,dtF);//male catch info
+    pCIM->setCaptureRates(avgCapF_xfmsz(MALE));
+    pCIM->setRetentionFcns(avgRFcn_xfmsz(MALE));
+    pCIM->setHandlingMortality(avgHM_f);
+    double maxCapF = pCIM->findMaxTargetCaptureRate(cout);
+    if (debug) cout<<"maxCapF = "<<maxCapF<<endl;
+
+    CatchInfo* pCIF = new CatchInfo(nZBs,nFsh,dtF);//female catch info
+    pCIF->setCaptureRates(avgCapF_xfmsz(FEMALE));
+    pCIF->setRetentionFcns(avgRFcn_xfmsz(FEMALE));
+    pCIF->setHandlingMortality(avgHM_f);
+    pCIF->maxF = maxCapF;//need to set this for females
+
+    //4. Create PopProjectors
+    PopProjector* pPPM = new PopProjector(pPIM,pCIM);
+    PopProjector* pPPF = new PopProjector(pPIF,pCIF);
+    if (debug) cout<<"created pPPs."<<endl;
+
+    //5. Create multi-year population projectors
+    MultiYearPopProjector* pMYPPM = new MultiYearPopProjector(pPPM);
+    MultiYearPopProjector* pMYPPF = new MultiYearPopProjector(pPPF);
+    //project with no recruitment
+    pMYPPM->project(nyp,0.0,maxCapF,n_yxmsz(0,  MALE),cout);
+    pMYPPF->project(nyp,0.0,maxCapF,n_yxmsz(0,FEMALE),cout);
+    for (int y=0;y<=nyp;y++){
+        n_yxmsz(y,  MALE) = pMYPPM->n_ymsz(y);
+        n_yxmsz(y,FEMALE) = pMYPPF->n_ymsz(y);
+    }
+    cout<<"finished calcCohortProgression(yr,debug,cout)"<<endl<<endl<<endl;
+    return n_yxmsz;
+//-------------END cohort progression calculations----------   
+        
 //-------------OFL Calculations--------------
 FUNCTION void calcOFL(int yr, int debug, ostream& cout)
     if (debug) {
@@ -2534,8 +2660,8 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
         cout<<"#------------------------"<<endl;
         cout<<"finished calcOFL(yr,debug,cout)"<<endl<<endl<<endl;
     }
-        
 //-------------END OFL Calculations----------   
+        
 //-------------------------------------------------------------------------------------
 FUNCTION void initPopDyMod(int debug, ostream& cout)
     if (debug>=dbgPopDy) cout<<"starting initPopDyMod()"<<endl;
@@ -5565,6 +5691,17 @@ FUNCTION void ReportToR_ModelResults(ostream& os, int debug, ostream& cout)
     if (debug) cout<<"Finished ReportToR_ModelResults(...)"<<endl;
     
 //-------------------------------------------------------------------------------------
+//Write cohort progression quantities to file as R list
+FUNCTION void ReportToR_CohortProgression(ostream& os,  int debug, ostream& cout)
+    if (debug) cout<<"Starting ReportToR_CohortProgression(...)"<<endl;
+    d5_array n_yxmsz = calcCohortProgression(mxYr,1,cout);
+    int ny = n_yxmsz.indexmax();
+    os<<"cohortprogression=list("<<endl;
+        os<<"n_yxmsz="; wts::writeToR(os,n_yxmsz,adstring("y=0:"+str(ny)),xDms,mDms,sDms,zbDms); os<<endl;
+    os<<")";
+    if (debug) cout<<"Finished ReportToR_CohortProgression(...)"<<endl;
+    
+//-------------------------------------------------------------------------------------
 //Write quantities related to model fits to file as R list
 FUNCTION void ReportToR_ModelFits(ostream& os, double maxGrad, int debug, ostream& cout)
     if (debug) cout<<"Starting ReportToR_ModelFits(...)"<<endl;
@@ -5689,7 +5826,7 @@ FUNCTION void ReportToR(ostream& os, double maxGrad, int debug, ostream& cout)
         
         //model processes
         ReportToR_ModelProcesses(os,debug,cout); os<<","<<endl;
-        os<<"#end of modelprodesses"<<endl;
+        os<<"#end of modelprocesses"<<endl;
         
         //model results
         ReportToR_ModelResults(os,debug,cout); os<<","<<endl;
@@ -5701,8 +5838,12 @@ FUNCTION void ReportToR(ostream& os, double maxGrad, int debug, ostream& cout)
         
         //simulated model data
         createSimData(debug, cout, 0, ptrSimMDS);//deterministic
-        ptrSimMDS->writeToR(os,"sim.data",0); 
+        ptrSimMDS->writeToR(os,"sim.data",0); os<<","<<endl;
         os<<"#end of sim.data"<<endl;
+        
+        //cohort projections
+        ReportToR_CohortProgression(os,debug,cout);
+        os<<"#end of cohortprogression"<<endl;
         
         //do OFL calculations
         if (doOFL){
