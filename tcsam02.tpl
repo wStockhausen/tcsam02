@@ -285,6 +285,8 @@
 //--2017-07-17: 1. changed single quotes to double quotes in csv-type output in
 //                  all tcsam::writeParameter(...) functions so Excel does the correct thing.
 //--2017-07-19: 1. Added calcCohortProgression(...) and call to it in report section.
+//--2017-08-01: 1. Added final year MMB, OFL info to jitterInfo.csv output
+//              2. calcOFL ONLY called in last phase now, unless debugOFL has been set
 //
 // =============================================================================
 // =============================================================================
@@ -5846,7 +5848,7 @@ FUNCTION void ReportToR(ostream& os, double maxGrad, int debug, ostream& cout)
         os<<"#end of cohortprogression"<<endl;
         
         //do OFL calculations
-        if (doOFL){
+        if (doOFL&&last_phase()){
             cout<<"ReportToR: starting OFL calculations"<<endl;
             ofstream echoOFL; echoOFL.open("calcOFL.final.txt", ios::trunc);
             echoOFL.precision(12);
@@ -5972,8 +5974,12 @@ REPORT_SECTION
         if (option_match(ad_comm::argc,ad_comm::argv,"-jitter")>-1) {
             ofstream fs("jitterInfo.csv");
             fs.precision(20);
-            fs<<"seed"<<cc<<"objfun"<<cc<<"maxGrad"<<endl;
-            fs<<iSeed<<cc<<value(objFun)<<cc<<maxGrad<<endl;
+            fs<<"seed"<<cc<<"objfun"<<cc<<"maxGrad"<<cc<<"MMB";
+            if (doOFL) fs<<cc<<"B0"<<cc<<"Bmsy"<<cc<<"Fmsy"<<cc<<"OFL"<<cc<<"curB";
+            fs<<endl;
+            fs<<iSeed<<cc<<value(objFun)<<cc<<maxGrad<<cc<<spB_yx(mxYr,MALE);
+            if (doOFL) fs<<cc<<oflResults.B0<<cc<<oflResults.Bmsy<<cc<<oflResults.Fmsy<<cc<<oflResults.OFL<<cc<<oflResults.curB;
+            fs<<endl;
             fs.close();
         }
     }
