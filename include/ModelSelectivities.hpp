@@ -53,6 +53,7 @@
             const static int ID_DBLLOGISTIC50LN95  = 9; const static adstring STR_DBLLOGISTIC50LN95; 
             const static int ID_DBLLOGISTICLN50LN95=10; const static adstring STR_DBLLOGISTICLN50LN95; 
             const static int ID_DBLNORMAL          =11; const static adstring STR_DBLNORMAL; 
+            const static int ID_ASCLOGISTIC5099    =12; const static adstring STR_ASCLOGISTIC5099; 
 
             /**
              * Calculates ascending logistic function parameterized by 
@@ -92,6 +93,20 @@
              * @return - selectivity function values as dvar_vector
              */
             dvar_vector static asclogistic5095(dvector& z, dvar_vector& params, double fsZ);
+            
+            /**
+             * Calculates ascending logistic function parameterized by 
+             *      params[1]: size at 50% selected (z50)
+             *      params[2]: size at 99% selected (z99)
+             * Inputs:
+             * @param z      - dvector of sizes at which to compute function values
+             * @param params - dvar_vector of function parameters
+             * @param fsZ    - size at which function = 1 (i.e., fully-selected size) [double]
+             * 
+             * @return - selectivity function values as dvar_vector
+             */
+            dvar_vector static asclogistic5099(dvector& z, dvar_vector& params, double fsZ);
+            
             
             /**
              * Calculates ascending logistic function parameterized by 

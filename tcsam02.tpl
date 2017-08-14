@@ -287,6 +287,8 @@
 //--2017-07-19: 1. Added calcCohortProgression(...) and call to it in report section.
 //--2017-08-01: 1. Added final year MMB, OFL info to jitterInfo.csv output
 //              2. calcOFL ONLY called in last phase now, unless debugOFL has been set
+//--2017-08-02: 1. Added likeprof_numbers lkMMB, lkLnQM, lkLnQF, lkNMMM, lkNMMF, lkNMIM, lkNMIF
+//--2017-08-12: 1. Added selectivity function "asclogistic5099", with parameters z50 and z99.
 //
 // =============================================================================
 // =============================================================================
@@ -1267,6 +1269,15 @@ PARAMETER_SECTION
     //sdreport variables
     sdreport_vector sdrLnR_y(mnYr,mxYr);
     sdreport_matrix sdrSpB_xy(1,nSXs,mnYr,mxYr);
+    
+    //likelihood profile numbers
+    likeprof_number lkMMB; 
+    likeprof_number lkQM; 
+    likeprof_number lkQF; 
+    likeprof_number lkNMIM; 
+    likeprof_number lkNMIF;
+    likeprof_number lkNMMM; 
+    likeprof_number lkNMMF;
 
     
     !!cout<<"#finished PARAMETER_SECTION"<<endl;
@@ -1556,6 +1567,15 @@ PROCEDURE_SECTION
     runPopDyMod(dbg,rpt::echo);
 
     calcObjFun(dbg,rpt::echo);
+    
+    //assign values to likelihood profile numbers
+    lkMMB = spB_yx(mxYr,MALE); 
+    lkQM = q_vyxms(1,mxYr+1,  MALE,MATURE,NEW_SHELL); 
+    lkQF = q_vyxms(1,mxYr+1,FEMALE,MATURE,NEW_SHELL); 
+    lkNMIM = M_yxmsz(mxYr,  MALE,IMMATURE,NEW_SHELL)(1); 
+    lkNMIF = M_yxmsz(mxYr,FEMALE,IMMATURE,NEW_SHELL)(1);
+    lkNMMM = M_yxmsz(mxYr,  MALE,MATURE,NEW_SHELL)(1); 
+    lkNMMF = M_yxmsz(mxYr,FEMALE,MATURE,NEW_SHELL)(1);
     
     if (sd_phase()){
         sdrLnR_y = log(R_y);
