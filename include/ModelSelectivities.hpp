@@ -7,6 +7,8 @@
  * 2014-12-05: 1. Added asclogisticLn50Ln95 and dbllogisticLn50Ln95 functions
  * 2015-04-17: 1. Added dbllogistic50Ln95 function
  * 2016-11-15: 1. Added asclogisticLn50 and dbllogisticLn50 functions to match TCSAM2013
+ * 2017-08-03: 1. Added asclogistic5099 function
+ * 2017-08-23: 1. Added asclogistic95Ln50 function
  */
 
 #ifndef MODELSELECTIVITIES_HPP
@@ -54,6 +56,7 @@
             const static int ID_DBLLOGISTICLN50LN95=10; const static adstring STR_DBLLOGISTICLN50LN95; 
             const static int ID_DBLNORMAL          =11; const static adstring STR_DBLNORMAL; 
             const static int ID_ASCLOGISTIC5099    =12; const static adstring STR_ASCLOGISTIC5099; 
+            const static int ID_ASCLOGISTIC95LN50  =13; const static adstring STR_ASCLOGISTIC95LN50; 
 
             /**
              * Calculates ascending logistic function parameterized by 
@@ -120,6 +123,19 @@
              * @return - selectivity function values as dvar_vector
              */
             dvar_vector static asclogistic50Ln95(dvector& z, dvar_vector& params, double fsZ);
+
+            /**
+             * Calculates ascending logistic function parameterized by 
+             *      params[1]: size at 95% selected (z95)
+             *      params[2]: ln-scale increment from z50 to z95
+             * Inputs:
+             * @param z      - dvector of sizes at which to compute function values
+             * @param params - dvar_vector of function parameters
+             * @param fsZ    - size at which function = 1 (i.e., fully-selected size) [double]
+             * 
+             * @return - selectivity function values as dvar_vector
+             */
+            dvar_vector static asclogistic95Ln50(dvector& z, dvar_vector& params, double fsZ);
 
             /**
              * Calculates ascending logistic function parameterized by 

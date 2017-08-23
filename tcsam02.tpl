@@ -289,6 +289,9 @@
 //              2. calcOFL ONLY called in last phase now, unless debugOFL has been set
 //--2017-08-02: 1. Added likeprof_numbers lkMMB, lkLnQM, lkLnQF, lkNMMM, lkNMMF, lkNMIM, lkNMIF
 //--2017-08-12: 1. Added selectivity function "asclogistic5099", with parameters z50 and z99.
+//--2017-08-23: 1. Corrected problem with cohort progression when directed fishery was closed 
+//                  (i.e., when maxF=0).
+//              2. Added selectivity function "asclogistic95Ln50" with parameters z95 and ln(z95-z50)
 //
 // =============================================================================
 // =============================================================================
@@ -2467,9 +2470,11 @@ FUNCTION d5_array calcCohortProgression(int yr, int debug, ostream& cout)
     //5. Create multi-year population projectors
     MultiYearPopProjector* pMYPPM = new MultiYearPopProjector(pPPM);
     MultiYearPopProjector* pMYPPF = new MultiYearPopProjector(pPPF);
+    if (debug) cout<<"created pPPMs."<<endl;
     //project with no recruitment
     pMYPPM->project(nyp,0.0,maxCapF,n_yxmsz(0,  MALE),cout);
     pMYPPF->project(nyp,0.0,maxCapF,n_yxmsz(0,FEMALE),cout);
+    if (debug) cout<<"projected cohort."<<endl;
     for (int y=0;y<=nyp;y++){
         n_yxmsz(y,  MALE) = pMYPPM->n_ymsz(y);
         n_yxmsz(y,FEMALE) = pMYPPF->n_ymsz(y);

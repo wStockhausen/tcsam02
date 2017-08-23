@@ -200,7 +200,8 @@ double CatchInfo::findMaxTargetCaptureRate(ostream& cout){
  */
 d3_array CatchInfo::applyFM(double dirF, d3_array& n_msz, ostream& cout){
     if (debug) cout<<"starting Catch_Calculator::calcCatch(double dirF, d3_array n_msz)"<<endl;
-    double ratF = dirF/maxF;//target fishery (f=1) scaling ratio
+    double ratF = 1.0;             //target fishery (f=1) scaling ratio, if target fishery is closed (maxF=0)
+    if (maxF>0.0) ratF = dirF/maxF;//target fishery (f=1) scaling ratio, if target fishery is open   (maxF>0)
     dvector totFM(1,nZBs);
     d3_array np_msz(1,nMSs,1,nSCs,1,nZBs);
     np_msz.initialize();
