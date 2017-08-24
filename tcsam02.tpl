@@ -292,6 +292,7 @@
 //--2017-08-23: 1. Corrected problem with cohort progression when directed fishery was closed 
 //                  (i.e., when maxF=0).
 //              2. Added selectivity function "asclogistic95Ln50" with parameters z95 and ln(z95-z50)
+//--2017-08-24: 1. Added objective function penalties to keep growth parameters in range
 //
 // =============================================================================
 // =============================================================================
@@ -1299,6 +1300,7 @@ PRELIMINARY_CALCS_SECTION
     } else {
         rpt::echo<<"NOTE: setting initial values for parameters using setInitVals(...)"<<endl;
         setInitVals();
+        //check growth parameters
     }
 
     cout<<"testing setAllDevs()"<<endl;
@@ -3245,6 +3247,25 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
         grA = pLnGrA(pids[k]); k++; //"a" coefficient for mean growth
         grB = pLnGrB(pids[k]); k++; //"b" coefficient for mean growth
         grBeta = pLnGrBeta(pids[k]); k++; //scale factor for gamma function growth transition
+        
+        //mean size increments must be positive
+        if (grA+(grB-1.0)*log(zBs(1))<0.0) {
+            ofstream os("GrowthReport."+str(current_phase())+"."+str(ctrProcCallsInPhase)+".dat");
+            os<<"Mean size increments < 0 at "<<zBs(1)<<" for "<<endl;
+            os<<"a = "<<grA<<cc<<" b = "<<grB<<endl;
+            os<<"aborting..."<<endl;
+            os.close();
+            exit(-1);
+        }
+        if (grA+(grB-1.0)*log(zBs(nZBs))<0.0) {
+            ofstream os("GrowthReport."+str(current_phase())+"."+str(ctrProcCallsInPhase)+".dat");
+            os<<"Mean size increments < 0 at "<<zBs(nZBs)<<" for "<<endl;
+            os<<"a = "<<grA<<cc<<" b = "<<grB<<endl;
+            os<<"aborting..."<<endl;
+            os.close();
+            exit(-1);
+        }
+        
         if (debug>dbgCalcProcs){
             cout<<"pc: "<<pc<<tb<<"grA:"<<tb<<grA<<". grB:"<<tb<<grB<<". grBeta:"<<grBeta<<endl;
         }
@@ -3975,6 +3996,45 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     if (debug>=dbgObjFun) cout<<"Started calcPenalties()"<<endl;
     if (debug<0) cout<<"list("<<endl;//start list of penalties by category
 
+    if (debug<0) cout<<tb<<"growth=list("<<endl;//start of growth penalties list
+    GrowthInfo* ptrGrI = ptrMPI->ptrGrw;
+    dvariable grA; dvariable grB;
+    for (int pc=1;pc<=(ptrGrI->nPCs-1);pc++){
+        ivector pids = ptrGrI->getPCIDs(pc);
+        int k=ptrGrI->nIVs+1;//1st parameter column
+        grA = pLnGrA(pids[k]); k++; //"a" coefficient for mean growth
+        grB = pLnGrB(pids[k]); k++; //"b" coefficient for mean growth
+        
+        //add objective function penalty to keep mean size increments positive
+        dvariable penL, penU;
+        penL.initialize(); penU.initialize();
+        posfun2(grA+(grB-1.0)*log(zBs(1)),   1.0E-3,penL);
+        posfun2(grA+(grB-1.0)*log(zBs(nZBs)),1.0E-3,penU);
+        objFun += penL+penU;
+        if (debug<0) {
+            cout<<tb<<tb<<tb<<"penL"<<pc<<"=list(wgt="<<1.0<<cc<<"pen="<<penL<<cc<<"objfun="<<penL<<"),"<<endl;
+            cout<<tb<<tb<<tb<<"penU"<<pc<<"=list(wgt="<<1.0<<cc<<"pen="<<penU<<cc<<"objfun="<<penU<<"),"<<endl;
+        }
+    }
+    {
+        int pc = ptrGrI->nPCs;
+        ivector pids = ptrGrI->getPCIDs(pc);
+        int k=ptrGrI->nIVs+1;//1st parameter column
+        grA = pLnGrA(pids[k]); k++; //"a" coefficient for mean growth
+        grB = pLnGrB(pids[k]); k++; //"b" coefficient for mean growth
+        
+        //add objective function penalty to keep mean size increments positive
+        dvariable penL, penU;
+        penL.initialize(); penU.initialize();
+        posfun2(grA+(grB-1.0)*log(zBs(1)),   1.0E-3,penL);
+        posfun2(grA+(grB-1.0)*log(zBs(nZBs)),1.0E-3,penU);
+        objFun += penL+penU;
+        if (debug<0) {
+            cout<<tb<<tb<<tb<<"penL"<<pc<<"=list(wgt="<<1.0<<cc<<"pen="<<penL<<cc<<"objfun="<<penL<<"),"<<endl;
+            cout<<tb<<tb<<tb<<"penU"<<pc<<"=list(wgt="<<1.0<<cc<<"pen="<<penU<<cc<<"objfun="<<penU<<")"<<endl;
+        }
+    }
+    if (debug<0) cout<<tb<<tb<<")"<<cc<<endl;//end of growth penalties list
     if (debug<0) cout<<tb<<"maturity=list("<<endl;//start of maturity penalties list
     //smoothness penalties
     dvector penWgtSmthLgtPrMat = ptrMOs->wgtPenSmthPrM2M;
