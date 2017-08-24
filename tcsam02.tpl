@@ -293,6 +293,13 @@
 //                  (i.e., when maxF=0).
 //              2. Added selectivity function "asclogistic95Ln50" with parameters z95 and ln(z95-z50)
 //--2017-08-24: 1. Added objective function penalties to keep growth parameters in range
+//              2. Added option for re-parameterized mean growth functions in terms of min,max post-molt sizes
+//              3. Dropped "Ln" notation from all growth parameters
+//              4. Incremented ModelParametersInfo version to "2017.08.24"
+//              5. Incremented ModelOptions version to "2017.08.24"
+//              6. refactored getPCXDs(pc) from inheriting classes to base class ParameterGroupInfo
+//              7. updated calcNLLs_GrowthData to reflect to growth options
+//              8. Outputting name assigned to growth dataset as name of R list in model fits
 //
 // =============================================================================
 // =============================================================================
@@ -889,14 +896,14 @@ DATA_SECTION
     !!tcsam::setParameterInfo(ptrMPI->ptrM2M->pLgtPrM2M,npLgtPrMat,mniLgtPrMat,mxiLgtPrMat,idxsLgtPrMat,lbLgtPrMat,ubLgtPrMat,phsLgtPrMat,rpt::echo);
  
     //growth parameters
-    int npLnGrA; ivector phsLnGrA; vector lbLnGrA; vector ubLnGrA;
-    !!tcsam::setParameterInfo(ptrMPI->ptrGrw->pLnGrA,npLnGrA,lbLnGrA,ubLnGrA,phsLnGrA,rpt::echo);
+    int npGrA; ivector phsGrA; vector lbGrA; vector ubGrA;
+    !!tcsam::setParameterInfo(ptrMPI->ptrGrw->pGrA,npGrA,lbGrA,ubGrA,phsGrA,rpt::echo);
     
-    int npLnGrB; ivector phsLnGrB; vector lbLnGrB; vector ubLnGrB;
-    !!tcsam::setParameterInfo(ptrMPI->ptrGrw->pLnGrB,npLnGrB,lbLnGrB,ubLnGrB,phsLnGrB,rpt::echo);
+    int npGrB; ivector phsGrB; vector lbGrB; vector ubGrB;
+    !!tcsam::setParameterInfo(ptrMPI->ptrGrw->pGrB,npGrB,lbGrB,ubGrB,phsGrB,rpt::echo);
     
-    int npLnGrBeta; ivector phsLnGrBeta; vector lbLnGrBeta; vector ubLnGrBeta;
-    !!tcsam::setParameterInfo(ptrMPI->ptrGrw->pLnGrBeta,npLnGrBeta,lbLnGrBeta,ubLnGrBeta,phsLnGrBeta,rpt::echo);
+    int npGrBeta; ivector phsGrBeta; vector lbGrBeta; vector ubGrBeta;
+    !!tcsam::setParameterInfo(ptrMPI->ptrGrw->pGrBeta,npGrBeta,lbGrBeta,ubGrBeta,phsGrBeta,rpt::echo);
     
     //selectivity parameters
     !!nSel = ptrMPI->ptrSel->nPCs;//number of selectivity functions defined
@@ -1012,6 +1019,10 @@ DATA_SECTION
     int npcSrv;
     !!npcSrv = ptrMPI->ptrSrv->nPCs;
     
+    //growth arrays
+    matrix zGrA_xy(1,nSXs,mnYr,mxYr);//pre-molt size corresponding to pGrA in alt growth parameterization
+    matrix zGrB_xy(1,nSXs,mnYr,mxYr);//pre-molt size corresponding to pGrB in alt growth parameterization
+    
     imatrix idxDevsLnC_fy(1,nFsh,mnYr,mxYr); //matrix to check devs indexing for lnC
     
     //dimensions for output to R
@@ -1080,12 +1091,12 @@ PARAMETER_SECTION
     !!cout<<"got past natural mortality parameters"<<endl;
     
     //growth parameters
-    init_bounded_number_vector pLnGrA(1,npLnGrA,lbLnGrA,ubLnGrA,phsLnGrA); //ln-scale mean growth coefficient "a"
-    !!cout<<"pLnGrA = "<<pLnGrA<<endl;
-    init_bounded_number_vector pLnGrB(1,npLnGrB,lbLnGrB,ubLnGrB,phsLnGrB); //ln-scale mean growth coefficient "b"
-    !!cout<<"pLnGrB = "<<pLnGrB<<endl;
-    init_bounded_number_vector pLnGrBeta(1,npLnGrBeta,lbLnGrBeta,ubLnGrBeta,phsLnGrBeta);//ln-scale growth scale parameter
-    !!cout<<"pLnGrBeta = "<<pLnGrBeta<<endl;
+    init_bounded_number_vector pGrA(1,npGrA,lbGrA,ubGrA,phsGrA); //ln-scale mean growth coefficient "a"
+    !!cout<<"pGrA = "<<pGrA<<endl;
+    init_bounded_number_vector pGrB(1,npGrB,lbGrB,ubGrB,phsGrB); //ln-scale mean growth coefficient "b"
+    !!cout<<"pGrB = "<<pGrB<<endl;
+    init_bounded_number_vector pGrBeta(1,npGrBeta,lbGrBeta,ubGrBeta,phsGrBeta);//ln-scale growth scale parameter
+    !!cout<<"pGrBeta = "<<pGrBeta<<endl;
     !!cout<<"got past growth parameters"<<endl;
     
     //maturity parameters
@@ -1614,9 +1625,9 @@ FUNCTION setInitVals
     setInitVals(ptrMPI->ptrNM->pDM4, pDM4, 0,rpt::echo);
 
     //growth parameters
-    setInitVals(ptrMPI->ptrGrw->pLnGrA,   pLnGrA,   0,rpt::echo);
-    setInitVals(ptrMPI->ptrGrw->pLnGrB,   pLnGrB,   0,rpt::echo);
-    setInitVals(ptrMPI->ptrGrw->pLnGrBeta,pLnGrBeta,0,rpt::echo);
+    setInitVals(ptrMPI->ptrGrw->pGrA,   pGrA,   0,rpt::echo);
+    setInitVals(ptrMPI->ptrGrw->pGrB,   pGrB,   0,rpt::echo);
+    setInitVals(ptrMPI->ptrGrw->pGrBeta,pGrBeta,0,rpt::echo);
 
     //maturity parameters
     setInitVals(ptrMPI->ptrM2M->pLgtPrM2M,pLgtPrM2M,0,rpt::echo);
@@ -1672,9 +1683,9 @@ FUNCTION int checkParams(int debug, ostream& os)
     res += checkParams(ptrMPI->ptrNM->pDM4, pDM4, debug,os);
 
     //growth parameters
-    res += checkParams(ptrMPI->ptrGrw->pLnGrA,   pLnGrA,   debug,os);
-    res += checkParams(ptrMPI->ptrGrw->pLnGrB,   pLnGrB,   debug,os);
-    res += checkParams(ptrMPI->ptrGrw->pLnGrBeta,pLnGrBeta,debug,os);
+    res += checkParams(ptrMPI->ptrGrw->pGrA,   pGrA,   debug,os);
+    res += checkParams(ptrMPI->ptrGrw->pGrB,   pGrB,   debug,os);
+    res += checkParams(ptrMPI->ptrGrw->pGrBeta,pGrBeta,debug,os);
 
     //maturity parameters
     res += checkParams(ptrMPI->ptrM2M->pLgtPrM2M,pLgtPrM2M,debug,os);
@@ -1897,9 +1908,9 @@ FUNCTION void writeMCMCtoR(ofstream& mcmc)
         writeMCMCtoR(mcmc,ptrMPI->ptrNM->pDM4); mcmc<<cc<<endl;
 
         //growth parameters
-        writeMCMCtoR(mcmc,ptrMPI->ptrGrw->pLnGrA); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrGrw->pLnGrB); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrGrw->pLnGrBeta); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrGrw->pGrA); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrGrw->pGrB); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrGrw->pGrBeta); mcmc<<cc<<endl;
 
         //maturity parameters
         writeMCMCtoR(mcmc,ptrMPI->ptrM2M->pLgtPrM2M); mcmc<<cc<<endl;
@@ -3218,14 +3229,17 @@ FUNCTION void calcMolt2Maturity(int debug, ostream& cout)
 //* Alters:
 //*  prGr_yxszz - year/sex/maturity state/size-specific growth transition matrices
 //******************************************************************************
-FUNCTION void calcGrowth(int debug, ostream& cout)  
+FUNCTION void calcGrowth(int debug, ostream& cout) 
     if(debug>dbgCalcProcs) cout<<"Starting calcGrowth()"<<endl;
     
-    GrowthInfo* ptrGrI = ptrMPI->ptrGrw;
+    GrowthInfo* ptrGrw = ptrMPI->ptrGrw;
     
     dvariable grA;
     dvariable grB;
     dvariable grBeta;
+    
+    double zGrA = 0.0;
+    double zGrB = 0.0;
     
     mnGrZ_cz.initialize();
     prGr_czz.initialize();
@@ -3235,49 +3249,45 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
     grB_xy.initialize();
     grBeta_xy.initialize();
     
+    zGrA_xy.initialize();
+    zGrB_xy.initialize();
+
     dvar_matrix prGr_zz(1,nZBs,1,nZBs);
 
     int y; int mnx; int mxx;
-    for (int pc=1;pc<=ptrGrI->nPCs;pc++){
-        ivector pids = ptrGrI->getPCIDs(pc);
-        int k=ptrGrI->nIVs+1;//1st parameter column
-//        grA = mfexp(pLnGrA(pids[k])); k++; //"a" coefficient for mean growth
-//        grB = mfexp(pLnGrB(pids[k])); k++; //"b" coefficient for mean growth
-//        grBeta = mfexp(pLnGrBeta(pids[k])); k++; //shape factor for gamma function growth transition
-        grA = pLnGrA(pids[k]); k++; //"a" coefficient for mean growth
-        grB = pLnGrB(pids[k]); k++; //"b" coefficient for mean growth
-        grBeta = pLnGrBeta(pids[k]); k++; //scale factor for gamma function growth transition
-        
-        //mean size increments must be positive
-        if (grA+(grB-1.0)*log(zBs(1))<0.0) {
-            ofstream os("GrowthReport."+str(current_phase())+"."+str(ctrProcCallsInPhase)+".dat");
-            os<<"Mean size increments < 0 at "<<zBs(1)<<" for "<<endl;
-            os<<"a = "<<grA<<cc<<" b = "<<grB<<endl;
-            os<<"aborting..."<<endl;
-            os.close();
-            exit(-1);
-        }
-        if (grA+(grB-1.0)*log(zBs(nZBs))<0.0) {
-            ofstream os("GrowthReport."+str(current_phase())+"."+str(ctrProcCallsInPhase)+".dat");
-            os<<"Mean size increments < 0 at "<<zBs(nZBs)<<" for "<<endl;
-            os<<"a = "<<grA<<cc<<" b = "<<grB<<endl;
-            os<<"aborting..."<<endl;
-            os.close();
-            exit(-1);
-        }
+    for (int pc=1;pc<=ptrGrw->nPCs;pc++){
+        ivector pids = ptrGrw->getPCIDs(pc);
+        int k=ptrGrw->nIVs+1;//1st parameter column
+//        grA = mfexp(pGrA(pids[k])); k++; //"a" coefficient for mean growth
+//        grB = mfexp(pGrB(pids[k])); k++; //"b" coefficient for mean growth
+//        grBeta = mfexp(pGrBeta(pids[k])); k++; //shape factor for gamma function growth transition
+        grA = pGrA(pids[k]); k++; //"a" coefficient for mean growth
+        grB = pGrB(pids[k]); k++; //"b" coefficient for mean growth
+        grBeta = pGrBeta(pids[k]); k++; //scale factor for gamma function growth transition
         
         if (debug>dbgCalcProcs){
             cout<<"pc: "<<pc<<tb<<"grA:"<<tb<<grA<<". grB:"<<tb<<grB<<". grBeta:"<<grBeta<<endl;
         }
         
         //compute growth transition matrix for this pc
-        prGr_zz.initialize();
-        dvariable invBeta = 1.0/grBeta;             //inverse scale for gamma density function
-        dvar_vector mnZs = mfexp(grA)*pow(zBs,grB); //mean post-molt sizes with zBs as pre-molt sizes
+        dvar_vector mnZs(1,nZBs); mnZs.initialize();  //mean post-molt sizes with zBs as pre-molt sizes
+        if (ptrMOs->optGrowthParam==0){
+            //TCSAM2013 parameterization with ln-scale intercept, slope
+            mnZs = mfexp(grA+grB*log(zBs));
+        } else if (ptrMOs->optGrowthParam==1){
+            //parameterization at min, max pre-molt sizes
+            dvector pXDs = ptrGrw->getPCXDs(pc);
+            zGrA = pXDs[1]; //pre-molt size corresponding to pGrA as mean post-molt size
+            zGrB = pXDs[2]; //pre-molt size corresponding to pGrB as mean post-molt size
+            if (debug>dbgCalcProcs) cout<<"zGrA:"<<tb<<zGrA<<". zGrB:"<<tb<<zGrB<<endl;
+            mnZs = grA*mfexp(log(grB/grA)/log(zGrB/zGrA)*log(zBs/zGrA));
+            if (debug>dbgCalcProcs) cout<<"mnZs:"<<tb<<mnZs<<endl;
+        }
         dvar_vector mnIs = mnZs - zBs;              //mean molt increments
-        dvar_vector alIs = mnIs/grBeta;             //gamma density alpha (location) parameters
+        dvariable invBeta = 1.0/grBeta;             //inverse scale for gamma density function
+        dvar_vector alIs = mnIs*invBeta;            //gamma density alpha (location) parameters
         dvar_vector mnpIs = mnZs - (zBs - 2.5);     //mean molt increment (adjusted to start of size bin)
-        dvar_vector alpIs = mnpIs/grBeta;           //gamma density alpha (location) parameters
+        dvar_vector alpIs = mnpIs*invBeta;          //gamma density alpha (location) parameters
         //check all mean molt increments are > 0
         if (isnan(value(sum(sqrt(mnIs))))){
             ofstream os("GrowthReport."+str(current_phase())+"."+str(ctrProcCallsInPhase)+".dat");
@@ -3297,7 +3307,8 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
             os.close();
             exit(-1);
         }
-        if (ptrMOs->optGrowth==0) {
+        prGr_zz.initialize();
+        if (ptrMOs->optGrowthPDF==0) {
             //old style (TCSAM2013)
             for (int z=1;z<=nZBs;z++){//pre-molt growth bin
                 dvector dpZs =  zBs(z,nZBs) - (zBs(z)-2.5);//realized growth increments (note non-neg. growth only)
@@ -3307,7 +3318,7 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
                 prGr_zz(z) /= sum(prGr_zz(z));
             }//zs
             prGr_zz(nZBs,nZBs) = 1.0; //no growth from max size
-        } else if (ptrMOs->optGrowth==1){
+        } else if (ptrMOs->optGrowthPDF==1){
             //using cumd_gamma function like gmacs
             for (int z=1;z<nZBs;z++){
                 dvar_vector sclIs = (ptrMC->zCutPts(z+1,nZBs+1)-zBs(z))/grBeta;//scaled increments at size bin cut points
@@ -3353,7 +3364,7 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
             }//zs
             prGr_zz(nZBs,nZBs) = 1.0; //no growth from max size
         } else {
-            cout<<"Unrecognized growth option: "<<ptrMOs->optGrowth<<endl;
+            cout<<"Unrecognized growth option: "<<ptrMOs->optGrowthPDF<<endl;
             cout<<"Terminating!"<<endl;
             exit(-1);
         }
@@ -3376,7 +3387,7 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
             os<<"mnIs  = "<<mnIs<<endl;
             os<<"sdIs  = "<<sqrt(mnIs*grBeta)<<endl;
             os<<"alIs  = "<<alIs<<endl;
-            if (ptrMOs->optGrowth==0) {
+            if (ptrMOs->optGrowthPDF==0) {
                 //old style (TCSAM2013)
                 for (int z=1;z<nZBs;z++){//pre-molt growth bin
                     dvector dZs =  zBs(z,nZBs) - zBs(z);//realized growth increments (note non-neg. growth only)
@@ -3392,7 +3403,7 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
                     os<<"normalization factor = "<<sum(prs)<<endl;
                     os<<"prs     : "<<prs<<endl;
                 }
-            } else if (ptrMOs->optGrowth==1){
+            } else if (ptrMOs->optGrowthPDF==1){
                 //using cumd_gamma function like gmacs
                 for (int z=1;z<nZBs;z++){
                     dvar_vector sclIs = (ptrMC->zCutPts(z+1,nZBs+1)-zBs(z))/grBeta;//scaled increments at size bin cut points
@@ -3418,7 +3429,7 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
         }
         
         //loop over model indices as defined in the index blocks
-        imatrix idxs = ptrGrI->getModelIndices(pc);
+        imatrix idxs = ptrGrw->getModelIndices(pc);
         if (debug) cout<<"growth indices for pc "<<pc<<endl<<idxs<<endl;
         for (int idx=idxs.indexmin();idx<=idxs.indexmax();idx++){
             y = idxs(idx,1); //year index
@@ -3429,6 +3440,8 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
                 for (int x=mnx;x<=mxx;x++){
                     grA_xy(x,y) = grA;
                     grB_xy(x,y) = grB;
+                    zGrA_xy(x,y) = zGrA;
+                    zGrB_xy(x,y) = zGrB;
                     grBeta_xy(x,y)  = grBeta;
                     for (int s=1;s<=nSCs;s++){
                         mnGrZ_yxsz(y,x,s) = mnGrZ_cz(pc);
@@ -3996,45 +4009,57 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     if (debug>=dbgObjFun) cout<<"Started calcPenalties()"<<endl;
     if (debug<0) cout<<"list("<<endl;//start list of penalties by category
 
-    if (debug<0) cout<<tb<<"growth=list("<<endl;//start of growth penalties list
-    GrowthInfo* ptrGrI = ptrMPI->ptrGrw;
+    if (debug<0) cout<<tb<<"growth=list(negativeGrowth=list("<<endl;//start of growth penalties list
+    GrowthInfo* ptrGrw = ptrMPI->ptrGrw;
     dvariable grA; dvariable grB;
-    for (int pc=1;pc<=(ptrGrI->nPCs-1);pc++){
-        ivector pids = ptrGrI->getPCIDs(pc);
-        int k=ptrGrI->nIVs+1;//1st parameter column
-        grA = pLnGrA(pids[k]); k++; //"a" coefficient for mean growth
-        grB = pLnGrB(pids[k]); k++; //"b" coefficient for mean growth
-        
-        //add objective function penalty to keep mean size increments positive
-        dvariable penL, penU;
-        penL.initialize(); penU.initialize();
-        posfun2(grA+(grB-1.0)*log(zBs(1)),   1.0E-3,penL);
-        posfun2(grA+(grB-1.0)*log(zBs(nZBs)),1.0E-3,penU);
-        objFun += penL+penU;
+    for (int pc=1;pc<=(ptrGrw->nPCs-1);pc++){
+        ivector pids = ptrGrw->getPCIDs(pc);
+        int k=ptrGrw->nIVs+1;//1st parameter column
+        grA = pGrA(pids[k]); k++; //"a" coefficient for mean growth
+        grB = pGrB(pids[k]); k++; //"b" coefficient for mean growth
+                
+        //add objective function penalties to keep mean size increments positive
+        dvariable pen; pen.initialize();
+        dvar_vector dZ(1,nZBs);
+        if (ptrMOs->optGrowthParam==0){
+            dZ = mfexp(grA+grB*log(zBs)) - zBs;
+        } else if (ptrMOs->optGrowthParam==1){
+            dvector pXDs = ptrGrw->getPCXDs(pc);
+            double zGrA = pXDs[1];
+            double zGrB = pXDs[2];
+            dZ = grA*mfexp(log(grB/grA)/log(zGrB/zGrA)*log(zBs/zGrA)) - zBs;
+        }
+        posfun(dZ,1.0E-3,pen);
+        objFun += pen;
         if (debug<0) {
-            cout<<tb<<tb<<tb<<"penL"<<pc<<"=list(wgt="<<1.0<<cc<<"pen="<<penL<<cc<<"objfun="<<penL<<"),"<<endl;
-            cout<<tb<<tb<<tb<<"penU"<<pc<<"=list(wgt="<<1.0<<cc<<"pen="<<penU<<cc<<"objfun="<<penU<<"),"<<endl;
+            cout<<tb<<tb<<tb<<"'"<<pc<<"'=list(wgt="<<1.0<<cc<<"pen="<<pen<<cc<<"objfun="<<pen<<"),"<<endl;
         }
     }
     {
-        int pc = ptrGrI->nPCs;
-        ivector pids = ptrGrI->getPCIDs(pc);
-        int k=ptrGrI->nIVs+1;//1st parameter column
-        grA = pLnGrA(pids[k]); k++; //"a" coefficient for mean growth
-        grB = pLnGrB(pids[k]); k++; //"b" coefficient for mean growth
+        int pc = ptrGrw->nPCs;
+        ivector pids = ptrGrw->getPCIDs(pc);
+        int k=ptrGrw->nIVs+1;//1st parameter column
+        grA = pGrA(pids[k]); k++; //"a" coefficient for mean growth
+        grB = pGrB(pids[k]); k++; //"b" coefficient for mean growth
         
         //add objective function penalty to keep mean size increments positive
-        dvariable penL, penU;
-        penL.initialize(); penU.initialize();
-        posfun2(grA+(grB-1.0)*log(zBs(1)),   1.0E-3,penL);
-        posfun2(grA+(grB-1.0)*log(zBs(nZBs)),1.0E-3,penU);
-        objFun += penL+penU;
+        dvariable pen; pen.initialize();
+        dvar_vector dZ(1,nZBs);
+        if (ptrMOs->optGrowthParam==0){
+            dZ = mfexp(grA+grB*log(zBs)) - zBs;
+        } else if (ptrMOs->optGrowthParam==1){
+            dvector pXDs = ptrGrw->getPCXDs(pc);
+            double zGrA = pXDs[1];
+            double zGrB = pXDs[2];
+            dZ = grA*mfexp(log(grB/grA)/log(zGrB/zGrA)*log(zBs/zGrA)) - zBs;
+        }
+        posfun(dZ,1.0E-3,pen);
+        objFun += pen;
         if (debug<0) {
-            cout<<tb<<tb<<tb<<"penL"<<pc<<"=list(wgt="<<1.0<<cc<<"pen="<<penL<<cc<<"objfun="<<penL<<"),"<<endl;
-            cout<<tb<<tb<<tb<<"penU"<<pc<<"=list(wgt="<<1.0<<cc<<"pen="<<penU<<cc<<"objfun="<<penU<<")"<<endl;
+            cout<<tb<<tb<<tb<<"'"<<pc<<"'=list(wgt="<<1.0<<cc<<"pen="<<pen<<cc<<"objfun="<<pen<<")"<<endl;
         }
     }
-    if (debug<0) cout<<tb<<tb<<")"<<cc<<endl;//end of growth penalties list
+    if (debug<0) cout<<tb<<tb<<"))"<<cc<<endl;//end of growth penalties list
     if (debug<0) cout<<tb<<"maturity=list("<<endl;//start of maturity penalties list
     //smoothness penalties
     dvector penWgtSmthLgtPrMat = ptrMOs->wgtPenSmthPrM2M;
@@ -4361,8 +4386,8 @@ FUNCTION void calcNLLs_GrowthData(int debug, ostream& cout)
     if (debug<0) cout<<"list("<<endl;
     for (int i=0;i<ptrMDS->nGrw;i++){
         GrowthData* pGD = ptrMDS->ppGrw[i];
-        d3_array gd_xcn = ptrMDS->ppGrw[i]->inpData_xcn;
-        if (debug<0) cout<<"GrowthData."<<i+1<<"=list("<<endl;
+        d3_array gd_xcn = ptrMDS->ppGrw[i]->inpData_xcn; 
+        if (debug<0) cout<<ptrMDS->ppGrw[i]->name<<"=list("<<endl;
         for (int x=1;x<=nSXs;x++){
             int nObs = ptrMDS->ppGrw[i]->nObs_x(x);
             if (nObs>0) {
@@ -4376,7 +4401,22 @@ FUNCTION void calcNLLs_GrowthData(int debug, ostream& cout)
                 /* molt increment, by observation */
                 dvar_vector incZ_n = zpst_n - zpre_n;
                 /* mean post-molt size, by observation */
-                dvar_vector mnZ_n = elem_prod(mfexp(grA_xy(x)(year_n)),pow(zpre_n,grB_xy(x)(year_n)));
+                //dvar_vector mnZ_n = elem_prod(mfexp(grA_xy(x)(year_n)),pow(zpre_n,grB_xy(x)(year_n)));
+                dvar_vector mnZ_n(zpre_n.indexmin(),zpre_n.indexmax());
+                if (ptrMOs->optGrowthParam==0){
+                    mnZ_n = mfexp(grA_xy(x)(year_n)+elem_prod(grB_xy(x)(year_n),log(zpre_n)));
+                } else if (ptrMOs->optGrowthParam==1){
+                    mnZ_n  = elem_prod(
+                                 grA_xy(x)(year_n),
+                                 mfexp(
+                                     elem_prod(
+                                         elem_div(log(elem_div( grB_xy(x)(year_n), grA_xy(x)(year_n))),
+                                                  log(elem_div(zGrB_xy(x)(year_n),zGrA_xy(x)(year_n)))),
+                                         log(elem_div(zpre_n,zGrA_xy(x)(year_n)))
+                                     )
+                                 )
+                             );
+                }
                 /* multiplicative scale factor, by observation */
                 dvar_vector ibeta_n = 1.0/grBeta_xy(x)(year_n);
                 /* location factor, by observation */
@@ -4394,6 +4434,8 @@ FUNCTION void calcNLLs_GrowthData(int debug, ostream& cout)
                     os<<"years   = "<<year_n<<endl;
                     os<<"grA     = "<<grA_xy(x)(year_n)<<endl;
                     os<<"grB     = "<<grB_xy(x)(year_n)<<endl;
+                    os<<"zGrA    = "<<zGrA_xy(x)(year_n)<<endl;
+                    os<<"zGrB    = "<<zGrB_xy(x)(year_n)<<endl;
                     os<<"zpre_n  = "<<zpre_n<<endl;
                     os<<"zpst_n  = "<<zpst_n<<endl;
                     os<<"mnZ_n   = "<<mnZ_n<<endl;
@@ -5580,9 +5622,9 @@ FUNCTION void calcAllPriors(int debug, ostream& cout)
     
     //growth parameters
     if (debug<0) cout<<tb<<"growth=list("<<endl;
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrGrw->pLnGrA,   pLnGrA,   debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrGrw->pLnGrB,   pLnGrB,   debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrGrw->pLnGrBeta,pLnGrBeta,debug,cout); if (debug<0){cout<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrGrw->pGrA,   pGrA,   debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrGrw->pGrB,   pGrB,   debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrGrw->pGrBeta,pGrBeta,debug,cout); if (debug<0){cout<<endl;}
     if (debug<0) cout<<tb<<")"<<cc<<endl;
     
     //maturity parameters
@@ -5840,9 +5882,9 @@ FUNCTION void updateMPI(int debug, ostream& cout)
     ptrMPI->ptrNM->pDM4->setFinalVals(pDM4);
     
     //growth parameters
-    ptrMPI->ptrGrw->pLnGrA->setFinalVals(pLnGrA);
-    ptrMPI->ptrGrw->pLnGrB->setFinalVals(pLnGrB);
-    ptrMPI->ptrGrw->pLnGrBeta->setFinalVals(pLnGrBeta);
+    ptrMPI->ptrGrw->pGrA->setFinalVals(pGrA);
+    ptrMPI->ptrGrw->pGrB->setFinalVals(pGrB);
+    ptrMPI->ptrGrw->pGrBeta->setFinalVals(pGrBeta);
     
     //maturity parameters
     //cout<<"setting final vals for pLgtPrM2M"<<endl;
@@ -5977,9 +6019,9 @@ FUNCTION void writeParameters(ostream& os,int toR, int willBeActive)
     //growth parameters
     ctg1="population processes";
     ctg2="growth";
-    tcsam::writeParameters(os,pLnGrA,ctg1,ctg2,ptrMPI->ptrGrw->pLnGrA->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pLnGrB,ctg1,ctg2,ptrMPI->ptrGrw->pLnGrB->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pLnGrBeta,ctg1,ctg2,ptrMPI->ptrGrw->pLnGrBeta->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pGrA,ctg1,ctg2,ptrMPI->ptrGrw->pGrA->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pGrB,ctg1,ctg2,ptrMPI->ptrGrw->pGrB->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pGrBeta,ctg1,ctg2,ptrMPI->ptrGrw->pGrBeta->getLabels(),toR,willBeActive);      
     
     //maturity parameters
     ctg1="population processes";

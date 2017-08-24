@@ -64,6 +64,16 @@ class ParameterGroupInfo{
          ******************************************/
         imatrix getModelIndices(int pc);
         
+        /**
+         * Returns the values of the "extra variables" as doubles for
+         * the pc-th parameter combination 
+         * 
+         * @param pc
+         * 
+         * @return dvector
+         */
+        dvector getPCXDs(int pc);
+                
         virtual void read(cifstream & is);
         virtual void write(std::ostream & os);
         virtual void writeToR(std::ostream & os);
@@ -203,9 +213,9 @@ class GrowthInfo : public ParameterGroupInfo {
     protected:
         static adstring NAME;//"growth"
     public:
-        BoundedNumberVectorInfo* pLnGrA;
-        BoundedNumberVectorInfo* pLnGrB;
-        BoundedNumberVectorInfo* pLnGrBeta;
+        BoundedNumberVectorInfo* pGrA;
+        BoundedNumberVectorInfo* pGrB;
+        BoundedNumberVectorInfo* pGrBeta;
         
         GrowthInfo();
         ~GrowthInfo();
@@ -281,14 +291,6 @@ class SelectivityInfo : public ParameterGroupInfo {
         
         SelectivityInfo();
         ~SelectivityInfo();
-        
-        /**
-         * Returns the values of the "extra variables" as doubles for
-         * the pc-th parameter combination 
-         * @param pc
-         * @return 
-         */
-        dvector getPCXDs(int pc){return xd(pc);}
         
         void read(cifstream & is);
         void write(std::ostream & os);

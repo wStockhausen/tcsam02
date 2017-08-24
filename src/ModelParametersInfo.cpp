@@ -28,7 +28,7 @@ int SelectivityInfo::debug      = 0;
 int FisheriesInfo::debug        = 0;
 int SurveysInfo::debug          = 0;
 int ModelParametersInfo::debug  = 0;
-const adstring ModelParametersInfo::version = "2017.06.05";
+const adstring ModelParametersInfo::version = "2017.08.24";
     
 /*----------------------------------------------------------------------------*/
 /**
@@ -98,10 +98,11 @@ ParameterGroupInfo::~ParameterGroupInfo(){
         ppIdxs=0;
     }
 }
-/********************************************\n
- * Gets indices for parameter combination pc.\n
- * pc : id for desired parameter combination.\n
- *******************************************/
+/**
+ * Gets indices for parameter combination pc.
+ * @param pc - id for desired parameter combination
+ * @return 
+ */
 ivector ParameterGroupInfo::getPCIDs(int pc){
     if (debug) cout<<"starting ParameterGroupInfo::getPCIDs(int pc)"<<endl;
     if (debug) {
@@ -112,6 +113,23 @@ ivector ParameterGroupInfo::getPCIDs(int pc){
         if (debug<0) exit(1);
     }
     return in(pc);
+}
+
+/**
+ * Gets "extra" values for parameter combination pc.
+ * @param pc - id for desired parameter combination
+ * @return 
+ */
+dvector ParameterGroupInfo::getPCXDs(int pc){
+    if (debug) cout<<"starting ParameterGroupInfo::getPCXDs(int pc)"<<endl;
+    if (debug) {
+        cout<<"pcids for "<<pc<<"th parameter combination: "<<xd(pc)<<endl;
+        cout<<"finished ParameterGroupInfo::getPCXDs(int pc)"<<endl;
+        cout<<"Enter 1 to continue: ";
+        cin>>debug;
+        if (debug<0) exit(1);
+    }
+    return xd(pc);
 }
 
 /**
@@ -769,22 +787,25 @@ GrowthInfo::GrowthInfo(){
     nPVs=3;
     lblPVs.allocate(1,nPVs); dscPVs.allocate(1,nPVs);
     k=1;
-    lblPVs(k) = "pLnGrA";    dscPVs(k++) = "ln-scale mean growth coefficient 'a'";
-    lblPVs(k) = "pLnGrB";    dscPVs(k++) = "ln-scale mean growth coefficient 'b'";
-    lblPVs(k) = "pLnGrBeta"; dscPVs(k++) = "ln-scale growth transition matrix scale factor";
-    pLnGrA    = 0;
-    pLnGrB    = 0;
-    pLnGrBeta = 0;
+    lblPVs(k) = "pGrA";    dscPVs(k++) = "mean growth coefficient 'a'";
+    lblPVs(k) = "pGrB";    dscPVs(k++) = "mean growth coefficient 'b'";
+    lblPVs(k) = "pGrBeta"; dscPVs(k++) = "growth transition matrix scale factor";
+    pGrA    = 0;
+    pGrB    = 0;
+    pGrBeta = 0;
     
-    nXIs=0;
-//    lblXIs.allocate(1,nXIs);
+    //define "extra" indices
+    nXIs=2;
+    lblXIs.allocate(1,nXIs);
+    lblXIs(k=1) = "zScaleGrA"; //pre-molt size corresponding to pGrA in alt parameterization
+    lblXIs(k=2) = "zScaleGrB"; //pre-molt size corresponding to pGrA in alt parameterization
     
 }
 
 GrowthInfo::~GrowthInfo(){
-    if (pLnGrA)    delete pLnGrA;    pLnGrA    =0;
-    if (pLnGrB)    delete pLnGrB;    pLnGrB    =0;
-    if (pLnGrBeta) delete pLnGrBeta; pLnGrBeta =0;
+    if (pGrA)    delete pGrA;    pGrA    =0;
+    if (pGrB)    delete pGrB;    pGrB    =0;
+    if (pGrBeta) delete pGrBeta; pGrBeta =0;
 }
 
 void GrowthInfo::read(cifstream & is){
@@ -804,12 +825,12 @@ void GrowthInfo::read(cifstream & is){
     rpt::echo<<str<<tb<<"#Required keyword (PARAMETERS)"<<endl;
     if (str=="PARAMETERS"){
         int k=1;
-        pLnGrA     = ParameterGroupInfo::read(is,lblPVs(k),pLnGrA);    
-        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnGrA)<<endl;    k++;
-        pLnGrB     = ParameterGroupInfo::read(is,lblPVs(k),pLnGrB);    
-        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnGrB)<<endl;    k++;
-        pLnGrBeta  = ParameterGroupInfo::read(is,lblPVs(k),pLnGrBeta); 
-        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnGrBeta)<<endl; k++;
+        pGrA     = ParameterGroupInfo::read(is,lblPVs(k),pGrA);    
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pGrA)<<endl;    k++;
+        pGrB     = ParameterGroupInfo::read(is,lblPVs(k),pGrB);    
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pGrB)<<endl;    k++;
+        pGrBeta  = ParameterGroupInfo::read(is,lblPVs(k),pGrBeta); 
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pGrBeta)<<endl; k++;
      } else {
         cout<<"Error reading GrowthInfo from "<<is.get_file_name()<<endl;
         cout<<"Expected keyword 'PARAMETERS' but got '"<<str<<"'."<<endl;
@@ -834,20 +855,20 @@ void GrowthInfo::write(std::ostream & os){
     
     int k=1;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
-    os<<(*pLnGrA)<<endl;
+    os<<(*pGrA)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
-    os<<(*pLnGrB)<<endl;
+    os<<(*pGrB)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
-    os<<(*pLnGrBeta)<<endl;
+    os<<(*pGrBeta)<<endl;
  }
 
 void GrowthInfo::writeToR(std::ostream & os){
     int indent=0;
     os<<"grw=list("<<endl;
-        ParameterGroupInfo::writeToR(os);             os<<cc<<endl;
-        pLnGrA->writeToR(os,   "pLnGrA",   indent+1); os<<cc<<endl;
-        pLnGrB->writeToR(os,   "pLnGrB",   indent+1); os<<cc<<endl;
-        pLnGrBeta->writeToR(os,"pLnGrBeta",indent+1); os<<endl;
+        ParameterGroupInfo::writeToR(os);         os<<cc<<endl;
+        pGrA->writeToR(os,   "pGrA",   indent+1); os<<cc<<endl;
+        pGrB->writeToR(os,   "pGrB",   indent+1); os<<cc<<endl;
+        pGrBeta->writeToR(os,"pGrBeta",indent+1); os<<endl;
     os<<")";
 }
         
@@ -1110,12 +1131,12 @@ void SelectivityInfo::writeToR(std::ostream & os){
  * FisheriesInfo
  -----------------------------------------------------------------------------*/
 adstring FisheriesInfo::NAME = "fisheries";
-int FisheriesInfo::idxHM   = 5+1;//column in parameter combinations matrix with parameter index for column in parameter combinations matrix indicating handling mortality parameters
-int FisheriesInfo::idxLnC  = 5+2;//column in parameter combinations matrix with parameter index for ln-scale base mean capture rate (mature males)
-int FisheriesInfo::idxDC1  = 5+3;//column in parameter combinations matrix with parameter index for main year_block ln-scale offsets
-int FisheriesInfo::idxDC2  = 5+4;//column in parameter combinations matrix with parameter index for ln-scale female offsets
-int FisheriesInfo::idxDC3  = 5+5;//column in parameter combinations matrix with parameter index for ln-scale immature offsets
-int FisheriesInfo::idxDC4  = 5+6;//column in parameter combinations matrix with parameter index for ln-scale female-immature offsets 
+int FisheriesInfo::idxHM     = 5+1;//column in parameter combinations matrix with parameter index for column in parameter combinations matrix indicating handling mortality parameters
+int FisheriesInfo::idxLnC    = 5+2;//column in parameter combinations matrix with parameter index for ln-scale base mean capture rate (mature males)
+int FisheriesInfo::idxDC1    = 5+3;//column in parameter combinations matrix with parameter index for main year_block ln-scale offsets
+int FisheriesInfo::idxDC2    = 5+4;//column in parameter combinations matrix with parameter index for ln-scale female offsets
+int FisheriesInfo::idxDC3    = 5+5;//column in parameter combinations matrix with parameter index for ln-scale immature offsets
+int FisheriesInfo::idxDC4    = 5+6;//column in parameter combinations matrix with parameter index for ln-scale female-immature offsets 
 int FisheriesInfo::idxLnDevs = 5+7;//column in parameter combinations matrix with parameter index for annual ln-scale devs w/in year_blocks
 int FisheriesInfo::idxLnEffX = 5+8;//column in parameter combinations matrix with parameter index for ln-scale effort extrapolation 
 int FisheriesInfo::idxLgtRet = 5+9;//column in parameter combinations matrix with parameter index for logit-scale retained fraction (for old shell crab)

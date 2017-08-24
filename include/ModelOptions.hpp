@@ -169,10 +169,15 @@ class EffXtrapScenarios{
         /* integer indicating option for natural mortality parameterization */
         int optParamNM;
         
-        /* labels for growth options */
-        adstring_array optsGrowth;  
-        /* selected option for growth calculations */
-        int optGrowth;                 
+        /* labels for growth parameterization options */
+        adstring_array optsGrowthParam;  
+        /* selected option for growth parameterization */
+        int optGrowthParam;                 
+        
+        /* labels for growth pdf options */
+        adstring_array optsGrowthPDF;  
+        /* selected option for growth pdf */
+        int optGrowthPDF;                 
         
         /* labels for options for penalties on M2M parameters/ogives smoothness */
         adstring_array optsPenSmthPrM2M;

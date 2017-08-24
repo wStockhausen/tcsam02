@@ -246,7 +246,7 @@ void EffXtrapScenarios::writeToR(std::ostream& os){
 //          ModelOptions
 //--------------------------------------------------------------------------------
 int ModelOptions::debug = 0;
-const adstring ModelOptions::VERSION = "2017.04.02";
+const adstring ModelOptions::VERSION = "2017.08.24";
 
 ModelOptions::ModelOptions(ModelConfiguration& mc){
     ptrMC=&mc;
@@ -261,10 +261,15 @@ ModelOptions::ModelOptions(ModelConfiguration& mc){
     optsParamNM(0) = "use log-scale parameterization (default)";
     optsParamNM(1) = "use TCSAM2013 parameterization (arithmetic scale)"; 
     
-    //growth function options
-    optsGrowth.allocate(0,1);
-    optsGrowth(0) = "use gamma probability distribution (like TCSAM2013)"; 
-    optsGrowth(1) = "use cumulative gamma distribution (like Gmacs)";
+    //growth parameterization options
+    optsGrowthParam.allocate(0,1);
+    optsGrowthParam(0) = "TCSAM2013 parameterization (ln-scale intercept, slope)"; 
+    optsGrowthParam(1) = "parameterization based on min, max pre-molt sizes";
+    
+    //growth pdf options
+    optsGrowthPDF.allocate(0,1);
+    optsGrowthPDF(0) = "use gamma probability distribution (like TCSAM2013)"; 
+    optsGrowthPDF(1) = "use cumulative gamma distribution (like Gmacs)";
     
     //penalty options for prM2M parameters/ogives smoothness
     optsPenSmthPrM2M.allocate(0,1);
@@ -322,10 +327,15 @@ void ModelOptions::read(cifstream & is) {
     is>>optParamNM;
     cout<<optParamNM<<tb<<"#"<<optsParamNM(optParamNM)<<endl;
     
-    //growth options
-    cout<<"##Growth options:"<<endl;
-    is>>optGrowth;
-    cout<<optGrowth<<tb<<"#"<<optsGrowth(optGrowth)<<endl;
+    //growth parameterization options
+    cout<<"##Growth parameterization options:"<<endl;
+    is>>optGrowthParam;
+    cout<<optGrowthParam<<tb<<"#"<<optsGrowthParam(optGrowthParam)<<endl;
+    
+    //growth pdf options
+    cout<<"##Growth pdf options:"<<endl;
+    is>>optGrowthPDF;
+    cout<<optGrowthPDF<<tb<<"#"<<optsGrowthPDF(optGrowthPDF)<<endl;
     
     //terminal molt (prM2M) options
     cout<<"##Terminal molt (prM2M) options:"<<endl;
@@ -451,12 +461,19 @@ void ModelOptions::write(ostream & os) {
     }
     os<<optParamNM<<tb<<"#selected option"<<endl;
     
-    //growth options
-    os<<"#----Growth Function Options"<<endl;
-    for (int o=optsGrowth.indexmin();o<=optsGrowth.indexmax();o++) {
-        os<<"#"<<o<<" - "<<optsGrowth(o)<<endl;
+    //growth parameterization options
+    os<<"#----Growth parameterization options"<<endl;
+    for (int o=optsGrowthPDF.indexmin();o<=optsGrowthPDF.indexmax();o++) {
+        os<<"#"<<o<<" - "<<optsGrowthPDF(o)<<endl;
     }
-    os<<optGrowth<<tb<<"#selected option"<<endl;
+    os<<optGrowthPDF<<tb<<"#selected option"<<endl;
+
+    //growth pdf options
+    os<<"#----Growth pdf options"<<endl;
+    for (int o=optsGrowthPDF.indexmin();o<=optsGrowthPDF.indexmax();o++) {
+        os<<"#"<<o<<" - "<<optsGrowthPDF(o)<<endl;
+    }
+    os<<optGrowthPDF<<tb<<"#selected option"<<endl;
 
     //prM2M options
     //--smoothness likelihood options
@@ -543,7 +560,7 @@ void ModelOptions::writeToR(ostream& os, std::string nm, int indent) {
         os<<nm<<"=list("<<endl;
     indent++;
         for (int n=0;n<indent;n++) os<<tb;
-        os<<"initNatZ="<<optInitNatZ<<cc<<"natmort="<<optParamNM<<cc<<"growth="<<optGrowth<<cc<<endl;
+        os<<"initNatZ="<<optInitNatZ<<cc<<"natmort="<<optParamNM<<cc<<"growth="<<optGrowthPDF<<cc<<endl;
         os<<"prM2M=list(";
             os<<"wgtSmthLgtPrMat="; wts::writeToR(os,wgtPenSmthPrM2M); os<<cc<<endl;
             os<<"wgtNonDecLgtPrMat="; wts::writeToR(os,wgtPenNonDecPrM2M); os<<")"<<endl;
