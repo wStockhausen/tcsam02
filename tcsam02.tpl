@@ -300,6 +300,8 @@
 //              6. refactored getPCXDs(pc) from inheriting classes to base class ParameterGroupInfo
 //              7. updated calcNLLs_GrowthData to reflect to growth options
 //              8. Outputting name assigned to growth dataset as name of R list in model fits
+//--2017-08-25: 1. Corrected z-score calculation for growth data to use grBeta_xy, not grB_xy,
+//                   in variance calculation
 //
 // =============================================================================
 // =============================================================================
@@ -4444,14 +4446,14 @@ FUNCTION void calcNLLs_GrowthData(int debug, ostream& cout)
                     os<<"ibeta_n = "<<ibeta_n<<endl;
                     os<<"alpha_n = "<<alpha_n<<endl;
                     os<<"nlls_n  = "<<nlls_n<<endl;
-                    dvar_vector zscrs = elem_div((zpst_n-mnZ_n),sqrt(elem_prod(mnZ_n,grB_xy(x)(year_n))));
+                    dvar_vector zscrs = elem_div((zpst_n-mnZ_n),sqrt(elem_prod(mnZ_n,grBeta_xy(x)(year_n))));
                     os<<"zscrs   = "<<zscrs<<endl;
                     os.close();
                     exit(-1);
                 }
                 objFun += wgt*nll;
                 if (debug<0) {
-                    dvar_vector zscrs = elem_div((zpst_n-mnZ_n),sqrt(elem_prod(mnZ_n,grB_xy(x)(year_n))));
+                    dvar_vector zscrs = elem_div((zpst_n-mnZ_n),sqrt(elem_prod(mnZ_n,grBeta_xy(x)(year_n))));
                     cout<<tcsam::getSexType(x)<<"=list(type='normal',wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl;
                     cout<<"years="; wts::writeToR(cout,year_n);         cout<<cc<<endl;
                     cout<<"zPre=";  wts::writeToR(cout,value(zpre_n));  cout<<cc<<endl;
