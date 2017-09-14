@@ -302,6 +302,8 @@
 //              8. Outputting name assigned to growth dataset as name of R list in model fits
 //--2017-08-25: 1. Corrected z-score calculation for growth data to use grBeta_xy, not grB_xy,
 //                   in variance calculation
+//--2017-08-30: 1. Changed fishery averaging period for OFL calculations from 1 year to 5.
+//                  TODO: this should be an input in the Model Options file.
 //
 // =============================================================================
 // =============================================================================
@@ -2549,7 +2551,7 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
     if (debug) cout<<"calculated pPIM, pPIF."<<endl;
     
     //5. Determine fishery conditions for next year based on averages for recent years
-        int oflAvgPeriodYrs = 1;  //TODO: this should be an input
+        int oflAvgPeriodYrs = 5;  //TODO: this should be an input
         //assumption here is that ALL fisheries EXCEPT the first are bycatch fisheries
         //a. Calculate average handling mortality, retention curves and capture rates
         int ny;   //number of years fishery is active
