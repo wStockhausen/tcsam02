@@ -39,6 +39,13 @@ class PopDyInfo {
          */
         ~PopDyInfo(){}
         /**
+         * Assignment operator for PopDyInfo class.
+         * 
+         * @param o - object to copy.
+         * @return - reference to the copied object
+         */
+        PopDyInfo& operator=(const PopDyInfo& o);
+        /**
          * Calculate single-sex mature biomass, given population abundance.
          * 
          * @param n_msz - single-sex population abundance
@@ -96,6 +103,18 @@ class PopDyInfo {
          * @return final single-sex population abundance after applying recruitment
          */
         d3_array addRecruitment(double R, d3_array& n_msz, ostream& cout);
+        
+        /**
+         * Write important quantities to output stream as an R list.
+         * 
+         * @param os - the output stream
+         * @param ptrMC - pointer to the model configuration
+         * @param name  - name for list in R
+         * @param dbg - flag to print debugging info
+         * 
+         * @return void
+         */
+        void writeToR(ostream& os, ModelConfiguration* ptrMC, adstring name, int dbg);
 };//PopDyInfo
 
 /**
@@ -108,19 +127,32 @@ class CatchInfo {
         int nSCs;//number of shell conditions
         int nZBs;//number of size bins
         int nFsh;//number of fisheries
-        double dtF; //time at which fisheries occur (as fraction of year)
+        /** time at which fisheries occur (as fraction of year) */
+        double dtF; //
         
     public:
-        double   maxF;     //maximum capture rate in target fishery
-        d4_array capF_fmsz;//fishery capture rates
-        d4_array retF_fmsz;//retention function
-        dvector  hm_f;     //discard mortality rates
+        /** maximum capture rate in target fishery */
+        double   maxF;
+        /** size-specific fishery capture rates */
+        d4_array capF_fmsz;
+        /** fishery capture rates */
+        d3_array capF_fms;
+        /** selectivity functions */
+        d4_array selF_fmsz;
+        /** retention functions */
+        d4_array retF_fmsz;
+        /** discard mortality rates */
+        dvector  hm_f; 
         
     public:
-        d3_array cm_msz; //total catch mortality (abundance)
-        d4_array cp_fmsz; //total captured, by fishery (abundance)
-        d4_array rm_fmsz;//retained mortality, by fishery (abundance)
-        d4_array dm_fmsz;//discard mortality, by fishery (abundance)
+        /** total catch mortality (abundance) */
+        d3_array cm_msz; 
+        /** total captured, by fishery (abundance) */
+        d4_array cp_fmsz; //
+        /** retained mortality, by fishery (abundance) */
+        d4_array rm_fmsz;//
+        /** discard mortality, by fishery (abundance) */
+        d4_array dm_fmsz;//
         
     public:
         /**
@@ -135,6 +167,13 @@ class CatchInfo {
          * Class destructor.
          */
         ~CatchInfo(){}
+        /**
+         * Assignment operator for CatchInfo class.
+         * 
+         * @param o - object to copy.
+         * @return - reference to the copied object
+         */
+        CatchInfo& operator=(const CatchInfo& o);
         /**
          * Calculate maximum fishing capture rate for target fishery (f=1)
          * 
@@ -175,11 +214,23 @@ class CatchInfo {
          */
         d3_array calcSurvival(double dirF, ostream& cout);
         /**
-         * Set single-sex fishery capture rates.
+         * Set single-sex sie-specific fishery capture rates.
          * 
          * @param capFp_fmsz - input capture rates
          */
         void setCaptureRates(d4_array& capFp_fmsz);
+        /**
+         * Set single-sex fishery capture rates.
+         * 
+         * @param capFp_fms - input capture rates
+         */
+        void setCaptureRates(d3_array& capFp_fms);
+        /**
+         * Set single-sex selectivity functions.
+         * 
+         * @param selFp_fxmsz - input selectivity functions
+         */
+        void setSelectivityFcns(d4_array& selFp_fmsz);
         /**
          * Set single-sex retention functions.
          * 
@@ -192,6 +243,17 @@ class CatchInfo {
          * @param pHM_f - dvector of handling mortality rates
          */
         void setHandlingMortality(dvector& pHM_f);
+        /**
+         * Write important quantities to output stream as an R list.
+         * 
+         * @param os - the output stream
+         * @param ptrMC - pointer to the model configuration
+         * @param name  - name for list in R
+         * @param dbg - flag to print debugging info
+         * 
+         * @return void
+         */
+        void writeToR(ostream& os, ModelConfiguration* ptrMC, adstring name, int dbg);
 };//CatchInfo
 
 /**
@@ -604,22 +666,47 @@ class OFLResults {
     public:
         static int debug;//flag to print debugging info
     public:
-        dvector avgRec_x;//average recruitment, by sex
-        double B0;       //equilibrium MMB for unfished population
-        double Fmsy;     //equilibrium F on directed fishery for males resulting in MSY
-        double Bmsy;     //equilibrium MMB when fished at Fmsy 
-        double MSY;      //equilibrium yield (1000's t) when fished at Fmsy
-        double Fofl;     //F on directed fishery for males resulting in the OFL
-        double OFL;      //total OFL (1000's t)
-        dmatrix ofl_fx;  //fishery/sex-specific mortality components to OFL (f=0 is retained catch, f>0 is total catch mortality)
-        double prjB;     //projected MMB for projection year when current population is fished at Fofl.
-        double curB;     //"current" MMB at beginning of projection year
-        d4_array eqNatZF0_xmsz; //unfished equilibrium size distribution
-        d4_array eqNatZFM_xmsz; //fished equilibrium size distribution
+        /** average recruitment, by sex */
+        dvector avgRec_x;
+        /** equilibrium MMB for unfished population */
+        double B0;
+        /** equilibrium F on directed fishery for males resulting in MSY */
+        double Fmsy;
+        /** equilibrium MMB when fished at Fmsy */
+        double Bmsy;
+        /** equilibrium yield (1000's t) when fished at Fmsy */
+        double MSY;
+        /** F on directed fishery for males resulting in the OFL */
+        double Fofl;
+        /** total OFL (1000's t) */
+        double OFL;
+        /** fishery/sex-specific mortality components to OFL (f=0 is retained catch, f>0 is total catch mortality) */
+        dmatrix ofl_fx;
+        /** projected MMB for projection year when current population is fished at Fofl. */
+        double prjB;
+        /** "current" MMB at beginning of projection year */
+        double curB;
+        /** "final" size distribution from assessment model */
+        d4_array finlNatZ_xmsz; 
+        /** unfished equilibrium size distribution */
+        d4_array eqNatZF0_xmsz;
+        /** fished equilibrium size distribution */
+        d4_array eqNatZFM_xmsz;
+        /** pointer to PopDyInfo for males */
+        PopDyInfo* pPDIM;
+        /** pointer to PopDyInfo for females */
+        PopDyInfo* pPDIF;
+        /** pointer to CatchInfo for males */
+        CatchInfo* pCIM;
+        /** pointer to CatchInfo for females */
+        CatchInfo* pCIF;
+        
         
     public:
-        OFLResults(){}
-        ~OFLResults(){}
+        /** constructor */
+        OFLResults();
+        /** destructor */
+        ~OFLResults();
         
     public:
         /**
@@ -775,9 +862,9 @@ class OFL_Calculator{
          * @param n_xmsz - d4_array with initial population abundance
          * @param cout - output stream for debug info
          * 
-         * @return OFLResults object.
+         * @return pointer to OFLResults object.
          */
-        OFLResults calcOFLResults(dvector R, d4_array& n_xmsz, ostream& cout);
+        OFLResults* calcOFLResults(dvector R, d4_array& n_xmsz, ostream& cout);
 };//OFL_Calculator
 
 #endif	/* OFLCALCS_HPP */

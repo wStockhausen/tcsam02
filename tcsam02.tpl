@@ -304,6 +304,7 @@
 //                   in variance calculation
 //--2017-08-30: 1. Changed fishery averaging period for OFL calculations from 1 year to 5.
 //                  TODO: this should be an input in the Model Options file.
+//--2017-09-18: 1. Changes to OFL calculations to try to output quantities for old projection model.
 //
 // =============================================================================
 // =============================================================================
@@ -325,7 +326,7 @@ GLOBALS_SECTION
     ModelOptions*        ptrMOs;//ptr to model options object
     ModelDatasets*       ptrMDS;//ptr to model datasets object
     ModelDatasets*       ptrSimMDS;//ptr to simulated model datasets object
-    OFLResults           oflResults;//OFL results object for MCMC calculations
+    OFLResults*          ptrOFLResults;//ptr to OFL results object for MCMC calculations
         
     //dimensions for R output
     adstring yDms;
@@ -1485,9 +1486,9 @@ PRELIMINARY_CALCS_SECTION
             ofstream echoOFL; echoOFL.open("calcOFL.init.txt", ios::trunc);
             echoOFL.precision(12);
             echoOFL<<"----Testing calcOFL()"<<endl;
-            calcOFL(mxYr+1,debugOFL,echoOFL);//updates oflResults
-            oflResults.writeCSVHeader(echoOFL); echoOFL<<endl;
-            oflResults.writeToCSV(echoOFL);     echoOFL<<endl;
+            calcOFL(mxYr+1,debugOFL,echoOFL);//updates ptrOFLResults
+            ptrOFLResults->writeCSVHeader(echoOFL); echoOFL<<endl;
+            ptrOFLResults->writeToCSV(echoOFL);     echoOFL<<endl;
             echoOFL<<"----Finished testing calcOFL()!"<<endl;
             echoOFL.close();
             cout<<"Finished testing OFL calculations!"<<endl;
@@ -1958,7 +1959,7 @@ FUNCTION void writeMCMCtoR(ofstream& mcmc)
         if (doOFL){
             mcmc<<cc<<endl;
             calcOFL(mxYr+1,0,cout);//updates oflresults
-            oflResults.writeToR(mcmc,ptrMC,"oflResults",0);//mcm<<cc<<endl;
+            ptrOFLResults->writeToR(mcmc,ptrMC,"ptrOFLResults",0);//mcm<<cc<<endl;
         }
         
     mcmc<<")"<<cc<<endl;
@@ -2631,6 +2632,8 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
         
         CatchInfo* pCIM = new CatchInfo(nZBs,nFsh,dtF);//male catch info
         pCIM->setCaptureRates(avgCapF_xfmsz(MALE));
+        pCIM->setCaptureRates(avgCapF_xfms(MALE));
+        pCIM->setSelectivityFcns(avgRFcn_xfmsz(MALE));
         pCIM->setRetentionFcns(avgRFcn_xfmsz(MALE));
         pCIM->setHandlingMortality(avgHM_f);
         double maxCapF = pCIM->findMaxTargetCaptureRate(cout);
@@ -2638,6 +2641,8 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
         
         CatchInfo* pCIF = new CatchInfo(nZBs,nFsh,dtF);//female catch info
         pCIF->setCaptureRates(avgCapF_xfmsz(FEMALE));
+        pCIF->setCaptureRates(avgCapF_xfms(FEMALE));
+        pCIF->setSelectivityFcns(avgRFcn_xfmsz(FEMALE));
         pCIF->setRetentionFcns(avgRFcn_xfmsz(FEMALE));
         pCIF->setHandlingMortality(avgHM_f);
         pCIF->maxF = maxCapF;//need to set this for females
@@ -2669,14 +2674,14 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
 //                OFL_Calculator::debug=1;
 //                Tier3_Calculator::debug=1;
 //                Equilibrium_Calculator::debug=0;
-                cout<<"Calculating oflResults"<<endl;
+                cout<<"Calculating ptrOFLResults"<<endl;
             }
-            oflResults = pOC->calcOFLResults(avgRec_x,n_xmsz,cout);
+            ptrOFLResults = pOC->calcOFLResults(avgRec_x,n_xmsz,cout);
             if (debug) {
-                cout<<"calculated oflResults."<<endl;
-                oflResults.writeCSVHeader(cout); cout<<endl;
-                oflResults.writeToCSV(cout); cout<<endl;
-                oflResults.writeToR(cout,ptrMC,"oflResults",0);
+                cout<<"calculated ptrOFLResults->"<<endl;
+                ptrOFLResults->writeCSVHeader(cout); cout<<endl;
+                ptrOFLResults->writeToCSV(cout); cout<<endl;
+                ptrOFLResults->writeToR(cout,ptrMC,"oflResults",0); cout<<endl;
 //                OFL_Calculator::debug=0;
 //                Tier3_Calculator::debug=0;
 //                Equilibrium_Calculator::debug=0;
@@ -2689,18 +2694,18 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
         MultiYearPopProjector* pMYPPF = new MultiYearPopProjector(pPPF);
         pMYPPM->projectUnFished(n,avgRec_x(  MALE),n_xmsz(  MALE),cout);
         double myPP_B0 = pMYPPM->matBio_y(n);
-        pMYPPM->project(n,avgRec_x(  MALE),oflResults.Fmsy,n_xmsz(  MALE),cout);
-        pMYPPF->project(n,avgRec_x(FEMALE),oflResults.Fmsy,n_xmsz(FEMALE),cout);
+        pMYPPM->project(n,avgRec_x(  MALE),ptrOFLResults->Fmsy,n_xmsz(  MALE),cout);
+        pMYPPF->project(n,avgRec_x(FEMALE),ptrOFLResults->Fmsy,n_xmsz(FEMALE),cout);
         double myPP_Bmsy = pMYPPM->matBio_y(n);
         double myPP_prjB = pMYPPM->matBio_y(1);
         double myPP_MSY  = pMYPPM->totCM_y(n)+pMYPPF->totCM_y(n);
         double myPP_OFL  = pMYPPM->totCM_y(1)+pMYPPF->totCM_y(1);
         cout<<"#------------------------"<<endl;
-        cout<<"MYPP B0     = "<<myPP_B0  <<". B0     = "<<oflResults.B0  <<endl;
-        cout<<"MYPP Bmsy   = "<<myPP_Bmsy<<". Bmsy   = "<<oflResults.Bmsy<<endl;
-        cout<<"MYPP prjMMB = "<<myPP_prjB<<". prjMMB = "<<oflResults.prjB<<endl;
-        cout<<"MYPP MSY    = "<<myPP_MSY <<". MSY    = "<<oflResults.MSY <<endl;
-        cout<<"MYPP OFL    = "<<myPP_OFL <<". OFL    = "<<oflResults.OFL <<endl;
+        cout<<"MYPP B0     = "<<myPP_B0  <<". B0     = "<<ptrOFLResults->B0  <<endl;
+        cout<<"MYPP Bmsy   = "<<myPP_Bmsy<<". Bmsy   = "<<ptrOFLResults->Bmsy<<endl;
+        cout<<"MYPP prjMMB = "<<myPP_prjB<<". prjMMB = "<<ptrOFLResults->prjB<<endl;
+        cout<<"MYPP MSY    = "<<myPP_MSY <<". MSY    = "<<ptrOFLResults->MSY <<endl;
+        cout<<"MYPP OFL    = "<<myPP_OFL <<". OFL    = "<<ptrOFLResults->OFL <<endl;
         cout<<"#------------------------"<<endl;
         cout<<"finished calcOFL(yr,debug,cout)"<<endl<<endl<<endl;
     }
@@ -5983,13 +5988,13 @@ FUNCTION void ReportToR(ostream& os, double maxGrad, int debug, ostream& cout)
             cout<<"ReportToR: starting OFL calculations"<<endl;
             ofstream echoOFL; echoOFL.open("calcOFL.final.txt", ios::trunc);
             echoOFL.precision(12);
-            calcOFL(mxYr+1,1,echoOFL);//updates oflResults
-            oflResults.writeCSVHeader(echoOFL); echoOFL<<endl;
-            oflResults.writeToCSV(echoOFL);     echoOFL<<endl;
+            calcOFL(mxYr+1,1,echoOFL);//updates ptrOFLResults
+            ptrOFLResults->writeCSVHeader(echoOFL); echoOFL<<endl;
+            ptrOFLResults->writeToCSV(echoOFL);     echoOFL<<endl;
             echoOFL.close();
             os<<","<<endl;
-            oflResults.writeToR(os,ptrMC,"oflResults",0);
-            os<<"#end of oflResults"<<endl;
+            ptrOFLResults->writeToR(os,ptrMC,"ptrOFLResults",0);
+            os<<"#end of ptrOFLResults"<<endl;
             cout<<"ReportToR: finished OFL calculations"<<endl;
         }
 
@@ -6109,7 +6114,7 @@ REPORT_SECTION
             if (doOFL) fs<<cc<<"B0"<<cc<<"Bmsy"<<cc<<"Fmsy"<<cc<<"OFL"<<cc<<"curB";
             fs<<endl;
             fs<<iSeed<<cc<<value(objFun)<<cc<<maxGrad<<cc<<spB_yx(mxYr,MALE);
-            if (doOFL) fs<<cc<<oflResults.B0<<cc<<oflResults.Bmsy<<cc<<oflResults.Fmsy<<cc<<oflResults.OFL<<cc<<oflResults.curB;
+            if (doOFL) fs<<cc<<ptrOFLResults->B0<<cc<<ptrOFLResults->Bmsy<<cc<<ptrOFLResults->Fmsy<<cc<<ptrOFLResults->OFL<<cc<<ptrOFLResults->curB;
             fs<<endl;
             fs.close();
         }

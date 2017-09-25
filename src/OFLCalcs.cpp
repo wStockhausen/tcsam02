@@ -32,6 +32,28 @@ PopDyInfo::PopDyInfo(int npZBs, double dtMp){
     T_szz.allocate(1,nSCs,1,nZBs,1,nZBs);
 }
 
+PopDyInfo& PopDyInfo::operator=(const PopDyInfo& o) {
+    dtM = o.dtM;
+    nZBs = o.nZBs;
+    
+    nMSs = tcsam::nMSs;
+    nSCs = tcsam::nSCs;
+    
+    R_z.allocate(1,nZBs);
+    w_mz.allocate(1,nMSs,1,nZBs);
+    Th_sz.allocate(1,nSCs,1,nZBs);
+    M_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
+    T_szz.allocate(1,nSCs,1,nZBs,1,nZBs);
+    
+    R_z = o.R_z;
+    w_mz = o.w_mz;
+    Th_sz = o.Th_sz;
+    M_msz = o.M_msz;
+    T_szz = o.T_szz;
+    
+    return *this;
+}
+
 /**
  * Calculate single-sex mature biomass, given population abundance.
  * 
@@ -142,6 +164,33 @@ d3_array PopDyInfo::addRecruitment(double R, d3_array& n_msz, ostream& cout){
     if (debug) cout<<"finished PopDyInfo::addRecruitment(R, n_msz)"<<endl;
     return np_msz;
 }
+
+/**
+ * Write important quantities to output stream as an R list.
+ * 
+ * @param os - the output stream
+ * @param ptrMC - pointer to the model configuration
+ * @param name  - name for list in R
+ * @param debug - flag to print debugging info
+ * 
+ * @return void
+ */
+void PopDyInfo::writeToR(ostream& os, ModelConfiguration* ptrMC, adstring name, int dbg){
+    if (dbg) std::cout<<"Starting PopDyInfo::writeToR()"<<endl;
+    adstring mDms  = ptrMC->dimMSsToR;//maturity
+    adstring sDms  = ptrMC->dimSCsToR;//shell condition
+    adstring zDms  = ptrMC->dimZBsToR;//size bin midpoints
+    adstring zpDms = ptrMC->dimZPsToR;//size bin midpoints
+    os<<name<<"=list(dtM="<<dtM<<cc;
+    os<<"R_z="; wts::writeToR(os,R_z,zDms);                os<<cc<<endl;
+    os<<"w_mz="; wts::writeToR(os,w_mz,mDms,zDms);         os<<cc<<endl;
+    os<<"M_msz="; wts::writeToR(os,M_msz,mDms,sDms,zDms);  os<<cc<<endl;
+    os<<"Th_sz="; wts::writeToR(os,Th_sz,sDms,zDms);       os<<cc<<endl;
+    os<<"T_szz="; wts::writeToR(os,T_szz,sDms,zDms,zpDms); os<<endl;
+    os<<")";
+    if (dbg) std::cout<<"Finished PopDyInfo::writeToR()"<<endl;
+}
+        
 ////////////////////////////////////////////////////////////////////////////////
 //CatchInfo
 ////////////////////////////////////////////////////////////////////////////////
@@ -167,6 +216,29 @@ CatchInfo::CatchInfo(int npZBs, int npFsh, double dtFp){
     cp_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
     rm_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
     dm_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
+}
+
+CatchInfo& CatchInfo::operator =(const CatchInfo& o){
+    dtF  = o.dtF;
+    nZBs = o.nZBs;
+    nFsh = o.nFsh;
+    
+    nMSs = tcsam::nMSs;
+    nSCs = tcsam::nSCs;
+    
+    maxF = o.maxF;//default scale
+    
+    cm_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
+    cp_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
+    rm_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
+    dm_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
+    
+    cm_msz  = o.cm_msz;
+    cp_fmsz = o.cp_fmsz;
+    rm_fmsz = o.rm_fmsz;
+    dm_fmsz = o.dm_fmsz;
+    
+    return *this;
 }
 
 /**
@@ -269,14 +341,35 @@ d3_array CatchInfo::calcSurvival(double dirF, ostream& cout){
     }//s
     return S_msz;
 }
+
 /**
- * Set single-sex fishery capture rates.
+ * Set single-sex size-specific fishery capture rates.
  * 
  * @param capF_fmsz - input capture rates
  */
 void CatchInfo::setCaptureRates(d4_array& capFp_fmsz){
     capF_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
     capF_fmsz = capFp_fmsz;
+}
+
+/**
+ * Set single-sex fishery capture rates.
+ * 
+ * @param capF_fmsz - input capture rates
+ */
+void CatchInfo::setCaptureRates(d3_array& capFp_fms){
+    capF_fms.allocate(1,nFsh,1,nMSs,1,nSCs);
+    capF_fms = capFp_fms;
+}
+
+/**
+ * Set single-sex selectivity functions.
+ * 
+ * @param retF_fmsz - input selectivity functions
+ */
+void CatchInfo::setSelectivityFcns(d4_array& selFp_fmsz){
+    selF_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
+    selF_fmsz = selFp_fmsz;
 }
 
 /**
@@ -299,6 +392,33 @@ void CatchInfo::setHandlingMortality(dvector& pHM_f){
     hm_f = pHM_f;
 }
 
+/**
+ * Write important quantities to output stream as an R list.
+ * 
+ * @param os - the output stream
+ * @param ptrMC - pointer to the model configuration
+ * @param name  - name for list in R
+ * @param debug - flag to print debugging info
+ * 
+ * @return void
+ */
+void CatchInfo::writeToR(ostream& os, ModelConfiguration* ptrMC, adstring name, int debug){
+    if (debug) std::cout<<"Starting CatchInfo::writeToR()"<<endl;
+    adstring xDms = ptrMC->dimSXsToR;//sex
+    adstring mDms = ptrMC->dimMSsToR;//maturity
+    adstring sDms = ptrMC->dimSCsToR;//shell condition
+    adstring zDms = ptrMC->dimZBsToR;//size bin midpoints
+    adstring fDms = ptrMC->dimFshToR;//fisheries
+    os<<name<<"=list(dtF="<<dtF<<cc;
+    os<<"hm_f="; wts::writeToR(os,hm_f,fDms); os<<cc<<endl;
+    os<<"capF_fms="; wts::writeToR(os,capF_fms,fDms,mDms,sDms); os<<cc<<endl;
+    os<<"capF_fmsz="; wts::writeToR(os,capF_fmsz,fDms,mDms,sDms,zDms); os<<cc<<endl;
+    os<<"selF_fmsz="; wts::writeToR(os,selF_fmsz,fDms,mDms,sDms,zDms); os<<cc<<endl;
+    os<<"retF_fmsz="; wts::writeToR(os,retF_fmsz,fDms,mDms,sDms,zDms); os<<endl;
+    os<<")";
+    if (debug) std::cout<<"Finished CatchInfo::writeToR()"<<endl;
+}
+        
 ////////////////////////////////////////////////////////////////////////////////
 //PopProjector
 ////////////////////////////////////////////////////////////////////////////////
@@ -1192,18 +1312,29 @@ double OFL_Calculator::calcPrjMMB(double Fofl, d3_array& n_msz, ostream& cout){
  * @param n_xmsz - d4_array with initial population abundance
  * @param cout - output stream for debug info
  * 
- * @return OFLResults object.
+ * @return pointer to OFLResults object.
  */
-OFLResults OFL_Calculator::calcOFLResults(dvector R, d4_array& n_xmsz, ostream& cout){
+OFLResults* OFL_Calculator::calcOFLResults(dvector R, d4_array& n_xmsz, ostream& cout){
     if (debug) cout<<"starting OFLResults OFL_Calculator::calcOFLResults(R,n_xmsz,cout)"<<endl;
     int nFsh = pTCM->pEC->pPP->pCI->nFsh;
-    OFLResults res;
+    OFLResults* res = new OFLResults();
     
-    res.avgRec_x = R;
-    res.curB     = pTCM->pEC->pPP->pPI->calcMatureBiomass(n_xmsz(MALE),cout);
+    res->avgRec_x = R;
+    res->finlNatZ_xmsz.allocate(1,tcsam::nSXs,
+                               1,tcsam::nMSs,
+                               1,tcsam::nSCs,
+                               1,pTCM->pEC->pPP->nZBs);
+    res->finlNatZ_xmsz = n_xmsz;
+    res->pPDIM = pTCM->pEC->pPP->pPI;
+    res->pCIM  = pTCM->pEC->pPP->pCI;
+    if (tcsam::nSXs>1){
+        res->pPDIF = pTCF->pEC->pPP->pPI;
+        res->pCIF  = pTCF->pEC->pPP->pCI;
+    }
+    res->curB     = pTCM->pEC->pPP->pPI->calcMatureBiomass(n_xmsz(MALE),cout);
     if (debug) cout<<"calcOFLResults: calculated curB"<<endl;
-    
-    res.eqNatZF0_xmsz.allocate(1,tcsam::nSXs,
+        
+    res->eqNatZF0_xmsz.allocate(1,tcsam::nSXs,
                                1,tcsam::nMSs,
                                1,tcsam::nSCs,
                                1,pTCM->pEC->pPP->nZBs);
@@ -1211,50 +1342,66 @@ OFLResults OFL_Calculator::calcOFLResults(dvector R, d4_array& n_xmsz, ostream& 
         cout<<"calcOFLResults: allocated eq NatZ for F=0"<<endl;
         Equilibrium_Calculator::debug=1;
     }
-    res.eqNatZF0_xmsz(MALE) = pTCM->pEC->calcEqNatZF0(R(MALE),cout);
+    res->eqNatZF0_xmsz(MALE) = pTCM->pEC->calcEqNatZF0(R(MALE),cout);
     if (debug) cout<<"calcOFLResults: calculated eq NatZ(MALE) for F=0"<<endl;
     if (tcsam::nSXs>1) {
-        res.eqNatZF0_xmsz(FEMALE) = pTCF->pEC->calcEqNatZF0(R(FEMALE),cout);
+        res->eqNatZF0_xmsz(FEMALE) = pTCF->pEC->calcEqNatZF0(R(FEMALE),cout);
         if (debug) cout<<"calcOFLResults: calculated eq NatZ(FEMALE) for F=0"<<endl;
     }
     if (debug) Equilibrium_Calculator::debug=0;
             
-    res.Fmsy = pTCM->calcFmsy(R(MALE),cout);//also calculates B0 and Bmsy
-    res.B0   = pTCM->B0;
-    res.Bmsy = pTCM->Bmsy;
-    res.MSY  = calcMSY(R,res.Fmsy,cout);
+    res->Fmsy = pTCM->calcFmsy(R(MALE),cout);//also calculates B0 and Bmsy
+    res->B0   = pTCM->B0;
+    res->Bmsy = pTCM->Bmsy;
+    res->MSY  = calcMSY(R,res->Fmsy,cout);
     if (debug) cout<<"calcOFLResults: calculated MSY"<<endl;
     
-    res.eqNatZFM_xmsz.allocate(1,tcsam::nSXs,
-                               1,tcsam::nMSs,
-                               1,tcsam::nSCs,
-                               1,pTCM->pEC->pPP->nZBs);
+    res->eqNatZFM_xmsz.allocate(1,tcsam::nSXs,
+                                1,tcsam::nMSs,
+                                1,tcsam::nSCs,
+                                1,pTCM->pEC->pPP->nZBs);
     if (debug) {
         cout<<"calcOFLResults: allocated eq NatZ for F=Fmsy"<<endl;
         Equilibrium_Calculator::debug=1;
     }
-    res.eqNatZFM_xmsz(MALE) = pTCM->pEC->calcEqNatZFM(R(MALE),res.Fmsy,cout);
+    res->eqNatZFM_xmsz(MALE) = pTCM->pEC->calcEqNatZFM(R(MALE),res->Fmsy,cout);
     if (debug) cout<<"calcOFLResults: calculated eq NatZ(MALE) for F=Fmsy"<<endl;
     if (tcsam::nSXs>1) {
-        res.eqNatZFM_xmsz(FEMALE) = pTCF->pEC->calcEqNatZFM(R(FEMALE),res.Fmsy,cout);
+        res->eqNatZFM_xmsz(FEMALE) = pTCF->pEC->calcEqNatZFM(R(FEMALE),res->Fmsy,cout);
         if (debug) cout<<"calcOFLResults: calculated eq NatZ(FEMALE) for F=Fmsy"<<endl;
     }
     if (debug) Equilibrium_Calculator::debug=0;
             
-    res.Fofl = calcFofl(res.Bmsy,res.Fmsy,n_xmsz(MALE),cout);
-    res.prjB = prjMMB;
-    res.OFL  = calcOFL(res.Fofl,n_xmsz,cout);
+    res->Fofl = calcFofl(res->Bmsy,res->Fmsy,n_xmsz(MALE),cout);
+    res->prjB = prjMMB;
+    res->OFL  = calcOFL(res->Fofl,n_xmsz,cout);
     if (debug) cout<<"calcOFLResults: calculated OFL"<<endl;
     
-    res.ofl_fx.allocate(0,nFsh,1,tcsam::nSXs);
-    res.ofl_fx = ofl_fx;
-    if (debug) cout<<"finished OFLResults OFL_Calculator::calcOFLResults(R,n_xmsz,cout)"<<endl;
+    res->ofl_fx.allocate(0,nFsh,1,tcsam::nSXs);
+    res->ofl_fx = ofl_fx;
+    if (debug) cout<<"finished OFLResults* OFL_Calculator::calcOFLResults(R,n_xmsz,cout)"<<endl;
     return res;
 }
 ////////////////////////////////////////////////////////////////////////////////
 //OFLResults
 ////////////////////////////////////////////////////////////////////////////////
 int OFLResults::debug = 0;
+OFLResults::OFLResults(){
+    pPDIM=0;
+    pPDIF=0;
+    pCIM=0;
+    pCIF=0;
+}
+
+OFLResults::~OFLResults(){
+    std::cout<<"Deleting OFLResults object."<<endl;
+    if (pPDIM) delete(pPDIM); pPDIM=0;
+    if (pPDIF) delete(pPDIF); pPDIF=0;
+    if (pCIM) delete(pCIM);  pCIM=0;
+    if (pCIF) delete(pCIF);  pCIF=0;
+    std::cout<<"Deleted OFLResults object."<<endl;
+}
+
 /**
  * Assignment operator for OFLResults class.
  * 
@@ -1273,6 +1420,9 @@ OFLResults& OFLResults::operator=(const OFLResults& o){
     ofl_fx   = o.ofl_fx;  //fishery/sex-specific mortality components to OFL (f=0 is retained catch, f>0 is total catch mortality)
     prjB     = o.prjB;    //projected MMB for projection year when current population is fished at Fofl.
     curB     = o.curB;    //"current" MMB at beginning of projection year
+    finlNatZ_xmsz.deallocate(); //final pop state in assessment model
+    finlNatZ_xmsz.allocate(o.finlNatZ_xmsz);
+    if (debug) std::cout<<"got here 0"<<endl;
     eqNatZF0_xmsz.deallocate(); //unfished equilibrium size distribution
     eqNatZF0_xmsz.allocate(o.eqNatZF0_xmsz);
     if (debug) std::cout<<"got here 1"<<endl;
@@ -1281,6 +1431,12 @@ OFLResults& OFLResults::operator=(const OFLResults& o){
     eqNatZFM_xmsz.allocate(o.eqNatZF0_xmsz);
     if (debug) std::cout<<"got here 2"<<endl;
     eqNatZFM_xmsz = o.eqNatZF0_xmsz;
+    
+    pPDIM = o.pPDIM;
+    pPDIF = o.pPDIF;
+    pCIM  = o.pCIM;
+    pCIF  = o.pCIF;
+    
     if (debug) std::cout<<"finished OFLResults::operator=(const OFLResults&)"<<endl;
     return *this;
 }
@@ -1323,7 +1479,13 @@ void OFLResults::writeToR(ostream& os, ModelConfiguration* ptrMC, adstring name,
     os<<cc<<"Fmsy="<<Fmsy<<cc<<"Bmsy="<<Bmsy<<cc<<"MSY="<<MSY;
     os<<cc<<"B100="<<B0<<cc<<"avgRecM="<<avgRec_x(MALE);
     if (tcsam::nSXs>1) os<<cc<<"avgRecF="<<avgRec_x(FEMALE);
-    os<<cc<<"eqNatZF0_xmsz="; wts::writeToR(os,eqNatZF0_xmsz,xDms,mDms,sDms,zDms); 
-    os<<cc<<"eqNatZFM_xmsz="; wts::writeToR(os,eqNatZFM_xmsz,xDms,mDms,sDms,zDms); 
+    os<<cc<<endl;
+    os<<"finlNatZ_xmsz="; wts::writeToR(os,finlNatZ_xmsz,xDms,mDms,sDms,zDms); os<<cc<<endl;
+    pPDIM->writeToR(os,ptrMC,"popDyInfoM",0); os<<cc<<endl;
+    if (tcsam::nSXs>1) {pPDIF->writeToR(os,ptrMC,"popDyInfoF",0); os<<cc<<endl;}
+    pCIM->writeToR(os,ptrMC,"catchInfoM",0); os<<cc<<endl;
+    if (tcsam::nSXs>1) {pCIF->writeToR(os,ptrMC,"catchInfoF",0); os<<cc<<endl;}
+    os<<"eqNatZF0_xmsz="; wts::writeToR(os,eqNatZF0_xmsz,xDms,mDms,sDms,zDms); os<<cc<<endl; 
+    os<<"eqNatZFM_xmsz="; wts::writeToR(os,eqNatZFM_xmsz,xDms,mDms,sDms,zDms); os<<endl;
     os<<")";
 }
