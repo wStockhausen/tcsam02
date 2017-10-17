@@ -277,7 +277,7 @@
 //--2017-06-12: 1. revised calcOFL to avoid division by 0 when fisheries
 //                  are not conducted within the averaging periods for
 //                  handling mortality, fishery capture rates, selectivity and retention curves
-//--2017-06-19: 1. added commandline variable "effWgtsPhase" to set min phase to calculate 
+//--2017-06-19: 1. added commandline variable "phsItsRewgt" to set min phase to calculate 
 //                  effective weights for size compositions
 //              2. added Mc-I harmonic mean and Francis weights calculations based
 //                  on Punt, 2017
@@ -305,7 +305,9 @@
 //--2017-08-30: 1. Changed fishery averaging period for OFL calculations from 1 year to 5.
 //                  TODO: this should be an input in the Model Options file.
 //--2017-09-18: 1. Changes to OFL calculations to try to output quantities for old projection model.
-//
+//--2017-10-03: 1. Modifying code to incorporate iterative re-weighting of size comps
+//                  by McAllister-Ianelli or Francis methods
+//--2017-10-15: 1. Finished modifying code to incorporate iterative re-weighting.
 // =============================================================================
 // =============================================================================
 GLOBALS_SECTION
@@ -386,7 +388,9 @@ GLOBALS_SECTION
     
     int debugMCMC = 0;
     
-    int effWgtsPhase = 1000;//min phase to calculate effective weights for size comps
+    int phsItsRewgt  = 1000;//min phase to calculate effective weights for size comps
+    int maxItsRewgt = 0;   //maximum number of terations for re-weighting
+    int numItsRewgt = 0;   //number of re-weighting iterations completed
     
     //note: consider using std::bitset to implement debug functionality
     int dbgCalcProcs = 10;
@@ -655,16 +659,6 @@ DATA_SECTION
         rpt::echo<<"#-------------------------------------------"<<endl;
         flg = 1;
     }
-    //min phase in which to calculate effective weights for size compositions
-    effWgtsPhase = 1000;
-    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-effWgtsPhase"))>-1) {
-        if (on+1<argc) {
-            effWgtsPhase=atoi(ad_comm::argv[on+1]);
-        }
-        rpt::echo<<effWgtsPhase<<tb<<"#effWgtsPhase"<<endl;
-        rpt::echo<<"#-------------------------------------------"<<endl;
-        flg = 1;
-    }
  END_CALCS
  
     int nZBs;  //number of model size bins
@@ -807,6 +801,25 @@ DATA_SECTION
         cin>>debugDATA_SECTION;
         if (debugDATA_SECTION<0) exit(1);
     }
+    //check commandline options for iterative reweighting overrides
+    //min phase in which to calculate effective weights for size compositions
+    phsItsRewgt = ptrMOs->phsIterativeReweighting;
+    maxItsRewgt  = ptrMOs->maxIterations;
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-phsIterativeReweighing"))>-1) {
+        if (on+1<argc) {
+            phsItsRewgt=atoi(ad_comm::argv[on+1]);
+        }
+        flg = 1;
+    }
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-maxIterationsReweighting"))>-1) {
+        if (on+1<argc) {
+            phsItsRewgt=atoi(ad_comm::argv[on+1]);
+        }
+        flg = 1;
+    }
+    rpt::echo<<phsItsRewgt<<tb<<"#phsIterativeReweighing"<<endl;
+    rpt::echo<<maxItsRewgt<<tb<<"#maxIterationsReweighting"<<endl;
+    rpt::echo<<"#-------------------------------------------"<<endl;
  END_CALCS
         
     //Match up model fisheries with fisheries data
@@ -6124,25 +6137,82 @@ REPORT_SECTION
 // =============================================================================
 BETWEEN_PHASES_SECTION
     rpt::echo<<endl<<endl<<"#---------------------"<<endl;
+    rpt::echo<<"BETWEEN_PHASES_SECTION---------------------"<<endl;
     rpt::echo<<"--Starting phase "<<current_phase()<<" of "<<initial_params::max_number_phases<<endl;
     ctrProcCallsInPhase=0;//reset in-phase counter
     for (int n=1;n<=npLnEffX;n++){
         rpt::echo<<"----is pLnEffX["<<n<<"] active? "<<active(pLnEffX[n])<<endl;
     }
-    if ((current_phase()>=effWgtsPhase)||last_phase()){
+    if ((current_phase()>=phsItsRewgt)){
         rpt::echo<<"--Calculating effective weights for size compositions"<<endl;
-        calcWeightsForSurveySizeComps(0,rpt::echo);
-        calcWeightsForFisherySizeComps(0,rpt::echo);
+        calcWeightsForSurveySizeComps(1,rpt::echo);
+        calcWeightsForFisherySizeComps(1,rpt::echo);
+        if ((ptrMOs->optIterativeReweighting)&&(numItsRewgt<maxItsRewgt)){
+            rpt::echo<<"--Re-weighting size compositions"<<endl;
+            reWeightSurveySizeComps(1,rpt::echo);
+            reWeightFisherySizeComps(1,rpt::echo);
+            numItsRewgt++;
+        }
     }
     
     
     rpt::echo<<endl<<endl<<"#---------------------"<<endl;
 
+//----------------------------------------------------------------------
+//re-weight survey size comps
+FUNCTION void reWeightSurveySizeComps(int debug,ostream& cout)
+    if (debug) cout<<"Starting reWeightSurveySizeComps()"<<endl;
+    if (ptrMOs->optIterativeReweighting){
+        for (int v=1;v<=nSrv;v++){
+            cout<<"--reweighting size comps for survey "<<ptrMC->lblsSrv[v]<<endl;
+            int vd = mapM2DSrv(v);//get index for survey data corresponding to model survey v
+            FleetData* ptrObs = ptrMDS->ppSrv[vd-1];
+            if (ptrObs->hasICD){//index catch data
+                 if (ptrObs->ptrICD->hasZFD && ptrObs->ptrICD->ptrZFD->optFit){
+                    if (debug) cout<<"---index catch size frequencies"<<endl;
+                    ptrObs->ptrICD->ptrZFD->applyReWeightingFactors();
+                }
+            }
+        }//surveys loop
+    }
+    if (debug) cout<<"Finished reWeightSurveySizeComps()"<<endl;
+
+//----------------------------------------------------------------------
+//re-weight fishery size comps
+FUNCTION void reWeightFisherySizeComps(int debug,ostream& cout)
+    if (debug) cout<<"Starting reWeightsForFisherySizeComps()"<<endl;
+    if (ptrMOs->optIterativeReweighting){
+        for (int f=1;f<=nFsh;f++){
+            cout<<"--reweighting size comps for fishery "<<ptrMC->lblsFsh[f]<<endl;
+            int fd = mapM2DFsh(f);//get index for fishery data corresponding to model fishery f
+            FleetData* ptrObs = ptrMDS->ppFsh[fd-1];
+            if (ptrObs->hasRCD){//retained catch data
+                if (ptrObs->ptrRCD->hasZFD && ptrObs->ptrRCD->ptrZFD->optFit){
+                    if (debug) cout<<"---retained catch size frequencies"<<endl;
+                    ptrObs->ptrRCD->ptrZFD->applyReWeightingFactors();
+                }
+            }
+            if (ptrObs->hasTCD){//observed total catch data
+                 if (ptrObs->ptrTCD->hasZFD && ptrObs->ptrTCD->ptrZFD->optFit){
+                    if (debug) cout<<"---total catch size frequencies"<<endl;
+                    ptrObs->ptrTCD->ptrZFD->applyReWeightingFactors();
+                }
+            }
+            if (ptrObs->hasDCD){//observed discard catch data
+                if (ptrObs->ptrDCD->hasZFD && ptrObs->ptrDCD->ptrZFD->optFit){
+                    if (debug) cout<<"---discard catch size frequencies"<<endl;
+                    ptrObs->ptrDCD->ptrZFD->applyReWeightingFactors();
+                }
+            }
+        }//fisheries
+    }
+    if (debug) cout<<"Finished reWeightFisherySizeComps()"<<endl;
+
 //-------------------------------------------------------------------------------------
-//Calculate effective weights for fishery size comps
+//Calculate iterative effective weights for fishery size comps
 FUNCTION void calcWeightsForFisherySizeComps(int debug, ostream& cout)
-//    if (debug>0) debug = dbgAll+10;
     if (debug>=dbgAll) cout<<"Starting calcWeightsForFisherySizeComps()"<<endl;
+    int opt = ptrMOs->optIterativeReweighting;
     if (debug<0) cout<<"list("<<endl;
     for (int f=1;f<=nFsh;f++){
         cout<<"--calculating effective weights for fishery "<<ptrMC->lblsFsh[f]<<endl;
@@ -6158,8 +6228,8 @@ FUNCTION void calcWeightsForFisherySizeComps(int debug, ostream& cout)
                 d5_array effWgtComps_xmsyn = calcNLLs_CatchNatZ(ptrObs->ptrRCD->ptrZFD,rmN_fyxmsz(f),debug,cout);
                 if (effWgtComps_xmsyn.size()>0){
                     cout<<"Retained catch size comps weights using "<<tcsam::getFitType(ptrObs->ptrRCD->ptrZFD->optFit)<<endl;
-//                    wts::print(effWgtComps_xmsyn, cout, 1);
-                    d4_array effWgts_xmsn = calcEffWgts(effWgtComps_xmsyn,debug,cout);
+                    d4_array effWgts_nxms = calcEffWgts(effWgtComps_xmsyn,debug,cout);
+                    if (opt) ptrObs->ptrRCD->ptrZFD->calcReWeightingFactors(effWgts_nxms(opt),debug,cout);
                 }//if
                 if (debug<0) cout<<","<<endl;
             }
@@ -6175,7 +6245,8 @@ FUNCTION void calcWeightsForFisherySizeComps(int debug, ostream& cout)
                 if (effWgtComps_xmsyn.size()>0){
                     cout<<"Total catch size comps weights using "<<tcsam::getFitType(ptrObs->ptrTCD->ptrZFD->optFit)<<endl;
 //                    wts::print(effWgtComps_xmsyn, cout, 1);
-                    d4_array effWgts_xmsn = calcEffWgts(effWgtComps_xmsyn,debug,cout);
+                    d4_array effWgts_nxms = calcEffWgts(effWgtComps_xmsyn,debug,cout);
+                    if (opt) ptrObs->ptrTCD->ptrZFD->calcReWeightingFactors(effWgts_nxms(opt),debug,cout);
                 }//if
                 if (debug<0) cout<<","<<endl;
             }
@@ -6191,7 +6262,8 @@ FUNCTION void calcWeightsForFisherySizeComps(int debug, ostream& cout)
                 if (effWgtComps_xmsyn.size()>0){
                     cout<<"Discard catch size comps weights using "<<tcsam::getFitType(ptrObs->ptrDCD->ptrZFD->optFit)<<endl;
 //                    wts::print(effWgtComps_xmsyn, cout, 1);
-                    d4_array effWgts_xmsn = calcEffWgts(effWgtComps_xmsyn,debug,cout);
+                    d4_array effWgts_nxms = calcEffWgts(effWgtComps_xmsyn,debug,cout);
+                    if (opt) ptrObs->ptrDCD->ptrZFD->calcReWeightingFactors(effWgts_nxms(opt),debug,cout);
                 }//if
                 if (debug<0) cout<<","<<endl;
             }
@@ -6203,15 +6275,17 @@ FUNCTION void calcWeightsForFisherySizeComps(int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"Finished calcWeightsForFisherySizeComps()"<<endl;
 
 //-------------------------------------------------------------------------------------
-//Calculate survey components to objective function
+//Calculate iterative effective weights for survey size compositions
 FUNCTION void calcWeightsForSurveySizeComps(int debug, ostream& cout)
-    cout<<"Starting calcWeightsForSurveySizeComps()"<<endl;
+    if (debug) cout<<"Starting calcWeightsForSurveySizeComps()"<<endl;
+    int opt = ptrMOs->optIterativeReweighting;
     adstring nDims = "c('N','McAllister-Ianelli','Francis')";
     if (debug<0) cout<<"list("<<endl;
     for (int v=1;v<=nSrv;v++){
         cout<<"calculating size comps weights for survey "<<ptrMC->lblsSrv[v]<<endl;
         if (debug<0) cout<<ptrMC->lblsSrv[v]<<"=list("<<endl;
-        FleetData* ptrObs = ptrMDS->ppSrv[v-1];
+        int vd = mapM2DSrv(v);//get index for survey data corresponding to model survey v
+        FleetData* ptrObs = ptrMDS->ppSrv[vd-1];
         if (ptrObs->hasICD){//index catch data
             if (debug<0) cout<<"index.catch=list("<<endl;
             if (ptrObs->ptrICD->hasZFD && ptrObs->ptrICD->ptrZFD->optFit){
@@ -6219,9 +6293,11 @@ FUNCTION void calcWeightsForSurveySizeComps(int debug, ostream& cout)
                 smlVal = 0.001;//match to TCSAM2013
                 d5_array effWgtComps_xmsyn = calcNLLs_CatchNatZ(ptrObs->ptrICD->ptrZFD,n_vyxmsz(v),debug,cout);
                 if (effWgtComps_xmsyn.size()>0){
-                    cout<<"Index catch size comps weights using "<<tcsam::getFitType(ptrObs->ptrICD->ptrZFD->optFit)<<endl;
-                    d4_array effWgts_xmsn = calcEffWgts(effWgtComps_xmsyn,debug,cout);
-                    if (debug<0) wts::Rpr::writeDataToR(cout, effWgts_xmsn);
+                    if (debug) cout<<"Index catch size comps weights using "<<tcsam::getFitType(ptrObs->ptrICD->ptrZFD->optFit)<<endl;
+                    d4_array effWgts_nxms = calcEffWgts(effWgtComps_xmsyn,debug,cout);
+                    if (debug) {cout<<"effWgts_nxms ="<<endl; wts::print(effWgts_nxms,cout,0); cout<<endl;}
+                    if (debug<0) wts::Rpr::writeDataToR(cout, effWgts_nxms);
+                    if (opt) ptrObs->ptrICD->ptrZFD->calcReWeightingFactors(effWgts_nxms(opt),debug,cout);
                 }//if
                 if (debug<0) cout<<","<<endl;
             }
@@ -6230,14 +6306,14 @@ FUNCTION void calcWeightsForSurveySizeComps(int debug, ostream& cout)
         if (debug<0) cout<<"NULL),"<<endl;
     }//surveys loop
     if (debug<0) cout<<"NULL)"<<endl;
-    cout<<"Finished calcWeightsForSurveySizeComps()"<<endl;
+    if (debug) cout<<"Finished calcWeightsForSurveySizeComps()"<<endl;
 
 //-------------------------------------------------------------------------------------
 //Calculate effective weights for size comps
 FUNCTION d4_array calcEffWgts(d5_array& effWgtComps,int debug, ostream& cout)
     cout<<"Starting calcEffWgts()"<<endl;
     ivector d = wts::getBounds(effWgtComps);
-    d4_array effWgts_xmsn(d[1],d[2],d[3],d[4],d[5],d[6],1,3);
+    d4_array effWgts_nxms(0,2,d[1],d[2],d[3],d[4],d[5],d[6]);
     
     //calculate McAllister-Ianelli weights using the harmonic mean (1.B in Punt, 2017)
     for (int x=d[1];x<=d[2];x++){
@@ -6248,8 +6324,10 @@ FUNCTION d4_array calcEffWgts(d5_array& effWgtComps,int debug, ostream& cout)
                 for (int y=effWgtComps(x,m,s).indexmin();y<=effWgtComps(x,m,s).indexmax();y++){
                     if (effWgtComps(x,m,s,y,1)>0.0) harmn += 1.0/effWgtComps(x,m,s,y,2);
                 }
-                effWgts_xmsn(x,m,s,1) = N;      //number of actual size comps
-                effWgts_xmsn(x,m,s,2) = N/harmn;//harmonic mean  of annual Mc-I tuning weights 
+                effWgts_nxms(0,x,m,s) = N;      //number of actual size comps
+                if (N>0){//to avoid nan's
+                    effWgts_nxms(1,x,m,s) = N/harmn;//harmonic mean  of annual Mc-I tuning weights 
+                } else effWgts_nxms(1,x,m,s) = 1.0;
             }
         }
     }
@@ -6261,16 +6339,18 @@ FUNCTION d4_array calcEffWgts(d5_array& effWgtComps,int debug, ostream& cout)
                 double N = sum(column(effWgtComps(x,m,s),1));   //number of actual size comps
                 int Np   = column(effWgtComps(x,m,s),1).size(); //total number of years
                 dvector effWgt_y = column(effWgtComps(x,m,s),3);//z-scores for Francis tuning weight
-                effWgts_xmsn(x,m,s,1) = N;
-                effWgts_xmsn(x,m,s,3) = 1.0/(wts::variance(effWgt_y)*Np/N);//Francis tuning weight
+                effWgts_nxms(0,x,m,s) = N;
+                if (N>0){//to avoid nan's
+                    effWgts_nxms(2,x,m,s) = 1.0/(wts::variance(effWgt_y)*Np/N);//Francis tuning weight
+                } else effWgts_nxms(2,x,m,s) = 1.0;
             }
         }
     }
     
-    wts::print(effWgts_xmsn,cout,1);
+    wts::print(effWgts_nxms,cout,1);
     
     cout<<"Finished calcEffWgts()"<<endl;
-    return effWgts_xmsn;
+    return effWgts_nxms;
 
 // =============================================================================
 // =============================================================================
@@ -6281,6 +6361,10 @@ FINAL_SECTION
         writeSimData(echo1,0,cout,ptrSimMDS);
     }
 
+    rpt::echo<<"--FINAL_SECTION: Calculating effective weights for size compositions"<<endl;
+    calcWeightsForSurveySizeComps(1,rpt::echo);
+    calcWeightsForFisherySizeComps(1,rpt::echo);
+        
     if (option_match(ad_comm::argc,ad_comm::argv,"-mceval")>-1) {
         mcmc.open((char*)(fnMCMC),ofstream::out|ofstream::app);
         mcmc.precision(12);
@@ -6300,6 +6384,9 @@ FINAL_SECTION
     cout << endl << endl << "Starting time: " << ctime(&start);
     cout << "Finishing time: " << ctime(&finish);
     cout << "This run took: " << hour << " hours, " << minute << " minutes, " << second << " seconds." << endl << endl;
+    rpt::echo << endl << endl << "Starting time: " << ctime(&start);
+    rpt::echo << "Finishing time: " << ctime(&finish);
+    rpt::echo << "This run took: " << hour << " hours, " << minute << " minutes, " << second << " seconds." << endl << endl;
     
 // =============================================================================
 // =============================================================================

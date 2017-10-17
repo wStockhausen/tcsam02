@@ -202,12 +202,20 @@ class IndexBlock;
         adstring units; 
         /* years of size frequency data */
         ivector  yrs;       
-        /* sample sizes for size frequency data */
-        d4_array ss_xmsy;   
+        /* input sample sizes for size frequency data */
+        d4_array inpSS_xmsy;   
         /* raw size frequency data */
         d5_array NatZ_xmsyz;
         /* normalized size frequency data (sums to 1 over xmsz for each y) */
         d5_array PatZ_xmsyz;
+        
+        /* cumulative iterative re-weighting factors */
+        d3_array cumF_xms;
+        /* last set of iterative re-weighting factors */
+        d3_array itrF_xms;
+        /* working (possibly re-weighted) sample sizes for size frequency data */
+        d4_array ss_xmsy;   
+        
     public:
         /**
          * Constructor.
@@ -233,6 +241,20 @@ class IndexBlock;
          * @param nlls
          */
         void saveNLLs(dvar_matrix& nlls);
+        /**
+         * Calculate re-weighting factors for iterative weighting.
+         * 
+         * @param newF_xms - d3_array by xms with new (incremental) weighting factors
+         * @param debug - integer flag to print debugging info
+         * @cout - output stream to print debugging info to
+         */
+        void calcReWeightingFactors(d3_array& newF_xms,int debug,ostream& cout);
+        /**
+         * Apply re-weighting factors for iterative weighting to 
+         * input sample sizes.
+         * 
+         */
+        void applyReWeightingFactors();
         /**
          * Read input data in ADMB format from a file stream
          * 

@@ -246,7 +246,7 @@ void EffXtrapScenarios::writeToR(std::ostream& os){
 //          ModelOptions
 //--------------------------------------------------------------------------------
 int ModelOptions::debug = 0;
-const adstring ModelOptions::VERSION = "2017.08.24";
+const adstring ModelOptions::VERSION = "2017.10.03";
 
 ModelOptions::ModelOptions(ModelConfiguration& mc){
     ptrMC=&mc;
@@ -284,21 +284,17 @@ ModelOptions::ModelOptions(ModelConfiguration& mc){
     
     //effort extrapolation options
     ptrEffXtrapScenarios = new EffXtrapScenarios(mc);
-//    //--estimation
-//    optsEffXtrEst.allocate(0,2);
-//    optsEffXtrEst(0) = "no extrapolation"; 
-//    optsEffXtrEst(1) = "use calculated average capture rate/average effort"; 
-//    optsEffXtrEst(2) = "estimate extrapolation parameters via likelihood";
-//    //--capture rate averaging
-//    optsEffXtrAvgFc.allocate(0,2);
-//    optsEffXtrAvgFc(0) = "no averaging"; 
-//    optsEffXtrAvgFc(1) = "average fully-selected capture rate";
-//    optsEffXtrAvgFc(2) = "average mean size-specific capture rate";
     
     //options for OFL calculations: capture rate/selectivity function averaging
     optsOFLAvgCapRate.allocate(0,1);
     optsOFLAvgCapRate(0) = "average max capture rates, selectivity functions (like TCSAM2013)";
     optsOFLAvgCapRate(1) = "average size-specific capture rates";
+    
+    //options for iterative re-weighting
+    optsIterativeReweighting.allocate(0,2);
+    optsIterativeReweighting(0) = "no iterative re-weighting";
+    optsIterativeReweighting(1) = "use harmonic means of McAllister-Ianelli effective N's";
+    optsIterativeReweighting(2) = "use Francis weights";
 }
 /***************************************************************
 *   function to read from file in ADMB format                  *
@@ -357,26 +353,6 @@ void ModelOptions::read(cifstream & is) {
     //effort extrapolation options
     cout<<"##Effort extrapolation scenarios:"<<endl;
     is>>(*ptrEffXtrapScenarios);
-//    //--effort extrapolation estimation options
-//    cout<<"##Effort extrapolation estimation options:"<<endl;
-//    optEffXtrEst.allocate(1,ptrMC->nFsh);
-//    for (int f=1;f<=ptrMC->nFsh;f++){
-//        is>>str; cout<<str<<"fishery"<<tb;
-//        idx = wts::which(str,ptrMC->lblsFsh);
-//        cout<<idx<<tb;
-//        is>>optEffXtrEst(idx);
-//        cout<<"= "<<optEffXtrEst(idx)<<endl;
-//    }
-//    //--effort extrapolation estimation options
-//    cout<<"##Effort extrapolation estimation options:"<<endl;
-//    optEffXtrAvgFc.allocate(1,ptrMC->nFsh);
-//    for (int f=1;f<=ptrMC->nFsh;f++){
-//        is>>str; cout<<str<<"fishery"<<tb;
-//        idx = wts::which(str,ptrMC->lblsFsh);
-//        cout<<idx<<tb;
-//        is>>optEffXtrAvgFc(idx);
-//        cout<<"= "<<optEffXtrAvgFc(idx)<<endl;
-//    }
     cout<<(*ptrEffXtrapScenarios)<<endl;
     
     //likelihood penalties on F-devs
@@ -428,6 +404,16 @@ void ModelOptions::read(cifstream & is) {
         is>>oflAvgCapRateInfo(idx);
         cout<<"= "<<oflAvgCapRateInfo(idx)<<endl;
     }
+    
+    //Iterative re-weighting options for size compositions
+    cout<<"#Option for iterative re-weighting of size compositions"<<endl;
+    is>>optIterativeReweighting;
+    cout<<optIterativeReweighting<<tb<<"#"<<optsIterativeReweighting(optIterativeReweighting)<<endl;
+    is>>phsIterativeReweighting;
+    cout<<phsIterativeReweighting<<tb<<"#phase to start iterative re-weighting"<<endl;
+    is>>maxIterations;
+    cout<<maxIterations<<tb<<"#max iterations"<<endl;
+    
     
     if (debug) cout<<"end ModelOptions::read(cifstream & is)"<<endl;
     if (debug){
@@ -496,22 +482,6 @@ void ModelOptions::write(ostream & os) {
     //effort extrapolation options
     os<<"#----Effort Extrapolation Scenarios"<<endl;
     os<<(*ptrEffXtrapScenarios);
-//    os<<"#------estimation options"<<endl;
-//    for (int o=optsEffXtrEst.indexmin();o<=optsEffXtrEst.indexmax();o++) {
-//        os<<"#"<<o<<" - "<<optsEffXtrEst(o)<<endl;
-//    }
-//    os<<"#  Fishery    Option"<<endl;
-//    for (int f=1;f<=ptrMC->nFsh;f++){
-//        os<<tb<<ptrMC->lblsFsh(f)<<tb<<tb<<optEffXtrEst(f)<<endl;
-//    }
-//    os<<"#------capture rate averaging options"<<endl;
-//    for (int o=optsEffXtrAvgFc.indexmin();o<=optsEffXtrAvgFc.indexmax();o++) {
-//        os<<"#"<<o<<" - "<<optsEffXtrAvgFc(o)<<endl;
-//    }
-//    os<<"#  Fishery    Option"<<endl;
-//    for (int f=1;f<=ptrMC->nFsh;f++){
-//        os<<tb<<ptrMC->lblsFsh(f)<<tb<<tb<<optEffXtrAvgFc(f)<<endl;
-//    }
 
     //F-devs penalties
     os<<"#----F-devs penalty options"<<endl;
@@ -545,6 +515,14 @@ void ModelOptions::write(ostream & os) {
         os<<tb<<ptrMC->lblsFsh(f)<<tb<<tb<<oflAvgCapRateInfo(f)<<endl;
     }
     
+    //Iterative re-weighting options
+    for (int o=optsIterativeReweighting.indexmin();o<=optsIterativeReweighting.indexmax();o++) {
+        os<<"#"<<o<<" - "<<optsIterativeReweighting(o)<<endl;
+    }
+    os<<optIterativeReweighting<<tb<<"#selected option"<<endl;
+    os<<phsIterativeReweighting<<tb<<"#phase to start iterative re-weighting"<<endl;
+    os<<maxIterations<<tb<<"#max number of iterations"<<endl;
+    
     if (debug) cout<<"#end ModelOptions::write(ostream)"<<endl;
 }
 
@@ -570,7 +548,11 @@ void ModelOptions::writeToR(ostream& os, std::string nm, int indent) {
         os<<"oflOptions=list(";
             os<<"optAvgCapRate="; wts::writeToR(os,optOFLAvgCapRate); os<<cc<<endl;
             os<<"numYears="; wts::writeToR(os,oflNumYrsForAvgCapRate); os<<cc<<endl;
-            os<<"rateInfo="; wts::writeToR(os,oflAvgCapRateInfo); os<<")"<<endl;
+            os<<"rateInfo="; wts::writeToR(os,oflAvgCapRateInfo); os<<")"<<cc<<endl;
+        os<<"itRewgtOptions=list(";
+            os<<"option="<<optIterativeReweighting<<cc<<endl;
+            os<<"phase="<<phsIterativeReweighting<<cc<<endl;
+            os<<"maxIts="<<maxIterations<<")"<<endl;
     indent--;
     for (int n=0;n<indent;n++) os<<tb;
         os<<")";

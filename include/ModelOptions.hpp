@@ -215,6 +215,15 @@ class EffXtrapScenarios{
         ivector oflNumYrsForAvgCapRate;
         /* average capture rate info for OFL calculations*/
         dvector oflAvgCapRateInfo;
+        
+        /* options for iterative re-weighting of size compositions */
+        adstring_array optsIterativeReweighting;
+        /* type of iterative re-weighting for size compositions */
+        int optIterativeReweighting;
+        /* phase to start iterative re-weighting for size compositions */
+        int phsIterativeReweighting;
+        /* max number of iterations */
+        int maxIterations;
 
     public:
         /**

@@ -412,6 +412,59 @@ void AggregateCatchData::writeToR(ostream& os, std::string nm, int indent) {
 //----------------------------------------------------------------------
 const adstring SizeFrequencyData::KW_SIZEFREQUENCY_DATA = "SIZE_FREQUENCY_DATA";
 /**
+ * Calculate re-weighting factors for iterative weighting.
+ * 
+ * @param newF_xms - d3_array by xms with new (incremental) weighting factors
+ * @param debug - integer flag to print debugging info
+ * @cout - output stream to print debugging info to
+ */
+void SizeFrequencyData::calcReWeightingFactors(d3_array& newF_xms,int debug,ostream& cout){
+    if (debug) cout<<"--starting SizeFrequencyData::calcReWeightingFactors(...)"<<endl;
+    for (int x=newF_xms.indexmin();x<=newF_xms.indexmax();x++){
+        dmatrix newF_ms = newF_xms(x);
+        int mnX= x; int mxX=x;
+        if (x==tcsam::ALL_SXs) {mnX= tcsam::MALE; mxX=tcsam::ALL_SXs;}
+        for (int xp=mnX;xp<=mxX;xp++){
+            for (int m=newF_ms.indexmin();m<=newF_ms.indexmax();m++){
+                dvector newF_s = newF_ms(m);
+                int mnM= m; int mxM=m;
+                if (m==tcsam::ALL_MSs) {mnM= tcsam::IMMATURE; mxM=tcsam::ALL_MSs;}
+                for (int mp=mnM;mp<=mxM;mp++){
+                    for (int s=newF_s.indexmin();s<=newF_s.indexmax();s++){
+                        int mnS= s; int mxS=s;
+                        if (s==tcsam::ALL_SCs) {mnS= tcsam::NEW_SHELL; mxS=tcsam::ALL_SCs;}
+                        for (int sp=mnS;sp<=mxS;sp++){
+                            itrF_xms(xp,mp,sp) = newF_s(s);
+                            cumF_xms(xp,mp,sp) = newF_s(s)*cumF_xms(xp,mp,sp);
+                        }//sp
+                    }//s
+                }//mp
+            }//m
+        }//xp
+    }//x
+    if (debug) cout<<"Iterative reweighting factors = "<<endl; wts::print(itrF_xms,cout,0); cout<<endl;
+    if (debug) cout<<"Cumulative reweighting factors = "<<endl; wts::print(cumF_xms,cout,0); cout<<endl;
+    if (debug) cout<<"--finished SizeFrequencyData::calcReWeightingFactors(...)"<<endl;
+}
+
+/**
+ * Apply re-weighting factors for iterative weighting to 
+ * input sample sizes.
+ * 
+ */
+void SizeFrequencyData::applyReWeightingFactors(){
+    for (int x=cumF_xms.indexmin();x<=cumF_xms.indexmax();x++){
+        dmatrix f_ms = cumF_xms(x);
+        for (int m=f_ms.indexmin();m<=f_ms.indexmax();m++){
+            dvector f_s = f_ms(m);
+            for (int s=f_s.indexmin();s<=f_s.indexmax();s++){
+                ss_xmsy(x,m,s) = f_s(s)*inpSS_xmsy(x,m,s);
+            }//s
+        }//m
+    }//x
+}
+
+/**
  * Normalize the size frequency data to sum to 1 over x,m,s,z.
  */
 void SizeFrequencyData::normalize(void){
@@ -487,11 +540,11 @@ void SizeFrequencyData::replaceSizeFrequencyData(int iSeed,random_number_generat
                         if (iSeed){
                             //add stochastic component by resampling using input sample size
                             double n = sum(n_z);
-                            if ((n>0)&&(ss_xmsy(x,m,s,y)>0)){
+                            if ((n>0)&&(inpSS_xmsy(x,m,s,y)>0)){
                                 cout<<"org n_z = "<<n_z<<endl;
                                 dvector p_z = n_z/n;
                                 cout<<"p_z = "<<p_z<<endl;
-                                dvector pr_z = wts::rmvlogistic(p_z,ss_xmsy(x,m,s,y),rng);//resample
+                                dvector pr_z = wts::rmvlogistic(p_z,inpSS_xmsy(x,m,s,y),rng);//resample
                                 cout<<"pr_z = "<<n_z<<endl;
                                 n_z = n*pr_z; //re-scale to original size
                                 cout<<"new n_z = "<<n_z<<endl;
@@ -506,20 +559,31 @@ void SizeFrequencyData::replaceSizeFrequencyData(int iSeed,random_number_generat
     }
     
     //re-constitute other arrays
-    ss_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
+    inpSS_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
     NatZ_xmsyz.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,nZCs-1);
     PatZ_xmsyz.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,nZCs-1);
     
-    ss_xmsy.initialize();
+    inpSS_xmsy.initialize();
     NatZ_xmsyz.initialize();
     PatZ_xmsyz.initialize();
+    
+    ss_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
+    ss_xmsy.initialize();
+    
+    //reset re-weighting multipliers
+    cumF_xms.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs);
+    cumF_xms.initialize();
+    cumF_xms = 1.0;
+    itrF_xms.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs);
+    itrF_xms.initialize();
     
     int nc = factors.indexmax();
     for (int i=0;i<nc;i++){
         int x = tcsam::getSexType(factors(i+1,1));
         int m = tcsam::getMaturityType(factors(i+1,2));
         int s = tcsam::getShellType(factors(i+1,3));
-            ss_xmsy(x,m,s) = column(inpNatZ_xmsyc(x,m,s),2);
+            inpSS_xmsy(x,m,s) = column(inpNatZ_xmsyc(x,m,s),2);
+            ss_xmsy(x,m,s) = inpSS_xmsy(x,m,s);
             for (int y=1;y<=ny;y++){
                 NatZ_xmsyz(x,m,s,y)  = (inpNatZ_xmsyc(x,m,s,y)(3,2+(nZCs-1))).shift(1);
             }
@@ -551,7 +615,7 @@ void SizeFrequencyData::read(cifstream & is){
     rpt::echo<<str<<tb<<"#Required keyword"<<std::endl;
     if (!(str==KW_SIZEFREQUENCY_DATA)){
         std::cout<<"#Error reading effort data from "<<is.get_file_name()<<std::endl;
-        std::cout<<"Expected keyowrd '"<<KW_SIZEFREQUENCY_DATA<<"' but got '"<<str<<"'"<<std::endl;
+        std::cout<<"Expected keyword '"<<KW_SIZEFREQUENCY_DATA<<"' but got '"<<str<<"'"<<std::endl;
         std::cout<<"Aborting..."<<std::endl;
         exit(-1);
     }
@@ -577,16 +641,27 @@ void SizeFrequencyData::read(cifstream & is){
     if (debug) std::cout<<zBs<<tb<<"#zBins"<<std::endl;
     
     yrs.allocate(1,ny);
-    ss_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
+    inpSS_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
     NatZ_xmsyz.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,nZCs-1);
     PatZ_xmsyz.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,nZCs-1);
     inpNatZ_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,2+(nZCs-1));
     
     yrs.initialize();
-    ss_xmsy.initialize();
+    inpSS_xmsy.initialize();
     NatZ_xmsyz.initialize();
     PatZ_xmsyz.initialize();
     inpNatZ_xmsyc.initialize();
+    
+    //set re-weighting multipliers
+    cumF_xms.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs);
+    cumF_xms.initialize();
+    cumF_xms = 1.0;
+    itrF_xms.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs);
+    itrF_xms.initialize();
+    
+    //working sample sizes
+    ss_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
+    ss_xmsy.initialize();
     
     int nc; //number of factor combinations to read in data for
     is>>nc;
@@ -603,7 +678,8 @@ void SizeFrequencyData::read(cifstream & is){
             rpt::echo<<"#year    ss     "<<zBs<<std::endl;
             rpt::echo<<inpNatZ_xmsyc(x,m,s)<<std::endl;
             yrs = (ivector) column(inpNatZ_xmsyc(x,m,s),1);
-            ss_xmsy(x,m,s) = column(inpNatZ_xmsyc(x,m,s),2);
+            inpSS_xmsy(x,m,s) = column(inpNatZ_xmsyc(x,m,s),2);
+            ss_xmsy(x,m,s)    = inpSS_xmsy(x,m,s);
             for (int y=1;y<=ny;y++){
                 NatZ_xmsyz(x,m,s,y)  = (inpNatZ_xmsyc(x,m,s,y)(3,2+(nZCs-1))).shift(1);
 //                std::cout<<"Bounds NatZ_xmsyz(x,m,s,y)   : "<<wts::getBounds(NatZ_xmsyz(x,m,s,y))<<std::endl;
@@ -672,7 +748,11 @@ void SizeFrequencyData::writeToR(ostream& os, std::string nm, int indent) {
     for (int n=0;n<indent;n++) os<<tb;
         os<<"zc="; wts::writeToR(os,zCs); os<<cc<<std::endl;
     for (int n=0;n<indent;n++) os<<tb;
-        os<<"sample.sizes="; wts::writeToR(os,ss_xmsy,x,m,s,y); os<<cc<<std::endl;
+        os<<"sample.sizes="; wts::writeToR(os,inpSS_xmsy,x,m,s,y); os<<cc<<std::endl;
+    for (int n=0;n<indent;n++) os<<tb;
+        os<<"cumFs="; wts::writeToR(os,cumF_xms,x,m,s); os<<cc<<std::endl;
+    for (int n=0;n<indent;n++) os<<tb;
+        os<<"itrFs="; wts::writeToR(os,itrF_xms,x,m,s); os<<cc<<std::endl;
     for (int n=0;n<indent;n++) os<<tb;
         os<<"data="<<std::endl;
         wts::writeToR(os,NatZ_xmsyz,x,m,s,y,z); os<<std::endl;
