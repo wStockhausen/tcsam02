@@ -308,6 +308,8 @@
 //--2017-10-03: 1. Modifying code to incorporate iterative re-weighting of size comps
 //                  by McAllister-Ianelli or Francis methods
 //--2017-10-15: 1. Finished modifying code to incorporate iterative re-weighting.
+//--2017-10-20: 1. Added ascending normal and 4- and 6-parameter versions of the 
+//                  double normal selectivity functions
 // =============================================================================
 // =============================================================================
 GLOBALS_SECTION

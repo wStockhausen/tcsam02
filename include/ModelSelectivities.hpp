@@ -54,9 +54,11 @@
             const static int ID_DBLLOGISTIC5095    = 8; const static adstring STR_DBLLOGISTIC5095; 
             const static int ID_DBLLOGISTIC50LN95  = 9; const static adstring STR_DBLLOGISTIC50LN95; 
             const static int ID_DBLLOGISTICLN50LN95=10; const static adstring STR_DBLLOGISTICLN50LN95; 
-            const static int ID_DBLNORMAL          =11; const static adstring STR_DBLNORMAL; 
+            const static int ID_DBLNORMAL6         =11; const static adstring STR_DBLNORMAL6; 
             const static int ID_ASCLOGISTIC5099    =12; const static adstring STR_ASCLOGISTIC5099; 
             const static int ID_ASCLOGISTIC95LN50  =13; const static adstring STR_ASCLOGISTIC95LN50; 
+            const static int ID_ASCNORMAL          =14; const static adstring STR_ASCNORMAL; 
+            const static int ID_DBLNORMAL4         =15; const static adstring STR_DBLNORMAL4; 
 
             /**
              * Calculates ascending logistic function parameterized by 
@@ -225,23 +227,48 @@
              */
             dvar_vector static dbllogisticLn50Ln95(dvector& z, dvar_vector& params, double fsZ);
             
-            //TODO: provide implementation for this!
             /**
-             * Calculates double normal function parameterized by 
-             *      params[1]: 
-             *      params[2]: 
-             *      params[3]:
-             *      params[4]:
-             *      params[5]:
-             *      params[6]:
+             * Calculates ascending normal function parameterized by 
+             *      params[1]: size at which ascending limb reaches 1
+             *      params[2]: width of ascending limb
              * Inputs:
              * @param z      - dvector of sizes at which to compute function values
              * @param params - dvar_vector of function parameters
-             * @param fsZ    - size at which function = 1 (i.e., fully-selected size) [double]
+             * @param fsZ    - size at which function = 1 (i.e., fully-selected size) [double] NOTE: ignored!
              * 
              * @return - selectivity function values as dvar_vector
              */
-            dvar_vector static dblnormal(dvector& z, dvar_vector& params, double fsZ);
+            dvar_vector static ascnormal(dvector& z, dvar_vector& params, double fsZ);
+            /**
+             * Calculates 4-parameter double normal function parameterized by 
+             *      params[1]: size at which ascending limb reaches 1
+             *      params[2]: width of ascending limb
+             *      params[3]: size at which descending limb departs from 1
+             *      params[4]: width of descending limb
+             * Inputs:
+             * @param z      - dvector of sizes at which to compute function values
+             * @param params - dvar_vector of function parameters
+             * @param fsZ    - size at which function = 1 (i.e., fully-selected size) [double] NOTE: ignored!
+             * 
+             * @return - selectivity function values as dvar_vector
+             */
+            dvar_vector static dblnormal4(dvector& z, dvar_vector& params, double fsZ);
+            /**
+             * Calculates 6-parameter double normal function parameterized by 
+             *      params[1]: size at which ascending limb reaches 1
+             *      params[2]: width of ascending limb
+             *      params[3]: size at which descending limb departs from 1
+             *      params[4]: width of descending limb
+             *      params[5]: floor of ascending limb
+             *      params[6]: floor of descending limb
+             * Inputs:
+             * @param z      - dvector of sizes at which to compute function values
+             * @param params - dvar_vector of function parameters
+             * @param fsZ    - size at which function = 1 (i.e., fully-selected size) [double] NOTE: ignored!
+             * 
+             * @return - selectivity function values as dvar_vector
+             */
+            dvar_vector static dblnormal6(dvector& z, dvar_vector& params, double fsZ);
     };
     
 #endif	/* MODELSELECTIVITIES_HPP */

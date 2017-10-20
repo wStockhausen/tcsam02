@@ -30,9 +30,11 @@ const adstring SelFcns::STR_DBLLOGISTICLND50   ="dbllogisticlnd50";
 const adstring SelFcns::STR_DBLLOGISTIC5095    ="dbllogistic5095";
 const adstring SelFcns::STR_DBLLOGISTIC50LN95  ="dbllogistic50ln95";
 const adstring SelFcns::STR_DBLLOGISTICLN50LN95="dbllogisticln50ln95";
-const adstring SelFcns::STR_DBLNORMAL          ="dblnormal";
+const adstring SelFcns::STR_DBLNORMAL6         ="dblnormal6";
 const adstring SelFcns::STR_ASCLOGISTIC5099    ="asclogistic5099";
 const adstring SelFcns::STR_ASCLOGISTIC95LN50  ="asclogistic95ln50";
+const adstring SelFcns::STR_ASCNORMAL          ="ascnormal";
+const adstring SelFcns::STR_DBLNORMAL4         ="dblnormal4";
 
 //--------------------------------------------------------------------------------
 //          SelFcns
@@ -68,9 +70,11 @@ int SelFcns::getSelFcnID(adstring str){
     if (str==STR_DBLLOGISTIC5095)     return ID_DBLLOGISTIC5095;
     if (str==STR_DBLLOGISTIC50LN95)   return ID_DBLLOGISTIC50LN95;
     if (str==STR_DBLLOGISTICLN50LN95) return ID_DBLLOGISTICLN50LN95;
-    if (str==STR_DBLNORMAL)           return ID_DBLNORMAL;
+    if (str==STR_DBLNORMAL6)          return ID_DBLNORMAL6;
     if (str==STR_ASCLOGISTIC5099)     return ID_ASCLOGISTIC5099;
     if (str==STR_ASCLOGISTIC95LN50)   return ID_ASCLOGISTIC95LN50;
+    if (str==STR_ASCNORMAL)           return ID_ASCNORMAL;
+    if (str==STR_DBLNORMAL4)          return ID_DBLNORMAL4;
     cout<<"Error in SelFcns::getSelFcnID(adstring str)"<<endl;
     cout<<"Function name '"<<str<<"' not a valid selectivity function name."<<endl;
     cout<<"Aborting..."<<endl;
@@ -118,15 +122,18 @@ adstring SelFcns::getSelFcnID(int id){
         case ID_DBLLOGISTICLN50LN95: 
             if (debug) cout<<"SelFcn = "<<STR_DBLLOGISTICLN50LN95<<endl;
             return STR_DBLLOGISTICLN50LN95;
-        case ID_DBLNORMAL: 
-            if (debug) cout<<"SelFcn = "<<STR_DBLNORMAL<<endl;
-            return STR_DBLNORMAL;
+        case ID_DBLNORMAL6: 
+            if (debug) cout<<"SelFcn = "<<STR_DBLNORMAL6<<endl;
+            return STR_DBLNORMAL6;
         case ID_ASCLOGISTIC5099: 
             if (debug) cout<<"SelFcn = "<<STR_ASCLOGISTIC5099<<endl;
             return STR_ASCLOGISTIC5099;
         case ID_ASCLOGISTIC95LN50: 
             if (debug) cout<<"SelFcn = "<<STR_ASCLOGISTIC95LN50<<endl;
             return STR_ASCLOGISTIC95LN50;
+        case ID_ASCNORMAL: 
+            if (debug) cout<<"SelFcn = "<<STR_ASCNORMAL<<endl;
+            return STR_ASCNORMAL;
         default:
         {
             cout<<endl;
@@ -166,9 +173,11 @@ dvar_vector SelFcns::calcSelFcn(int id,dvector& z, dvar_vector& params, double f
         case ID_DBLLOGISTIC5095:     {s=dbllogistic5095(z,params,fsZ);     break;}
         case ID_DBLLOGISTIC50LN95:   {s=dbllogistic50Ln95(z,params,fsZ);   break;}
         case ID_DBLLOGISTICLN50LN95: {s=dbllogisticLn50Ln95(z,params,fsZ); break;}
-        case ID_DBLNORMAL:           {s=dblnormal(z,params,fsZ);           break;}
+        case ID_DBLNORMAL6:          {s=dblnormal6(z,params,fsZ);          break;}
         case ID_ASCLOGISTIC5099:     {s=asclogistic5099(z,params,fsZ);     break;}
         case ID_ASCLOGISTIC95LN50:   {s=asclogistic95Ln50(z,params,fsZ);   break;}
+        case ID_ASCNORMAL:           {s=ascnormal(z,params,fsZ);           break;}
+        case ID_DBLNORMAL4:          {s=dblnormal4(z,params,fsZ);          break;}
         default:
         {
             cout<<"Invalid id for SelFcns.calcSelFcn(id,...)";
@@ -628,13 +637,109 @@ dvar_vector SelFcns::dbllogisticLn50Ln95(dvector& z, dvar_vector& params, double
     return s;
 }
 
-//TODO: implement this!
-dvar_vector SelFcns::dblnormal(dvector& z, dvar_vector& params, double fsZ){
+/**
+ * Calculates ascending normal function parameterized by 
+ *      params[1]: size at which ascending limb reaches 1
+ *      params[2]: width of ascending limb
+ * Inputs:
+ * @param z      - dvector of sizes at which to compute function values
+ * @param params - dvar_vector of function parameters
+ * @param fsZ    - size at which function = 1 (i.e., fully-selected size) [double] NOTE: ignored!
+ * 
+ * @return - selectivity function values as dvar_vector
+ */
+dvar_vector SelFcns::ascnormal(dvector& z, dvar_vector& params, double fsZ){
     RETURN_ARRAYS_INCREMENT();
-    if (debug) cout<<"Starting SelFcns::dblnormal(...)"<<endl;
+    if (debug) cout<<"Starting SelFcns::ascnormal(...)"<<endl;
     dvariable n; n.initialize();
     dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
-    if (debug) cout<<"Finished SelFcns::dblnormal(...)"<<endl;
+    dvar_vector ascN(z.indexmin(),z.indexmax()); ascN.initialize();
+    dvar_vector ascJ(z.indexmin(),z.indexmax()); ascJ.initialize();
+    double slp = 5.0;
+    dvariable ascMnZ = params(1);//size at which ascending limb hits 1
+    dvariable ascWdZ = params(2);//width of ascending limb
+    ascN = exp(-0.5*square((z-ascMnZ)/ascWdZ));
+    ascJ = 1.0/(1.0+exp(slp*(z-(ascMnZ))));
+    s = elem_prod(ascJ,ascN)+(1.0-ascJ);
+    if (debug) cout<<"Finished SelFcns::ascnormal(...)"<<endl;
+    RETURN_ARRAYS_DECREMENT();
+    return s;
+}
+
+/**
+ * Calculates 4-parameter double normal function parameterized by 
+ *      params[1]: size at which ascending limb reaches 1
+ *      params[2]: width of ascending limb
+ *      params[3]: size at which descending limb departs from 1
+ *      params[4]: width of descending limb
+ * Inputs:
+ * @param z      - dvector of sizes at which to compute function values
+ * @param params - dvar_vector of function parameters
+ * @param fsZ    - size at which function = 1 (i.e., fully-selected size) [double] NOTE: ignored!
+ * 
+ * @return - selectivity function values as dvar_vector
+ */
+dvar_vector SelFcns::dblnormal4(dvector& z, dvar_vector& params, double fsZ){
+    RETURN_ARRAYS_INCREMENT();
+    if (debug) cout<<"Starting SelFcns::dblnormal4(...)"<<endl;
+    dvariable n; n.initialize();
+    dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
+    dvar_vector ascN(z.indexmin(),z.indexmax()); ascN.initialize();
+    dvar_vector ascJ(z.indexmin(),z.indexmax()); ascJ.initialize();
+    dvar_vector dscN(z.indexmin(),z.indexmax()); dscN.initialize();
+    dvar_vector dscJ(z.indexmin(),z.indexmax()); dscJ.initialize();
+    double slp = 5.0;
+    dvariable ascMnZ = params(1);//size at which ascending limb hits 1
+    dvariable ascWdZ = params(2);//width of ascending limb
+    dvariable dscMnZ = params(3);//size at which descending limb departs from 1
+    dvariable dscWdZ = params(4);//width of descending limb
+    ascN = exp(-0.5*square((z-ascMnZ)/ascWdZ));
+    ascJ = 1.0/(1.0+exp(slp*(z-(ascMnZ))));
+    dscN = exp(-0.5*square((z-dscMnZ)/dscWdZ));
+    dscJ = 1.0/(1.0+exp(-slp*(z-(dscMnZ))));
+    s = elem_prod(elem_prod(ascJ,ascN)+(1.0-ascJ), elem_prod(dscJ,dscN)+(1.0-dscJ));
+    if (debug) cout<<"Finished SelFcns::dblnormal4(...)"<<endl;
+    RETURN_ARRAYS_DECREMENT();
+    return s;
+}
+
+/**
+ * Calculates 6-parameter double normal function parameterized by 
+ *      params[1]: size at which ascending limb reaches 1
+ *      params[2]: width of ascending limb
+ *      params[3]: size at which descending limb departs from 1
+ *      params[4]: width of descending limb
+ *      params[5]: floor of ascending limb
+ *      params[6]: floor of descending limb
+ * Inputs:
+ * @param z      - dvector of sizes at which to compute function values
+ * @param params - dvar_vector of function parameters
+ * @param fsZ    - size at which function = 1 (i.e., fully-selected size) [double] NOTE: ignored!
+ * 
+ * @return - selectivity function values as dvar_vector
+ */
+dvar_vector SelFcns::dblnormal6(dvector& z, dvar_vector& params, double fsZ){
+    RETURN_ARRAYS_INCREMENT();
+    if (debug) cout<<"Starting SelFcns::dblnormal6(...)"<<endl;
+    dvariable n; n.initialize();
+    dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
+    dvar_vector ascN(z.indexmin(),z.indexmax()); ascN.initialize();
+    dvar_vector ascJ(z.indexmin(),z.indexmax()); ascJ.initialize();
+    dvar_vector dscN(z.indexmin(),z.indexmax()); dscN.initialize();
+    dvar_vector dscJ(z.indexmin(),z.indexmax()); dscJ.initialize();
+    double slp = 5.0;
+    dvariable ascMnZ = params(1);//size at which ascending limb hits 1
+    dvariable ascWdZ = params(2);//width of ascending limb
+    dvariable dscMnZ = params(3);//size at which descending limb departs from 1
+    dvariable dscWdZ = params(4);//width of descending limb
+    dvariable ascFlZ = params(5);//floor of ascending limb
+    dvariable dscFlZ = params(6);//floor of descending limb
+    ascN = exp(-0.5*square((z-ascMnZ)/ascWdZ));
+    ascJ = 1.0/(1.0+exp(slp*(z-(ascMnZ))));
+    dscN = exp(-0.5*square((z-dscMnZ)/dscWdZ));
+    dscJ = 1.0/(1.0+exp(-slp*(z-(dscMnZ))));
+    s = elem_prod(elem_prod(ascJ,ascN)+(1.0-ascJ), elem_prod(dscJ,dscN)+(1.0-dscJ));
+    if (debug) cout<<"Finished SelFcns::dblnormal6(...)"<<endl;
     RETURN_ARRAYS_DECREMENT();
     return s;
 }
