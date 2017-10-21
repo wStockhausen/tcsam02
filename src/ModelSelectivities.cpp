@@ -732,11 +732,11 @@ dvar_vector SelFcns::dblnormal6(dvector& z, dvar_vector& params, double fsZ){
     dvariable ascWdZ = params(2);//width of ascending limb
     dvariable dscMnZ = params(3);//size at which descending limb departs from 1
     dvariable dscWdZ = params(4);//width of descending limb
-    dvariable ascFlZ = params(5);//floor of ascending limb
-    dvariable dscFlZ = params(6);//floor of descending limb
-    ascN = exp(-0.5*square((z-ascMnZ)/ascWdZ));
+    dvariable ascFlr = params(5);//floor of ascending limb
+    dvariable dscFlr = params(6);//floor of descending limb
+    ascN = ascFlr+(1.0-ascFlr)*exp(-0.5*square((z-ascMnZ)/ascWdZ));
     ascJ = 1.0/(1.0+exp(slp*(z-(ascMnZ))));
-    dscN = exp(-0.5*square((z-dscMnZ)/dscWdZ));
+    dscN = dscFlr+(1.0-dscFlr)*exp(-0.5*square((z-dscMnZ)/dscWdZ));
     dscJ = 1.0/(1.0+exp(-slp*(z-(dscMnZ))));
     s = elem_prod(elem_prod(ascJ,ascN)+(1.0-ascJ), elem_prod(dscJ,dscN)+(1.0-dscJ));
     if (debug) cout<<"Finished SelFcns::dblnormal6(...)"<<endl;
