@@ -557,69 +557,69 @@ void BoundedVectorInfo::writeFinalValsToR(ostream& os){
 /*------------------------------------------------------------------------------
  *  DevsVectorInfo
  *----------------------------------------------------------------------------*/
-/***************************************************************\n
-*   Calculates devs.       \n
-***************************************************************/
-void DevsVectorInfo::calcDevs(void){
-    initVals(N) = -sum(initVals(1,(N-1)));
-}
-/***************************************************************\n
-*   Sets initial values.       \n
-***************************************************************/
-void DevsVectorInfo::setInitVals(dvector& x){
-    if (debug) rpt::echo<<"starting DevsVectorInfo::setInitVals(dvector& x) for "<<name<<endl;
-    BoundedVectorInfo::setInitVals(x);//use parent class
-    calcDevs();//ensure devs
-    if (debug) {
-        rpt::echo<<"initVals: "<<initVals<<endl<<"vector x: "<<x<<endl;
-        rpt::echo<<"finished DevsVectorInfo::setInitVals(dvector& x) for "<<name<<endl;
-    }
-}
-/**
- * Sets initial values 1:(N-1) to those of the vector x, but
- * sets the value for element N to -sum(initVals(1,N-1)) so
- * the sum over all elements is 0. x may have size N-1.
- * 
- * @param x - param_init_bounded_vector of initial values
- */
-void DevsVectorInfo::setInitVals(param_init_bounded_vector & x){
-    if (debug) {
-        rpt::echo<<"starting DevsVectorInfo::setInitVals(param_init_bounded_vector & x) for "<<name<<endl;
-        rpt::echo<<"input x  index limits: "<<x.indexmin()<<cc<<x.indexmax()<<endl;
-        rpt::echo<<"initVals index limits: "<<1<<cc<<N<<endl;
-    }
-    initVals(1,N-1) = value(x);
-    calcDevs();
-    if (debug) rpt::echo<<"finished DevsVectorInfo::setInitVals(param_init_bounded_vector & x) for "<<name<<endl;
-}     
-
-/**
- * Sets final values 1:(N-1) to those of the vector x, but
- * sets the value for element N to -sum(initVals(1,N-1)) so
- * the sum over all elements is 0. x may have size N-1.
- * 
- * @param x - param_init_bounded_vector of final values
- */
-void DevsVectorInfo::setFinalVals(param_init_bounded_vector & x){
-    if (debug) {
-        rpt::echo<<"starting DevsVectorInfo::setFinalVals(param_init_bounded_vector & x) for "<<name<<endl;
-        rpt::echo<<"input x  index limits: "<<x.indexmin()<<cc<<x.indexmax()<<endl;
-        rpt::echo<<"initVals index limits: "<<1<<cc<<N<<endl;
-    }
-    if (!finlVals.allocated()) finlVals.allocate(initVals.indexmin(),initVals.indexmax());
-    finlVals(1,N-1) = value(x);
-    finlVals(N) = -sum(finlVals(1,N-1));
-    if (debug) rpt::echo<<"finished DevsVectorInfo::setFinalVals(param_init_bounded_vector & x) for "<<name<<endl;
-}     
-
-/***************************************************************
-*   read initial values. \n
-***************************************************************/
-void DevsVectorInfo::readInitVals(cifstream & is){
-    BoundedVectorInfo::readInitVals(is);
-    calcDevs();
-}
-
+/////***************************************************************\n
+////*   Calculates devs.       \n
+////***************************************************************/
+////void DevsVectorInfo::calcDevs(void){
+////    initVals(N) = -sum(initVals(1,(N-1)));
+////}
+/////***************************************************************\n
+////*   Sets initial values.       \n
+////***************************************************************/
+////void DevsVectorInfo::setInitVals(dvector& x){
+////    if (debug) rpt::echo<<"starting DevsVectorInfo::setInitVals(dvector& x) for "<<name<<endl;
+////    BoundedVectorInfo::setInitVals(x);//use parent class
+////    calcDevs();//ensure devs
+////    if (debug) {
+////        rpt::echo<<"initVals: "<<initVals<<endl<<"vector x: "<<x<<endl;
+////        rpt::echo<<"finished DevsVectorInfo::setInitVals(dvector& x) for "<<name<<endl;
+////    }
+////}
+/////**
+//// * Sets initial values 1:(N-1) to those of the vector x, but
+//// * sets the value for element N to -sum(initVals(1,N-1)) so
+//// * the sum over all elements is 0. x may have size N-1.
+//// * 
+//// * @param x - param_init_bounded_vector of initial values
+//// */
+////void DevsVectorInfo::setInitVals(param_init_bounded_vector & x){
+////    if (debug) {
+////        rpt::echo<<"starting DevsVectorInfo::setInitVals(param_init_bounded_vector & x) for "<<name<<endl;
+////        rpt::echo<<"input x  index limits: "<<x.indexmin()<<cc<<x.indexmax()<<endl;
+////        rpt::echo<<"initVals index limits: "<<1<<cc<<N<<endl;
+////    }
+////    initVals(1,N-1) = value(x);
+////    calcDevs();
+////    if (debug) rpt::echo<<"finished DevsVectorInfo::setInitVals(param_init_bounded_vector & x) for "<<name<<endl;
+////}     
+////
+/////**
+//// * Sets final values 1:(N-1) to those of the vector x, but
+//// * sets the value for element N to -sum(initVals(1,N-1)) so
+//// * the sum over all elements is 0. x may have size N-1.
+//// * 
+//// * @param x - param_init_bounded_vector of final values
+//// */
+////void DevsVectorInfo::setFinalVals(param_init_bounded_vector & x){
+////    if (debug) {
+////        rpt::echo<<"starting DevsVectorInfo::setFinalVals(param_init_bounded_vector & x) for "<<name<<endl;
+////        rpt::echo<<"input x  index limits: "<<x.indexmin()<<cc<<x.indexmax()<<endl;
+////        rpt::echo<<"initVals index limits: "<<1<<cc<<N<<endl;
+////    }
+////    if (!finlVals.allocated()) finlVals.allocate(initVals.indexmin(),initVals.indexmax());
+////    finlVals(1,N-1) = value(x);
+////    finlVals(N) = -sum(finlVals(1,N-1));
+////    if (debug) rpt::echo<<"finished DevsVectorInfo::setFinalVals(param_init_bounded_vector & x) for "<<name<<endl;
+////}     
+////
+/////***************************************************************
+////*   read initial values. \n
+////***************************************************************/
+////void DevsVectorInfo::readInitVals(cifstream & is){
+////    BoundedVectorInfo::readInitVals(is);
+////    calcDevs();
+////}
+//
 /***************************************************************
 *   Draw a random sample from the prior.                \n 
 *   If phase<0, return initVals rather than resampling. \n
@@ -627,7 +627,8 @@ void DevsVectorInfo::readInitVals(cifstream & is){
 dvector DevsVectorInfo::drawInitVals(random_number_generator& rng, double vif){
     if (debug) rpt::echo<<"starting DevsVectorInfo::drawInitVals(random_number_generator& rng) for "<<name<<endl;
     dvector smpl = BoundedVectorInfo::drawInitVals(rng,vif);
-    smpl(N) = -sum(smpl(1,(N-1)));
+    smpl = smpl - sum(smpl);//ensure sum of devs = 0
+    if (max(fabs(smpl))>max(fabs(lower),fabs(upper))) smpl = smpl/max(fabs(lower),fabs(upper));
     if (debug) {
         rpt::echo<<phase<<tb<<pMPI->canSample()<<endl;
         rpt::echo<<"initVals: "<<initVals<<endl<<"samples: "<<smpl<<endl;
@@ -636,51 +637,51 @@ dvector DevsVectorInfo::drawInitVals(random_number_generator& rng, double vif){
     return smpl;
 }
 
-/***************************************************************
-*  Read from cifstream object.\n
- * Read order is:
- * mni, mxi, readVals + BoundedNumberInfo::read(is)
-***************************************************************/
-void DevsVectorInfo::read(cifstream & is){
-    if (debug) rpt::echo<<"Starting DevsVectorInfo::read(cifstream & is) for "<<name<<endl;
-    BoundedVectorInfo::read(is);
-    initVals = 0.0;
-    if (debug) {
-        rpt::echo<<"idxType    = "<<idxType<<endl;
-        rpt::echo<<"IndexBlock = "<<(*ptrIB)<<endl;
-        rpt::echo<<"N          = "<<N<<endl;
-        rpt::echo<<"Done DevsVectorInfo::read(cifstream & is) for "<<name<<endl;
-    }
-}
-
-/***************************************************************
-*   writeToR                                                    *
-***************************************************************/
-void DevsVectorInfo::writeToR(ostream& os){
-    if (debug) rpt::echo<<"DevsVectorInfo::writeToR for "<<this->name<<endl;
-    if (!finlVals.allocated()) {
-        finlVals.allocate(initVals.indexmin(),initVals.indexmax()); 
-        finlVals = initVals;
-    }
-    os<<"list(";
-    BoundedNumberInfo::writeToR1(os); os<<cc<<endl;
-    os<<"initVals=";  wts::writeToR(os,initVals,wts::to_qcsv(ptrIB->getFwdIndexVector())); os<<cc<<endl;
-    os<<"finalVals="; wts::writeToR(os,finlVals,wts::to_qcsv(ptrIB->getFwdIndexVector()));
-    os<<")";
-}
-
-/**
- * Writes final values to an output stream as an R vector.
- * @param os - the output stream.
- */
-void DevsVectorInfo::writeFinalValsToR(ostream& os){
-    if (debug) rpt::echo<<"DevsVectorInfo::writeFinalValsToR for "<<this->name<<endl;
-    if (!finlVals.allocated()) {
-        finlVals.allocate(initVals.indexmin(),initVals.indexmax()); 
-        finlVals = initVals;
-    }
-    wts::writeToR(os,finlVals,wts::to_qcsv(ptrIB->getFwdIndexVector()));
-}
+///***************************************************************
+//*  Read from cifstream object.\n
+// * Read order is:
+// * mni, mxi, readVals + BoundedNumberInfo::read(is)
+//***************************************************************/
+//void DevsVectorInfo::read(cifstream & is){
+//    if (debug) rpt::echo<<"Starting DevsVectorInfo::read(cifstream & is) for "<<name<<endl;
+//    BoundedVectorInfo::read(is);
+//    initVals = 0.0;
+//    if (debug) {
+//        rpt::echo<<"idxType    = "<<idxType<<endl;
+//        rpt::echo<<"IndexBlock = "<<(*ptrIB)<<endl;
+//        rpt::echo<<"N          = "<<N<<endl;
+//        rpt::echo<<"Done DevsVectorInfo::read(cifstream & is) for "<<name<<endl;
+//    }
+//}
+//
+///***************************************************************
+//*   writeToR                                                    *
+//***************************************************************/
+//void DevsVectorInfo::writeToR(ostream& os){
+//    if (debug) rpt::echo<<"DevsVectorInfo::writeToR for "<<this->name<<endl;
+//    if (!finlVals.allocated()) {
+//        finlVals.allocate(initVals.indexmin(),initVals.indexmax()); 
+//        finlVals = initVals;
+//    }
+//    os<<"list(";
+//    BoundedNumberInfo::writeToR1(os); os<<cc<<endl;
+//    os<<"initVals=";  wts::writeToR(os,initVals,wts::to_qcsv(ptrIB->getFwdIndexVector())); os<<cc<<endl;
+//    os<<"finalVals="; wts::writeToR(os,finlVals,wts::to_qcsv(ptrIB->getFwdIndexVector()));
+//    os<<")";
+//}
+//
+///**
+// * Writes final values to an output stream as an R vector.
+// * @param os - the output stream.
+// */
+//void DevsVectorInfo::writeFinalValsToR(ostream& os){
+//    if (debug) rpt::echo<<"DevsVectorInfo::writeFinalValsToR for "<<this->name<<endl;
+//    if (!finlVals.allocated()) {
+//        finlVals.allocate(initVals.indexmin(),initVals.indexmax()); 
+//        finlVals = initVals;
+//    }
+//    wts::writeToR(os,finlVals,wts::to_qcsv(ptrIB->getFwdIndexVector()));
+//}
 
 /*------------------------------------------------------------------------------
  *  NumberVectorInfo

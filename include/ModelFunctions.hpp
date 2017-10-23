@@ -23,6 +23,15 @@ typedef dvar_vector (*vPdfFcnPtr)         (const dvar_vector&,      const dvar_v
 typedef dvector     (*vPdfSamplerPtr)     (int n, random_number_generator&,const dvector&,    const dvector&);
 
 namespace tcsam{
+    /**
+     * Prints a file read error.
+     * 
+     * @param is - input filestream
+     * @param expP - the expected read value
+     * @param gotP - the obtained read value
+     */
+    void readError(cifstream & is, const char * expP, adstring gotP);
+    
     /***********************************************************************
     modfcn_constant
         f(x) = c

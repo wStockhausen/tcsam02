@@ -154,7 +154,6 @@ void setDevs(dvar_matrix& devs, param_init_bounded_vector_vector& pDevs, int deb
         mni = pDevs(v).indexmin();
         mxi = pDevs(v).indexmax();
         devs(v)(mni,mxi) = pDevs(v);
-        devs(v,mxi+1) = -sum(devs(v)(mni,mxi));
         if (debug>=(tcsam::dbgAll+1)) cout<<v<<":  "<<devs(v)<<endl;
     }
     if (debug>=(tcsam::dbgAll+1)) {
@@ -592,5 +591,231 @@ void writeParameters(ostream& os, param_init_vector_vector& p, adstring& ctg1, a
 void writeParameters(ostream& os, param_init_bounded_vector_vector& p, adstring& ctg1, adstring& ctg2, adstring_array lbls,int toR, int willBeActive){
     for (int i=p.indexmin();i<=p.indexmax();i++) tcsam::writeParameter(os,p[i],ctg1,ctg2,lbls[i],toR,willBeActive);
 }
+
+/**
+ * Set the parameter info for a NumberVectorInfo object.
+ * 
+ * @param pNVI - pointer to a NumberVectorInfo instance
+ * @param npT - size of vector
+ * @param phs - ivector of phases for parameters
+ * @param os - output stream to write to
+ */
+void setParameterInfo(NumberVectorInfo* pNVI,                           
+                             int& npT,
+                             ivector& phs, 
+                             ostream& os){
+    int np = pNVI->getSize();
+    if (np){npT = np;} else {npT = 1;}
+    phs.allocate(1,npT);
+    if (np){
+        phs = pNVI->getPhases();
+        os<<"parameter "<<pNVI->name<<":"<<endl;
+        os<<"#phase"<<endl;
+        for (int n=1;n<=np;n++) os<<n<<tb<<phs(n)<<endl;
+    } else {
+        phs = -1;
+        os<<"number vector parameter "<<pNVI->name<<" has no parameter values"<<endl;
+    }
+}
+  
+/**
+ * Set the parameter info for a BoundedNumberVectorInfo object.
+ * 
+ * @param pBNVI - pointer to a BoundedNumberVectorInfo instance
+ * @param npT - size of vector
+ * @param lb - dvector of lower bounds
+ * @param ub - dvector of upper bounds
+ * @param phs - ivector of phases for parameters
+ * @param os - output stream to write to
+ */
+void setParameterInfo(BoundedNumberVectorInfo* pBNVI,
+                             int& npT,
+                             dvector& lb, dvector& ub, 
+                             ivector& phs, 
+                             ostream& os){
+    int np = pBNVI->getSize();
+    if (np){npT = np;} else {npT = 1;}
+    phs.allocate(1,npT);
+    lb.allocate(1,npT);
+    ub.allocate(1,npT);
+    if (np){
+        phs = pBNVI->getPhases();
+        lb  = pBNVI->getLowerBounds();
+        ub  = pBNVI->getUpperBounds();
+        os<<"parameter "<<pBNVI->name<<":"<<endl;
+        os<<"#lower  upper  phase  "<<endl;
+        for (int n=1;n<=np;n++) os<<n<<tb<<lb(n)<<tb<<ub(n)<<tb<<phs(n)<<endl;
+    } else {
+        phs = -1;
+        lb  = -1.0;
+        ub  =  1.0;
+        os<<"bounded number parameter vector "<<pBNVI->name<<" has no parameter values"<<endl;
+    }
+}
+  
+/**
+ * Set the parameter info for a VectorVectorInfo object.
+ * 
+ * @param pVVI - pointer to a VectorVectorInfo instance
+ * @param npT - size of vector
+ * @param mns - ivector with minimum indices for each vector
+ * @param mxs - ivector with maximum indices for each vector
+ * @param phs - ivector of phases for parameters
+ * @param os - output stream to write to
+ */
+void setParameterInfo(VectorVectorInfo* pVVI,
+                             int& npT,
+                             ivector& mns, ivector& mxs,
+                             ivector& phs, 
+                             ostream& os){
+    int np = pVVI->getSize();
+    if (np){npT = np;} else {npT = 1;}
+    mns.allocate(1,npT);
+    mxs.allocate(1,npT);
+    phs.allocate(1,npT);
+    if (np){
+        phs = pVVI->getPhases();
+        mns = pVVI->getMinIndices();
+        mxs = pVVI->getMaxIndices();
+        os<<"parameter vector"<<pVVI->name<<":"<<endl;
+        os<<"#mnIdx  mxIdx  phase"<<endl;
+        for (int n=1;n<=np;n++) os<<n<<tb<<mns(n)<<tb<<mxs(n)<<tb<<phs(n)<<endl;
+    } else {
+        mns =  0;
+        mxs =  0;
+        phs = -1;
+        os<<"vector vector "<<pVVI->name<<" has no parameter values"<<endl;
+    }
+}
+  
+/**
+ * Set the parameter info for a BoundedVectorVectorInfo object.
+ * 
+ * @param pBVVI - pointer to a BoundedVectorVectorInfo instance
+ * @param npT - size of vector
+ * @param mns - ivector with minimum indices for each vector
+ * @param mxs - ivector with maximum indices for each vector
+ * @param idxs - imatrix of reverse indices
+ * @param lb - dvector of lower bounds
+ * @param ub - dvector of upper bounds
+ * @param phs - ivector of phases for parameters
+ * @param os - output stream to write to
+ */
+void setParameterInfo(BoundedVectorVectorInfo* pBVVI,                           
+                             int& npT,
+                             ivector& mns, ivector& mxs,
+                             imatrix& idxs,
+                             dvector& lb, dvector& ub, 
+                             ivector& phs, 
+                             ostream& os){
+    int np = pBVVI->getSize();
+    if (np){npT = np;} else {npT = 1;}
+    mns.allocate(1,npT);
+    mxs.allocate(1,npT);
+    lb.allocate(1,npT);
+    ub.allocate(1,npT);
+    phs.allocate(1,npT);
+    if (np){
+        phs = pBVVI->getPhases();
+        mns = pBVVI->getMinIndices();
+        mxs = pBVVI->getMaxIndices();
+        lb  = pBVVI->getLowerBounds();
+        ub  = pBVVI->getUpperBounds();
+        os<<"parameter vector "<<pBVVI->name<<":"<<endl;
+        os<<"#mnIdx  mxIdx  lower  upper  phase"<<endl;
+        for (int n=1;n<=np;n++) os<<n<<tb<<mns(n)<<tb<<mxs(n)<<tb<<lb(n)<<tb<<ub(n)<<tb<<phs(n)<<endl;
+        idxs.allocate(1,np);
+        for (int n=1;n<=np;n++) idxs(n) = (*pBVVI)[n]->getRevIndices();
+        os<<"Reverse indices:"<<endl;
+        int mnc = idxs(1).indexmin(); int mxc = idxs(1).indexmax();
+        for (int n=2;n<=np;n++) {
+            mnc = min(mnc,idxs(n).indexmin());
+            mxc = max(mxc,idxs(n).indexmax());
+        }
+        os<<"mnc = "<<mnc<<tb<<"mxc = "<<mxc<<endl;
+        imatrix idxps(mnc,mxc,1,np); idxps = -1;
+        for (int c=mnc;c<=mxc;c++){
+            for (int n=1;n<=np;n++){
+                if ((idxs(n).indexmin()<=c)&&(c<=idxs(n).indexmax())) idxps(c,n) = idxs(n,c);
+            }
+        }
+        for (int c=mnc;c<=mxc;c++) os<<c<<tb<<idxps(c)<<endl;
+    } else {
+        mns =  0;
+        mxs =  0;
+        phs = -1;
+        lb  = -1.0;
+        ub  =  1.0;
+        idxs.allocate(1,1,1,1);//dummy allocation
+        idxs(1,1) = 0;
+        os<<"bounded vector vector "<<pBVVI->name<<" has no parameter values"<<endl;
+    }
+}
+
+/**
+ * Set the parameter info for a DevsVectorVectorInfo object.
+ * 
+ * @param pDVVI - pointer to a DevsVectorVectorInfo instance
+ * @param npT - size of vector
+ * @param mns - ivector with minimum indices for each vector
+ * @param mxs - ivector with maximum indices for each vector
+ * @param idxs - imatrix of reverse indices
+ * @param lb - dvector of lower bounds
+ * @param ub - dvector of upper bounds
+ * @param phs - ivector of phases for parameters
+ * @param os - output stream to write to
+ */
+void setParameterInfo(DevsVectorVectorInfo* pDVVI,                           
+                             int& npT,
+                             ivector& mns, ivector& mxs,
+                             imatrix& idxs,
+                             dvector& lb, dvector& ub, 
+                             ivector& phs, 
+                             ostream& os){
+    int np = pDVVI->getSize();
+    if (np){npT = np;} else {npT = 1;}
+    mns.allocate(1,npT);
+    mxs.allocate(1,npT);
+    lb.allocate(1,npT);
+    ub.allocate(1,npT);
+    phs.allocate(1,npT);
+    if (np){
+        phs = pDVVI->getPhases();
+        mns = pDVVI->getMinIndices();
+        mxs = pDVVI->getMaxIndices();
+        lb  = pDVVI->getLowerBounds();
+        ub  = pDVVI->getUpperBounds();
+        os<<"parameter vector"<<pDVVI->name<<":"<<endl;
+        os<<"#mnIdx  mxIdx  lower  upper  phase"<<endl;
+        for (int n=1;n<=np;n++) os<<n<<tb<<mns(n)<<tb<<mxs(n)<<tb<<lb(n)<<tb<<ub(n)<<tb<<phs(n)<<endl;
+        idxs.allocate(1,np);
+        for (int n=1;n<=np;n++) idxs(n) = (*pDVVI)[n]->getRevIndices();
+        os<<"Reverse indices:"<<endl;
+        int mnc = idxs(1).indexmin(); int mxc = idxs(1).indexmax();
+        for (int n=2;n<=np;n++) {
+            mnc = min(mnc,idxs(n).indexmin());
+            mxc = max(mxc,idxs(n).indexmax());
+        }
+        os<<"mnc = "<<mnc<<tb<<"mxc = "<<mxc<<endl;
+        imatrix idxps(mnc,mxc,1,np); idxps = -1;
+        for (int c=mnc;c<=mxc;c++){
+            for (int n=1;n<=np;n++){
+                if ((idxs(n).indexmin()<=c)&&(c<=idxs(n).indexmax())) idxps(c,n) = idxs(n,c);
+            }
+        }
+        for (int c=mnc;c<=mxc;c++) os<<c<<tb<<idxps(c)<<endl;
+    } else {
+        mns =  0;
+        mxs =  0;
+        phs = -1;
+        lb  = -1.0;
+        ub  =  1.0;
+        idxs.allocate(1,1,1,1);//dummy allocation
+        idxs(1,1) = 0;
+        os<<"devs vector vector "<<pDVVI->name<<" has no parameter values"<<endl;
+    }
+}
+
+
 
 } //namespace tcsam

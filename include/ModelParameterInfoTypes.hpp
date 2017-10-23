@@ -331,16 +331,17 @@
     };
 
 /*----------------------------------------------------------------------------\n
-  * DevsVectorInfo : BoundedVectorInfo\n
+  * DevsVectorInfo : BoundedVectorInfo                                        \n
   *  Encapsulates characteristics for a vector of  param_init_bounded_number  \n
   *  parameters to be used as the basis for a devs vector, which has the      \n
-  *  property that the sum of the elements of the vector is identically 0.    \n
-  *  This is implemented by setting v(N) = -sum(v[1,(N-1)]).            \n
-  *      BoundedNumberInfo characteristics 
-  *      idxType  - adstring with type of indices (e.q., YEAR)
-  *      ptrIB    - pointer to IndexBlock object defining indices
-  *      readVals -  flag to read vector of values
-  *      initVals - vector of initial values
+  *  property that the sum of the elements of the vector should be 0.         \n
+  *  This is implemented by enforcing sum(v[])=0 in the likelihood.           \n
+  *  Otherwise, DevsVectorInfo is identical to BoundedVectorInfo.             \n
+  *      BoundedNumberInfo characteristics                                    \n
+  *      idxType  - adstring with type of indices (e.q., YEAR)                \n
+  *      ptrIB    - pointer to IndexBlock object defining indices             \n
+  *      readVals -  flag to read vector of values                            \n
+  *      initVals - vector of initial values                                  \n
 *---------------------------------------------------------------------------*/
     class DevsVectorInfo : public BoundedVectorInfo {
         public:
@@ -357,46 +358,44 @@
              */
             void setInitVal(double x){initVals = 0.0;}
             
-            /**
-             * Sets initial values 1:(N-1) to those of the vector x, but
-             * sets the value for element N to -sum(initVals(1,N-1)) so
-             * the sum over all elements is 0. x may have size N-1.
-             * 
-             * @param x - dvector of initial values
-             */
-            virtual void setInitVals(dvector& x);
-            /**
-             * Sets initial values 1:(N-1) to those of the vector x, but
-             * sets the value for element N to -sum(initVals(1,N-1)) so
-             * the sum over all elements is 0. x may have size N-1.
-             * 
-             * @param x - param_init_bounded_vector of initial values
-             */
-            virtual void setInitVals(param_init_bounded_vector & x);     
-            /**
-             * Sets final values 1:(N-1) to those of the vector x, but
-             * sets the value for element N to -sum(initVals(1,N-1)) so
-             * the sum over all elements is 0. x may have size N-1.
-             * 
-             * @param x - param_init_bounded_vector of final values
-             */
-            virtual void setFinalVals(param_init_bounded_vector & x);     
-            /**
-             * Reads initial values 1:N from a file stream and sets the 
-             * values for 1:(N-1) to those of the read-in vector x, but sets
-             * the value for element N to -sum(initVals(1,N-1)) so the
-             * sum over all elements is 0.
-             * 
-             * @param is - filestream object from which to read initial values
-             */
-            void    readInitVals(cifstream & is);
-            
+//            /**
+//             * Sets initial values to those of the vector x.
+//             * 
+//             * @param x - dvector of initial values
+//             */
+//            virtual void setInitVals(dvector& x);
+//            /**
+//             * Sets initial values 1:(N-1) to those of the vector x, but
+//             * sets the value for element N to -sum(initVals(1,N-1)) so
+//             * the sum over all elements is 0. x may have size N-1.
+//             * 
+//             * @param x - param_init_bounded_vector of initial values
+//             */
+//            virtual void setInitVals(param_init_bounded_vector & x);     
+//            /**
+//             * Sets final values 1:(N-1) to those of the vector x, but
+//             * sets the value for element N to -sum(initVals(1,N-1)) so
+//             * the sum over all elements is 0. x may have size N-1.
+//             * 
+//             * @param x - param_init_bounded_vector of final values
+//             */
+//            virtual void setFinalVals(param_init_bounded_vector & x);     
+//            /**
+//             * Reads initial values 1:N from a file stream and sets the 
+//             * values for 1:(N-1) to those of the read-in vector x, but sets
+//             * the value for element N to -sum(initVals(1,N-1)) so the
+//             * sum over all elements is 0.
+//             * 
+//             * @param is - filestream object from which to read initial values
+//             */
+//            void    readInitVals(cifstream & is);
+//            
             virtual dvector drawInitVals(random_number_generator& rng, double vif);//draw initial values by resampling prior
-            virtual void read(cifstream & is);
-            virtual void writeToR(std::ostream & os);
-            virtual void writeFinalValsToR(std::ostream & os);
-        protected:
-            void calcDevs(void);
+//            virtual void read(cifstream & is);
+//            virtual void writeToR(std::ostream & os);
+//            virtual void writeFinalValsToR(std::ostream & os);
+//        protected:
+//            void calcDevs(void);
     };
 
 //--------------------------------------------------------------------------------

@@ -148,6 +148,89 @@ namespace tcsam {
     void writeParameters(ostream& os, param_init_bounded_number_vector& p,adstring& ctg1, adstring& ctg2, adstring_array lbl, int toR, int willBeActive);
     void writeParameters(ostream& os, param_init_vector_vector& p,        adstring& ctg1, adstring& ctg2, adstring_array lbl, int toR, int willBeActive);
     void writeParameters(ostream& os, param_init_bounded_vector_vector& p,adstring& ctg1, adstring& ctg2, adstring_array lbl, int toR, int willBeActive);
+    
+/**
+ * Set the parameter info for a NumberVectorInfo object.
+ * 
+ * @param pNVI - pointer to a NumberVectorInfo instance
+ * @param npT - size of vector
+ * @param phs - ivector of phases for parameters
+ * @param os - output stream to write to
+ */
+    void setParameterInfo(NumberVectorInfo* pNVI,                           
+                          int& npT,
+                          ivector& phs, 
+                          ostream& os = std::cout);
+    /**
+     * Set the parameter info for a BoundedNumberVectorInfo object.
+     * 
+     * @param pBNVI - pointer to a BoundedNumberVectorInfo instance
+     * @param npT - size of vector
+     * @param lb - dvector of lower bounds
+     * @param ub - dvector of upper bounds
+     * @param phs - ivector of phases for parameters
+     * @param os - output stream to write to
+     */
+    void setParameterInfo(BoundedNumberVectorInfo* pBNVI,
+                          int& npT,
+                          dvector& lb, dvector& ub, 
+                          ivector& phs, 
+                          ostream& os = std::cout);
+    /**
+     * Set the parameter info for a VectorVectorInfo object.
+     * 
+     * @param pVVI - pointer to a VectorVectorInfo instance
+     * @param npT - size of vector
+     * @param lb - dvector of lower bounds
+     * @param ub - dvector of upper bounds
+     * @param phs - ivector of phases for parameters
+     * @param os - output stream to write to
+     */
+    void setParameterInfo(VectorVectorInfo* pVVI,   
+                          int& npT,
+                          ivector& mns, ivector& mxs,
+                          ivector& phs, 
+                          ostream& os = std::cout);
+    /**
+     * Set the parameter info for a BoundedVectorVectorInfo object.
+     * 
+     * @param pBVVI - pointer to a BoundedVectorVectorInfo instance
+     * @param npT - size of vector
+     * @param mns - ivector with minimum indices for each vector
+     * @param mxs - ivector with maximum indices for each vector
+     * @param idxs - imatrix of reverse indices
+     * @param lb - dvector of lower bounds
+     * @param ub - dvector of upper bounds
+     * @param phs - ivector of phases for parameters
+     * @param os - output stream to write to
+     */
+    void setParameterInfo(BoundedVectorVectorInfo* pBVVI,                           
+                          int& npT,
+                          ivector& mns, ivector& mxs,
+                          imatrix& idxs,
+                          dvector& lb, dvector& ub,
+                          ivector& phs,
+                          ostream& os = std::cout);
+    /**
+     * Set the parameter info for a DevsVectorVectorInfo object.
+     * 
+     * @param pDVVI - pointer to a DevsVectorVectorInfo instance
+     * @param npT - size of vector
+     * @param mns - ivector with minimum indices for each vector
+     * @param mxs - ivector with maximum indices for each vector
+     * @param idxs - imatrix of reverse indices
+     * @param lb - dvector of lower bounds
+     * @param ub - dvector of upper bounds
+     * @param phs - ivector of phases for parameters
+     * @param os - output stream to write to
+     */
+    void setParameterInfo(DevsVectorVectorInfo* pDVVI,                           
+                          int& npT,
+                          ivector& mns, ivector& mxs,
+                          imatrix& idxs,
+                          dvector& lb, dvector& ub,
+                          ivector& phs,
+                          ostream& os = std::cout);
 } //namespace tcsam
 
 #endif	/* MODELPARAMETERFUNCTIONS_HPP */

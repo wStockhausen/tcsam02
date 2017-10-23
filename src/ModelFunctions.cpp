@@ -2,9 +2,19 @@
 #include <wtsADMB.hpp>
 #include "ModelConstants.hpp"
 #include "ModelFunctions.hpp"
-#include "ModelData.hpp"
-#include "ModelParametersInfo.hpp"
 
+/**
+ * Prints a file read error.
+ * 
+ * @param is - input filestream
+ * @param expP - the expected read value
+ * @param gotP - the obtained read value
+ */
+void tcsam::readError(cifstream & is, const char * expP, adstring gotP){
+    cout<<"Reading "<<is.get_file_name()<<endl;
+    cout<<"Expected parameter name '"<<expP<<"' but got '"<<gotP<<"'."<<endl;
+    cout<<"Aborting..."<<endl;
+}
 //----------------------------------------------------------------------
 //          Model Functions
 //----------------------------------------------------------------------

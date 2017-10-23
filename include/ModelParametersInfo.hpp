@@ -423,37 +423,5 @@ class ModelParametersInfo{
         friend std::ostream& operator <<(std::ostream & os, ModelParametersInfo & obj){obj.write(os); return os;}
 };
 
-namespace tcsam{
-    void readError(cifstream & is, const char * expP, adstring gotP);
-    
-    void setParameterInfo(NumberVectorInfo* pNVI,                           
-                          int& npT,
-                          ivector& phs, 
-                          ostream& os = std::cout);
-    void setParameterInfo(BoundedNumberVectorInfo* pBNVI,
-                          int& npT,
-                          dvector& lb, dvector& ub, 
-                          ivector& phs, 
-                          ostream& os = std::cout);
-    void setParameterInfo(VectorVectorInfo* pVVI,   
-                          int& npT,
-                          ivector& mns, ivector& mxs,
-                          ivector& phs, 
-                          ostream& os = std::cout);
-    void setParameterInfo(BoundedVectorVectorInfo* pBVVI,                           
-                          int& npT,
-                          ivector& mns, ivector& mxs,
-                          imatrix& idxs,
-                          dvector& lb, dvector& ub,
-                          ivector& phs,
-                          ostream& os = std::cout);
-    void setParameterInfo(DevsVectorVectorInfo* pDVVI,                           
-                          int& npT,
-                          ivector& mns, ivector& mxs,
-                          imatrix& idxs,
-                          dvector& lb, dvector& ub,
-                          ivector& phs,
-                          ostream& os = std::cout);
-}
 #endif	/* MODELPARAMETERSINFO_HPP */
 

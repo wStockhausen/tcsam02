@@ -310,6 +310,12 @@
 //--2017-10-15: 1. Finished modifying code to incorporate iterative re-weighting.
 //--2017-10-20: 1. Added ascending normal and 4- and 6-parameter versions of the 
 //                  double normal selectivity functions
+//--2017-10-23: 1. Implementing new version of DevsVectors such that a vector has
+//                  all elements bounded as a BoundedVector but the sum-to-1 constraint
+//                  must be enforced in the likelihood. Previously, the sum-to-1
+//                  constraint was identically satisfied by setting the final element
+//                  to the negative sum of the previous elements, while the bounds on
+//                  the final element were enforced in the likelihood.
 // =============================================================================
 // =============================================================================
 GLOBALS_SECTION
@@ -2211,7 +2217,7 @@ FUNCTION void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector
 //*  p - changes initial values
 //******************************************************************************
 FUNCTION void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
-//    debug=dbgAll;
+    debug=dbgAll;
     if (debug>=dbgAll) std::cout<<"Starting setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
     int np = pI->getSize();
     if (np){
@@ -2228,24 +2234,22 @@ FUNCTION void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_ve
                 rpt::echo<<tb<<"pin values       = "<<pns<<endl;
                 rpt::echo<<tb<<"info values      = "<<vls<<endl;
                 dvector rvs = wts::jitterParameter(p(i), 0.1*ptrMC->jitFrac, rng);//get jittered values
-                //scale all devs values such that final dev is within bounds
-                double sm = -sum(rvs);//nominally, this would be the final dev
-                rpt::echo<<tb<<"rvs              = "<<rvs<<tb<<sm<<endl;
-                if (sm<=p(i).get_minb()){
-                    rvs *= 0.99*fabs(p(i).get_minb())/fabs(sm);
-                } else
-                if (p(i).get_maxb()<=sm){
-                    rvs *= 0.99*p(i).get_maxb()/sm;
-                }
-                //for (int j=p(i).indexmin();j<=p(i).indexmax();j++) p(i,j)=rvs(j);
-                p(i) = rvs(p(i).indexmin(),p(i).indexmax());
+                //scale all devs values such that sum = 0 and all devs are within bounds
+                double sm = sum(rvs);
+                rpt::echo<<tb<<"rvs              = "<<rvs<<endl<<"sum = "<<sm<<endl;
+                rvs = rvs - sm;//adjust sum to 0
+                //adjust scaling so rvs are within bounds
+                double lower = (*pI)[i]->getLowerBound();
+                double upper = (*pI)[i]->getUpperBound();
+                if (max(fabs(rvs))>max(fabs(lower),fabs(upper))) rvs = rvs/max(fabs(lower),fabs(upper));
+                p(i) = rvs;
                 rpt::echo<<tb<<"adjusted values  = "<<rvs<<endl;
                 rpt::echo<<tb<<"final values     = "<<p(i)<<endl;
             } else
             if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
                 rpt::echo<<tb<<"resampling "<<p(i).label()<<endl;
                 dvector rvs = ptrI->drawInitVals(rng,ptrMC->vif);//get resampled values
-                for (int j=p(i).indexmin();j<=p(i).indexmax();j++) p(i,j)=rvs(j);
+                p(i)=rvs;
                 rpt::echo<<tb<<"pin values       = "<<pns<<endl;
                 rpt::echo<<tb<<"info values      = "<<vls<<endl;
                 rpt::echo<<tb<<"resampled values = "<<rvs<<endl;
@@ -4271,26 +4275,17 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     if (debug>=dbgObjFun) cout<<"Finished calcPenalties()"<<endl;
 
 //-------------------------------------------------------------------------------------
-//Calculate penalties on final values in devs vectors
+//Calculate penalties on sums of devs vectors
 FUNCTION void calcDevsPenalties(int debug, ostream& cout, double penWgt, param_init_bounded_vector_vector& pDevs, dvar_matrix devs)    
-    double scale = 1.0e-2;//scale for posfun calculation
-    int idx;
-    double lower; double upper;
-    dvariable fPenLower;
-    dvariable fPenUpper;
+    dvariable fPen;
     if (debug<0) cout<<"list(";//start of list
     for (int i=pDevs.indexmin();i<=pDevs.indexmax();i++){
         if (pDevs(i).get_phase_start()){
-            idx = devs(i).indexmax();//index of final dev
-            lower = pDevs(i).get_minb();
-            upper = pDevs(i).get_maxb();
-            fPenLower.initialize();
-            fPenUpper.initialize();
-            posfun2(devs(i,idx)-lower,scale,fPenLower);
-            posfun2(upper-devs(i,idx),scale,fPenUpper);
-            objFun += penWgt*(fPenLower+fPenUpper);
-            if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgt<<cc<<"pen="<<fPenLower+fPenUpper<<cc<<"objfun="<<penWgt*(fPenLower+fPenUpper)<<cc<<
-                                                          "val="<<devs(i,idx)<<cc<<"minb="<<lower<<cc<<"maxb="<<upper<<cc<<"fPenL="<<fPenLower<<cc<<"fPenU="<<fPenUpper<<"),"<<endl;
+            fPen.initialize();
+            fPen = square(sum(devs(i)));
+            objFun += penWgt*fPen;
+            if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgt<<cc<<"pen="<<fPen<<cc<<
+                                                          "objfun="<<penWgt*fPen<<cc<<"val="<<sum(devs(i))<<"),"<<endl;
         }
     }
     if (!debug) testNaNs(value(objFun),"in calcDevsPenalties()");
