@@ -593,11 +593,11 @@ void writeParameters(ostream& os, param_init_bounded_number_vector& p, adstring&
                      BoundedNumberVectorInfo* pI,int toR, int willBeActive){
     if (pI->getSize()){
         for (int i=p.indexmin();i<=p.indexmax();i++) {
-            rpt::echo<<"writeParameters(BNVI) for "<<i<<p[i].get_name()<<endl;
-            rpt::echo<<"typeof((*pI)[i]) = "<<typeid((*pI)[i]).name()<<endl;
-            BoundedNumberInfo* ptrI = (*pI)[i];
-            rpt::echo<<"typeof(ptrI) = "<<typeid(ptrI).name()<<endl;
-            tcsam::writeParameter(os,p[i],ctg1,ctg2,ptrI,toR,willBeActive);
+//            rpt::echo<<"writeParameters(BNVI) for "<<i<<p[i].get_name()<<endl;
+//            rpt::echo<<"typeof((*pI)[i]) = "<<typeid((*pI)[i]).name()<<endl;
+//            BoundedNumberInfo* ptrI = (*pI)[i];
+//            rpt::echo<<"typeof(ptrI) = "<<typeid(ptrI).name()<<endl;
+            tcsam::writeParameter(os,p[i],ctg1,ctg2,(*pI)[i],toR,willBeActive);
         }
     }
 }

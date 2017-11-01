@@ -318,8 +318,10 @@
 //                  the final element were enforced in the likelihood.
 //--2017-10-31: 1. Revised ParameterInfoTypes to incorporate parameters on non-arithmetic
 //                  scales. Changed growth parameters to implement this.
-//                  TODO: implement for other parameters.
-//                  TODO: stop printing debugging info
+//              2. Implemented for for other parameters, but using original scales.
+//                  A logit-scale transform, for example, can still be used for 
+//                  bounded parameters to try to minimize gradients at bounds.
+//              3. Stopped printing debugging info for new stuff by default.
 // =============================================================================
 // =============================================================================
 GLOBALS_SECTION
@@ -1364,7 +1366,7 @@ PRELIMINARY_CALCS_SECTION
      cout<<"writing parameters info to csv"<<endl;
      ofstream os1("tcsam02.params.all.init.csv", ios::trunc);
      os1.precision(12);
-     writeParameters(os1,1,0);//all parameters
+     writeParameters(os1,0,0);//all parameters
      os1.close();
      ofstream os2("tcsam02.params.active.init.csv", ios::trunc);
      os2.precision(12);
@@ -2344,7 +2346,7 @@ FUNCTION void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_ve
 //*  pI - changes initial values
 //******************************************************************************
 FUNCTION void setInitValsFromPinFile(NumberVectorInfo* pI, param_init_number_vector& p, int debug, ostream& cout)
-    debug=dbgAll;
+    //debug=dbgAll;
     if (debug>=dbgAll) std::cout<<"Starting setInitValsFromPinFile(NumberVectorInfo* pI, param_init_number_vector& p) for "<<p(1).label()<<endl; 
     int np = pI->getSize();
     if (np){
@@ -2385,7 +2387,7 @@ FUNCTION void setInitValsFromPinFile(NumberVectorInfo* pI, param_init_number_vec
 //*  pI - changes initial values
 //******************************************************************************
 FUNCTION void setInitValsFromPinFile(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p, int debug, ostream& cout)
-    debug=dbgAll;
+    //debug=dbgAll;
     if (debug>=dbgAll) std::cout<<"Starting setInitValsFromPinFile(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
     int np = pI->getSize();
     if (np){
@@ -2426,7 +2428,7 @@ FUNCTION void setInitValsFromPinFile(BoundedNumberVectorInfo* pI, param_init_bou
 //*  pI - changes initial values
 //******************************************************************************
 FUNCTION void setInitValsFromPinFile(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
-    debug=dbgAll;
+    //debug=dbgAll;
     if (debug>=dbgAll) std::cout<<"Starting setInitValsFromPinFile(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
     int np = pI->getSize();
     if (np){
@@ -2471,7 +2473,7 @@ FUNCTION void setInitValsFromPinFile(BoundedVectorVectorInfo* pI, param_init_bou
 //*  pI - changes initial values
 //******************************************************************************
 FUNCTION void setInitValsFromPinFile(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
-    debug=dbgAll;
+    //debug=dbgAll;
     if (debug>=dbgAll) std::cout<<"Starting setInitValsFromPinFile(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
     int np = pI->getSize();
     if (np){
