@@ -8,6 +8,7 @@
  * 20150210: 1. Added conversion from UNITS_KMT to other units
  * 20150302: 1. Added tcsamDims::formatForR(adstring).
  *           2. Revised getDDsForR(...) functions (DD=SX,SC,MS) to use formatForR(...)
+ * 20171024: 1. Added transform types
 */
 
 using namespace tcsam;
@@ -179,8 +180,12 @@ adstring tcsam::getSRType(int i){
     exit(-1);
     return adstring("");
 }
-
-int tcsam::getScaleType(adstring s){
+/**
+ * Converts the error scale type from adstring to integer version.
+ * @param s - the adstring version
+ * @return  - the integer version
+ */
+int tcsam::getErrorScaleType(adstring s){
     if (s==STR_VAR) return SCLTYPE_VAR;
     if (s==STR_STD) return SCLTYPE_STD;
     if (s==STR_CV)  return SCLTYPE_CV;
@@ -189,7 +194,12 @@ int tcsam::getScaleType(adstring s){
     exit(-1);
     return 0;
 }
-adstring tcsam::getScaleType(int i){
+/**
+ * Converts the error scale type from integer to adstring
+ * @param i - the integer type
+ * @return  - the adstring version
+ */
+adstring tcsam::getErrorScaleType(int i){
     if (i==SCLTYPE_VAR) return STR_VAR;
     if (i==SCLTYPE_STD) return STR_STD;
     if (i==SCLTYPE_CV)  return STR_CV;
@@ -201,7 +211,7 @@ adstring tcsam::getScaleType(int i){
 
 /**
  * Translate from adstring fit type to int version.
- * @param fitType
+ * @param s - likelihood fit type
  * @return 
  */
 int tcsam::getFitType(adstring s){
@@ -366,6 +376,31 @@ double tcsam::getConversionMultiplier(adstring from,adstring to){
     return cnv;
 }
 
+/**
+ * Translate from integer likelihood type to adstring version.
+ * 
+ * @param llType - integer likelihood type
+ * @return - corresponding adstring version
+ */
+adstring tcsam::getLikelihoodType(int llType){
+    adstring type = STR_LL_NONE;
+    if (llType==LL_LOGNORMAL)   return STR_LL_LOGNORMAL;
+    if (llType==LL_MULTINOMIAL) return STR_LL_MULTINOMIAL;
+    if (llType==LL_NONE)        return STR_LL_NONE;
+    if (llType==LL_NORM2)       return STR_LL_NORM2;
+    if (llType==LL_NORMAL)      return STR_LL_NORMAL;
+    std::cout<<"Likelihood type integer '"<<llType<<"' not recognized."<<std::endl;
+    std::cout<<"Aborting..."<<std::endl;
+    exit(-1);
+    return type;
+}
+
+/**
+ * Translate from adstring likelihood type to int version.
+ * 
+ * @param llType - adstring likelihood type
+ * @return - corresponding integer version
+ */
 int tcsam::getLikelihoodType(adstring llType){
     int type = 0;
     if (llType==STR_LL_LOGNORMAL)   return LL_LOGNORMAL;
@@ -379,15 +414,40 @@ int tcsam::getLikelihoodType(adstring llType){
     return type;
 }
 
-adstring tcsam::getLikelihoodType(int llType){
-    adstring type = STR_LL_NONE;
-    if (llType==LL_LOGNORMAL)   return STR_LL_LOGNORMAL;
-    if (llType==LL_MULTINOMIAL) return STR_LL_MULTINOMIAL;
-    if (llType==LL_NONE)        return STR_LL_NONE;
-    if (llType==LL_NORM2)       return STR_LL_NORM2;
-    if (llType==LL_NORMAL)      return STR_LL_NORMAL;
-    std::cout<<"Likelihood type integer '"<<llType<<"' not recognized."<<std::endl;
+/**
+ * Translate from adstring scale type to int version.
+ * 
+ * @param sclType - adstring scale type
+ * @return -integer transform type
+ */
+int tcsam::getScaleType(adstring sclType){
+    int type = -1;
+    sclType.to_upper();
+    if (sclType==STR_SCALE_NONE)   return SCALE_ARITHM;
+    if (sclType==STR_SCALE_ARITHM) return SCALE_ARITHM;
+    if (sclType==STR_SCALE_LOGIT)  return SCALE_LOGIT;
+    if (sclType==STR_SCALE_LOG)    return SCALE_LOG;
+    if (sclType==STR_SCALE_PROBIT) return SCALE_PROBIT;
+    std::cout<<"transform type keyword '"<<sclType<<"' not recognized."<<std::endl;
     std::cout<<"Aborting..."<<std::endl;
-    exit(-1);
+    ad_exit(-1);
+    return type;
+}
+
+/**
+ * Translate from integer scale type to adstring version.
+ * 
+ * @param sclType - integer scale type
+ * @return  - corresponding adstring version
+ */
+adstring tcsam::getScaleType(int sclType){
+    adstring type = "<UNDEFINED>";
+    if (sclType==SCALE_ARITHM) return STR_SCALE_ARITHM;
+    if (sclType==SCALE_LOGIT)  return STR_SCALE_LOGIT;
+    if (sclType==SCALE_LOG)    return STR_SCALE_LOG;
+    if (sclType==SCALE_PROBIT) return STR_SCALE_PROBIT;
+    std::cout<<"transform type integer '"<<sclType<<"' not recognized."<<std::endl;
+    std::cout<<"Aborting..."<<std::endl;
+    ad_exit(-1);
     return type;
 }

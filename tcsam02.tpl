@@ -310,12 +310,16 @@
 //--2017-10-15: 1. Finished modifying code to incorporate iterative re-weighting.
 //--2017-10-20: 1. Added ascending normal and 4- and 6-parameter versions of the 
 //                  double normal selectivity functions
-//--2017-10-23: 1. Implementing new version of DevsVectors such that a vector has
+//--2017-10-23: 1. Implemented new version of DevsVectors such that a vector has
 //                  all elements bounded as a BoundedVector but the sum-to-1 constraint
 //                  must be enforced in the likelihood. Previously, the sum-to-1
 //                  constraint was identically satisfied by setting the final element
 //                  to the negative sum of the previous elements, while the bounds on
 //                  the final element were enforced in the likelihood.
+//--2017-10-31: 1. Revised ParameterInfoTypes to incorporate parameters on non-arithmetic
+//                  scales. Changed growth parameters to implement this.
+//                  TODO: implement for other parameters.
+//                  TODO: stop printing debugging info
 // =============================================================================
 // =============================================================================
 GLOBALS_SECTION
@@ -1087,7 +1091,7 @@ PARAMETER_SECTION
     !!rpt::echo<<"#Starting PARAMETER_SECTION"<<endl;
     !!cout<<"#Starting PARAMETER_SECTION"<<endl;
  
-    //recruitment parameters TODO: implement devs
+    //recruitment parameters
     init_bounded_number_vector pLnR(1,npLnR,lbLnR,ubLnR,phsLnR);              //mean ln-scale recruitment
     !!cout<<"pLnR = "<<pLnR<<endl;
     init_bounded_number_vector pLnRCV(1,npLnRCV,lbLnRCV,ubLnRCV,phsLnRCV);    //ln-scale recruitment cv
@@ -1334,10 +1338,10 @@ PRELIMINARY_CALCS_SECTION
     //set initial values for all parameters
     if (usePin) {
         rpt::echo<<"NOTE: setting initial values for parameters using pin file"<<endl;
+        setInitValsFromPinFile();
     } else {
         rpt::echo<<"NOTE: setting initial values for parameters using setInitVals(...)"<<endl;
         setInitVals();
-        //check growth parameters
     }
 
     cout<<"testing setAllDevs()"<<endl;
@@ -1360,7 +1364,7 @@ PRELIMINARY_CALCS_SECTION
      cout<<"writing parameters info to csv"<<endl;
      ofstream os1("tcsam02.params.all.init.csv", ios::trunc);
      os1.precision(12);
-     writeParameters(os1,0,0);//all parameters
+     writeParameters(os1,1,0);//all parameters
      os1.close();
      ofstream os2("tcsam02.params.active.init.csv", ios::trunc);
      os2.precision(12);
@@ -1407,16 +1411,6 @@ PRELIMINARY_CALCS_SECTION
     
     cout<<"\n--starting allocation of arrays for average capture rates and effort extrapolation"<<endl;
     rpt::echo<<"\n--starting allocation of arrays for average capture rates and effort extrapolation"<<endl;
-//    avgFc_nxms.deallocate();
-//    avgFc_nxms.allocate(1,nCRASs,1,nSXs,1,nMSs,1,nSCs,"avgFc_nxms");
-//    avgFc2Eff_nxms.deallocate();
-//    avgFc2Eff_nxms.allocate(1,nCRASs,1,nSXs,1,nMSs,1,nSCs,"avgFc2Eff_nxms");
-//    obsFc_nxmsy.deallocate();
-//    obsFc_nxmsy.allocate(1,nCRASs,1,nSXs,1,nMSs,1,nSCs,mnYr,mxYr,"obsFc_nxmsy");
-//    prdFc_nxmsy.deallocate();
-//    prdFc_nxmsy.allocate(1,nCRASs,1,nSXs,1,nMSs,1,nSCs,mnYr,mxYr,"prdFc_nxmsy");
-//    prdEff_nxmsy.deallocate();
-//    prdEff_nxmsy.allocate(1,nCRASs,1,nSXs,1,nMSs,1,nSCs,mnYr,mxYr,"prdFc_nxmsy");
     obsEff_nxmsy.initialize();
     for (int n=1;n<=nCRASs;n++){
         CapRateAvgScenario* ptrCRAS = ptrMOs->ptrEffXtrapScenarios->ptrCapRateAvgScenarios->ppCRASs[n-1];
@@ -1689,6 +1683,63 @@ FUNCTION setInitVals
     setInitVals(ptrMPI->ptrSrv->pDQ2, pDQ2, 0,rpt::echo);
     setInitVals(ptrMPI->ptrSrv->pDQ3, pDQ3, 0,rpt::echo);
     setInitVals(ptrMPI->ptrSrv->pDQ4, pDQ4, 0,rpt::echo);
+
+//*****************************************
+FUNCTION setInitValsFromPinFile
+    //recruitment parameters
+    setInitValsFromPinFile(ptrMPI->ptrRec->pLnR,    pLnR,    0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrRec->pLnRCV,  pLnRCV,  0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrRec->pLgtRX,  pLgtRX,  0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrRec->pLnRa,   pLnRa,   0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrRec->pLnRb,   pLnRb,   0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrRec->pDevsLnR,pDevsLnR,0,rpt::echo);
+
+    //natural mortality parameters
+    setInitValsFromPinFile(ptrMPI->ptrNM->pLnM, pLnM, 0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrNM->pDM1, pDM1, 0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrNM->pDM2, pDM2, 0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrNM->pDM3, pDM3, 0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrNM->pDM4, pDM4, 0,rpt::echo);
+
+    //growth parameters
+    setInitValsFromPinFile(ptrMPI->ptrGrw->pGrA,   pGrA,   0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrGrw->pGrB,   pGrB,   0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrGrw->pGrBeta,pGrBeta,0,rpt::echo);
+
+    //maturity parameters
+    setInitValsFromPinFile(ptrMPI->ptrM2M->pLgtPrM2M,pLgtPrM2M,0,rpt::echo);
+
+    //selectivity parameters
+    setInitValsFromPinFile(ptrMPI->ptrSel->pS1, pS1,0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrSel->pS2, pS2,0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrSel->pS3, pS3,0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrSel->pS4, pS4,0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrSel->pS5, pS5,0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrSel->pS6, pS6,0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrSel->pDevsS1, pDevsS1,0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrSel->pDevsS2, pDevsS2,0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrSel->pDevsS3, pDevsS3,0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrSel->pDevsS4, pDevsS4,0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrSel->pDevsS5, pDevsS5,0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrSel->pDevsS6, pDevsS6,0,rpt::echo);
+
+    //fully-selected fishing capture rate parameters
+    setInitValsFromPinFile(ptrMPI->ptrFsh->pHM,  pHM,  0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrFsh->pLnC, pLnC, 0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrFsh->pDC1, pDC1, 0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrFsh->pDC2, pDC2, 0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrFsh->pDC3, pDC3, 0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrFsh->pDC4, pDC4, 0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrFsh->pDevsLnC,pDevsLnC,0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrFsh->pLnEffX, pLnEffX, 0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrFsh->pLgtRet, pLgtRet, 0,rpt::echo);
+
+    //survey catchability parameters
+    setInitValsFromPinFile(ptrMPI->ptrSrv->pLnQ, pLnQ, 0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrSrv->pDQ1, pDQ1, 0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrSrv->pDQ2, pDQ2, 0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrSrv->pDQ3, pDQ3, 0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrSrv->pDQ4, pDQ4, 0,rpt::echo);
 
 //*****************************************
 FUNCTION int checkParams(int debug, ostream& os)
@@ -2275,6 +2326,178 @@ FUNCTION void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_ve
         std::cin>>np;
         if (np<0) exit(-1);
         std::cout<<"Finished setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
+    }
+
+//******************************************************************************
+//* Function: void setInitValsFromPinFile(NumberVectorInfo* pI, param_init_number_vector& p, int debug, ostream& cout)
+//* 
+//* Description: Sets initial values for a parameter info object from a parameter vector.
+//*
+//* Inputs:
+//*  pI (NumberVectorInfo*) 
+//*     pointer to NumberVectorInfo object
+//*  p (param_init_number_vector&)
+//*     parameter vector
+//* Returns:
+//*  void
+//* Alters:
+//*  pI - changes initial values
+//******************************************************************************
+FUNCTION void setInitValsFromPinFile(NumberVectorInfo* pI, param_init_number_vector& p, int debug, ostream& cout)
+    debug=dbgAll;
+    if (debug>=dbgAll) std::cout<<"Starting setInitValsFromPinFile(NumberVectorInfo* pI, param_init_number_vector& p) for "<<p(1).label()<<endl; 
+    int np = pI->getSize();
+    if (np){
+        dvector vls = pI->getInitVals();//initial values
+        pI->setInitVals(p);      
+        rpt::echo<<"InitVals for "<<p(1).label()<<": "<<endl;
+        rpt::echo<<tb<<"orig inits: "<<vls<<endl;
+        rpt::echo<<tb<<"pinf inits: "<<pI->getInitVals()<<endl;
+        rpt::echo<<tb<<"parm inits: "<<value(p)<<endl;
+        if (debug>=dbgAll) {
+            std::cout<<"InitVals for "<<p(1).label()<<": "<<endl;
+            std::cout<<tb<<p<<std::endl;
+        }
+    } else {
+        rpt::echo<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
+    }
+    
+    if (debug>dbgAll) {
+        std::cout<<"Enter 1 to continue >>";
+        std::cin>>np;
+        if (np<0) exit(-1);
+        std::cout<<"Finished setInitValsFromPinFile(NumberVectorInfo* pI, param_init_number_vector& p) for "<<p(1).label()<<endl; 
+    }
+     
+//******************************************************************************
+//* Function: void setInitValsFromPinFile(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p, int debug, ostream& cout)
+//* 
+//* Description: Sets initial values for the associated parameter info object from a parameter vector.
+//*
+//* Inputs:
+//*  pI (BoundedNumberVectorInfo*) 
+//*     pointer to BoundedNumberVectorInfo object
+//*  p (param_init_bounded_number_vector&)
+//*     parameter vector
+//* Returns:
+//*  void
+//* Alters:
+//*  pI - changes initial values
+//******************************************************************************
+FUNCTION void setInitValsFromPinFile(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p, int debug, ostream& cout)
+    debug=dbgAll;
+    if (debug>=dbgAll) std::cout<<"Starting setInitValsFromPinFile(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
+    int np = pI->getSize();
+    if (np){
+        dvector vls = pI->getInitVals();//initial values from parameter info
+        pI->setInitVals(p);
+        rpt::echo<<"InitVals for "<<p(1).label()<<": "<<endl;
+        rpt::echo<<tb<<"orig inits : "<<vls<<endl;
+        rpt::echo<<tb<<"pinf inits : "<<pI->getInitVals()<<endl;
+        rpt::echo<<tb<<"parm inits : "<<value(p)<<endl;
+        if (debug>=dbgAll) {
+            std::cout<<"InitVals for "<<p(1).label()<<": "<<endl;
+            std::cout<<tb<<p<<std::endl;
+        }
+    } else {
+        rpt::echo<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
+    }
+    
+    if (debug>dbgAll) {
+        std::cout<<"Enter 1 to continue >>";
+        std::cin>>np;
+        if (np<0) exit(-1);
+        std::cout<<"Finished setInitValsFromPinFile(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
+    }
+
+//******************************************************************************
+//* Function: void setInitValsFromPinFile(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
+//* 
+//* Description: Sets initial values for a parameter vector info object from a parameter vectors.
+//*
+//* Inputs:
+//*  pI (BoundedVectorVectorInfo*) 
+//*     pointer to BoundedNumberVectorInfo object
+//*  p (param_init_bounded_vector_vector&)
+//*     parameter vector
+//* Returns:
+//*  void
+//* Alters:
+//*  pI - changes initial values
+//******************************************************************************
+FUNCTION void setInitValsFromPinFile(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
+    debug=dbgAll;
+    if (debug>=dbgAll) std::cout<<"Starting setInitValsFromPinFile(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
+    int np = pI->getSize();
+    if (np){
+        for (int i=1;i<=np;i++) {
+            rpt::echo<<"InitVals "<<p(i).label()<<":"<<endl;
+            BoundedVectorInfo* ptrI = (*pI)[i];
+            dvector vls = 1.0*ptrI->getInitVals();
+            ptrI->setInitVals(p(i));
+            rpt::echo<<tb<<"orig inits : "<<vls<<endl;
+            rpt::echo<<tb<<"pinf inits : "<<ptrI->getInitVals()<<endl;
+            rpt::echo<<tb<<"parm inits : "<<value(p(i))<<endl;
+            if (debug>=dbgAll){
+                std::cout<<"orig inits = "<<vls<<endl;
+                std::cout<<"pinf inits = "<<ptrI->getInitVals()<<endl;
+                std::cout<<"p(i)       = "<<p(i)<<endl;
+            }
+        }
+    } else {
+        rpt::echo<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
+    }
+    
+    if (debug>dbgAll) {
+        std::cout<<"Enter 1 to continue >>";
+        std::cin>>np;
+        if (np<0) exit(-1);
+        std::cout<<"Finished setInitValsFromPinFile(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
+    }
+
+//******************************************************************************
+//* Function: void setInitValsFomPinFile(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
+//* 
+//* Description: Sets initial values for a vector of parameter vectors.
+//*
+//* Inputs:
+//*  pI (BoundedVectorVectorInfo*) 
+//*     pointer to BoundedNumberVectorInfo object
+//*  p (param_init_bounded_vector_vector&)
+//*     parameter vector
+//* Returns:
+//*  void
+//* Alters:
+//*  pI - changes initial values
+//******************************************************************************
+FUNCTION void setInitValsFromPinFile(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
+    debug=dbgAll;
+    if (debug>=dbgAll) std::cout<<"Starting setInitValsFromPinFile(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
+    int np = pI->getSize();
+    if (np){
+        for (int i=1;i<=np;i++) {
+            rpt::echo<<"InitVals "<<p(i).label()<<":"<<endl;
+            DevsVectorInfo* ptrI = (*pI)[i];
+            dvector vls = 1.0*ptrI->getInitVals();
+            ptrI->setInitVals(p(i));
+            rpt::echo<<tb<<"orig inits : "<<vls<<endl;
+            rpt::echo<<tb<<"pinf inits : "<<ptrI->getInitVals()<<endl;
+            rpt::echo<<tb<<"parm inits : "<<value(p(i))<<endl;
+            if (debug>=dbgAll){
+                std::cout<<"orig inits = "<<vls<<endl;
+                std::cout<<"pinf inits = "<<ptrI->getInitVals()<<endl;
+                std::cout<<"p(i)       = "<<p(i)<<endl;
+            }
+        }
+    } else {
+        rpt::echo<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
+    }
+    
+    if (debug>dbgAll) {
+        std::cout<<"Enter 1 to continue >>";
+        std::cin>>np;
+        if (np<0) exit(-1);
+        std::cout<<"Finished setInitValsFromPinFile(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
     }
 
 //-------------------------------------------------------------------------------------
@@ -3283,15 +3506,23 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
     dvar_matrix prGr_zz(1,nZBs,1,nZBs);
 
     int y; int mnx; int mxx;
+    dvar_vector ptGrA    = ptrGrw->pGrA->calcArithScaleVals(pGrA);
+    dvar_vector ptGrB    = ptrGrw->pGrB->calcArithScaleVals(pGrB);
+    dvar_vector ptGrBeta = ptrGrw->pGrBeta->calcArithScaleVals(pGrBeta);
+    if (debug>dbgCalcProcs){
+        cout<<"pGrA:  "<<pGrA<<endl;
+        cout<<"ptGrA: "<<ptGrA<<endl;
+        cout<<"pGrB:  "<<pGrB<<endl;
+        cout<<"ptGrB: "<<ptGrB<<endl;
+        cout<<"pGrBeta:  "<<pGrBeta<<endl;
+        cout<<"ptGrBeta: "<<ptGrBeta<<endl;
+    }
     for (int pc=1;pc<=ptrGrw->nPCs;pc++){
         ivector pids = ptrGrw->getPCIDs(pc);
         int k=ptrGrw->nIVs+1;//1st parameter column
-//        grA = mfexp(pGrA(pids[k])); k++; //"a" coefficient for mean growth
-//        grB = mfexp(pGrB(pids[k])); k++; //"b" coefficient for mean growth
-//        grBeta = mfexp(pGrBeta(pids[k])); k++; //shape factor for gamma function growth transition
-        grA = pGrA(pids[k]); k++; //"a" coefficient for mean growth
-        grB = pGrB(pids[k]); k++; //"b" coefficient for mean growth
-        grBeta = pGrBeta(pids[k]); k++; //scale factor for gamma function growth transition
+        grA = ptGrA(pids[k]); k++; //"a" coefficient for mean growth
+        grB = ptGrB(pids[k]); k++; //"b" coefficient for mean growth
+        grBeta = ptGrBeta(pids[k]); k++; //scale factor for gamma function growth transition
         
         if (debug>dbgCalcProcs){
             cout<<"pc: "<<pc<<tb<<"grA:"<<tb<<grA<<". grB:"<<tb<<grB<<". grBeta:"<<grBeta<<endl;
@@ -4039,12 +4270,16 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
 
     if (debug<0) cout<<tb<<"growth=list(negativeGrowth=list("<<endl;//start of growth penalties list
     GrowthInfo* ptrGrw = ptrMPI->ptrGrw;
-    dvariable grA; dvariable grB;
+    //calculate growth parameters on arithmetic scale
+    dvar_vector ptGrA = ptrGrw->pGrA->calcArithScaleVals(pGrA);
+    dvar_vector ptGrB = ptrGrw->pGrB->calcArithScaleVals(pGrB);
+    //loop over parameter combinations
+    dvariable grA, grB;
     for (int pc=1;pc<=(ptrGrw->nPCs-1);pc++){
         ivector pids = ptrGrw->getPCIDs(pc);
         int k=ptrGrw->nIVs+1;//1st parameter column
-        grA = pGrA(pids[k]); k++; //"a" coefficient for mean growth
-        grB = pGrB(pids[k]); k++; //"b" coefficient for mean growth
+        grA = ptGrA(pids[k]); k++; //"a" coefficient for mean growth
+        grB = ptGrB(pids[k]); k++; //"b" coefficient for mean growth
                 
         //add objective function penalties to keep mean size increments positive
         dvariable pen; pen.initialize();
@@ -4067,8 +4302,8 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
         int pc = ptrGrw->nPCs;
         ivector pids = ptrGrw->getPCIDs(pc);
         int k=ptrGrw->nIVs+1;//1st parameter column
-        grA = pGrA(pids[k]); k++; //"a" coefficient for mean growth
-        grB = pGrB(pids[k]); k++; //"b" coefficient for mean growth
+        grA = (*ptrMPI->ptrGrw->pGrA)[pids[k]]->calcArithScaleVal(pGrA(pids[k])); k++; //"a" coefficient for mean growth
+        grB = (*ptrMPI->ptrGrw->pGrB)[pids[k]]->calcArithScaleVal(pGrB(pids[k])); k++; //"b" coefficient for mean growth
         
         //add objective function penalty to keep mean size increments positive
         dvariable pen; pen.initialize();
@@ -6019,71 +6254,71 @@ FUNCTION void writeParameters(ostream& os,int toR, int willBeActive)
     //recruitment parameters
     ctg1="population processes";
     ctg2="recruitment";
-    tcsam::writeParameters(os,pLnR,  ctg1,ctg2,ptrMPI->ptrRec->pLnR->getLabels(),  toR,willBeActive);      
-    tcsam::writeParameters(os,pLnRCV,ctg1,ctg2,ptrMPI->ptrRec->pLnRCV->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pLgtRX,ctg1,ctg2,ptrMPI->ptrRec->pLgtRX->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pLnRa, ctg1,ctg2,ptrMPI->ptrRec->pLnRa->getLabels(), toR,willBeActive);      
-    tcsam::writeParameters(os,pLnRb, ctg1,ctg2,ptrMPI->ptrRec->pLnRb->getLabels(), toR,willBeActive);      
-    tcsam::writeParameters(os,pDevsLnR,ctg1,ctg2,ptrMPI->ptrRec->pDevsLnR->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pLnR,  ctg1,ctg2,ptrMPI->ptrRec->pLnR,  toR,willBeActive);      
+    tcsam::writeParameters(os,pLnRCV,ctg1,ctg2,ptrMPI->ptrRec->pLnRCV,toR,willBeActive);      
+    tcsam::writeParameters(os,pLgtRX,ctg1,ctg2,ptrMPI->ptrRec->pLgtRX,toR,willBeActive);      
+    tcsam::writeParameters(os,pLnRa, ctg1,ctg2,ptrMPI->ptrRec->pLnRa, toR,willBeActive);      
+    tcsam::writeParameters(os,pLnRb, ctg1,ctg2,ptrMPI->ptrRec->pLnRb, toR,willBeActive);      
+    tcsam::writeParameters(os,pDevsLnR,ctg1,ctg2,ptrMPI->ptrRec->pDevsLnR,toR,willBeActive);      
     
     //natural mortality parameters
     ctg1="population processes";
     ctg2="natural mortality";
-    tcsam::writeParameters(os,pLnM,ctg1,ctg2,ptrMPI->ptrNM->pLnM->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pDM1,ctg1,ctg2,ptrMPI->ptrNM->pDM1->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pDM2,ctg1,ctg2,ptrMPI->ptrNM->pDM2->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pDM3,ctg1,ctg2,ptrMPI->ptrNM->pDM3->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pDM4,ctg1,ctg2,ptrMPI->ptrNM->pDM4->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pLnM,ctg1,ctg2,ptrMPI->ptrNM->pLnM,toR,willBeActive);      
+    tcsam::writeParameters(os,pDM1,ctg1,ctg2,ptrMPI->ptrNM->pDM1,toR,willBeActive);      
+    tcsam::writeParameters(os,pDM2,ctg1,ctg2,ptrMPI->ptrNM->pDM2,toR,willBeActive);      
+    tcsam::writeParameters(os,pDM3,ctg1,ctg2,ptrMPI->ptrNM->pDM3,toR,willBeActive);      
+    tcsam::writeParameters(os,pDM4,ctg1,ctg2,ptrMPI->ptrNM->pDM4,toR,willBeActive);      
     
     //growth parameters
     ctg1="population processes";
     ctg2="growth";
-    tcsam::writeParameters(os,pGrA,ctg1,ctg2,ptrMPI->ptrGrw->pGrA->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pGrB,ctg1,ctg2,ptrMPI->ptrGrw->pGrB->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pGrBeta,ctg1,ctg2,ptrMPI->ptrGrw->pGrBeta->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pGrA,ctg1,ctg2,ptrMPI->ptrGrw->pGrA,toR,willBeActive);      
+    tcsam::writeParameters(os,pGrB,ctg1,ctg2,ptrMPI->ptrGrw->pGrB,toR,willBeActive);      
+    tcsam::writeParameters(os,pGrBeta,ctg1,ctg2,ptrMPI->ptrGrw->pGrBeta,toR,willBeActive);      
     
     //maturity parameters
     ctg1="population processes";
     ctg2="maturity";
-    tcsam::writeParameters(os,pLgtPrM2M,ctg1,ctg2,ptrMPI->ptrM2M->pLgtPrM2M->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pLgtPrM2M,ctg1,ctg2,ptrMPI->ptrM2M->pLgtPrM2M,toR,willBeActive);      
     
     //selectivity parameters
     ctg1="selectivity";
     ctg2="selectivity";
-    tcsam::writeParameters(os,pS1,ctg1,ctg2,ptrMPI->ptrSel->pS1->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pS2,ctg1,ctg2,ptrMPI->ptrSel->pS2->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pS3,ctg1,ctg2,ptrMPI->ptrSel->pS3->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pS4,ctg1,ctg2,ptrMPI->ptrSel->pS4->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pS5,ctg1,ctg2,ptrMPI->ptrSel->pS5->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pS6,ctg1,ctg2,ptrMPI->ptrSel->pS6->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pDevsS1,ctg1,ctg2,ptrMPI->ptrSel->pDevsS1->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pDevsS2,ctg1,ctg2,ptrMPI->ptrSel->pDevsS2->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pDevsS3,ctg1,ctg2,ptrMPI->ptrSel->pDevsS3->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pDevsS4,ctg1,ctg2,ptrMPI->ptrSel->pDevsS4->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pDevsS5,ctg1,ctg2,ptrMPI->ptrSel->pDevsS5->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pDevsS6,ctg1,ctg2,ptrMPI->ptrSel->pDevsS6->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pS1,ctg1,ctg2,ptrMPI->ptrSel->pS1,toR,willBeActive);      
+    tcsam::writeParameters(os,pS2,ctg1,ctg2,ptrMPI->ptrSel->pS2,toR,willBeActive);      
+    tcsam::writeParameters(os,pS3,ctg1,ctg2,ptrMPI->ptrSel->pS3,toR,willBeActive);      
+    tcsam::writeParameters(os,pS4,ctg1,ctg2,ptrMPI->ptrSel->pS4,toR,willBeActive);      
+    tcsam::writeParameters(os,pS5,ctg1,ctg2,ptrMPI->ptrSel->pS5,toR,willBeActive);      
+    tcsam::writeParameters(os,pS6,ctg1,ctg2,ptrMPI->ptrSel->pS6,toR,willBeActive);      
+    tcsam::writeParameters(os,pDevsS1,ctg1,ctg2,ptrMPI->ptrSel->pDevsS1,toR,willBeActive);      
+    tcsam::writeParameters(os,pDevsS2,ctg1,ctg2,ptrMPI->ptrSel->pDevsS2,toR,willBeActive);      
+    tcsam::writeParameters(os,pDevsS3,ctg1,ctg2,ptrMPI->ptrSel->pDevsS3,toR,willBeActive);      
+    tcsam::writeParameters(os,pDevsS4,ctg1,ctg2,ptrMPI->ptrSel->pDevsS4,toR,willBeActive);      
+    tcsam::writeParameters(os,pDevsS5,ctg1,ctg2,ptrMPI->ptrSel->pDevsS5,toR,willBeActive);      
+    tcsam::writeParameters(os,pDevsS6,ctg1,ctg2,ptrMPI->ptrSel->pDevsS6,toR,willBeActive);      
     
     //fishery parameters
     ctg1="fisheries";
     ctg2="fisheries";
-    tcsam::writeParameters(os,pHM, ctg1,ctg2,ptrMPI->ptrFsh->pHM->getLabels(), toR,willBeActive);      
-    tcsam::writeParameters(os,pLnC,ctg1,ctg2,ptrMPI->ptrFsh->pLnC->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pDC1,ctg1,ctg2,ptrMPI->ptrFsh->pDC1->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pDC2,ctg1,ctg2,ptrMPI->ptrFsh->pDC2->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pDC3,ctg1,ctg2,ptrMPI->ptrFsh->pDC3->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pDC4,ctg1,ctg2,ptrMPI->ptrFsh->pDC4->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pDevsLnC,ctg1,ctg2,ptrMPI->ptrFsh->pDevsLnC->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pLnEffX, ctg1,ctg2,ptrMPI->ptrFsh->pLnEffX->getLabels(), toR,willBeActive);      
-    tcsam::writeParameters(os,pLgtRet, ctg1,ctg2,ptrMPI->ptrFsh->pLgtRet->getLabels(), toR,willBeActive);      
+    tcsam::writeParameters(os,pHM, ctg1,ctg2,ptrMPI->ptrFsh->pHM, toR,willBeActive);      
+    tcsam::writeParameters(os,pLnC,ctg1,ctg2,ptrMPI->ptrFsh->pLnC,toR,willBeActive);      
+    tcsam::writeParameters(os,pDC1,ctg1,ctg2,ptrMPI->ptrFsh->pDC1,toR,willBeActive);      
+    tcsam::writeParameters(os,pDC2,ctg1,ctg2,ptrMPI->ptrFsh->pDC2,toR,willBeActive);      
+    tcsam::writeParameters(os,pDC3,ctg1,ctg2,ptrMPI->ptrFsh->pDC3,toR,willBeActive);      
+    tcsam::writeParameters(os,pDC4,ctg1,ctg2,ptrMPI->ptrFsh->pDC4,toR,willBeActive);      
+    tcsam::writeParameters(os,pDevsLnC,ctg1,ctg2,ptrMPI->ptrFsh->pDevsLnC,toR,willBeActive);      
+    tcsam::writeParameters(os,pLnEffX, ctg1,ctg2,ptrMPI->ptrFsh->pLnEffX, toR,willBeActive);      
+    tcsam::writeParameters(os,pLgtRet, ctg1,ctg2,ptrMPI->ptrFsh->pLgtRet, toR,willBeActive);      
     
     //survey parameters
     ctg1="surveys";
     ctg2="surveys";
-    tcsam::writeParameters(os,pLnQ,ctg1,ctg2,ptrMPI->ptrSrv->pLnQ->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pDQ1,ctg1,ctg2,ptrMPI->ptrSrv->pDQ1->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pDQ2,ctg1,ctg2,ptrMPI->ptrSrv->pDQ2->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pDQ3,ctg1,ctg2,ptrMPI->ptrSrv->pDQ3->getLabels(),toR,willBeActive);      
-    tcsam::writeParameters(os,pDQ4,ctg1,ctg2,ptrMPI->ptrSrv->pDQ4->getLabels(),toR,willBeActive);      
+    tcsam::writeParameters(os,pLnQ,ctg1,ctg2,ptrMPI->ptrSrv->pLnQ,toR,willBeActive);      
+    tcsam::writeParameters(os,pDQ1,ctg1,ctg2,ptrMPI->ptrSrv->pDQ1,toR,willBeActive);      
+    tcsam::writeParameters(os,pDQ2,ctg1,ctg2,ptrMPI->ptrSrv->pDQ2,toR,willBeActive);      
+    tcsam::writeParameters(os,pDQ3,ctg1,ctg2,ptrMPI->ptrSrv->pDQ3,toR,willBeActive);      
+    tcsam::writeParameters(os,pDQ4,ctg1,ctg2,ptrMPI->ptrSrv->pDQ4,toR,willBeActive);      
     
 // =============================================================================
 // =============================================================================

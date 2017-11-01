@@ -139,15 +139,24 @@ namespace tcsam {
      */                                      
     void calcPriors(objective_function_value& objFun, DevsVectorVectorInfo* ptrVVI, dvar_matrix& pm, int debug, std::ostream& cout);
 
-    void writeParameter(ostream& os, param_init_number& p,             adstring& ctg1, adstring& ctg2, adstring& lbl, int toR, int willBeActive);
-    void writeParameter(ostream& os, param_init_bounded_number& p,     adstring& ctg1, adstring& ctg2, adstring& lbl, int toR, int willBeActive);
-    void writeParameter(ostream& os, param_init_vector& p,             adstring& ctg1, adstring& ctg2, adstring& lbl, int toR, int willBeActive);
-    void writeParameter(ostream& os, param_init_bounded_vector& p,     adstring& ctg1, adstring& ctg2, adstring& lbl, int toR, int willBeActive);
-    void writeParameter(ostream& os, param_init_bounded_dev_vector& p, adstring& ctg1, adstring& ctg2, adstring& lbl, int toR, int willBeActive);
-    void writeParameters(ostream& os, param_init_number_vector& p,        adstring& ctg1, adstring& ctg2, adstring_array lbl, int toR, int willBeActive);
-    void writeParameters(ostream& os, param_init_bounded_number_vector& p,adstring& ctg1, adstring& ctg2, adstring_array lbl, int toR, int willBeActive);
-    void writeParameters(ostream& os, param_init_vector_vector& p,        adstring& ctg1, adstring& ctg2, adstring_array lbl, int toR, int willBeActive);
-    void writeParameters(ostream& os, param_init_bounded_vector_vector& p,adstring& ctg1, adstring& ctg2, adstring_array lbl, int toR, int willBeActive);
+    void writeParameter(ostream& os, param_init_number& p,             adstring& ctg1, adstring& ctg2, 
+                                     NumberInfo* i, int toR, int willBeActive);
+    void writeParameter(ostream& os, param_init_bounded_number& p,     adstring& ctg1, adstring& ctg2, 
+                                     BoundedNumberInfo* i, int toR, int willBeActive);
+    void writeParameters(ostream& os, param_init_vector& p,             adstring& ctg1, adstring& ctg2, 
+                                     VectorInfo* i, int toR, int willBeActive);
+    void writeParameters(ostream& os, param_init_bounded_vector& p,     adstring& ctg1, adstring& ctg2, 
+                                     BoundedVectorInfo* i, int toR, int willBeActive);
+    void writeParameters(ostream& os, param_init_bounded_dev_vector& p, adstring& ctg1, adstring& ctg2, 
+                                     DevsVectorInfo* i, int toR, int willBeActive);
+    void writeParameters(ostream& os, param_init_number_vector& p,        adstring& ctg1, adstring& ctg2, 
+                                      NumberVectorInfo* pI, int toR, int willBeActive);
+    void writeParameters(ostream& os, param_init_bounded_number_vector& p,adstring& ctg1, adstring& ctg2, 
+                                      BoundedNumberVectorInfo* pI, int toR, int willBeActive);
+    void writeParameters(ostream& os, param_init_vector_vector& p,        adstring& ctg1, adstring& ctg2, 
+                                      VectorVectorInfo* pI, int toR, int willBeActive);
+    void writeParameters(ostream& os, param_init_bounded_vector_vector& p,adstring& ctg1, adstring& ctg2, 
+                                      BoundedVectorVectorInfo* pI, int toR, int willBeActive);
     
 /**
  * Set the parameter info for a NumberVectorInfo object.

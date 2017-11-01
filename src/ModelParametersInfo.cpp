@@ -28,7 +28,7 @@ int SelectivityInfo::debug      = 0;
 int FisheriesInfo::debug        = 0;
 int SurveysInfo::debug          = 0;
 int ModelParametersInfo::debug  = 0;
-const adstring ModelParametersInfo::version = "2017.10.23";
+const adstring ModelParametersInfo::version = "2017.10.31";
     
 /*----------------------------------------------------------------------------*/
 /**

@@ -17,6 +17,7 @@
  * 20160424: added tcsam:FIT_BY_X_MATONLY to fit by sex for mature crab only
  * 20170206: incremented tcsam::VERSION to "2017.02.06"
  * 20170606: incremented tcsam::VERSION to "2017.06.06"
+ * 20171025: incremented tcsam::VERSION to "2017.10.25"
  */
 
 #pragma once
@@ -41,7 +42,7 @@ namespace tcsam{
     /* adstring indicating model name */
     const adstring MODEL = "tcsam02";
     /* adstring indicating model version */
-    const adstring VERSION = "2017.06.06";
+    const adstring VERSION = "2017.10.25";
     
     /* minimum debugging level that will print ALL debug info */
     const int dbgAll = 100;
@@ -94,10 +95,6 @@ namespace tcsam{
     const adstring STR_IMMATURE = "IMMATURE";//string indicating immature
     const adstring STR_MATURE   = "MATURE";  //string indicating mature
     const adstring STR_ALL_MSs  = "ALL_MATURITY"; //string indicating all maturity states combined
-//    const adstring RSTR_IMMATURE = "immature";//string indicating immature
-//    const adstring RSTR_MATURE   = "mature";  //string indicating mature
-//    const adstring RSTR_ALL_MSs  = "all maturity"; //string indicating all maturity states combined
-//    const adstring_array STR_MSs(1,nMSs);  //string array
         
     //shell conditions
     const int nSCs = 2;     //number of model shell conditions
@@ -107,10 +104,6 @@ namespace tcsam{
     const adstring STR_NEW_SHELL = "NEW_SHELL"; //string indicating new shell condition
     const adstring STR_OLD_SHELL = "OLD_SHELL"; //string indicating old shell condition
     const adstring STR_ALL_SCs   = "ALL_SHELL"; //string indicating all shell conditions combined
-//    const adstring RSTR_NEW_SHELL = "new shell"; //string indicating new shell condition
-//    const adstring RSTR_OLD_SHELL = "old shell"; //string indicating old shell condition
-//    const adstring RSTR_ALL_SCs   = "all shell"; //string indicating all shell conditions combined
-//    const adstring_array STR_SCs(1,nSCs);  //string array
     
     //objective function fitting option types
     const adstring STR_FIT_NONE    = "NONE";
@@ -179,6 +172,26 @@ namespace tcsam{
     //unit conversions
     const double CONV_KGtoLBS = 2.20462262; //multiplier conversion from kg to lbs
     
+    //transform types from arithmetic space to parameter space
+    /* alternative adstring constant indicating parameter scale is arithmetic */
+    const adstring STR_SCALE_NONE      = "NONE";
+    /* adstring constant indicating parameter values are on the arithmetic (untransformed) scale */
+    const adstring STR_SCALE_ARITHM    = "ARITHMETIC";
+    /* adstring constant indicating parameter values are on the logit scale */
+    const adstring STR_SCALE_LOGIT     = "LOGIT";
+    /* adstring constant indicating parameter values are on the log scale */
+    const adstring STR_SCALE_LOG       = "LOG";
+    /* adstring constant indicating parameter values are on the probit scale */
+    const adstring STR_SCALE_PROBIT    = "PROBIT";
+    /* int constant indicating parameter values are on the arithmetic (untransformed) scale */
+    const int SCALE_ARITHM    = 0;
+    /* int constant indicating parameter values are on the logit scale */
+    const int SCALE_LOGIT     = 1;
+    /* int constant indicating parameter values are on the natural log scale */
+    const int SCALE_LOG       = 2;
+    /* int constant indicating parameter values are on the probit scale */
+    const int SCALE_PROBIT    = 3;
+    
     int getMaturityType(adstring s);
     adstring getMaturityType(int i);
 
@@ -192,11 +205,12 @@ namespace tcsam{
     int getSRType(adstring s);
     adstring getSRType(int i);
 
-    int getScaleType(adstring sclType);
-    adstring getScaleType(int sclFlg);
+    int getErrorScaleType(adstring sclType);
+    adstring getErrorScaleType(int sclFlg);
     
     /**
      * Translate from adstring fit type to int version.
+     * 
      * @param fitType
      * @return 
      */
@@ -204,6 +218,7 @@ namespace tcsam{
     
     /**
      * Translate from integer fit type to adstring version.
+     * 
      * @param i
      * @return 
      */
@@ -214,6 +229,7 @@ namespace tcsam{
     
     /**
      * Gets multiplicative conversion factor from "from" units to "to" units. 
+     * 
      * @param from - adstring UNITS_ keyword
      * @param to   - adstring UNITS_ keyword
      * @return - multiplicative factor: to_units  = factor*from_units
@@ -222,16 +238,33 @@ namespace tcsam{
         
     /**
      * Translate from adstring likelihood type to int version.
-     * @param fitType
-     * @return 
+     * 
+     * @param llType - adstring likelihood type
+     * @return - corresponding integer version
      */
-    int getLikelihoodType(adstring fitType);
+    int getLikelihoodType(adstring llType);
     /**
      * Translate from integer likelihood type to adstring version.
-     * @param i
-     * @return 
+     * 
+     * @param llType - integer likelihood type
+     * @return - corresponding adstring version
      */
-    adstring getLikelihoodType(int i);
+    adstring getLikelihoodType(int llType);
+        
+    /**
+     * Translate from adstring scale type to int version.
+     * 
+     * @param sclType - adstring scale type
+     * @return -integer scale type
+     */
+    int getScaleType(adstring sclType);
+    /**
+     * Translate from integer scale type to adstring version.
+     * 
+     * @param sclType - integer scale type
+     * @return  - corresponding adstring version
+     */
+    adstring getScaleType(int sclType);
 }
 
 

@@ -389,23 +389,25 @@ void calcPriors(objective_function_value& objFun, DevsVectorVectorInfo* ptrVVI, 
  * @param p - parameter (param_init_number)
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
- * @param lbl - parameter-specific label
+ * @param pI - pointer to associated NumberInfo object
  * @param toR - flag to write to R format
  * @param willBeActive - flag to write only if parameter will be active
  */
-void writeParameter(ostream& os, param_init_number& p, adstring& ctg1, adstring& ctg2, adstring& lbl,int toR, int willBeActive){
+void writeParameter(ostream& os, param_init_number& p, adstring& ctg1, adstring& ctg2, 
+                   NumberInfo* pI,int toR, int willBeActive){
     if (!willBeActive||(willBeActive&&(p.get_phase_start()>0))){
         if (toR){
             os<<p.get_name()<<"=list("<<"type='param_init_number'"<<cc
                                 <<"ctg1="<<qt<<ctg1<<qt<<cc
                                 <<"ctg2="<<qt<<ctg2<<qt<<cc
-                                <<"lbl="<<qt<<lbl<<qt<<cc
+                                <<"lbl="<<qt<<pI->label<<qt<<cc
                                 <<"phase="<<p.get_phase_start()<<cc
-                                <<"value="<<value(p)
+                                <<"value="<<pI->calcArithScaleVal(value(p))
                                 <<"),";
         } else {
-            os<<1<<cc<<p.get_phase_start()<<cc<<1<<cc<<1<<cc<<"-Inf"<<cc<<"Inf"<<cc<<p<<cc<<p.get_name()<<cc
-                     <<"\"param_init_number\",\""<<ctg1<<"\",\""<<ctg2<<"\",\""<<lbl<<"\""<<endl;
+            os<<1<<cc<<p.get_phase_start()<<cc<<1<<cc<<1<<cc<<"-Inf"<<cc<<"Inf"<<cc
+              <<pI->calcArithScaleVal(p)<<cc<<p.get_name()<<cc<<"\"param_init_number\",\""<<ctg1<<"\",\""<<ctg2<<"\",\""
+              <<pI->label<<"\""<<endl;
         }
     }
 }    
@@ -416,24 +418,30 @@ void writeParameter(ostream& os, param_init_number& p, adstring& ctg1, adstring&
  * @param p - parameter (param_init_bounded_number)
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
- * @param lbl - parameter-specific label
+ * @param pI - BoundedNumberInfo
  * @param toR - flag to write to R format
  * @param willBeActive - flag to write only if parameter will be active
  */
-void writeParameter(ostream& os, param_init_bounded_number& p,adstring& ctg1, adstring& ctg2, adstring& lbl, int toR, int willBeActive){
+void writeParameter(ostream& os, param_init_bounded_number& p,adstring& ctg1, adstring& ctg2, 
+                    BoundedNumberInfo* pI, int toR, int willBeActive){
     if (!willBeActive||(willBeActive&&(p.get_phase_start()>0))){
+        std::cout<<p.get_name()<<tb<<p.get_phase_start()<<tb<<p.get_minb()<<tb<<p.get_maxb()<<tb<<p<<endl;
+        std::cout<<pI->label<<tb<<pI->getLowerBound()<<tb<<pI->getUpperBound()<<tb<<pI->getInitVal()<<tb<<pI->calcParamScaleVal(pI->getInitVal())<<endl;
         if (toR){
             os<<p.get_name()<<"=list("<<"type='param_init_bounded_number'"<<cc
                                 <<"ctg1="<<qt<<ctg1<<qt<<cc
                                 <<"ctg2="<<qt<<ctg2<<qt<<cc
-                                <<"lbl="<<qt<<lbl<<qt<<cc
+                                <<"lbl="<<qt<<pI->label<<qt<<cc
                                 <<"phase="<<p.phase_start<<cc
-                                <<"bounds=c("<<p.get_minb()<<cc<<p.get_maxb()<<")"<<cc
-                                <<"value="<<value(p)
+                                <<"bounds=c("<<pI->calcArithScaleVal(p.get_maxb())<<cc
+                                             <<pI->calcArithScaleVal(p.get_minb())<<")"<<cc
+                                <<"value="<<pI->calcArithScaleVal(p)
                                 <<"),";
         } else {
-            os<<1<<cc<<p.get_phase_start()<<cc<<1<<cc<<1<<cc<<p.get_minb()<<cc<<p.get_maxb()<<cc<<p<<cc<<p.get_name()<<cc
-                     <<"\"param_init_bounded_number\",\""<<ctg1<<"\",\""<<ctg2<<"\",\""<<lbl<<"\""<<endl;;
+            os<<1<<cc<<p.get_phase_start()<<cc<<1<<cc<<1<<cc
+              <<pI->calcArithScaleVal(p.get_minb())<<cc<<pI->calcArithScaleVal(p.get_maxb())<<cc
+              <<pI->calcArithScaleVal(p)<<cc<<p.get_name()<<cc<<"\"param_init_bounded_number\",\""<<ctg1<<"\",\""<<ctg2<<"\",\""
+              <<pI->label<<"\""<<endl;;
         }
     }
 }    
@@ -448,22 +456,26 @@ void writeParameter(ostream& os, param_init_bounded_number& p,adstring& ctg1, ad
  * @param toR - flag to write to R format
  * @param willBeActive - flag to write only if parameter vector will be active
  */
-void writeParameter(ostream& os, param_init_vector& p,adstring& ctg1, adstring& ctg2, adstring& lbl, int toR, int willBeActive){
+void writeParameter(ostream& os, param_init_vector& p,adstring& ctg1, adstring& ctg2, 
+                    VectorInfo* pI, int toR, int willBeActive){
     int mn = p.indexmin();
     int mx = p.indexmax();
     if (!willBeActive||(willBeActive&&(p.get_phase_start()>0))){
+        dvector vals = pI->calcArithScaleVal(value(p));
         if (toR){
             os<<p.get_name()<<"=list("<<"type='param_init_vector'"<<cc
                                 <<"ctg1="<<qt<<ctg1<<qt<<cc
                                 <<"ctg2="<<qt<<ctg2<<qt<<cc
-                                <<"lbl="<<qt<<lbl<<qt<<cc
+                                <<"lbl="<<qt<<pI->label<<qt<<cc
                                 <<"dims=c("<<mn<<cc<<mx<<")"<<cc
                                 <<"phase="<<p.get_phase_start()<<cc
-                                <<"value=c("; {for (int i=mn;i<mx;i++) os<<value(p(i))<<cc;} os<<value(p(mx))<<")";
+                                <<"value=c(";for (int i=mn;i<mx;i++) {os<<vals(i)<<cc;} os<<vals(mx)<<")";
             os<<"),";
         } else {        
-            for (int i=mn;i<=mx;i++) os<< i<<cc<<p.get_phase_start()<<cc<<mn<<cc<<mx<<cc<<"-Inf"<<cc<<"Inf"<<cc<<p(i)<<cc<<p.get_name()<<cc
-                                               <<"\"param_init_vector\",\""<<ctg1<<"\",\""<<ctg2<<"\",\""<<lbl<<"\""<<endl;
+            for (int i=mn;i<=mx;i++) os<< i<<cc<<p.get_phase_start()<<cc
+                    <<mn<<cc<<mx<<cc<<"-Inf"<<cc<<"Inf"<<cc
+                    <<vals(i)<<cc<<p.get_name()<<cc<<"\"param_init_vector\",\""<<ctg1<<"\",\""<<ctg2<<"\",\""
+                    <<pI->label<<"\""<<endl;
         }
     }
 }       
@@ -475,27 +487,33 @@ void writeParameter(ostream& os, param_init_vector& p,adstring& ctg1, adstring& 
  * @param p - parameter vector (param_init_bounded_vector)
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
- * @param lbl - parameter-specific label
+ * @param pI - pointer to associated BoundedVectorInfo info object
  * @param toR - flag to write to R format
  * @param willBeActive - flag to write only if parameter vector will be active
  */
-void writeParameter(ostream& os, param_init_bounded_vector& p,adstring& ctg1, adstring& ctg2, adstring& lbl, int toR, int willBeActive){
+void writeParameter(ostream& os, param_init_bounded_vector& p,adstring& ctg1, adstring& ctg2, 
+                    BoundedVectorInfo* pI, int toR, int willBeActive){
     int mn = p.indexmin();
     int mx = p.indexmax();
     if (!willBeActive||(willBeActive&&(p.get_phase_start()>0))){
+        dvector vals = pI->calcArithScaleVal(value(p));
         if (toR){
             os<<p.get_name()<<"=list("<<"type='param_init_bounded_vector'"<<cc
                                 <<"ctg1="<<qt<<ctg1<<qt<<cc
                                 <<"ctg2="<<qt<<ctg2<<qt<<cc
-                                <<"lbl="<<qt<<lbl<<qt<<cc
+                                <<"lbl="<<qt<<pI->label<<qt<<cc
                                 <<"dims=c("<<mn<<cc<<mx<<")"<<cc
                                 <<"phase="<<p.get_phase_start()<<cc
-                                <<"bounds=c("<<p.get_minb()<<cc<<p.get_maxb()<<")"<<cc
-                                <<"value=c("; {for (int i=mn;i<mx;i++) os<<value(p(i))<<cc;} os<<value(p(mx))<<")";
-           os<<"),";
+                                <<"bounds=c("<<pI->calcArithScaleVal(p.get_minb())<<cc
+                                             <<pI->calcArithScaleVal(p.get_maxb())<<")"<<cc
+                                <<"value=c("; for (int i=mn;i<mx;i++) {os<<vals(i)<<cc;} os<<vals(mx)<<")";
+            os<<"),";
         } else {
-            for (int i=mn;i<=mx;i++) os<< i<<cc<<p.get_phase_start()<<cc<<mn<<cc<<mx<<cc<<p.get_minb()<<cc<<p.get_maxb()<<cc<<p(i)<<cc<<p.get_name()<<cc
-                                               <<"\"param_init_bounded_vector\",\""<<ctg1<<"\",\""<<ctg2<<"\",\""<<lbl<<"\""<<endl;
+            for (int i=mn;i<=mx;i++) os<<i<<cc<<p.get_phase_start()<<cc<<mn<<cc<<mx<<cc
+                                       <<pI->calcArithScaleVal(p.get_minb())<<cc
+                                       <<pI->calcArithScaleVal(p.get_maxb())<<cc
+                                       <<vals(i)<<cc<<p.get_name()<<cc<<"\"param_init_bounded_vector\",\""
+                                       <<ctg1<<"\",\""<<ctg2<<"\",\""<<pI->label<<"\""<<endl;
         }
     }
 }
@@ -507,11 +525,12 @@ void writeParameter(ostream& os, param_init_bounded_vector& p,adstring& ctg1, ad
  * @param p - parameter vector (param_init_bounded_dev_vector)
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
- * @param lbl - parameter-specific label
+ * @param pI - pointer to associated DevsVectorInfo info object
  * @param toR - flag to write to R format
  * @param willBeActive - flag to write only if parameter vector will be active
  */
-void writeParameter(ostream& os, param_init_bounded_dev_vector& p,adstring& ctg1, adstring& ctg2, adstring& lbl, int toR, int willBeActive){
+void writeParameter(ostream& os, param_init_bounded_dev_vector& p,adstring& ctg1, adstring& ctg2, 
+                    DevsVectorInfo* pI, int toR, int willBeActive){
     int mn = p.indexmin();
     int mx = p.indexmax();
     if (!willBeActive||(willBeActive&&(p.get_phase_start()>0))){
@@ -519,15 +538,22 @@ void writeParameter(ostream& os, param_init_bounded_dev_vector& p,adstring& ctg1
             os<<p.get_name()<<"=list("<<"type=param_init_bounded_dev_vector"<<cc
                                 <<"ctg1="<<qt<<ctg1<<qt<<cc
                                 <<"ctg2="<<qt<<ctg2<<qt<<cc
-                                <<"lbl="<<qt<<lbl<<qt<<cc
+                                <<"lbl="<<qt<<pI->label<<qt<<cc
                                 <<"dims=c("<<mn<<cc<<mx<<")"<<cc
                                 <<"phase="<<p.get_phase_start()<<cc
-                                <<"bounds=c("<<p.get_minb()<<cc<<p.get_maxb()<<")"<<cc
-                                <<"value=c("; {for (int i=mn;i<mx;i++) os<<value(p(i))<<cc;} os<<value(p(mx))<<")";
+                                <<"bounds=c("<<pI->calcArithScaleVal(p.get_minb())<<cc
+                                             <<pI->calcArithScaleVal(p.get_maxb())<<")"<<cc
+                                <<"value=c("; 
+                for (int i=mn;i<mx;i++) os<<pI->calcArithScaleVal(value(p(i)))<<cc; 
+                os<<pI->calcArithScaleVal(value(p(mx)))<<")";
            os<<"),";
         } else {
-            for (int i=mn;i<=mx;i++) os<< i<<cc<<p.get_phase_start()<<cc<<mn<<cc<<mx<<cc<<p.get_minb()<<cc<<p.get_maxb()<<cc<<p(i)<<cc<<p.get_name()<<cc
-                                           <<"\"param_init_bounded_dev_vector\",\""<<ctg1<<"\",\""<<ctg2<<"\",\""<<lbl<<"\""<<endl;
+            for (int i=mn;i<=mx;i++) os<< i<<cc<<p.get_phase_start()<<cc<<mn<<cc<<mx<<cc
+                                       <<pI->calcArithScaleVal(p.get_minb())<<cc
+                                       <<pI->calcArithScaleVal(p.get_maxb())<<cc
+                                       <<pI->calcArithScaleVal(value(p(i)))<<cc<<p.get_name()<<cc
+                                       <<"\"param_init_bounded_dev_vector\",\""<<ctg1<<"\",\""<<ctg2<<"\",\""
+                                       <<pI->label<<"\""<<endl;
         }
     }
 }    
@@ -539,12 +565,17 @@ void writeParameter(ostream& os, param_init_bounded_dev_vector& p,adstring& ctg1
  * @param p - a param_init_number_vector
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
- * @param lbls - adstring_array of individual parameter labels
+ * @param pI - pointer to associated NumberVectorInfo info object
  * @param toR - flag to write to R format (otherwise csv)
  * @param willBeActive - flag to write if parameters will be active in some phase
  */
-void writeParameters(ostream& os, param_init_number_vector& p, adstring& ctg1, adstring& ctg2, adstring_array lbls,int toR, int willBeActive){
-    for (int i=p.indexmin();i<=p.indexmax();i++) tcsam::writeParameter(os,p[i],ctg1,ctg2,lbls[i],toR,willBeActive);
+void writeParameters(ostream& os, param_init_number_vector& p, adstring& ctg1, adstring& ctg2, 
+                     NumberVectorInfo* pI,int toR, int willBeActive){
+    if (pI->getSize()){
+        for (int i=p.indexmin();i<=p.indexmax();i++) {
+            tcsam::writeParameter(os,p[i],ctg1,ctg2,(*pI)[i],toR,willBeActive);
+        }
+    }
 }
 
 /**
@@ -554,12 +585,21 @@ void writeParameters(ostream& os, param_init_number_vector& p, adstring& ctg1, a
  * @param p - a param_init_bounded_number_vector
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
- * @param lbls - adstring_array of individual parameter labels
+ * @param pI - pointer to associated BoundedNumberVectorInfo info object
  * @param toR - flag to write to R format (otherwise csv)
  * @param willBeActive - flag to write if parameters will be active in some phase
  */
-void writeParameters(ostream& os, param_init_bounded_number_vector& p, adstring& ctg1, adstring& ctg2, adstring_array lbls,int toR, int willBeActive){
-    for (int i=p.indexmin();i<=p.indexmax();i++) tcsam::writeParameter(os,p[i],ctg1,ctg2,lbls[i],toR,willBeActive);
+void writeParameters(ostream& os, param_init_bounded_number_vector& p, adstring& ctg1, adstring& ctg2, 
+                     BoundedNumberVectorInfo* pI,int toR, int willBeActive){
+    if (pI->getSize()){
+        for (int i=p.indexmin();i<=p.indexmax();i++) {
+            rpt::echo<<"writeParameters(BNVI) for "<<i<<p[i].get_name()<<endl;
+            rpt::echo<<"typeof((*pI)[i]) = "<<typeid((*pI)[i]).name()<<endl;
+            BoundedNumberInfo* ptrI = (*pI)[i];
+            rpt::echo<<"typeof(ptrI) = "<<typeid(ptrI).name()<<endl;
+            tcsam::writeParameter(os,p[i],ctg1,ctg2,ptrI,toR,willBeActive);
+        }
+    }
 }
 
 /**
@@ -569,12 +609,17 @@ void writeParameters(ostream& os, param_init_bounded_number_vector& p, adstring&
  * @param p - a param_init_vector_vector
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
- * @param lbls - adstring_array of individual parameter labels
+ * @param pI - pointer to associated VectorVectorInfo info object
  * @param toR - flag to write to R format (otherwise csv)
  * @param willBeActive - flag to write if parameters will be active in some phase
  */
-void writeParameters(ostream& os, param_init_vector_vector& p, adstring& ctg1, adstring& ctg2, adstring_array lbls,int toR, int willBeActive){
-    for (int i=p.indexmin();i<=p.indexmax();i++) tcsam::writeParameter(os,p[i],ctg1,ctg2,lbls[i],toR,willBeActive);
+void writeParameters(ostream& os, param_init_vector_vector& p, adstring& ctg1, adstring& ctg2, 
+                     VectorVectorInfo* pI,int toR, int willBeActive){
+    if (pI->getSize()){
+        for (int i=p.indexmin();i<=p.indexmax();i++) {
+            tcsam::writeParameter(os,p[i],ctg1,ctg2,(*pI)[i],toR,willBeActive);
+        }
+    }
 }
 
 /**
@@ -584,21 +629,27 @@ void writeParameters(ostream& os, param_init_vector_vector& p, adstring& ctg1, a
  * @param p - a param_init_bounded_vector_vector
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
- * @param lbls - adstring_array of individual parameter labels
+ * @param pI - pointer to associated BoundedVectorVectorInfo info object
  * @param toR - flag to write to R format (otherwise csv)
  * @param willBeActive - flag to write if parameters will be active in some phase
  */
-void writeParameters(ostream& os, param_init_bounded_vector_vector& p, adstring& ctg1, adstring& ctg2, adstring_array lbls,int toR, int willBeActive){
-    for (int i=p.indexmin();i<=p.indexmax();i++) tcsam::writeParameter(os,p[i],ctg1,ctg2,lbls[i],toR,willBeActive);
+void writeParameters(ostream& os, param_init_bounded_vector_vector& p, adstring& ctg1, adstring& ctg2, 
+                     BoundedVectorVectorInfo* pI,int toR, int willBeActive){
+    if (pI->getSize()){
+        for (int i=p.indexmin();i<=p.indexmax();i++) {
+            tcsam::writeParameter(os,p[i],ctg1,ctg2,(*pI)[i],toR,willBeActive);
+        }
+    }
 }
 
 /**
- * Set the parameter info for a NumberVectorInfo object.
+ * Sets the parameter info for a NumberVectorInfo object.
  * 
- * @param pNVI - pointer to a NumberVectorInfo instance
- * @param npT - size of vector
- * @param phs - ivector of phases for parameters
- * @param os - output stream to write to
+ * 
+ * @param [in]      pNVI - pointer to a NumberVectorInfo instance
+ * @param [in][out] npT - size of vector
+ * @param [in][out] phs - ivector of phases for parameters
+ * @param [in]      os  - output stream to write processing info to
  */
 void setParameterInfo(NumberVectorInfo* pNVI,                           
                              int& npT,
@@ -621,12 +672,12 @@ void setParameterInfo(NumberVectorInfo* pNVI,
 /**
  * Set the parameter info for a BoundedNumberVectorInfo object.
  * 
- * @param pBNVI - pointer to a BoundedNumberVectorInfo instance
- * @param npT - size of vector
- * @param lb - dvector of lower bounds
- * @param ub - dvector of upper bounds
- * @param phs - ivector of phases for parameters
- * @param os - output stream to write to
+ * @param [in]      pBNVI - pointer to a BoundedNumberVectorInfo instance
+ * @param [in][out] npT   - size of vector
+ * @param [in][out] lb    - dvector of lower bounds on parameter scale
+ * @param [in][out] ub    - dvector of upper bounds on parameter scale
+ * @param [in][out] phs   - ivector of phases for parameters
+ * @param [in]      os    - output stream to write to
  */
 void setParameterInfo(BoundedNumberVectorInfo* pBNVI,
                              int& npT,
@@ -638,13 +689,15 @@ void setParameterInfo(BoundedNumberVectorInfo* pBNVI,
     phs.allocate(1,npT);
     lb.allocate(1,npT);
     ub.allocate(1,npT);
+    adstring_array scales(1,npT);
     if (np){
         phs = pBNVI->getPhases();
         lb  = pBNVI->getLowerBounds();
         ub  = pBNVI->getUpperBounds();
+        scales = pBNVI->getScaleTypes();
         os<<"parameter "<<pBNVI->name<<":"<<endl;
-        os<<"#lower  upper  phase  "<<endl;
-        for (int n=1;n<=np;n++) os<<n<<tb<<lb(n)<<tb<<ub(n)<<tb<<phs(n)<<endl;
+        os<<"#lower  upper  phase  scale"<<endl;
+        for (int n=1;n<=np;n++) os<<n<<tb<<lb(n)<<tb<<ub(n)<<tb<<phs(n)<<tb<<scales(n)<<endl;
     } else {
         phs = -1;
         lb  = -1.0;
