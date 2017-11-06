@@ -205,11 +205,23 @@ namespace tcsam{
     int getSRType(adstring s);
     adstring getSRType(int i);
 
+    /**
+     * Translate error scale type from adstring  to int version.
+     * 
+     * @param fitType
+     * @return 
+     */
     int getErrorScaleType(adstring sclType);
+    /**
+     * Translate error scale type from int to adstring version.
+     * 
+     * @param fitType
+     * @return 
+     */
     adstring getErrorScaleType(int sclFlg);
     
     /**
-     * Translate from adstring fit type to int version.
+     * Translate fit type from adstring to int version.
      * 
      * @param fitType
      * @return 
@@ -217,7 +229,7 @@ namespace tcsam{
     int getFitType(adstring fitType);
     
     /**
-     * Translate from integer fit type to adstring version.
+     * Translate fit type from integer to adstring version.
      * 
      * @param i
      * @return 

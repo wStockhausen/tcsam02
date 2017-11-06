@@ -101,10 +101,10 @@ namespace tcsam{
  * RecruitmentInfo\n
  * Encapsulates the following recruitment-related parameters:\n
  *  pLnR   : mean ln-scale recruitment\n
- *  pLnRCV : recruitment cv's\n
- *  pLgtRX : logit-scale sex ratio for males\n
- *  pLnRa  : size-at-recruitment parameter\n
- *  pLnRb  : size-at-recruitment parameter\n
+ *  pRCV   : recruitment cv's\n
+ *  pRX    : fraction males at recruitment to population\n
+ *  pRa    : size-at-recruitment parameter\n
+ *  pRb    : size-at-recruitment parameter\n
  *  pvLnRDevs: ln-scale annual recruitment devs
  * Notes:
  *  1. YEAR_BLOCK is the index variable for the parameters
@@ -116,10 +116,10 @@ class RecruitmentInfo: public ParameterGroupInfo {
         static adstring NAME;//"recruitment"
     public:        
         BoundedNumberVectorInfo* pLnR;
-        BoundedNumberVectorInfo* pLnRCV;
-        BoundedNumberVectorInfo* pLgtRX;
-        BoundedNumberVectorInfo* pLnRa;
-        BoundedNumberVectorInfo* pLnRb;
+        BoundedNumberVectorInfo* pRCV;
+        BoundedNumberVectorInfo* pRX;
+        BoundedNumberVectorInfo* pRa;
+        BoundedNumberVectorInfo* pRb;
         DevsVectorVectorInfo* pDevsLnR; //parameter vectors for annual recruitment devs
         
         RecruitmentInfo();
@@ -136,11 +136,11 @@ class RecruitmentInfo: public ParameterGroupInfo {
 /*------------------------------------------------------------------------------
  * NaturalMortalityInfo\n
  * Encapsulates the following recruitment-related parameters:\n
- *   pLnM   : base natural mortality (mature males)
- *   pLnDMT : main ln-scale temporal offsets
- *   pLnDMX : female offsets
- *   pLnDMM : immature offsets
- *   pLnDMXM: female-immature offsets    
+ *   pM   : base arithmetic-scale natural mortality
+ *   pDM1 : ln-scale offsets
+ *   pDM2 : ln-scale offsets
+ *   pDM3 : ln-scale offsets
+ *   pDM4 : ln-scale offsets    
  * Notes:
  *  1. index variables for parameters
  *      a. YEAR_BLOCK
@@ -159,7 +159,7 @@ class NaturalMortalityInfo : public ParameterGroupInfo {
         /* reference size for size-specific mortality */
         double zRef;
         /* info for base (immature male) natural mortality rates */
-        BoundedNumberVectorInfo* pLnM;
+        BoundedNumberVectorInfo* pM;
         /* info for offset 1 */
         BoundedNumberVectorInfo* pDM1;
         /* info for offset 2 */
@@ -201,9 +201,9 @@ class NaturalMortalityInfo : public ParameterGroupInfo {
 /*------------------------------------------------------------------------------
  * GrowthInfo\n
  * Encapsulates the following recruitment-related parameters:\n
- *   pLnGrA : ln-scale mean growth coefficient "a"
- *   pLnGrB : ln-scale mean growth exponent "b"
- *   pLnGrBeta : scale factor for growth transition matrix
+ *   pGrA : mean growth coefficient "a"
+ *   pGrB : mean growth exponent "b"
+ *   pGrBeta : scale factor for growth transition matrix
  * Notes:
  *  1. YEAR_BLOCK, SEX are the index variables for the parameters
  *----------------------------------------------------------------------------*/
@@ -213,8 +213,11 @@ class GrowthInfo : public ParameterGroupInfo {
     protected:
         static adstring NAME;//"growth"
     public:
+        /** mean growth coefficient "a" */
         BoundedNumberVectorInfo* pGrA;
+        /** mean growth coefficient "b" */
         BoundedNumberVectorInfo* pGrB;
+        /** scale factor for growth transition matrix */
         BoundedNumberVectorInfo* pGrBeta;
         
         GrowthInfo();
@@ -239,7 +242,8 @@ class Molt2MaturityInfo: public ParameterGroupInfo {
     protected:
         static adstring NAME;//"molt_to_maturity"
     public:        
-        BoundedVectorVectorInfo* pLgtPrM2M; //parameter vectors for logit-scale pr(molt-to-maturity|size)
+        /** parameter vectors for logit-scale pr(molt-to-maturity|size) */
+        BoundedVectorVectorInfo* pLgtPrM2M; 
         
         Molt2MaturityInfo();
         ~Molt2MaturityInfo();
@@ -360,7 +364,7 @@ class FisheriesInfo : public ParameterGroupInfo {
 /*------------------------------------------------------------------------------
  * SurveysInfo\n
  * Encapsulates the following recruitment-related parameters:\n
- *   pLnQ : base q (mature males)
+ *   pQ : base q (mature males)
  *   pDQ1 : ln-scale offset 1 (e.g., main temporal offset)
  *   pDQ2 : ln-scale offset 1 (e.g., female offsets)
  *   pDQ3 : ln-scale offset 1 (e.g., immature offsets)
@@ -379,10 +383,15 @@ class SurveysInfo : public ParameterGroupInfo {
     protected:
         static adstring NAME;//"surveys"
     public:
-        BoundedNumberVectorInfo* pLnQ;
+        /** base Q */
+        BoundedNumberVectorInfo* pQ;
+        /** ln-scale offset 1 */
         BoundedNumberVectorInfo* pDQ1;
+        /** ln-scale offset 2 */
         BoundedNumberVectorInfo* pDQ2;
+        /** ln-scale offset 3 */
         BoundedNumberVectorInfo* pDQ3;
+        /** ln-scale offset 4 */
         BoundedNumberVectorInfo* pDQ4;
         
         SurveysInfo();

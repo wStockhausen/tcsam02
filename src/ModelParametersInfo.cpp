@@ -28,7 +28,7 @@ int SelectivityInfo::debug      = 0;
 int FisheriesInfo::debug        = 0;
 int SurveysInfo::debug          = 0;
 int ModelParametersInfo::debug  = 0;
-const adstring ModelParametersInfo::version = "2017.10.31";
+const adstring ModelParametersInfo::version = "2017.11.06";
     
 /*----------------------------------------------------------------------------*/
 /**
@@ -524,27 +524,27 @@ RecruitmentInfo::RecruitmentInfo(){
     lblPVs.allocate(1,nPVs); dscPVs.allocate(1,nPVs);
     k=1;
     lblPVs(k) = "pLnR";    dscPVs(k++) = "ln-scale mean recruitment";
-    lblPVs(k) = "pLnRCV";  dscPVs(k++) = "recruitment cv's";
-    lblPVs(k) = "pLgtRX";  dscPVs(k++) = "logit-scale male sex ratio";
-    lblPVs(k) = "pLnRa";   dscPVs(k++) = "size-at-recruitment parameter";
-    lblPVs(k) = "pLnRb";   dscPVs(k++) = "size-at-recruitment parameter";    
+    lblPVs(k) = "pRCV";    dscPVs(k++) = "recruitment cv's";
+    lblPVs(k) = "pRX";     dscPVs(k++) = "fraction males at recruitment";
+    lblPVs(k) = "pRa";     dscPVs(k++) = "size-at-recruitment parameter a";
+    lblPVs(k) = "pRb";     dscPVs(k++) = "size-at-recruitment parameter b";    
     lblPVs(k) = "pDevsLnR";dscPVs(k++) = "ln-scale recruitment devs";    
-    pLnR     = 0;
-    pLnRCV   = 0;
-    pLgtRX   = 0;
-    pLnRa    = 0;
-    pLnRb    = 0;
+    pLnR = 0;
+    pRCV = 0;
+    pRX  = 0;
+    pRa  = 0;
+    pRb  = 0;
     pDevsLnR = 0;
     
     nXIs = 0;    
 }
 
 RecruitmentInfo::~RecruitmentInfo(){
-    if (pLnR)     delete pLnR;     pLnR     = 0;
-    if (pLnRCV)   delete pLnRCV;   pLnRCV   = 0;
-    if (pLgtRX)   delete pLgtRX;   pLgtRX   = 0;
-    if (pLnRa)    delete pLnRa;    pLnRa    = 0;
-    if (pLnRb)    delete pLnRb;    pLnRb    = 0;
+    if (pLnR) delete pLnR;  pLnR = 0;
+    if (pRCV) delete pRCV;  pRCV = 0;
+    if (pRX)  delete pRX;   pRX  = 0;
+    if (pRa)  delete pRa;   pRa  = 0;
+    if (pRb)  delete pRb;   pRb  = 0;
     if (pDevsLnR) delete pDevsLnR; pDevsLnR = 0;
 }
 
@@ -567,14 +567,14 @@ void RecruitmentInfo::read(cifstream & is){
         int k=1;
         pLnR   = ParameterGroupInfo::read(is,lblPVs(k),pLnR);   
         rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnR)<<endl;   k++;
-        pLnRCV = ParameterGroupInfo::read(is,lblPVs(k),pLnRCV); 
-        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnRCV)<<endl; k++;
-        pLgtRX = ParameterGroupInfo::read(is,lblPVs(k),pLgtRX); 
-        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLgtRX)<<endl; k++;
-        pLnRa  = ParameterGroupInfo::read(is,lblPVs(k),pLnRa);  
-        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnRa)<<endl;  k++;
-        pLnRb  = ParameterGroupInfo::read(is,lblPVs(k),pLnRb);  
-        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnRb)<<endl;  k++;
+        pRCV = ParameterGroupInfo::read(is,lblPVs(k),pRCV); 
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pRCV)<<endl; k++;
+        pRX = ParameterGroupInfo::read(is,lblPVs(k),pRX); 
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pRX)<<endl; k++;
+        pRa  = ParameterGroupInfo::read(is,lblPVs(k),pRa);  
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pRa)<<endl;  k++;
+        pRb  = ParameterGroupInfo::read(is,lblPVs(k),pRb);  
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pRb)<<endl;  k++;
         pDevsLnR = ParameterGroupInfo::read(is,lblPVs(k),pDevsLnR); 
         rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDevsLnR)<<endl; 
     } else {
@@ -603,13 +603,13 @@ void RecruitmentInfo::write(std::ostream & os){
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
     os<<(*pLnR)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
-    os<<(*pLnRCV)<<endl;
+    os<<(*pRCV)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
-    os<<(*pLgtRX)<<endl;
+    os<<(*pRX)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
-    os<<(*pLnRa)<<endl;
+    os<<(*pRa)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
-    os<<(*pLnRb)<<endl;
+    os<<(*pRb)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
     os<<(*pDevsLnR)<<endl;
 }
@@ -617,12 +617,12 @@ void RecruitmentInfo::write(std::ostream & os){
 void RecruitmentInfo::writeToR(std::ostream & os){
     int indent=0;
     os<<"rec=list("<<endl;
-        ParameterGroupInfo::writeToR(os);           os<<cc<<endl;
-        pLnR->writeToR(os,  "pLnR",  indent+1);     os<<cc<<endl;
-        pLnRCV->writeToR(os,"pLnRCV",indent+1);     os<<cc<<endl;
-        pLgtRX->writeToR(os,"pLgtRX",indent+1);     os<<cc<<endl;
-        pLnRa->writeToR(os, "pLnRa", indent+1);     os<<cc<<endl;
-        pLnRb->writeToR(os, "pLnRb", indent+1);     os<<cc<<endl;
+        ParameterGroupInfo::writeToR(os);   os<<cc<<endl;
+        pLnR->writeToR(os,"pLnR",indent+1); os<<cc<<endl;
+        pRCV->writeToR(os,"pRCV",indent+1); os<<cc<<endl;
+        pRX->writeToR(os, "pRX", indent+1); os<<cc<<endl;
+        pRa->writeToR(os, "pRa", indent+1); os<<cc<<endl;
+        pRb->writeToR(os, "pRb", indent+1); os<<cc<<endl;
         pDevsLnR->writeToR(os,"pDevsLnR",indent+1); os<<endl;
     os<<")";
 }
@@ -658,13 +658,13 @@ NaturalMortalityInfo::NaturalMortalityInfo(){
     nPVs=5;
     lblPVs.allocate(1,nPVs); dscPVs.allocate(1,nPVs);
     k=1;
-    lblPVs(k) = "pLnM"; dscPVs(k++) = "ln-scale base natural mortality rate";
+    lblPVs(k) = "pM";   dscPVs(k++) = "base natural mortality rate";
     lblPVs(k) = "pDM1"; dscPVs(k++) = "offset 1";
     lblPVs(k) = "pDM2"; dscPVs(k++) = "offset 2";
     lblPVs(k) = "pDM3"; dscPVs(k++) = "offset 3";
     lblPVs(k) = "pDM4"; dscPVs(k++) = "offset 4";
     if (debug) cout<<3<<endl;
-    pLnM  = 0;
+    pM  = 0;
     pDM1  = 0;
     pDM2  = 0;
     pDM3  = 0;
@@ -680,7 +680,7 @@ NaturalMortalityInfo::NaturalMortalityInfo(){
 }
 
 NaturalMortalityInfo::~NaturalMortalityInfo(){
-    if (pLnM) delete pLnM;  pLnM =0;
+    if (pM)   delete pM;    pM =0;
     if (pDM1) delete pDM1;  pDM1 =0;
     if (pDM2) delete pDM2;  pDM2 =0;
     if (pDM3) delete pDM3;  pDM3 =0;
@@ -708,8 +708,8 @@ void NaturalMortalityInfo::read(cifstream & is){
     rpt::echo<<str<<tb<<"#Required keyword (PARAMETERS)"<<endl;
     if (str=="PARAMETERS"){
         int k=1;
-        pLnM    = ParameterGroupInfo::read(is,lblPVs(k),pLnM);    
-        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnM)<<endl;    k++;
+        pM    = ParameterGroupInfo::read(is,lblPVs(k),pM);    
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pM)<<endl;    k++;
         pDM1  = ParameterGroupInfo::read(is,lblPVs(k),pDM1);  
         rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDM1)<<endl;  k++;
         pDM2  = ParameterGroupInfo::read(is,lblPVs(k),pDM2);  
@@ -743,7 +743,7 @@ void NaturalMortalityInfo::write(std::ostream & os){
     
     int k=1;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
-    os<<(*pLnM)<<endl;
+    os<<(*pM)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
     os<<(*pDM1)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
@@ -758,7 +758,7 @@ void NaturalMortalityInfo::writeToR(std::ostream & os){
     int indent=0;
     os<<"nm=list("<<endl;
         ParameterGroupInfo::writeToR(os);    os<<cc<<endl;
-        pLnM->writeToR(os,"pLnM", indent+1); os<<cc<<endl;
+        pM  ->writeToR(os,"pM", indent+1);   os<<cc<<endl;
         pDM1->writeToR(os,"pDM1", indent+1); os<<cc<<endl;
         pDM2->writeToR(os,"pDM2", indent+1); os<<cc<<endl;
         pDM3->writeToR(os,"pDM3", indent+1); os<<cc<<endl;
@@ -1323,7 +1323,7 @@ void FisheriesInfo::writeToR(std::ostream & os){
 /*------------------------------------------------------------------------------
  * SurveysInfo\n
  * Encapsulates the following recruitment-related parameters:\n
- *   pLnQ : base q (mature males)
+ *   pQ   : base q (mature males)
  *   pDQ1 : ln-scale offset 1 (e.g., main temporal offset)
  *   pDQ2 : ln-scale offset 1 (e.g., female offsets)
  *   pDQ3 : ln-scale offset 1 (e.g., immature offsets)
@@ -1359,12 +1359,12 @@ SurveysInfo::SurveysInfo(){
     nPVs=5;
     lblPVs.allocate(1,nPVs); dscPVs.allocate(1,nPVs);
     k=1;
-    lblPVs(k) = "pLnQ";   dscPVs(k++) = "ln-scale base catchability (mature male crab)";
-    lblPVs(k) = "pDQ1";   dscPVs(k++) = "offset 1 for ln-scale catchability";
-    lblPVs(k) = "pDQ2";   dscPVs(k++) = "offset 2 for ln-scale catchability";
-    lblPVs(k) = "pDQ3";   dscPVs(k++) = "offset 3 for ln-scale catchability";
-    lblPVs(k) = "pDQ4";   dscPVs(k++) = "offset 4 for ln-scale catchability";
-    pLnQ = 0;
+    lblPVs(k) = "pQ";   dscPVs(k++) = "base catchability (e.g. mature male crab)";
+    lblPVs(k) = "pDQ1"; dscPVs(k++) = "offset 1 for ln-scale catchability";
+    lblPVs(k) = "pDQ2"; dscPVs(k++) = "offset 2 for ln-scale catchability";
+    lblPVs(k) = "pDQ3"; dscPVs(k++) = "offset 3 for ln-scale catchability";
+    lblPVs(k) = "pDQ4"; dscPVs(k++) = "offset 4 for ln-scale catchability";
+    pQ   = 0;
     pDQ1 = 0;
     pDQ2 = 0;
     pDQ3 = 0;
@@ -1379,11 +1379,11 @@ SurveysInfo::SurveysInfo(){
 }
 
 SurveysInfo::~SurveysInfo(){
-    if (pLnQ)  delete pLnQ;   pLnQ =0;
-    if (pDQ1)  delete pDQ1;   pDQ1 =0;
-    if (pDQ2)  delete pDQ2;   pDQ2 =0;
-    if (pDQ3)  delete pDQ3;   pDQ3 =0;
-    if (pDQ4)  delete pDQ4;   pDQ4 =0;
+    if (pQ)   delete pQ;   pQ   =0;
+    if (pDQ1) delete pDQ1; pDQ1 =0;
+    if (pDQ2) delete pDQ2; pDQ2 =0;
+    if (pDQ3) delete pDQ3; pDQ3 =0;
+    if (pDQ4) delete pDQ4; pDQ4 =0;
 }
 
 void SurveysInfo::read(cifstream & is){
@@ -1403,8 +1403,8 @@ void SurveysInfo::read(cifstream & is){
     rpt::echo<<str<<tb<<"#Required keyword (PARAMETERS)"<<endl;
     if (str=="PARAMETERS"){
         int k=1;
-        pLnQ = ParameterGroupInfo::read(is,lblPVs(k),pLnQ);    
-        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnQ)<<endl;  k++;
+        pQ = ParameterGroupInfo::read(is,lblPVs(k),pQ);    
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pQ)<<endl;  k++;
         pDQ1 = ParameterGroupInfo::read(is,lblPVs(k),pDQ1);  
         rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDQ1)<<endl;  k++;
         pDQ2 = ParameterGroupInfo::read(is,lblPVs(k),pDQ2);  
@@ -1437,7 +1437,7 @@ void SurveysInfo::write(std::ostream & os){
     
     int k=1;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
-    os<<(*pLnQ)<<endl;
+    os<<(*pQ)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
     os<<(*pDQ1)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
@@ -1452,7 +1452,7 @@ void SurveysInfo::writeToR(std::ostream & os){
     int indent=0;
     os<<"srv=list("<<endl;
         ParameterGroupInfo::writeToR(os);   os<<cc<<endl;
-        pLnQ->writeToR(os,"pLnQ",indent++); os<<cc<<endl;
+        pQ->writeToR(os,"pQ",indent++); os<<cc<<endl;
         pDQ1->writeToR(os,"pDQ1",indent++); os<<cc<<endl;
         pDQ2->writeToR(os,"pDQ2",indent++); os<<cc<<endl;
         pDQ3->writeToR(os,"pDQ3",indent++); os<<cc<<endl;

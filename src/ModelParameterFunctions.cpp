@@ -136,31 +136,37 @@ void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, 
  * Set values for a dvar_matrix, intended to function as a vector of devs vector, 
  * based on values of a param_init_bounded_vector_vector.
  * 
- * @param devs - the dvar_matrix
+ * @param devs  - the dvar_matrix
  * @param pDevs - the param_init_bounded_vector_vector
+ * @param pI    - pointer to the associated DevsVectorVectorInfo object
  * @param debug - debugging level
  * @param cout  - output stream object for debugging info
  * 
  * @return - void
  * 
- * @alters - This alters the values in the dvar_matrix.
+ * @alters - This alters the values in the devs dvar_matrix.
  * 
  */
-void setDevs(dvar_matrix& devs, param_init_bounded_vector_vector& pDevs, int debug, std::ostream& cout){
-    if (debug>=tcsam::dbgAll) cout<<"starting setDevs(devs,pDevs)"<<std::endl;
-    int nv = pDevs.indexmax();//number of devs vectors defined
-    int mni; int mxi;
-    for (int v=1;v<=nv;v++){
-        mni = pDevs(v).indexmin();
-        mxi = pDevs(v).indexmax();
-        devs(v)(mni,mxi) = pDevs(v);
-        if (debug>=(tcsam::dbgAll+1)) cout<<v<<":  "<<devs(v)<<endl;
-    }
-    if (debug>=(tcsam::dbgAll+1)) {
-        std::cout<<"Enter 1 to continue >>";
-        std::cin>>nv;
-        if (nv<0) exit(-1);
-        cout<<"finished setDevs(devs,pDevs)"<<std::endl;
+void setDevs(dvar_matrix& devs, param_init_bounded_vector_vector& pDevs, DevsVectorVectorInfo* pI, int debug, std::ostream& cout){
+    if (debug>=tcsam::dbgAll) cout<<"starting setDevs(devs,pDevs,pI)"<<std::endl;
+    devs.initialize();
+    if (pI->getSize()){
+        int nv = pDevs.indexmax();//number of devs vectors defined
+        int mni; int mxi;
+        for (int v=1;v<=nv;v++){
+            mni = pDevs(v).indexmin();
+            mxi = pDevs(v).indexmax();
+            devs(v)(mni,mxi) = (*pI)[v]->calcArithScaleVal(pDevs(v));
+            if (debug>=(tcsam::dbgAll)) cout<<v<<":  "<<devs(v)<<endl;
+        }
+        if (debug>=(tcsam::dbgAll+1)) {
+            std::cout<<"Enter 1 to continue >>";
+            std::cin>>nv;
+            if (nv<0) exit(-1);
+            cout<<"finished setDevs(devs,pDevs,pI)"<<std::endl;
+        }
+    } else {
+        if (debug>=(tcsam::dbgAll)) cout<<"size=0, so no devs to set"<<endl;
     }
 }
 

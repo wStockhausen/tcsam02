@@ -62,15 +62,16 @@ namespace tcsam {
      * 
      * @param devs - the dvar_matrix
      * @param pDevs - the param_init_bounded_vector_vector
+     * @param pI    - pointer to the associated DevsVectorVectorInfo object
      * @param debug - debugging level
      * @param cout  - output stream object for debugging info
      * 
      * @return - void
      * 
-     * @alters - This alters the values in the dvar_matrix.
+     * @alters - This alters the values in the devs dvar_matrix.
      * 
      */
-    void setDevs(dvar_matrix& devs, param_init_bounded_vector_vector& pDevs, int debug, std::ostream& cout);
+    void setDevs(dvar_matrix& devs, param_init_bounded_vector_vector& pDevs,  DevsVectorVectorInfo* pI, int debug, std::ostream& cout);
 
     /**
      * Calculate ln-scale priors for a param_init_number_vector, based on its associated NumberVectorInfo, 

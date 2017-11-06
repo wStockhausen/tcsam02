@@ -46,12 +46,13 @@ double NumberInfo::calcArithScaleVal(double x){
             z = x;
             break;
         case tcsam::SCALE_LOG:
-            z = exp(x);
+            z = mfexp(x);
             break;
         case tcsam::SCALE_LOGIT:
-            z = 1.0/(1.0+exp(-x));//scaled to [0,1]
+            z = 1.0/(1.0+mfexp(-x));//scaled to [0,1]
             break;
         default:
+            cout<<"NumberInfo::calcArithScaleVal(double) "<<this<<endl;
             cout<<"Parameter scale type "<<scaleType<<" not recognized!!"<<endl;
             ad_exit(1);
             break;
@@ -75,12 +76,13 @@ dvariable NumberInfo::calcArithScaleVal(const dvariable& x){
             z = x;
             break;
         case tcsam::SCALE_LOG:
-            z = exp(x);//scaled to [0,1]
+            z = mfexp(x);//scaled to [0,1]
             break;
         case tcsam::SCALE_LOGIT:
-            z = 1.0/(1.0+exp(-x));//scaled to [0,1]
+            z = 1.0/(1.0+mfexp(-x));//scaled to [0,1]
             break;
         default:
+            cout<<"NumberInfo::calcArithScaleVal(dvariable&) "<<this<<endl;
             cout<<"Parameter scale type "<<scaleType<<" not recognized!!"<<endl;
             ad_exit(1);
             break;
@@ -110,6 +112,7 @@ double NumberInfo::calcParamScaleVal(double x){
             z = log(x/(1.0-x));//on logit scale
             break;
         default:
+            cout<<"NumberInfo::calcParamScaleVal(double) "<<this<<endl;
             cout<<"Parameter scale type "<<scaleType<<" not recognized for NumberInfo!!"<<endl;
             ad_exit(1);
             break;
@@ -364,11 +367,15 @@ double BoundedNumberInfo::calcArithScaleVal(double x){
         case tcsam::SCALE_ARITHM:
             z = x;
             break;
+        case tcsam::SCALE_LOG:
+            z = mfexp(x);
+            break;
         case tcsam::SCALE_LOGIT:
             y = 1.0/(1.0+exp(-x));//scaled to [0,1]
             z = lower+(upper-lower)*y;
             break;
         default:
+            cout<<"BoundedNumberInfo::calcArithScaleVal(double&) "<<this<<endl;
             cout<<"Parameter scale type "<<scaleType<<" not recognized!!"<<endl;
             ad_exit(1);
             break;
@@ -391,11 +398,15 @@ dvariable BoundedNumberInfo::calcArithScaleVal(const dvariable& x){
         case tcsam::SCALE_ARITHM:
             z = x;
             break;
+        case tcsam::SCALE_LOG:
+            z = mfexp(x);
+            break;
         case tcsam::SCALE_LOGIT:
             y = 1.0/(1.0+exp(-x));//scaled to [0,1]
             z = lower+(upper-lower)*y;
             break;
         default:
+            cout<<"BoundedNumberInfo::calcArithScaleVal(dvariable&) "<<this<<endl;
             cout<<"Parameter scale type "<<scaleType<<" not recognized!!"<<endl;
             ad_exit(1);
             break;
@@ -418,6 +429,9 @@ double BoundedNumberInfo::calcParamScaleVal(double x){
         case tcsam::SCALE_ARITHM:
             z = x;
             break;
+        case tcsam::SCALE_LOG:
+            z = log(x);
+            break;
         case tcsam::SCALE_LOGIT:
             if (x<=lower) return -25.0;
             if (x>=upper) return 25.0;
@@ -425,6 +439,7 @@ double BoundedNumberInfo::calcParamScaleVal(double x){
             z = log(y/(1.0-y));//on logit scale
             break;
         default:
+            cout<<"BoundedNumberInfo::calcParamScaleVal(double) "<<this<<endl;
             cout<<"Parameter scale type "<<scaleType<<" not recognized!!"<<endl;
             ad_exit(1);
             break;
@@ -528,6 +543,7 @@ dvector VectorInfo::calcArithScaleVal(const dvector& x){
             z = 1.0/(1.0+mfexp(-1.0*x));
             break;
         default:
+            cout<<"VectorInfo::calcArithScaleVal(dvector&) "<<this<<endl;
             cout<<"Parameter scale type "<<scaleType<<" not recognized!!"<<endl;
             ad_exit(1);
             break;
@@ -557,6 +573,7 @@ dvar_vector VectorInfo::calcArithScaleVal(const dvar_vector& x){
             z = 1.0/(1.0+mfexp(-1.0*x));
             break;
         default:
+            cout<<"VectorInfo::calcArithScaleVal(dvar_vector&) "<<this<<endl;
             cout<<"Parameter scale type "<<scaleType<<" not recognized!!"<<endl;
             ad_exit(1);
             break;
@@ -585,6 +602,7 @@ dvector VectorInfo::calcParamScaleVal(dvector& x){
             z = log(elem_div(x,1.0-x));//on logit scale
             break;
         default:
+            cout<<"VectorInfo::calcParamScaleVal(dvector&) "<<this<<endl;
             cout<<"Parameter scale type "<<scaleType<<" not recognized!!"<<endl;
             ad_exit(1);
             break;
@@ -741,10 +759,14 @@ dvector BoundedVectorInfo::calcArithScaleVal(const dvector& x){
         case tcsam::SCALE_ARITHM:
             z = x;
             break;
+        case tcsam::SCALE_LOG:
+            z = mfexp(x);
+            break;
         case tcsam::SCALE_LOGIT:
             z = lower+(upper-lower)/(1.0+mfexp(-1.0*x));
             break;
         default:
+            cout<<"BoundedVectorInfo::calcArithScaleVal(dvector&) "<<this<<endl;
             cout<<"Parameter scale type "<<scaleType<<" not recognized!!"<<endl;
             ad_exit(1);
             break;
@@ -767,10 +789,14 @@ dvar_vector BoundedVectorInfo::calcArithScaleVal(const dvar_vector& x){
         case tcsam::SCALE_ARITHM:
             z = x;
             break;
+        case tcsam::SCALE_LOG:
+            z = mfexp(x);
+            break;
         case tcsam::SCALE_LOGIT:
             z = lower+(upper-lower)/(1.0+mfexp(-1.0*x));
             break;
         default:
+            cout<<"VectorInfo::calcArithScaleVal(dvar_vector&) "<<this<<endl;
             cout<<"Parameter scale type "<<scaleType<<" not recognized!!"<<endl;
             ad_exit(1);
             break;
@@ -792,6 +818,9 @@ dvector BoundedVectorInfo::calcParamScaleVal(dvector& x){
         case tcsam::SCALE_ARITHM:
             z = x;
             break;
+        case tcsam::SCALE_LOG:
+            z = log(x);
+            break;
         case tcsam::SCALE_LOGIT:
             {
                 //copy x
@@ -806,6 +835,7 @@ dvector BoundedVectorInfo::calcParamScaleVal(dvector& x){
                 break;
             }
         default:
+            cout<<"VectorInfo::calcParamScaleVal(dvector&) "<<this<<endl;
             cout<<"Parameter scale type "<<scaleType<<" not recognized!!"<<endl;
             ad_exit(1);
             break;

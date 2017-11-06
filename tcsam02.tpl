@@ -102,7 +102,7 @@
 //              3. added debugOFL as command line flag
 //  2016-03-30: 1. added csv output file of ALL parameters in last phase Report section
 //              2. updated version number. 
-//  2016-03-31: 1. Revised NM calc.s so pLnM represents natural mortality rates
+//  2016-03-31: 1. Revised NM calc.s so pM represents natural mortality rates
 //                  on immature male crab (was mature male crab, previously). pDM3
 //                  and pDM4 now reprsent corresponding offsets for mature, not
 //                  immature, crab.
@@ -287,7 +287,7 @@
 //--2017-07-19: 1. Added calcCohortProgression(...) and call to it in report section.
 //--2017-08-01: 1. Added final year MMB, OFL info to jitterInfo.csv output
 //              2. calcOFL ONLY called in last phase now, unless debugOFL has been set
-//--2017-08-02: 1. Added likeprof_numbers lkMMB, lkLnQM, lkLnQF, lkNMMM, lkNMMF, lkNMIM, lkNMIF
+//--2017-08-02: 1. Added likeprof_numbers lkMMB, lkQM, lkQF, lkNMMM, lkNMMF, lkNMIM, lkNMIF
 //--2017-08-12: 1. Added selectivity function "asclogistic5099", with parameters z50 and z99.
 //--2017-08-23: 1. Corrected problem with cohort progression when directed fishery was closed 
 //                  (i.e., when maxF=0).
@@ -316,12 +316,14 @@
 //                  constraint was identically satisfied by setting the final element
 //                  to the negative sum of the previous elements, while the bounds on
 //                  the final element were enforced in the likelihood.
-//--2017-10-31: 1. Revised ParameterInfoTypes to incorporate parameters on non-arithmetic
-//                  scales. Changed growth parameters to implement this.
-//              2. Implemented for for other parameters, but using original scales.
-//                  A logit-scale transform, for example, can still be used for 
-//                  bounded parameters to try to minimize gradients at bounds.
+//--2017-10-31: 1. Revised ParameterInfoTypes to incorporate inputs to parameters 
+//                  on non-arithmetic scales. Changed growth parameters to implement this.
 //              3. Stopped printing debugging info for new stuff by default.
+//--2017-10-31: 1. Implemented non-arithmetic input scales for all devs and for 
+//                  all selectivity parameters.
+//              2. Implemented non-arithmetic input scales for recruitment parameters
+//                  except pLnR, and for pLnM (now pM) and pLnQ (now pQ). 
+//              3. Added rmse's to output for likelihood calculations
 // =============================================================================
 // =============================================================================
 GLOBALS_SECTION
@@ -887,25 +889,25 @@ DATA_SECTION
     int npLnR; ivector phsLnR; vector lbLnR; vector ubLnR;
     !!tcsam::setParameterInfo(ptrMPI->ptrRec->pLnR,npLnR,lbLnR,ubLnR,phsLnR,rpt::echo);
     
-    int npLnRCV; ivector phsLnRCV; vector lbLnRCV; vector ubLnRCV;
-    !!tcsam::setParameterInfo(ptrMPI->ptrRec->pLnRCV,npLnRCV,lbLnRCV,ubLnRCV,phsLnRCV,rpt::echo);
+    int npRCV; ivector phsRCV; vector lbRCV; vector ubRCV;
+    !!tcsam::setParameterInfo(ptrMPI->ptrRec->pRCV,npRCV,lbRCV,ubRCV,phsRCV,rpt::echo);
     
-    int npLgtRX; ivector phsLgtRX; vector lbLgtRX; vector ubLgtRX;
-    !!tcsam::setParameterInfo(ptrMPI->ptrRec->pLgtRX,npLgtRX,lbLgtRX,ubLgtRX,phsLgtRX,rpt::echo);
+    int npRX; ivector phsRX; vector lbRX; vector ubRX;
+    !!tcsam::setParameterInfo(ptrMPI->ptrRec->pRX,npRX,lbRX,ubRX,phsRX,rpt::echo);
     
-    int npLnRa; ivector phsLnRa; vector lbLnRa; vector ubLnRa;
-    !!tcsam::setParameterInfo(ptrMPI->ptrRec->pLnRa,npLnRa,lbLnRa,ubLnRa,phsLnRa,rpt::echo);
+    int npRa; ivector phsRa; vector lbRa; vector ubRa;
+    !!tcsam::setParameterInfo(ptrMPI->ptrRec->pRa,npRa,lbRa,ubRa,phsRa,rpt::echo);
     
-    int npLnRb; ivector phsLnRb; vector lbLnRb; vector ubLnRb;
-    !!tcsam::setParameterInfo(ptrMPI->ptrRec->pLnRb,npLnRb,lbLnRb,ubLnRb,phsLnRb,rpt::echo);
+    int npRb; ivector phsRb; vector lbRb; vector ubRb;
+    !!tcsam::setParameterInfo(ptrMPI->ptrRec->pRb,npRb,lbRb,ubRb,phsRb,rpt::echo);
     
     int npDevsLnR; ivector mniDevsLnR; ivector mxiDevsLnR; imatrix idxsDevsLnR;
     vector lbDevsLnR; vector ubDevsLnR; ivector phsDevsLnR;
     !!tcsam::setParameterInfo(ptrMPI->ptrRec->pDevsLnR,npDevsLnR,mniDevsLnR,mxiDevsLnR,idxsDevsLnR,lbDevsLnR,ubDevsLnR,phsDevsLnR,rpt::echo);
     
     //natural mortality parameters
-    int npLnM; ivector phsLnM; vector lbLnM; vector ubLnM;
-    !!tcsam::setParameterInfo(ptrMPI->ptrNM->pLnM,npLnM,lbLnM,ubLnM,phsLnM,rpt::echo);
+    int npM; ivector phsM; vector lbM; vector ubM;
+    !!tcsam::setParameterInfo(ptrMPI->ptrNM->pM,npM,lbM,ubM,phsM,rpt::echo);
     
     int npDM1; ivector phsDM1; vector lbDM1; vector ubDM1;
     !!tcsam::setParameterInfo(ptrMPI->ptrNM->pDM1,npDM1,lbDM1,ubDM1,phsDM1,rpt::echo);
@@ -1002,8 +1004,8 @@ DATA_SECTION
     !!tcsam::setParameterInfo(ptrMPI->ptrFsh->pLgtRet,npLgtRet,lbLgtRet,ubLgtRet,phsLgtRet,rpt::echo);
     
     //surveys parameters
-    int npLnQ; ivector phsLnQ; vector lbLnQ; vector ubLnQ;
-    !!tcsam::setParameterInfo(ptrMPI->ptrSrv->pLnQ,npLnQ,lbLnQ,ubLnQ,phsLnQ,rpt::echo);
+    int npQ; ivector phsQ; vector lbQ; vector ubQ;
+    !!tcsam::setParameterInfo(ptrMPI->ptrSrv->pQ,npQ,lbQ,ubQ,phsQ,rpt::echo);
     
     int npDQ1; ivector phsDQ1; vector lbDQ1; vector ubDQ1;
     !!tcsam::setParameterInfo(ptrMPI->ptrSrv->pDQ1,npDQ1,lbDQ1,ubDQ1,phsDQ1,rpt::echo);
@@ -1096,22 +1098,22 @@ PARAMETER_SECTION
     //recruitment parameters
     init_bounded_number_vector pLnR(1,npLnR,lbLnR,ubLnR,phsLnR);              //mean ln-scale recruitment
     !!cout<<"pLnR = "<<pLnR<<endl;
-    init_bounded_number_vector pLnRCV(1,npLnRCV,lbLnRCV,ubLnRCV,phsLnRCV);    //ln-scale recruitment cv
-    !!cout<<"pLnRCV = "<<pLnRCV<<endl;
-    init_bounded_number_vector pLgtRX(1,npLgtRX,lbLgtRX,ubLgtRX,phsLgtRX);    //logit-scale male sex ratio
-    !!cout<<"pLgtRX = "<<pLgtRX<<endl;
-    init_bounded_number_vector pLnRa(1,npLnRa,lbLnRa,ubLnRa,phsLnRa);         //size distribution parameter
-    !!cout<<"pLnRa = "<<pLnRa<<endl;
-    init_bounded_number_vector pLnRb(1,npLnRb,lbLnRb,ubLnRb,phsLnRb);         //size distribution parameter
-    !!cout<<"pLnRb = "<<pLnRb<<endl;
+    init_bounded_number_vector pRCV(1,npRCV,lbRCV,ubRCV,phsRCV);    //ln-scale recruitment cv
+    !!cout<<"pRCV = "<<pRCV<<endl;
+    init_bounded_number_vector pRX(1,npRX,lbRX,ubRX,phsRX);    //logit-scale male sex ratio
+    !!cout<<"pRX = "<<pRX<<endl;
+    init_bounded_number_vector pRa(1,npRa,lbRa,ubRa,phsRa);         //size distribution parameter
+    !!cout<<"pRa = "<<pRa<<endl;
+    init_bounded_number_vector pRb(1,npRb,lbRb,ubRb,phsRb);         //size distribution parameter
+    !!cout<<"pRb = "<<pRb<<endl;
     init_bounded_vector_vector pDevsLnR(1,npDevsLnR,mniDevsLnR,mxiDevsLnR,lbDevsLnR,ubDevsLnR,phsDevsLnR);//ln-scale rec devs
     !!for (int p=1;p<=npDevsLnR;p++) cout<<"pDevsLnR["<<p<<"] = "<<pDevsLnR[p]<<endl;
     matrix devsLnR(1,npDevsLnR,mniDevsLnR,mxiDevsLnR+1);
     !!cout<<"got past recruitment parameters"<<endl;
    
     //natural mortality parameters
-    init_bounded_number_vector pLnM(1,npLnM,lbLnM,ubLnM,phsLnM);//base ln-scale
-    !!cout<<"pLnM = "<<pLnM<<endl;
+    init_bounded_number_vector pM(1,npM,lbM,ubM,phsM);//base ln-scale
+    !!cout<<"pM = "<<pM<<endl;
     init_bounded_number_vector pDM1(1,npDM1,lbDM1,ubDM1,phsDM1);//offset 1s
     !!cout<<"pDM1 = "<<pDM1<<endl;
     init_bounded_number_vector pDM2(1,npDM2,lbDM2,ubDM2,phsDM2);//offset 2s
@@ -1194,8 +1196,8 @@ PARAMETER_SECTION
     !!cout<<"got past capture rate parameters"<<endl;
    
     //survey catchability parameters
-    init_bounded_number_vector pLnQ(1,npLnQ,lbLnQ,ubLnQ,phsLnQ);//base (e.g., mature male)
-    !!cout<<"pLnQ = "<<pLnQ<<endl;
+    init_bounded_number_vector pQ(1,npQ,lbQ,ubQ,phsQ);//base (e.g., mature male)
+    !!cout<<"pQ = "<<pQ<<endl;
     init_bounded_number_vector pDQ1(1,npDQ1,lbDQ1,ubDQ1,phsDQ1);//ln-offset 1 (e.g., main temporal offsets)
     !!cout<<"pDQ1 = "<<pDQ1<<endl;
     init_bounded_number_vector pDQ2(1,npDQ2,lbDQ2,ubDQ2,phsDQ2);//ln-offset 2 (e.g., female offsets)
@@ -1347,7 +1349,7 @@ PRELIMINARY_CALCS_SECTION
     }
 
     cout<<"testing setAllDevs()"<<endl;
-    setAllDevs(0,rpt::echo);
+    setAllDevs(tcsam::dbgAll,rpt::echo);
         
     {cout<<"writing data to R"<<endl;
      ofstream echo1; echo1.open("ModelData.R", ios::trunc);
@@ -1632,15 +1634,15 @@ PROCEDURE_SECTION
 //*****************************************
 FUNCTION setInitVals
     //recruitment parameters
-    setInitVals(ptrMPI->ptrRec->pLnR,    pLnR,    0,rpt::echo);
-    setInitVals(ptrMPI->ptrRec->pLnRCV,  pLnRCV,  0,rpt::echo);
-    setInitVals(ptrMPI->ptrRec->pLgtRX,  pLgtRX,  0,rpt::echo);
-    setInitVals(ptrMPI->ptrRec->pLnRa,   pLnRa,   0,rpt::echo);
-    setInitVals(ptrMPI->ptrRec->pLnRb,   pLnRb,   0,rpt::echo);
+    setInitVals(ptrMPI->ptrRec->pLnR, pLnR, 0,rpt::echo);
+    setInitVals(ptrMPI->ptrRec->pRCV, pRCV, 0,rpt::echo);
+    setInitVals(ptrMPI->ptrRec->pRX,  pRX,  0,rpt::echo);
+    setInitVals(ptrMPI->ptrRec->pRa,  pRa,  0,rpt::echo);
+    setInitVals(ptrMPI->ptrRec->pRb,  pRb,  0,rpt::echo);
     setInitVals(ptrMPI->ptrRec->pDevsLnR,pDevsLnR,0,rpt::echo);
 
     //natural mortality parameters
-    setInitVals(ptrMPI->ptrNM->pLnM, pLnM, 0,rpt::echo);
+    setInitVals(ptrMPI->ptrNM->pM, pM, 0,rpt::echo);
     setInitVals(ptrMPI->ptrNM->pDM1, pDM1, 0,rpt::echo);
     setInitVals(ptrMPI->ptrNM->pDM2, pDM2, 0,rpt::echo);
     setInitVals(ptrMPI->ptrNM->pDM3, pDM3, 0,rpt::echo);
@@ -1680,7 +1682,7 @@ FUNCTION setInitVals
     setInitVals(ptrMPI->ptrFsh->pLgtRet, pLgtRet, 0,rpt::echo);
 
     //survey catchability parameters
-    setInitVals(ptrMPI->ptrSrv->pLnQ, pLnQ, 0,rpt::echo);
+    setInitVals(ptrMPI->ptrSrv->pQ, pQ, 0,rpt::echo);
     setInitVals(ptrMPI->ptrSrv->pDQ1, pDQ1, 0,rpt::echo);
     setInitVals(ptrMPI->ptrSrv->pDQ2, pDQ2, 0,rpt::echo);
     setInitVals(ptrMPI->ptrSrv->pDQ3, pDQ3, 0,rpt::echo);
@@ -1689,15 +1691,15 @@ FUNCTION setInitVals
 //*****************************************
 FUNCTION setInitValsFromPinFile
     //recruitment parameters
-    setInitValsFromPinFile(ptrMPI->ptrRec->pLnR,    pLnR,    0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrRec->pLnRCV,  pLnRCV,  0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrRec->pLgtRX,  pLgtRX,  0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrRec->pLnRa,   pLnRa,   0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrRec->pLnRb,   pLnRb,   0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrRec->pLnR, pLnR, 0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrRec->pRCV, pRCV, 0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrRec->pRX,  pRX,  0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrRec->pRa,  pRa,  0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrRec->pRb,  pRb,  0,rpt::echo);
     setInitValsFromPinFile(ptrMPI->ptrRec->pDevsLnR,pDevsLnR,0,rpt::echo);
 
     //natural mortality parameters
-    setInitValsFromPinFile(ptrMPI->ptrNM->pLnM, pLnM, 0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrNM->pM,   pM,   0,rpt::echo);
     setInitValsFromPinFile(ptrMPI->ptrNM->pDM1, pDM1, 0,rpt::echo);
     setInitValsFromPinFile(ptrMPI->ptrNM->pDM2, pDM2, 0,rpt::echo);
     setInitValsFromPinFile(ptrMPI->ptrNM->pDM3, pDM3, 0,rpt::echo);
@@ -1737,7 +1739,7 @@ FUNCTION setInitValsFromPinFile
     setInitValsFromPinFile(ptrMPI->ptrFsh->pLgtRet, pLgtRet, 0,rpt::echo);
 
     //survey catchability parameters
-    setInitValsFromPinFile(ptrMPI->ptrSrv->pLnQ, pLnQ, 0,rpt::echo);
+    setInitValsFromPinFile(ptrMPI->ptrSrv->pQ,   pQ,   0,rpt::echo);
     setInitValsFromPinFile(ptrMPI->ptrSrv->pDQ1, pDQ1, 0,rpt::echo);
     setInitValsFromPinFile(ptrMPI->ptrSrv->pDQ2, pDQ2, 0,rpt::echo);
     setInitValsFromPinFile(ptrMPI->ptrSrv->pDQ3, pDQ3, 0,rpt::echo);
@@ -1747,15 +1749,15 @@ FUNCTION setInitValsFromPinFile
 FUNCTION int checkParams(int debug, ostream& os)
     int res = 0;
     //recruitment parameters
-    res += checkParams(ptrMPI->ptrRec->pLnR,    pLnR,    debug,os);
-    res += checkParams(ptrMPI->ptrRec->pLnRCV,  pLnRCV,  debug,os);
-    res += checkParams(ptrMPI->ptrRec->pLgtRX,  pLgtRX,  debug,os);
-    res += checkParams(ptrMPI->ptrRec->pLnRa,   pLnRa,   debug,os);
-    res += checkParams(ptrMPI->ptrRec->pLnRb,   pLnRb,   debug,os);
+    res += checkParams(ptrMPI->ptrRec->pLnR, pLnR, debug,os);
+    res += checkParams(ptrMPI->ptrRec->pRCV, pRCV, debug,os);
+    res += checkParams(ptrMPI->ptrRec->pRX,  pRX,  debug,os);
+    res += checkParams(ptrMPI->ptrRec->pRa,  pRa,  debug,os);
+    res += checkParams(ptrMPI->ptrRec->pRb,  pRb,  debug,os);
     res += checkParams(ptrMPI->ptrRec->pDevsLnR,pDevsLnR,debug,os);
 
     //natural mortality parameters
-    res += checkParams(ptrMPI->ptrNM->pLnM, pLnM, debug,os);
+    res += checkParams(ptrMPI->ptrNM->pM, pM, debug,os);
     res += checkParams(ptrMPI->ptrNM->pDM1, pDM1, debug,os);
     res += checkParams(ptrMPI->ptrNM->pDM2, pDM2, debug,os);
     res += checkParams(ptrMPI->ptrNM->pDM3, pDM3, debug,os);
@@ -1795,7 +1797,7 @@ FUNCTION int checkParams(int debug, ostream& os)
     res += checkParams(ptrMPI->ptrFsh->pLgtRet, pLgtRet, debug,os);
 
     //survey catchability parameters
-    res += checkParams(ptrMPI->ptrSrv->pLnQ, pLnQ, debug,os);
+    res += checkParams(ptrMPI->ptrSrv->pQ, pQ, debug,os);
     res += checkParams(ptrMPI->ptrSrv->pDQ1, pDQ1, debug,os);
     res += checkParams(ptrMPI->ptrSrv->pDQ2, pDQ2, debug,os);
     res += checkParams(ptrMPI->ptrSrv->pDQ3, pDQ3, debug,os);
@@ -1973,14 +1975,14 @@ FUNCTION void writeMCMCtoR(ofstream& mcmc)
     //write parameter values
         //recruitment values
         writeMCMCtoR(mcmc,ptrMPI->ptrRec->pLnR);   mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pLnRCV); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pLgtRX); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pLnRa);  mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pLnRb);  mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pRCV); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pRX); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pRa);  mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pRb);  mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrRec->pDevsLnR);  mcmc<<cc<<endl;
 
         //natural mortality parameters
-        writeMCMCtoR(mcmc,ptrMPI->ptrNM->pLnM); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrNM->pM); mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrNM->pDM1); mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrNM->pDM2); mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrNM->pDM3); mcmc<<cc<<endl;
@@ -2020,7 +2022,7 @@ FUNCTION void writeMCMCtoR(ofstream& mcmc)
         writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pLgtRet); mcmc<<cc<<endl;
 
         //survey catchability parameters
-        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pLnQ);    mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pQ);    mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ1);  mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ2);  mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ3);  mcmc<<cc<<endl;
@@ -2507,23 +2509,23 @@ FUNCTION void setAllDevs(int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"starting setAllDevs()"<<endl;
 
     if (debug>=dbgAll) cout<<"setDevs() for pLnR"<<endl;
-    tcsam::setDevs(devsLnR, pDevsLnR,debug,cout);
+    tcsam::setDevs(devsLnR, pDevsLnR, ptrMPI->ptrRec->pDevsLnR,debug,cout);
 
     if (debug>=dbgAll) cout<<"setDevs() for pDevsS1"<<endl;
-    tcsam::setDevs(devsS1, pDevsS1,debug,cout);
+    tcsam::setDevs(devsS1, pDevsS1, ptrMPI->ptrSel->pDevsS1, debug,cout);
     if (debug>=dbgAll) cout<<"setDevs() for pDevsS2"<<endl;
-    tcsam::setDevs(devsS2, pDevsS2,debug,cout);
+    tcsam::setDevs(devsS2, pDevsS2, ptrMPI->ptrSel->pDevsS2,debug,cout);
     if (debug>=dbgAll) cout<<"setDevs() for pDevsS3"<<endl;
-    tcsam::setDevs(devsS3, pDevsS3,debug,cout);
+    tcsam::setDevs(devsS3, pDevsS3, ptrMPI->ptrSel->pDevsS3,debug,cout);
     if (debug>=dbgAll) cout<<"setDevs() for pDevsS4"<<endl;
-    tcsam::setDevs(devsS4, pDevsS4,debug,cout);
+    tcsam::setDevs(devsS4, pDevsS4, ptrMPI->ptrSel->pDevsS4,debug,cout);
     if (debug>=dbgAll) cout<<"setDevs() for pDevsS5"<<endl;
-    tcsam::setDevs(devsS5, pDevsS5,debug,cout);
+    tcsam::setDevs(devsS5, pDevsS5, ptrMPI->ptrSel->pDevsS5,debug,cout);
     if (debug>=dbgAll) cout<<"setDevs() for pDevsS6"<<endl;
-    tcsam::setDevs(devsS6, pDevsS6,debug,cout);
+    tcsam::setDevs(devsS6, pDevsS6, ptrMPI->ptrSel->pDevsS6,debug,cout);
     
     if (debug>=dbgAll) cout<<"setDevs() for pDevsLnC"<<endl;
-    tcsam::setDevs(devsLnC, pDevsLnC,debug,cout);
+    tcsam::setDevs(devsLnC, pDevsLnC, ptrMPI->ptrFsh->pDevsLnC,debug,cout);
     
     if (debug>=dbgAll) cout<<"finished setAllDevs()"<<endl;
 
@@ -3208,21 +3210,26 @@ FUNCTION void calcRecruitment(int debug, ostream& cout)
     
     int k; int y;
     dvector dzs = zBs+(zBs[2]-zBs[1])/2.0-zBs[1];
+    dvar_vector ptLnR  = ptrRI->pLnR->calcArithScaleVals(pLnR);
+    dvar_vector ptRCV  = ptrRI->pRCV->calcArithScaleVals(pRCV);
+    dvar_vector ptRX   = ptrRI->pRX->calcArithScaleVals(pRX);
+    dvar_vector ptRa   = ptrRI->pRa->calcArithScaleVals(pRa);
+    dvar_vector ptRb   = ptrRI->pRb->calcArithScaleVals(pRb);
     for (int pc=1;pc<=ptrRI->nPCs;pc++){
         ivector pids = ptrRI->getPCIDs(pc);
         k=ptrRI->nIVs+1;//first parameter variable column in ParameterComnbinations
-        dvariable mnLnR    = pLnR(pids[k++]);
-        dvariable lnRCV    = pLnRCV(pids[k++]);
-        dvariable lgtRX    = pLgtRX(pids[k++]);
-        dvariable lnRa     = pLnRa(pids[k++]);
-        dvariable lnRb     = pLnRb(pids[k++]);
+        dvariable mnLnR = ptLnR(pids[k++]);
+        dvariable cvR   = ptRCV(pids[k++]);
+        dvariable xR    = ptRX(pids[k++]);
+        dvariable aR    = ptRa(pids[k++]);
+        dvariable bR    = ptRb(pids[k++]);
         if (debug>dbgCalcProcs){
             cout<<"pids  = "<<pids<<endl;
             cout<<"mnLnR = "<<mnLnR<<endl;
-            cout<<"lnRCV = "<<lnRCV<<endl;
-            cout<<"lgtRX = "<<lgtRX<<endl;
-            cout<<"lnRa  = "<<lnRa<<endl;
-            cout<<"lnRb  = "<<lnRb<<endl;
+            cout<<"cvR   = "<<cvR<<endl;
+            cout<<"xR    = "<<xR<<endl;
+            cout<<"aR    = "<<aR<<endl;
+            cout<<"bR    = "<<bR<<endl;
         }
 
         int useDevs = pids[k]; k++;
@@ -3230,7 +3237,7 @@ FUNCTION void calcRecruitment(int debug, ostream& cout)
         dvariable varLnR;//ln-scale variance in recruitment
         dvar_vector dvsLnR;
         ivector idxDevsLnR;
-        varLnR = log(1.0+mfexp(2.0*lnRCV));//ln-scale variance
+        varLnR = log(1.0+square(cvR));//ln-scale variance
         mnR    = mfexp(mnLnR+varLnR/2.0);  //mean recruitment
         if (useDevs) {
             dvsLnR     = devsLnR(useDevs);
@@ -3242,8 +3249,8 @@ FUNCTION void calcRecruitment(int debug, ostream& cout)
             }
         }
         
-        Rx_c(pc) = 1.0/(1.0+mfexp(-lgtRX));
-        R_cz(pc) = elem_prod(pow(dzs,mfexp(lnRa-lnRb)-1.0),mfexp(-dzs/mfexp(lnRb)));
+        Rx_c(pc) = xR;
+        R_cz(pc) = elem_prod(pow(dzs,(aR/bR)-1.0),mfexp(-dzs/bR));
         R_cz(pc) /= sum(R_cz(pc));//normalize to sum to 1
 
         imatrix idxs = ptrRI->getModelIndices(pc);
@@ -3311,6 +3318,7 @@ FUNCTION void calcNatMort(int debug, ostream& cout)
     M_yxmsz.initialize();
 
     int y; int mnx; int mxx; int mnm; int mxm; int mns; int mxs;
+    dvar_vector ptM  = ptrNM->pM->calcArithScaleVals(pM);
     for (int pc=1;pc<=ptrNM->nPCs;pc++){
         if (debug>dbgCalcProcs) cout<<"pc = "<<pc<<endl;
         lnM.initialize();
@@ -3318,10 +3326,10 @@ FUNCTION void calcNatMort(int debug, ostream& cout)
         int k=ptrNM->nIVs+1;//1st parameter variable column
         if (debug>dbgCalcProcs) cout<<"pids = "<<pids(k,pids.indexmax())<<endl;
         if (ptrMOs->optParamNM==0){
-            //add in base (ln-scale) natural mortality
+            //add in base (arithmetic-scale) natural mortality
             if (pids[k]) {
-                if (debug>dbgCalcProcs) cout<<"Adding pLnM["<<pids[k]<<"]: "<<pLnM(pids[k])<<endl;
-                lnM += pLnM(pids[k]);
+                if (debug>dbgCalcProcs) cout<<"Adding pM["<<pids[k]<<"]: "<<pM(pids[k])<<endl;
+                lnM += log(ptM(pids[k]));
             } k++;
             //add in ln-scale offset 1
             if (pids[k]) {
@@ -3347,8 +3355,8 @@ FUNCTION void calcNatMort(int debug, ostream& cout)
             //TCSAM2013 parameterization: arithmetic scale multipliers to base
             //cout<<"k = "<<k<<tb<<"pids[k] = "<<pids[k]<<endl;
             if (pids[k]) {
-                if (debug>dbgCalcProcs) cout<<"Adding pLnM["<<pids[k]<<"]: "<<pLnM(pids[k])<<endl;
-                lnM += pLnM(pids[k]);//on ln-scale already
+                if (debug>dbgCalcProcs) cout<<"Adding pM["<<pids[k]<<"]: "<<pM(pids[k])<<endl;
+                lnM += log(ptM(pids[k]));
             } k++;
             //multiply offset 1 (for immature crab)
             //cout<<"k = "<<k<<tb<<"pids[k] = "<<pids[k]<<endl;
@@ -3753,18 +3761,24 @@ FUNCTION void calcSelectivities(int debug, ostream& cout)
     sel_cyz.initialize();//selectivity array
 
     int y;
+    dvar_vector ptS1 = ptrSel->pS1->calcArithScaleVals(pS1);
+    dvar_vector ptS2 = ptrSel->pS2->calcArithScaleVals(pS2);
+    dvar_vector ptS3 = ptrSel->pS3->calcArithScaleVals(pS3);
+    dvar_vector ptS4 = ptrSel->pS4->calcArithScaleVals(pS4);
+    dvar_vector ptS5 = ptrSel->pS5->calcArithScaleVals(pS5);
+    dvar_vector ptS6 = ptrSel->pS6->calcArithScaleVals(pS6);
     for (int pc=1;pc<=ptrSel->nPCs;pc++){
         params.initialize();
         ivector pids = ptrSel->getPCIDs(pc);
         dvector pXDs = ptrSel->getPCXDs(pc);
         //extract the number parameters
         int k=ptrSel->nIVs+1;//1st parameter variable column
-        if (pids[k]) {params[1] = pS1(pids[k]);}   k++;
-        if (pids[k]) {params[2] = pS2(pids[k]);}   k++;
-        if (pids[k]) {params[3] = pS3(pids[k]);}   k++;
-        if (pids[k]) {params[4] = pS4(pids[k]);}   k++;
-        if (pids[k]) {params[5] = pS5(pids[k]);}   k++;
-        if (pids[k]) {params[6] = pS6(pids[k]);}   k++;
+        if (pids[k]) {params[1] = ptS1(pids[k]);}   k++;
+        if (pids[k]) {params[2] = ptS2(pids[k]);}   k++;
+        if (pids[k]) {params[3] = ptS3(pids[k]);}   k++;
+        if (pids[k]) {params[4] = ptS4(pids[k]);}   k++;
+        if (pids[k]) {params[5] = ptS5(pids[k]);}   k++;
+        if (pids[k]) {params[6] = ptS6(pids[k]);}   k++;
         if (debug>dbgCalcProcs) {
             cout<<"pc: "<<pc<<tb<<"pids = "<<pids<<endl;
             cout<<tb<<"params:"<<tb<<params<<endl;
@@ -4209,6 +4223,7 @@ FUNCTION void calcSurveyQs(int debug, ostream& cout)
 
     int y; int v; int mnx; int mxx; int mnm; int mxm; int mns; int mxs;
     int idAvl; int idSel;
+    dvar_vector ptQ  = ptrSrv->pQ->calcArithScaleVals(pQ);
     for (int pc=1;pc<=ptrSrv->nPCs;pc++){
         lnQ.initialize();
         arQ.initialize();
@@ -4216,8 +4231,8 @@ FUNCTION void calcSurveyQs(int debug, ostream& cout)
         if (debug>dbgCalcProcs) cout<<"pc: "<<pc<<tb<<"pids = "<<pids<<endl;
         
         int k=ptrSrv->nIVs+1;//1st parameter variable column
-        //add in base (ln-scale) catchability (e.g., for mature male)
-        if (pids[k]) {lnQ += pLnQ(pids[k]);} k++;
+        //add in base catchability (e.g., for mature male)
+        if (pids[k]) {lnQ += log(ptQ(pids[k]));} k++;
         //add in ln-scale offset 1            (e.g., for time period)
         if (pids[k]) {lnQ += pDQ1(pids[k]);} k++;
         //add in ln-scale offset 2            (e.g., for females)
@@ -4421,7 +4436,7 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     if (debug<0) cout<<tb<<tb<<")"<<endl;//end of non-decreasing penalties list    
     if (debug<0) cout<<tb<<"),";//end of maturity penalties list
     
-    //penalties on final value of dev vectors to enforce bounds
+    //penalties on sums of dev vectors to enforce sum-to-zero
     double penWgt = 0.0;
     if (current_phase()>=ptrMOs->phsLastDevsPen) penWgt = ptrMOs->wgtLastDevsPen;
     if (debug<0) cout<<tb<<"final.devs=list("<<endl;//start of devs penalties list
@@ -4496,11 +4511,14 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
             dvariable fpen = 0.5*norm2(pDevsLnC(i));
             objFun += penWgt*fpen;
             if (debug<0) {
+                double rmse = sqrt(value(norm2(pDevsLnC(i)))/pDevsLnC(i).size());
                 rpt::echo<<tb<<i<<": pen="<<fpen<<cc<<" objfun="<<penWgt*fpen<<endl;
                 if (penWgt>0) {
-                    cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgt<<cc<<"effCV="<<effCV<<cc<<"pen="<<fpen<<cc<<"objfun="<<penWgt*fpen<<"),"<<endl;
+                    cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgt<<cc<<"effCV="<<effCV<<cc
+                            <<"pen="<<fpen<<cc<<"rmse="<<rmse<<cc<<"objfun="<<penWgt*fpen<<"),"<<endl;
                 } else {
-                    cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgt<<cc<<"effCV=Inf"    <<cc<<"pen="<<fpen<<cc<<"objfun="<<penWgt*fpen<<"),"<<endl;
+                    cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgt<<cc<<"effCV=Inf"    <<cc
+                            <<"pen="<<fpen<<cc<<"rmse="<<rmse<<cc<<"objfun="<<penWgt*fpen<<"),"<<endl;
                 }
             }
         }
@@ -4521,8 +4539,11 @@ FUNCTION void calcDevsPenalties(int debug, ostream& cout, double penWgt, param_i
             fPen.initialize();
             fPen = square(sum(devs(i)));
             objFun += penWgt*fPen;
-            if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgt<<cc<<"pen="<<fPen<<cc<<
-                                                          "objfun="<<penWgt*fPen<<cc<<"val="<<sum(devs(i))<<"),"<<endl;
+            if (debug<0) {
+                double rmse = sqrt(value(norm2(devs(i)))/devs(i).size());
+                cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgt<<cc<<"pen="<<fPen<<cc<<"objfun="<<penWgt*fPen<<cc<<"val="<<sum(devs(i))<<cc<<
+                                                  "rmse="<<rmse<<"),"<<endl;
+            }
         }
     }
     if (!debug) testNaNs(value(objFun),"in calcDevsPenalties()");
@@ -4569,7 +4590,9 @@ FUNCTION void calcNLLs_Recruitment(int debug, ostream& cout)
         for (int y=mnYr;y<=mxYr;y++) if (value(stdvDevsLnR_cy(pc,y))>0) {nllRecDevs(pc) += log(stdvDevsLnR_cy(pc,y));}
         objFun += nllWgtRecDevs*nllRecDevs(pc);
         if (debug<0){
-            cout<<tb<<tb<<"'"<<pc<<"'=list(type='normal',wgt="<<nllWgtRecDevs<<cc<<"nll="<<nllRecDevs(pc)<<cc<<"objfun="<<nllWgtRecDevs*nllRecDevs(pc)<<cc;
+            double rmse = sqrt(value(norm2(zscrDevsLnR_cy(pc)))/zscrDevsLnR_cy(pc).size());
+            cout<<tb<<tb<<"'"<<pc<<"'=list(type='normal',wgt="<<nllWgtRecDevs<<cc<<"nll="<<nllRecDevs(pc)<<cc
+                    <<"objfun="<<nllWgtRecDevs*nllRecDevs(pc)<<cc<<"rmse="<<rmse<<cc;
             cout<<"zscrs="; wts::writeToR(cout,value(zscrDevsLnR_cy(pc))); cout<<cc;
             cout<<"stdvs="; wts::writeToR(cout,value(stdvDevsLnR_cy(pc))); cout<<")"<<cc<<endl;
         }
@@ -4580,7 +4603,9 @@ FUNCTION void calcNLLs_Recruitment(int debug, ostream& cout)
         for (int y=mnYr;y<=mxYr;y++) if (value(stdvDevsLnR_cy(pc,y))>0) {nllRecDevs(pc) += log(stdvDevsLnR_cy(pc,y));}
         objFun += nllWgtRecDevs*nllRecDevs(pc);
         if (debug<0){
-            cout<<tb<<tb<<"'"<<pc<<"'=list(type='normal',wgt="<<nllWgtRecDevs<<cc<<"nll="<<nllRecDevs(pc)<<cc<<"objfun="<<nllWgtRecDevs*nllRecDevs(pc)<<cc;
+            double rmse = sqrt(value(norm2(zscrDevsLnR_cy(pc)))/zscrDevsLnR_cy(pc).size());
+            cout<<tb<<tb<<"'"<<pc<<"'=list(type='normal',wgt="<<nllWgtRecDevs<<cc<<"nll="<<nllRecDevs(pc)<<cc
+                    <<"objfun="<<nllWgtRecDevs*nllRecDevs(pc)<<cc<<"rmse="<<rmse<<cc;
             cout<<"zscrs="; wts::writeToR(cout,value(zscrDevsLnR_cy(pc))); cout<<cc;
             cout<<"stdvs="; wts::writeToR(cout,value(stdvDevsLnR_cy(pc))); cout<<")"<<endl;
         }
@@ -4718,7 +4743,8 @@ FUNCTION void calcNLLs_GrowthData(int debug, ostream& cout)
                     cout<<"ibeta="; wts::writeToR(cout,value(ibeta_n)); cout<<cc<<endl;
                     cout<<"alpha="; wts::writeToR(cout,value(alpha_n)); cout<<cc<<endl;
                     cout<<"nlls=";  wts::writeToR(cout,value(nlls_n));  cout<<cc<<endl;
-                    cout<<"zscrs="; wts::writeToR(cout,value(zscrs));   cout<<"),"<<endl;
+                    cout<<"zscrs="; wts::writeToR(cout,value(zscrs));   cout<<cc<<endl;
+                    cout<<"rmse="<<sqrt(value(norm2(zscrs))/zscrs.size())<<"),"<<endl;
                 }
             }//nObs>0
         }//x
@@ -4754,15 +4780,17 @@ FUNCTION void testNaNs(double v, adstring str)
 FUNCTION void calcNorm2NLL(double wgt, dvar_vector& mod, dvector& obs, dvector& stdv, ivector& yrs, int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"Starting calcNorm2NLL()"<<endl;
     int y;
+    double rmse = 0.0; int cnt = 0;
     dvariable nll = 0.0;
     dvar_vector zscr(mod.indexmin(),mod.indexmax());
     zscr.initialize();
     for (int i=1;i<=yrs.size();i++){
         y = yrs(i);
         if ((zscr.indexmin()<=y)&&(y<=zscr.indexmax())) {
-            zscr(y) = (obs[i]-mod[y]);
+            zscr(y) = (obs[i]-mod[y]); cnt++;
         }
     }
+    if (cnt>0) rmse = sqrt(value(norm2(zscr))/cnt);
     nll += 0.5*norm2(zscr);
     objFun += wgt*nll;
     if (debug<0){
@@ -4772,7 +4800,8 @@ FUNCTION void calcNorm2NLL(double wgt, dvar_vector& mod, dvector& obs, dvector& 
         cout<<"obs=";   wts::writeToR(cout,obs,        obsyrs); cout<<cc<<endl;
         cout<<"mod=";   wts::writeToR(cout,value(mod), modyrs); cout<<cc<<endl;
         cout<<"stdv=";  wts::writeToR(cout,stdv,       obsyrs); cout<<cc<<endl;
-        cout<<"zscrs="; wts::writeToR(cout,value(zscr),modyrs); cout<<")";
+        cout<<"zscrs="; wts::writeToR(cout,value(zscr),modyrs); cout<<cc<<endl;
+        cout<<"rmse="<<rmse<<")";
     }
     if (debug>=dbgAll) cout<<"Finished calcNorm2NLL()"<<endl;
     
@@ -4781,6 +4810,7 @@ FUNCTION void calcNorm2NLL(double wgt, dvar_vector& mod, dvector& obs, dvector& 
 FUNCTION void calcNormalNLL(double wgt, dvar_vector& mod, dvector& obs, dvector& stdv, ivector& yrs, int debug, ostream& cout)
    if (debug>=dbgAll) cout<<"Starting calcNormalNLL()"<<endl;
     int y;
+    double rmse = 0.0; int cnt = 0;
     dvariable nll = 0.0;
     dvar_vector zscr(mod.indexmin(),mod.indexmax());
     zscr.initialize();
@@ -4788,9 +4818,10 @@ FUNCTION void calcNormalNLL(double wgt, dvar_vector& mod, dvector& obs, dvector&
         for (int i=1;i<=yrs.size();i++){
             y = yrs(i);
             if ((zscr.indexmin()<=y)&&(y<=zscr.indexmax())) {
-                zscr(y) = (obs[i]-mod[y])/stdv[i];
+                zscr(y) = (obs[i]-mod[y])/stdv[i]; cnt++;
             }
         }
+        if (cnt>0) rmse = sqrt(value(norm2(zscr))/cnt);
         nll += 0.5*norm2(zscr);
     }
     objFun += wgt*nll;
@@ -4801,7 +4832,8 @@ FUNCTION void calcNormalNLL(double wgt, dvar_vector& mod, dvector& obs, dvector&
         cout<<"obs=";   wts::writeToR(cout,obs,        obsyrs); cout<<cc<<endl;
         cout<<"mod=";   wts::writeToR(cout,value(mod), modyrs); cout<<cc<<endl;
         cout<<"stdv=";  wts::writeToR(cout,stdv,       obsyrs); cout<<cc<<endl;
-        cout<<"zscrs="; wts::writeToR(cout,value(zscr),modyrs); cout<<")";
+        cout<<"zscrs="; wts::writeToR(cout,value(zscr),modyrs); cout<<cc<<endl;
+        cout<<"rmse="<<rmse<<")";
     }
    if (debug>=dbgAll) cout<<"Finished calcNormalNLL()"<<endl;
     
@@ -4811,15 +4843,17 @@ FUNCTION void calcLognormalNLL(double wgt, dvar_vector& mod, dvector& obs, dvect
     if (debug>=dbgAll) cout<<"Starting calcLognormalNLL()"<<endl;
     int y;
     dvariable nll = 0.0;
+    double rmse = 0.0; int cnt = 0;
     dvar_vector zscr(mod.indexmin(),mod.indexmax());
     zscr.initialize();
     if (sum(stdv)>0){
         for (int i=1;i<=yrs.size();i++){
             y = yrs(i);
             if ((zscr.indexmin()<=y)&&(y<=zscr.indexmax())) {
-                zscr(y) = (log(obs[i]+smlVal)-log(mod[y]+smlVal))/stdv[i];
+                zscr(y) = (log(obs[i]+smlVal)-log(mod[y]+smlVal))/stdv[i]; cnt++;
             }
         }
+        if (cnt>0) rmse = sqrt(value(norm2(zscr))/cnt);
         nll += 0.5*norm2(zscr);
     }
     objFun += wgt*nll;
@@ -4830,7 +4864,8 @@ FUNCTION void calcLognormalNLL(double wgt, dvar_vector& mod, dvector& obs, dvect
         cout<<"obs=";   wts::writeToR(cout,obs,        obsyrs); cout<<cc<<endl;
         cout<<"mod=";   wts::writeToR(cout,value(mod), modyrs); cout<<cc<<endl;
         cout<<"stdv=";  wts::writeToR(cout,stdv,       obsyrs); cout<<cc<<endl;
-        cout<<"zscrs="; wts::writeToR(cout,value(zscr),modyrs); cout<<")";
+        cout<<"zscrs="; wts::writeToR(cout,value(zscr),modyrs); cout<<cc<<endl;
+        cout<<"rmse="<<rmse<<")";
     }
    if (debug>=dbgAll) cout<<"Finished calcLognormalNLL()"<<endl;
     
@@ -5860,16 +5895,16 @@ FUNCTION void calcAllPriors(int debug, ostream& cout)
     //recruitment parameters
     if (debug<0) cout<<tb<<"recruitment=list("<<endl;
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrRec->pLnR,  pLnR,  debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrRec->pLnRCV,pLnRCV,debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrRec->pLgtRX,pLgtRX,debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrRec->pLnRa, pLnRa, debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrRec->pLnRb, pLnRb, debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrRec->pRCV,pRCV,debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrRec->pRX,pRX,debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrRec->pRa, pRa, debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrRec->pRb, pRb, debug,cout); if (debug<0){cout<<cc<<endl;}
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrRec->pDevsLnR,devsLnR,debug,cout); if (debug<0){cout<<endl;}
     if (debug<0) cout<<tb<<")"<<cc<<endl;
    
     //natural mortality parameters
     if (debug<0) cout<<tb<<"'natural mortality'=list("<<endl;
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrNM->pLnM,   pLnM,   debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrNM->pM,   pM,   debug,cout); if (debug<0){cout<<cc<<endl;}
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrNM->pDM1, pDM1, debug,cout); if (debug<0){cout<<cc<<endl;}
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrNM->pDM2, pDM2, debug,cout); if (debug<0){cout<<cc<<endl;}
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrNM->pDM3, pDM3, debug,cout); if (debug<0){cout<<cc<<endl;}
@@ -5916,7 +5951,7 @@ FUNCTION void calcAllPriors(int debug, ostream& cout)
    
     //survey catchability parameters
     if (debug<0) cout<<tb<<"surveys=list("<<endl;
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pLnQ,    pLnQ,   debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pQ,    pQ,   debug,cout); if (debug<0){cout<<cc<<endl;}
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pDQ1,  pDQ1, debug,cout); if (debug<0){cout<<cc<<endl;}
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pDQ2,  pDQ2, debug,cout); if (debug<0){cout<<cc<<endl;}
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pDQ3,  pDQ3, debug,cout); if (debug<0){cout<<cc<<endl;}
@@ -6123,15 +6158,15 @@ FUNCTION void updateMPI(int debug, ostream& cout)
 //    DevsVectorVectorInfo::debug=1;
     //recruitment parameters
     ptrMPI->ptrRec->pLnR->setFinalVals(pLnR);
-    ptrMPI->ptrRec->pLnRCV->setFinalVals(pLnRCV);
-    ptrMPI->ptrRec->pLgtRX->setFinalVals(pLgtRX);
-    ptrMPI->ptrRec->pLnRa->setFinalVals(pLnRa);
-    ptrMPI->ptrRec->pLnRb->setFinalVals(pLnRb);
+    ptrMPI->ptrRec->pRCV->setFinalVals(pRCV);
+    ptrMPI->ptrRec->pRX->setFinalVals(pRX);
+    ptrMPI->ptrRec->pRa->setFinalVals(pRa);
+    ptrMPI->ptrRec->pRb->setFinalVals(pRb);
     //cout<<"setting final vals for pDevsLnR"<<endl;
     for (int p=1;p<=ptrMPI->ptrRec->pDevsLnR->getSize();p++) (*ptrMPI->ptrRec->pDevsLnR)[p]->setFinalVals(pDevsLnR(p));
      
     //natural mortality parameters
-    ptrMPI->ptrNM->pLnM->setFinalVals(pLnM);
+    ptrMPI->ptrNM->pM->setFinalVals(pM);
     ptrMPI->ptrNM->pDM1->setFinalVals(pDM1);
     ptrMPI->ptrNM->pDM2->setFinalVals(pDM2);
     ptrMPI->ptrNM->pDM3->setFinalVals(pDM3);
@@ -6179,7 +6214,7 @@ FUNCTION void updateMPI(int debug, ostream& cout)
     ptrMPI->ptrFsh->pLgtRet->setFinalVals(pLgtRet);
     
     //survey catchability parameters
-    ptrMPI->ptrSrv->pLnQ->setFinalVals(pLnQ);
+    ptrMPI->ptrSrv->pQ->setFinalVals(pQ);
     ptrMPI->ptrSrv->pDQ1->setFinalVals(pDQ1);
     ptrMPI->ptrSrv->pDQ2->setFinalVals(pDQ2);
     ptrMPI->ptrSrv->pDQ3->setFinalVals(pDQ3);
@@ -6257,16 +6292,16 @@ FUNCTION void writeParameters(ostream& os,int toR, int willBeActive)
     ctg1="population processes";
     ctg2="recruitment";
     tcsam::writeParameters(os,pLnR,  ctg1,ctg2,ptrMPI->ptrRec->pLnR,  toR,willBeActive);      
-    tcsam::writeParameters(os,pLnRCV,ctg1,ctg2,ptrMPI->ptrRec->pLnRCV,toR,willBeActive);      
-    tcsam::writeParameters(os,pLgtRX,ctg1,ctg2,ptrMPI->ptrRec->pLgtRX,toR,willBeActive);      
-    tcsam::writeParameters(os,pLnRa, ctg1,ctg2,ptrMPI->ptrRec->pLnRa, toR,willBeActive);      
-    tcsam::writeParameters(os,pLnRb, ctg1,ctg2,ptrMPI->ptrRec->pLnRb, toR,willBeActive);      
+    tcsam::writeParameters(os,pRCV,ctg1,ctg2,ptrMPI->ptrRec->pRCV,toR,willBeActive);      
+    tcsam::writeParameters(os,pRX,ctg1,ctg2,ptrMPI->ptrRec->pRX,toR,willBeActive);      
+    tcsam::writeParameters(os,pRa, ctg1,ctg2,ptrMPI->ptrRec->pRa, toR,willBeActive);      
+    tcsam::writeParameters(os,pRb, ctg1,ctg2,ptrMPI->ptrRec->pRb, toR,willBeActive);      
     tcsam::writeParameters(os,pDevsLnR,ctg1,ctg2,ptrMPI->ptrRec->pDevsLnR,toR,willBeActive);      
     
     //natural mortality parameters
     ctg1="population processes";
     ctg2="natural mortality";
-    tcsam::writeParameters(os,pLnM,ctg1,ctg2,ptrMPI->ptrNM->pLnM,toR,willBeActive);      
+    tcsam::writeParameters(os,pM,ctg1,ctg2,ptrMPI->ptrNM->pM,toR,willBeActive);      
     tcsam::writeParameters(os,pDM1,ctg1,ctg2,ptrMPI->ptrNM->pDM1,toR,willBeActive);      
     tcsam::writeParameters(os,pDM2,ctg1,ctg2,ptrMPI->ptrNM->pDM2,toR,willBeActive);      
     tcsam::writeParameters(os,pDM3,ctg1,ctg2,ptrMPI->ptrNM->pDM3,toR,willBeActive);      
@@ -6316,7 +6351,7 @@ FUNCTION void writeParameters(ostream& os,int toR, int willBeActive)
     //survey parameters
     ctg1="surveys";
     ctg2="surveys";
-    tcsam::writeParameters(os,pLnQ,ctg1,ctg2,ptrMPI->ptrSrv->pLnQ,toR,willBeActive);      
+    tcsam::writeParameters(os,pQ,ctg1,ctg2,ptrMPI->ptrSrv->pQ,toR,willBeActive);      
     tcsam::writeParameters(os,pDQ1,ctg1,ctg2,ptrMPI->ptrSrv->pDQ1,toR,willBeActive);      
     tcsam::writeParameters(os,pDQ2,ctg1,ctg2,ptrMPI->ptrSrv->pDQ2,toR,willBeActive);      
     tcsam::writeParameters(os,pDQ3,ctg1,ctg2,ptrMPI->ptrSrv->pDQ3,toR,willBeActive);      
