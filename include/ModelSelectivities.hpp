@@ -54,11 +54,11 @@
             const static int ID_DBLLOGISTIC5095    = 8; const static adstring STR_DBLLOGISTIC5095; 
             const static int ID_DBLLOGISTIC50LN95  = 9; const static adstring STR_DBLLOGISTIC50LN95; 
             const static int ID_DBLLOGISTICLN50LN95=10; const static adstring STR_DBLLOGISTICLN50LN95; 
-            const static int ID_DBLNORMAL6         =11; const static adstring STR_DBLNORMAL6; 
-            const static int ID_ASCLOGISTIC5099    =12; const static adstring STR_ASCLOGISTIC5099; 
-            const static int ID_ASCLOGISTIC95LN50  =13; const static adstring STR_ASCLOGISTIC95LN50; 
-            const static int ID_ASCNORMAL          =14; const static adstring STR_ASCNORMAL; 
-            const static int ID_DBLNORMAL4         =15; const static adstring STR_DBLNORMAL4; 
+            const static int ID_ASCLOGISTIC5099    =11; const static adstring STR_ASCLOGISTIC5099; 
+            const static int ID_ASCLOGISTIC95LN50  =12; const static adstring STR_ASCLOGISTIC95LN50; 
+            const static int ID_ASCNORMAL          =13; const static adstring STR_ASCNORMAL; 
+            const static int ID_DBLNORMAL4         =14; const static adstring STR_DBLNORMAL4; 
+            const static int ID_DBLNORMAL6         =15; const static adstring STR_DBLNORMAL6; 
 
             /**
              * Calculates ascending logistic function parameterized by 

@@ -27,23 +27,26 @@
 /**
  * NumberInfo
  * 
- *  Encapsulates characteristics for a param_init_number parameter,
- *  with values assumed to be on an arithmetic scale (i.e., no transformations
- *  are made between the parameter value and the NumberInfo's initVal and finlVal).
+ *  Encapsulates characteristics for a param_init_number parameter on a possibly 
+ *  transformed scale (log). Values (initial, final)
+ *  are on the "arithmetic" scale, which may be different from the parameter scale. Prior
+ *  distributions are also described on the "arithmetic" scale. The "scaleType"
+ *  indicates the transformation from "arithmetic" to parameter scale.
  * 
  * Class fields:
  * <ul>
- * <li> scaleType   - parameter scale type (assumed arithmetic for NumberInfo objects)
- * <li> initVal     - initial value for associated parameter
- * <li> finlVal     - final value for associated parameter
+ * <li> scaleType   - parameter scale type
+ * <li> initVal     - initial value, on the arithmetic scale, for the associated parameter
+ * <li> finlVal     - final value, on the arithmetic scale, for associated parameter
  * <li> phase       - phase to start estimation of associated parameter
  * <li> resample    - flag to resample initial value from prior
  * <li> priorWgt    - weight assigned to prior in likelihood
  * <li> priorType   - name identifying pdf for prior
- * <li> priorParams - dvar_vector of parameters for prior
- * <li> priorConsts - dvector of constants for prior
- * <li> name        - name of associated parameter
- * <li> label       - label for associated parameter
+ * <li> priorParams - dvar_vector of parameters (on the arithmetic scale) for the prior
+ * <li> priorConsts - dvector of constants (on the arithmetic scale) for the prior
+ * <li> pMPI        - pointer to ModelPDFInfo object for resampling, prior calculations
+ * <li> name        - the name of the associated parameter
+ * <li> label       - a label for the associated parameter
  * </ul>
  */
     class NumberInfo {
@@ -66,7 +69,7 @@
             /* parameters for prior, specified on arithmetic scale */
             dvector priorParams;
             /* constants for prior, specified on arithmetic scale */
-            dvector priorConsts;//specified on parameter scale
+            dvector priorConsts;
         public:
             /* the parameter name */
             adstring name;
@@ -104,37 +107,13 @@
              * 
              * Deletes pointer pMPI and sets it to 0.
              */
-            ~NumberInfo(){delete pMPI;pMPI=0;}
-            
+            ~NumberInfo(){delete pMPI;pMPI=0;}            
             /**
              * Gets the parameter scale type, as an adstring.
              * 
              * @return the scale type
              */
             adstring getScaleType(){return tcsam::getScaleType(scaleType);}
-            /**
-             * Calculates the arithmetic-scale value corresponding to a given parameter-scale value.
-             * 
-             * @param x - the parameter-scale value
-             * @return - the corresponding arithmetic-scale value
-             */
-            virtual double calcArithScaleVal(double x);
-            /**
-             * Calculates the arithmetic-scale value corresponding to given parameter-scale value.
-             * 
-             * @param x - parameter-scale value
-             * @return - arithmetic-scale value
-             */
-            virtual dvariable calcArithScaleVal(const dvariable& x);
-            /**
-             * Calculates parameter-scale value corresponding to given bounded arithmetic-scale value.
-             * 
-             * Use to calculate the initial value for the parameter
-             * 
-             * @param x - arithmetic-scale value
-             * @return - parameter-scale value
-             */
-            virtual double calcParamScaleVal(double x);
             
             /**
              * Gets the phase in which parameter estimation is started.
@@ -155,25 +134,47 @@
              */
             adstring getPriorType(){return priorType;}
             /**
-             * Calculates the log-scale prior probability based on an input value.
+             * Calculates the arithmetic-scale value corresponding to a given parameter-scale value.
              * 
-             * The input value is presumably from the associated parameter value.
-             * 
-             * @param x - the value from the associated parameter
-             * 
-             * @return - the log-scale prior, as a dvariable
+             * @param x - the parameter-scale value
+             * @return - the corresponding arithmetic-scale value
              */
-            dvariable calcLogPrior(prevariable& x);             
+            virtual double calcArithScaleVal(double x);
             /**
-             * Gets the value to use as the initial value for the associated parameter.
+             * Calculates the arithmetic-scale value corresponding to given parameter-scale value.
+             * 
+             * @param x - parameter-scale value
+             * @return - arithmetic-scale value
+             */
+            virtual dvariable calcArithScaleVal(const prevariable& x);
+            /**
+             * Calculates parameter-scale value corresponding to given bounded arithmetic-scale value.
+             * 
+             * Use to calculate the initial value for the parameter
+             * 
+             * @param x - arithmetic-scale value
+             * @return - parameter-scale value
+             */
+            virtual double calcParamScaleVal(double x);
+           /**
+             * Gets the value, on the arithmetic scale, to use as the initial value.
+             * Use \code getInitValOnParamScale() \endcode to get the initial value
+             * on the correct scale for the associated parameter.
              * 
              * @return - the value, as a double
              */
             double getInitVal(){return initVal;}
             /**
-             * Sets the value used as the initial value for the associated parameter.
+             * Gets the value, on the parameter scale, to assign as the initial value
+             * to the associated parameter.
+             * 
+             * @return - the value, as a double
+             */
+            virtual double getInitValOnParamScale(){return calcParamScaleVal(initVal);}
+            /**
+             * Sets the value, on the arithmetic scale, used as the initial value.
              * <p>
-             * The value given is assumed to be on the arithmetic scale.
+             * The value given should be on the arithmetic scale.
              * 
              * @param x - value to set
              */
@@ -186,9 +187,10 @@
              * 
              * @param x - the associated parameter (an instance of a param_init_number)
              */
-            virtual void setInitVal(param_init_number& x){initVal=value(x);}
+            virtual void setInitValFromParamVal(const prevariable& x){initVal=calcArithScaleVal(value(x));}
             /**
-             * Draws a random value based on the specified prior probability distribution.
+             * Draws a random value on the arithmetic scale based on the 
+             * specified prior probability distribution.
              * 
              * Note that this DOES NOT update initVal.
              * If the estimation phase is \< 0, the value of initVal is returned
@@ -196,21 +198,34 @@
              * @param rng - the random number generator
              * @param vif - the variance inflation factor
              * 
-             * @return - the random number, or the value of initVal
+             * @return - the random number on the arithmetic scale, or the value of initVal
              */
             virtual double drawInitVal(random_number_generator& rng, double vif);
             /**
-             * Gets the final value from the associated parameter.
+             * Calculates the log-scale prior probability based on an input value.
              * 
-             * @param x - the associated parameter (an instance of a param_init_number)
+             * The input value is presumably from the associated parameter value, 
+             * but should be on the "arithmetic" scale.
+             * 
+             * @param x - the input value on the arithmetic scale, presumably based on the associated parameter
+             * 
+             * @return - the log-scale prior, as a dvariable
+             */
+            virtual dvariable calcLogPrior(prevariable& x);             
+             /**
+             * Gets the "final value", on the arithmetic scale. This value needs to be set
+             * using \code setFinalValFromParamVal
+             * 
+             * @return x - the final value
              */
             virtual double getFinalVal(){return finlVal;}
             /**
-             * Sets the final value from the associated parameter.
+             * Sets the "final value", on the arithmetic scale, from the value for the
+             * associated parameter.
              * 
              * @param x - the associated parameter (an instance of a param_init_number)
              */
-            virtual void setFinalVal(param_init_number& x){finlVal=value(x);}
+            virtual void setFinalValFromParamVal(const prevariable& x){finlVal=calcArithScaleVal(value(x));}
             /**
              * Reads the parameter info in ADMB format from an input stream.
              * 
@@ -245,19 +260,37 @@
              * @param prior - the prior type, as an adstring
              */
             virtual void setPriorType(adstring & prior);
-    };
+    };//NumberInfo
 
 /**
  * BoundedNumberInfo : NumberInfo
  * 
  *  Encapsulates characteristics for a param_init_bounded_number parameter on a 
- *  possibly-transformed (logit, lognormal, probit) scale.
+ *  possibly-transformed (logit, lognormal, probit) scale. Values (initial, final)
+ *  are on the "arithmetic" scale, which may be different from the parameter scale. Prior
+ *  distributions are also described on the "arithmetic" scale. The "scaleType"
+ *  indicates the transformation from "arithmetic" to parameter scale.
  * 
- * Additional class fields:
+ * Inherited class fields:
+ * <ul>
+ * <li> scaleType   - parameter scale type
+ * <li> initVal     - initial value, on the arithmetic scale, for the associated parameter
+ * <li> finlVal     - final value, on the arithmetic scale, for associated parameter
+ * <li> phase       - phase to start estimation of associated parameter
+ * <li> resample    - flag to resample initial value from prior
+ * <li> priorWgt    - weight assigned to prior in likelihood
+ * <li> priorType   - name identifying pdf for prior
+ * <li> priorParams - dvar_vector of parameters (on the arithmetic scale) for the prior
+ * <li> priorConsts - dvector of constants (on the arithmetic scale) for the prior
+ * <li> name        - the name of the associated parameter
+ * <li> label       - a label for the associated parameter
+ * </ul>
+ * 
+ * New class fields:
  * <ul>
  * <li> jitter    - integer flag indicating whether or not to jitter initial values
- * <li> lower     - lower bound on arithmetic scale
- * <li> upper     - upper bound on arithmetic scale
+ * <li> lower     - lower bound, on the "arithmetic" scale
+ * <li> upper     - upper bound, on the "arithmetic" scale
  * </ul>
  * 
  * Note that the priorParams and priorConsts for this class are interpreted on the
@@ -267,10 +300,13 @@
         public:
             static int debug;
         protected:
-            double lower;  //lower bound
-            double upper;  //upper bound
+            /** the lower bound, on the arithmetic scale */
+            double lower;
+            /** the upper bound, on the arithmetic scale */
+            double upper;
         public:
-            int jitter;  //flag to jitter
+            /** flag indicating whether or not to jitter initial value */
+            int jitter;
         public:
             /**
              * Class constructor.
@@ -295,69 +331,93 @@
              */
             BoundedNumberInfo(const char * name):NumberInfo(name){}
             /**
-             * Class destructor.
+             * Returns the arithmetic-scale lower bound.
              * 
-             * Deletes pointer pMPI and sets it to 0 via the NumberInfo destructor.
-             */
-            ~BoundedNumberInfo(){}
-            
+             * @return 
+             */            
+            double getLowerBound(){return lower;}
             /**
              * Returns the parameter-scale lower bound.
              * 
              * @return 
              */            
-            double getLowerBound(){return this->calcParamScaleVal(lower);}
+            double getLowerBoundOnParamScale(){return this->calcParamScaleVal(lower);}
+            /**
+             * Returns the arithmetic-scale upper bound.
+             * 
+             * @return 
+             */            
+            double getUpperBound(){return upper;}           
             /**
              * Returns the parameter-scale upper bound.
              * 
              * @return 
              */            
-            double getUpperBound(){return this->calcParamScaleVal(upper);}           
+            double getUpperBoundOnParamScale(){return this->calcParamScaleVal(upper);}           
             /**
              * Calculates the arithmetic-scale value corresponding to a given parameter-scale value.
              * 
              * @param x - the parameter-scale value
              * @return - the corresponding arithmetic-scale value
+             * 
+             * @overrides NumberInfo::calcArithScaleVal(double x)
              */
             virtual double calcArithScaleVal(double x);
             /**
              * Calculates the arithmetic-scale value corresponding to given parameter-scale value.
              * 
-             * @param x - parameter-scale value
-             * @return - arithmetic-scale value
+             * @param x - the parameter-scale value
+             * @return - the corresponding arithmetic-scale value, as a dvariable
+             * 
+             * @overrides NumberInfo::calcArithScaleVal(const prevariable& x)
              */
-            virtual dvariable calcArithScaleVal(const dvariable& x);
+            virtual dvariable calcArithScaleVal(const prevariable& x);
             /**
-             * Calculates parameter-scale value corresponding to given bounded arithmetic-scale value.
+             * Calculates the parameter-scale value corresponding to an arithmetic-scale value.
              * 
-             * Use to calculate the initial value for the parameter
+             * @param x - the arithmetic-scale value
+             * @return - the parameter-scale value
              * 
-             * @param x - arithmetic-scale value
-             * @return - parameter-scale value
+             * @overrides NumberInfo::calcParamScaleVal(double x)
              */
             virtual double calcParamScaleVal(double x);
+            /**
+             * Gets the value, on the parameter scale, to assign as the initial value
+             * to the associated parameter.
+             * 
+             * @return - the value, as a double
+             * 
+             * @overrides NumberInfo::getInitValOnParamScale()
+            */
+            virtual double getInitValOnParamScale(){return calcParamScaleVal(initVal);}
             /**
              * Sets the initial value to be used for the associated parameter, assuming
              * the value given is on the arithmetic scale.
              * The method ensures the initial value is set within the prescribed bounds.
              * 
-             * @param x - the initial value to set
+             * @param x - the initial value, on the arithmetic scale, to set
+             * 
+             * @overrides NumberInfo::setInitVal(double x)
              */
             virtual void setInitVal(double x);           
             /**
              * Sets the initial value on the arithmetic scale, based on a 
              * bounded parameter on a (possibly) non-arithmetic scale.
              * 
-             * @param x - the parameter-scale value
+             * @param x - the associated parameter (a param_init_bounded_number)
+             * 
+             * @overrides NumberInfo::setInitValFromParamVal(prevariable& x)
              */
-            virtual void setInitVal(param_init_bounded_number& x){initVal=calcArithScaleVal(value(x));}
+            virtual void setInitValFromParamVal(const prevariable& x){initVal=calcArithScaleVal(value(x));}
             /**
-             * Set the final value on the arithmetic scale, based on a 
+             * Set the "final value" on the arithmetic scale, based on a 
              * bounded parameter on a (possibly) non-arithmetic scale.
              * 
-             * @param x - the bounded parameter (an instance of a param_init_bounded_number)
+             * @param x - the associated bounded parameter (an instance of a param_init_bounded_number)
+             * 
+             * @overrides NumberInfo::setFinalValFromParamVal(prevariable& x)
              */
-            virtual void setFinalVal(param_init_bounded_number& x){finlVal=calcArithScaleVal(value(x));}            
+            virtual void setFinalValFromParamVal(const prevariable& x){finlVal=calcArithScaleVal(value(x));}            
             /**
              * Reads the parameter info in ADMB format from an input stream.
              * 
@@ -378,18 +438,23 @@
              * 
              * @param is - the input stream
              * 
+             * @overrides NumberInfo::read(cifstream & is)
              */
             virtual void read(cifstream & is);
             /**
              * Writes the parameter info in ADMB format to an output stream.
              * 
              * @param os - the output stream
+             * 
+             * @overrides NumberInfo::write(std::ostream & os)
              */
             virtual void write(std::ostream & os);
             /**
              * Writes the parameter info as part of an R list to an output stream.
              * 
              * @param os - the output stream.
+             * 
+             * @overrides NumberInfo::writeToR(std::ostream& os)
              */
             virtual void writeToR(std::ostream& os);
         protected:
@@ -397,42 +462,76 @@
              * Writes the BoundedNumberInfo part of the parameter info as part of an R list to an output stream.
              * 
              * @param os - the output stream.
+             * 
+             * @overrides NumberInfo::writeToR1(std::ostream & os)
              */
             virtual void writeToR1(std::ostream & os);
     };//BoundedNumberInfo
 
 /**
- * VectorInfo : NumberInfo
+ * VectorInfo
  * 
- *  Encapsulates characteristics for a param_init_vector parameter,
- *  with values assumed to be on an arithmetic scale (i.e., no transformations
- *  are made between the parameter value and the VectorInfo's initVals and finlVals.
+ *  Encapsulates characteristics for a param_init_vector parameter on a possibly 
+ *  transformed scale (log). Values (initial, final)
+ *  are on the "arithmetic" scale, which may be different from the parameter scale. Prior
+ *  distributions are also described on the "arithmetic" scale. The "scaleType"
+ *  indicates the transformation from "arithmetic" to parameter scale.
  * 
- * Additional public class fields:
+ * Class fields:
  * <ul>
  * <li> N        -  size of parameter vector
- * <li> readVals -  flag to read vector of values from input stream
- * </ul>
- * Additional protected class fields:
- * <ul>
  * <li> idxType  - adstring with type of indices (e.q., YEAR)
  * <li> ptrIB    - pointer to IndexBlock object defining indices
- * <li> initVals - vector of initial values
- * <li> finlVals - vector of final values
+ * <li> initVals - vector of initial values, on the arithmetic scale
+ * <li> finlVals - vector of final values, on th arithmetic scale
+ * <li> scaleType   - parameter scale type
+ * <li> phase       - phase to start estimation of associated parameter
+ * <li> resample    - flag to resample initial value from prior
+ * <li> priorWgt    - weight assigned to prior in likelihood
+ * <li> priorType   - name identifying pdf for prior
+ * <li> priorParams - dvar_vector of parameters (on the arithmetic scale) for the prior
+ * <li> priorConsts - dvector of constants (on the arithmetic scale) for the prior
+ * <li> readVals    - flag to read vector of values from input stream
+ * <li> name        - the name of the associated parameter
+ * <li> label       - a label for the associated parameter
  * </ul>
  * 
  * Note that the priorParams and priorConsts for this class are interpreted on the
  * arithmetic scale.
  */
-    class VectorInfo: public NumberInfo {
+    class VectorInfo {
         public:
-            /* flag to print debugging info */
+            /* flag to turn on debugging output */
             static int debug;
             /* size of initVals vector*/
             int N;
+            /* the parameter name */
+            adstring name;
+            /* the label for the associated parameter */
+            adstring label;
+            /* flag to do resampling of initial values */
+            bool resample;
+            /* pointer to info for resmapling pdf */
+            ModelPDFInfo*  pMPI;
             /* flag to read initial values */
             int readVals;
         protected:
+            /* flag indicating parameter scale */
+            int scaleType; 
+            /* arithmetic-scale value used as the initial value for the associated parameter */
+            double initVal;
+            /* final arithmetic-scale value from the associated parameter (for output to R) */
+            double finlVal;     
+            /* phase in which to start estimating associated parameter */
+            int phase;          
+            /* weight to assign to prior probability */
+            double priorWgt;
+            /* pdf type for prior */
+            adstring priorType;
+            /* parameters for prior, specified on arithmetic scale */
+            dvector priorParams;
+            /* constants for prior, specified on arithmetic scale */
+            dvector priorConsts;
             /* index type (ie., model dimension, e.g., YEAR) */
             adstring idxType;
             /* pointer to IndexBlock defining vector */
@@ -447,23 +546,23 @@
              * 
              * Sets pointer ptrIB = 0.
              */
-            VectorInfo():NumberInfo(){ptrIB=0;}
+            VectorInfo(){this->name="";pMPI=0;scaleType=-1;ptrIB=0;}
             /**
              * Class constructor.
              * 
              * @param [in] name - name of associated param_init_vector
              */
-            VectorInfo(adstring& name):NumberInfo(name){ptrIB=0;}
+            VectorInfo(adstring& name){this->name=name;pMPI=0;scaleType=-1;ptrIB=0;}
             /**
              * Class constructor.
              * 
-             * @param [in] name - name of associate param_init_vector
+             * @param [in] name - name of associated param_init_vector
              */
-            VectorInfo(const char* name):NumberInfo(name){ptrIB=0;}
+            VectorInfo(const char* name){this->name=name;pMPI=0;scaleType=-1;ptrIB=0;}
             /**
              * Class destructor.
              */
-            ~VectorInfo(){if (ptrIB) delete ptrIB;}
+            ~VectorInfo(){if(ptrIB){delete ptrIB;} if(pMPI){delete pMPI;}}
             
             /**
              * Gets the size of the vector (indices run 1:N).
@@ -472,33 +571,44 @@
              */
             int getSize(){return N;}
             /**
-             * Calculates arithmetic-scale values corresponding to the input parameter-scale value.
+             * Gets the parameter scale type, as an adstring.
              * 
-             * @param x - parameter-scale value as a double
-             * @return - arithmetic-scale value as a double
+             * @return the scale type
              */
-            virtual double calcArithScaleVal(double x){return NumberInfo::calcArithScaleVal(x);}
+            adstring getScaleType(){return tcsam::getScaleType(scaleType);}
+            
             /**
-             * Calculates arithmetic-scale values corresponding to the input parameter-scale values.
+             * Gets the phase in which parameter estimation is started.
              * 
-             * @param x - parameter-scale values as a dvector
-             * @return - arithmetic-scale values as a dvector
+             * @return - the phase
              */
-            dvector calcArithScaleVal(const dvector& x);
+            int getPhase(){return phase;}
             /**
-             * Calculates arithmetic-scale values corresponding to the input parameter-scale values.
+             * Gets the multiplicative weight set on the prior probability in the likelihood.
              * 
-             * @param x - parameter-scale values as dvar_vector
-             * @return - arithmetic-scale values as dvar_vector
+             * @return - the weight
              */
-            dvar_vector calcArithScaleVal(const dvar_vector& x);
+            double getPriorWgt(){return priorWgt;}
             /**
-             * Calculates parameter-scale values corresponding to the input arithmetic-scale values.
+             * Gets the prior type, as an adstring.
              * 
-             * @param x - the arithmetic-scale values as dvector
-             * @return - the parameter-scale values as dvector
+             * @return - the prior type, as an adstring object 
              */
-            dvector calcParamScaleVal(dvector& x);
+            adstring getPriorType(){return priorType;}
+           /**
+             * Gets the value, on the arithmetic scale, to use as the initial value.
+             * Use \code getInitValOnParamScale() \endcode to get the initial value
+             * on the correct scale for the associated parameter.
+             * 
+             * @return - the value, as a double
+             */
+            double getInitVal(){return initVal;}
+            /**
+             * Sets the prior type, based on an adstring value.
+             * 
+             * @param prior - the prior type, as an adstring
+             */
+            virtual void setPriorType(adstring & prior);
             /**
              * Gets an ivector of model indices corresponding to integer indices 1:N.
              * 
@@ -516,18 +626,61 @@
              */
             ivector getRevIndices(){return ptrIB->getRevIndexVector();}
             /**
-             * Sets initial values to input constant.
-             * 
-             * @param [in] x - the value to set
-             */
-            void setInitVal(double x){initVals = x;}
-            /**
-             * Gets the vector of initial values. 
+             * Gets the vector of initial values on the arithmetic scale. 
              * Vector indices run 1:N.
              * 
              * @return - dvector of initial values
              */
             dvector getInitVals(){return initVals;}
+            /**
+             * Gets a copy of the vector of final values on the arithmetic scale.
+             * 
+             * @return a dvector of final values
+             */
+            dvector getFinalVals(){return finlVals;}
+            /**
+             * Calculates arithmetic-scale values corresponding to the input parameter-scale value.
+             * 
+             * @param x - parameter-scale value as a double
+             * @return - arithmetic-scale value as a double
+             */
+            virtual double calcArithScaleVals(double x);
+            /**
+             * Calculates arithmetic-scale values corresponding to the input parameter-scale values.
+             * 
+             * @param x - parameter-scale values as a dvector
+             * @return - arithmetic-scale values as a dvector
+             */
+            virtual dvector calcArithScaleVals(const dvector& x);
+            /**
+             * Calculates arithmetic-scale values corresponding to the input parameter-scale values.
+             * 
+             * @param x - parameter-scale values as dvar_vector
+             * @return - arithmetic-scale values as dvar_vector
+             */
+            virtual dvar_vector calcArithScaleVals(const dvar_vector& x);
+            /**
+             * Calculates parameter-scale value corresponding to the input arithmetic-scale value.
+             * 
+             * @param x - the arithmetic-scale value as double
+             * @return - the parameter-scale value as double
+             * 
+             * @overrides VectorInfo::calcParamScaleVals(double)
+             */
+            virtual double calcParamScaleVals(double x);
+            /**
+             * Calculates parameter-scale values corresponding to the input arithmetic-scale values.
+             * 
+             * @param x - the arithmetic-scale values as dvector
+             * @return - the parameter-scale values as dvector
+             */
+            virtual dvector calcParamScaleVals(dvector& x);
+            /**
+             * Sets initial values, on the arithmetic scale, to the input constant.
+             * 
+             * @param [in] x - the value to set
+             */
+            virtual void setInitVals(double x){initVals = x;}
             /**
              * Sets the vector of initial values to the input dvector element-by-element.
              * 
@@ -535,29 +688,31 @@
              */
             virtual void setInitVals(dvector& x){initVals=x;}     
             /**
-             * Sets the vector of initial values to the input param_init_vector element-by-element.
+             * Sets the vector of initial values, on the arithmetic scale, to the 
+             * possibly inverse-transformed values of the input vector, 
+             * which should be on the parameter scale.
              * 
-             * @param [in] x - a param_init_vector whose values will be copied as the initial values. Indices should run 1:N
+             * @param [in] x - a dvar_vector on the parameter scale. Indices should run 1:N
              */
-            virtual void setInitVals(param_init_vector & x){initVals=value(x);}     
+            virtual void setInitValsFromParamVals(const dvar_vector& x){initVals=calcArithScaleVals(value(x));}     
             /**
-             * Gets a copy of the vector of final values.
+             * Sets the vector of "final values" to the (possibly inverse-transformed to the arithmetic scale)
+             * values of the input vector, which should be on the parameter scale.
              * 
-             * @return a dvector of final values
+             * @param [in] x - a dvar_vector on the parameter scale.
              */
-            virtual dvector getFinalVals(){return finlVals;}
+            virtual void setFinalValsFromParamVals(const dvar_vector& x){finlVals=calcArithScaleVals(value(x));}     
             /**
-             * Sets final values for output to R.
+             * Calculates a vector of the log-scale prior probability based on an input vector of values.
              * 
-             * @param [in] x - a param_init_vector whose values will be copied as the final values.
-             */
-            virtual void setFinalVals(param_init_vector & x){finlVals.allocate(x.indexmin(),x.indexmax()); finlVals=value(x);}     
-            /**
-             * Calculates a dvar_vector of log prior values based on an input vector.
+             * The input values are presumably from the associated parameter values, 
+             * but should be on the "arithmetic" scale.
              * 
-             * @return - a dvar_vector
+             * @param x - the input dvar_vector on the arithmetic scale, presumably based on the associated parameters
+             * 
+             * @return - the log-scale prior, as a dvar_vector
              */
-            dvar_vector calcLogPrior(dvar_vector& x);
+            virtual dvar_vector calcLogPrior(dvar_vector& x);
             /**
              * Draw initial values based on jittering or resampling the prior.
              * 
@@ -580,9 +735,10 @@
              * Reads the parameter info from an input filestream.
              * The read order is:
              * <ul>
-             * <li> idxType - the index type (as an adstring)
-             * <li> the index block defining the vector indices (which determines N), as an IndexBlock
-             * <li> readVals - an adstring flag to subsequently read a vector of initial values
+             *  <li> idxType - the index type (as an adstring)
+             *  <li> the index block defining the vector indices (which determines N), as an IndexBlock
+             *  <li> readVals - an adstring flag to subsequently read a vector of initial values
+             *  <li> scaleType
              *  <li> initVal
              *  <li> phase
              *  <li> resample
@@ -596,177 +752,208 @@
              * @param [in] is - the filestream to read from
              */
             virtual void read(cifstream & is);
+            void readPart1(cifstream& is);
+            void readPart2(cifstream& is);
             /**
              * Writes the parameter info to an output stream, in ADMB format.
              * 
              * @param [in] os - the output stream to write to
              */
             virtual void write(std::ostream & os);
+            void writePart1(std::ostream & os);
+            void writePart2(std::ostream & os);
             /**
              * Writes the parameter info to an output stream as an R list.
              * 
              * @param [in] os - the output stream to write to
              */
             virtual void writeToR(std::ostream & os);
+            void writeToR1(std::ostream & os);
             /**
              * Writes the final values to an output stream as an R structure.
              * 
              * @param [in] os - the output stream to write to
              */
             virtual void writeFinalValsToR(std::ostream & os);
-    };
+            friend cifstream& operator >>(cifstream & is, VectorInfo & obj){obj.read(is);return is;}
+            friend std::ostream& operator <<(std::ostream & os, VectorInfo & obj){obj.write(os);return os;}
+    };//VectorInfo
 
 /**
- * BoundedVectorInfo : BoundedNumberInfo
+ * BoundedVectorInfo : VectorInfo
  * 
- *  Encapsulates characteristics for a param_init_bounded_number_vector 
+ *  Encapsulates characteristics for a param_init_bounded_vector 
  *  parameter vector on a possibly-transformed (logit, lognormal, probit) scale.
  *  Basically, a bounded parameter version of VectorInfo.
- * 
- * Additional public class fields:
+* 
+ * Inherited class fields:
  * <ul>
  * <li> N        -  size of parameter vector
- * <li> readVals -  flag to read vector of values from input stream
- * </ul>
- * Additional protected class fields:
- * <ul>
  * <li> idxType  - adstring with type of indices (e.q., YEAR)
  * <li> ptrIB    - pointer to IndexBlock object defining indices
- * <li> initVals - vector of initial values
- * <li> finlVals - vector of final values
+ * <li> initVals - vector of initial values, on the arithmetic scale
+ * <li> finlVals - vector of final values, on th arithmetic scale
+ * <li> scaleType   - parameter scale type
+ * <li> phase       - phase to start estimation of associated parameter
+ * <li> resample    - flag to resample initial value from prior
+ * <li> priorWgt    - weight assigned to prior in likelihood
+ * <li> priorType   - name identifying pdf for prior
+ * <li> priorParams - dvar_vector of parameters (on the arithmetic scale) for the prior
+ * <li> priorConsts - dvector of constants (on the arithmetic scale) for the prior
+ * <li> readVals    - flag to read vector of values from input stream
+ * <li> name        - the name of the associated parameter
+ * <li> label       - a label for the associated parameter
  * </ul>
  * 
+ * New class fields:
+ * <ul>
+ * <li> jitter - integer flag indicating whether or not to jitter initial values
+ * <li> lower  - lower bound, on the "arithmetic" scale
+ * <li> upper  - upper bound, on the "arithmetic" scale
+ * </ul>
  */
-    class BoundedVectorInfo : public BoundedNumberInfo {
+    class BoundedVectorInfo : public VectorInfo {
         public:
-            /* flag to print debugging info */
             static int debug;
-            /* size of initVals vector*/
-            int N;
-            /* flag to read initial values */
-            int readVals;
         protected:
-            /* index type (ie., model dimension, e.g., YEAR) */
-            adstring idxType;
-            /* pointer to IndexBlock defining vector */
-            IndexBlock* ptrIB; 
-            /* vector of initial values */
-            dvector initVals;
-            /* final values (for output to R) */
-            dvector finlVals;
+            /** the lower bound, on the arithmetic scale */
+            double lower;
+            /** the upper bound, on the arithmetic scale */
+            double upper;
+        public:
+            /** flag indicating whether or not to jitter initial value */
+            int jitter;
         public:
             /**
              * Class constructor.
              */
-            BoundedVectorInfo():BoundedNumberInfo(){}
+            BoundedVectorInfo():VectorInfo(){}
             /**
              * Class constructor.
              * 
              * @param [in] name - adstring for name of associated param_init_bo
              */
-            BoundedVectorInfo(adstring& name):BoundedNumberInfo(name){}
+            BoundedVectorInfo(adstring& name):VectorInfo(name){}
             /**
              * Class constructor.
              * 
              * @param [in] name - adstring for name of associated param_init_bo
              */
-            BoundedVectorInfo(const char * name):BoundedNumberInfo(name){}
+            BoundedVectorInfo(const char * name):VectorInfo(name){}
             /**
-             * Class destructor.
-             */
-            ~BoundedVectorInfo(){}
-                                  
-            /**
-             * Returns size of vector (indices run 1:N)
+             * Returns the arithmetic-scale lower bound.
+             * 
              * @return 
-             */
-            int getSize(){return N;}
+             */            
+            double getLowerBound(){return lower;}
             /**
-             * Return ivector of model indices corresponding to integer indices 1:N.
+             * Returns the parameter-scale lower bound.
              * 
-             * @return - ivector iv(1:N) such that iv(i) is the model index value 
-             *           corresponding to the ith element.
-             */
-            ivector getFwdIndices(){return ptrIB->getFwdIndexVector();}
+             * @return 
+             */            
+            double getLowerBoundOnParamScale(){return this->calcParamScaleVals(lower);}
             /**
-             * Return ivector of integer indices 1:N corresponding to model indices.
+             * Returns the arithmetic-scale upper bound.
              * 
-             * @return - ivector iv(modMin:modMax) such that iv(i) is the index into
-             *           the block corresponding to model index value i. iv(i) is 0
-             *           for model index values i that do not correspond to a block
-             *           element.
-             */
-            ivector getRevIndices(){return ptrIB->getRevIndexVector();}           
+             * @return 
+             */            
+            double getUpperBound(){return upper;}           
+            /**
+             * Returns the parameter-scale upper bound.
+             * 
+             * @return 
+             */            
+            double getUpperBoundOnParamScale(){return this->calcParamScaleVals(upper);}           
             /**
              * Calculates arithmetic-scale values corresponding to the input parameter-scale value.
              * 
              * @param x - parameter-scale value as a double
              * @return - arithmetic-scale value as a double
+             * 
+             * @overrides VectorInfo::calcArithScaleVals(double)
              */
-            virtual double calcArithScaleVal(double x){return BoundedNumberInfo::calcArithScaleVal(x);}
+            virtual double calcArithScaleVals(double x);
             /**
              * Calculates arithmetic-scale values corresponding to the input parameter-scale values.
              * 
              * @param x - parameter-scale values as a dvector
              * @return - arithmetic-scale values as a dvector
+             * 
+             * @overrides VectorInfo::calcArithScaleVals(const dvector&)
              */
-            virtual dvector calcArithScaleVal(const dvector& x);
+            virtual dvector calcArithScaleVals(const dvector& x);
             /**
              * Calculates arithmetic-scale values corresponding to the input parameter-scale values.
              * 
              * @param x - parameter-scale values as dvar_vector
              * @return - arithmetic-scale values as dvar_vector
+             * 
+             * @overrides VectorInfo::calcArithScaleVals(const dvar_vector&)
              */
-            virtual dvar_vector calcArithScaleVal(const dvar_vector& x);
+            virtual dvar_vector calcArithScaleVals(const dvar_vector& x);
+            /**
+             * Calculates parameter-scale value corresponding to the input arithmetic-scale value.
+             * 
+             * @param x - the arithmetic-scale value as double
+             * @return - the parameter-scale value as double
+             * 
+             * @overrides VectorInfo::calcParamScaleVals(double)
+             */
+            virtual double calcParamScaleVals(double x);
             /**
              * Calculates parameter-scale values corresponding to the input arithmetic-scale values.
              * 
              * @param x - the arithmetic-scale values as dvector
              * @return - the parameter-scale values as dvector
-             */
-            virtual dvector calcParamScaleVal(dvector& x);
-            /**
-             * Calculates the (ln-scale) prior probabilities (not NLLS!) corresponding to 
-             * the values of the input vector.
              * 
-             * @param x - dvar_vector to calculate ln-scale priors for
-             * @return - dvar_vector of ln-scale priors (not NLLs)
+             * @overrides VectorInfo::calcParamScaleVals(double)
              */
-            dvar_vector calcLogPrior(dvar_vector& x);            
-            /**
-             * Gets a copy of the vector of initial values.
-             * 
-             * @return - the initial values.
-             */
-            virtual dvector getInitVals(){return initVals;}           
+            virtual dvector calcParamScaleVals(dvector& x);
             /**
              * Sets initVals to the input value.
              * 
              * @param x - value to set as initial values
+             * 
+             * @overrides VectorInfo::setInitVals(double)
              */
-            virtual void setInitVal(double x){initVals = x;}            
+            virtual void setInitVals(double x);           
             /**
              * Sets initVals to the input vector.
              * 
              * @param x - vector to set as initial values
+             * 
+             * @overrides VectorInfo::setInitVals(dvector& x)
              */
             virtual void setInitVals(dvector& x);
             /**
              * Sets initVals on the arithmetic scale based on the input parameter vector.
              * 
-             * @param x - 
+             * @param x - the associated parameter vector
+             * 
+             * @overrides VectorInfo::setInitValsFromParamVals(dvar_vector& x)
              */
-            virtual void setInitVals(param_init_bounded_vector & x){initVals=calcArithScaleVal(value(x));} 
+            virtual void setInitValsFromParamVals(const dvar_vector & x){initVals=calcArithScaleVals(value(x));} 
             /**
-             * Returns a copy of the vector of final values.
-             * @return dvector of final values
+             * Sets final values for output to R. Input vector is assumed to be
+             * on the parameter scale, so values are transformed to the arithmetic
+             * scale.
+             * 
+             * @param x  - vector of parameter-scale values to set as final values
+             * 
+             * @overrides VectorInfo::setFinalValsFromParamVals(dvar_vector& x)
              */
-            virtual dvector getFinalVals(){return finlVals;}
+            virtual void setFinalValsFromParamVals(const dvar_vector & x){finlVals=calcArithScaleVals(value(x));} 
             /**
-             * Sets final values for output to R.
-             * @param x
+             * Calculates a vector of the log-scale prior probability based on an input vector of values.
+             * 
+             * The input values are presumably from the associated parameter values, 
+             * but should be on the "arithmetic" scale.
+             * 
+             * @param x - the input dvar_vector on the arithmetic scale, presumably based on the associated parameters
+             * 
+             * @return - the log-scale prior, as a dvar_vector
              */
-            virtual void setFinalVals(param_init_bounded_vector & x){finlVals.allocate(x.indexmin(),x.indexmax()); finlVals=calcArithScaleVal(value(x));} 
+            virtual dvar_vector calcLogPrior(dvar_vector& x);
             /**
              * Reads the initial values from an input stream.
              * 
@@ -774,14 +961,14 @@
              */
             virtual void readInitVals(cifstream & is);
             /**
-             * Draws the initial values on the arithmetic scale from the 
+             * Draws initial values on the arithmetic scale from the 
              * specified prior distribution or by jittering.
              * 
              * If the parameter estimation phase is \<0, the initial values (initVals)
              * are returned instead.
              * 
-             * @param [in] rng
-             * @param [in] vif
+             * @param [in] rng - the random number generator object
+             * @param [in] vif - the desired variance inflation factor
              * 
              * @return a dvector of random values (or the initial values, if the parameter estimation phase is \<0)
              */
@@ -790,12 +977,13 @@
              * Reads the parameter info from an input filestream.
              * The read order is:
              * <ul>
-             * <li> idxType - the index type (as an adstring)
-             * <li> the index block defining the vector indices (which determines N), as an IndexBlock
-             * <li> readVals - an adstring flag to subsequently read a vector of initial values
-             * <li> lower bound - the lower bound on the arithmetic scale
-             * <li> upper bound - the upper bound on the arithmetic scale
-             * <li> jitter - adstring flag to "jitter" initial values
+             *  <li> idxType - the index type (as an adstring)
+             *  <li> the index block defining the vector indices (which determines N), as an IndexBlock
+             *  <li> readVals - an adstring flag to subsequently read a vector of initial values
+             *  <li> lower bound - the lower bound on the arithmetic scale
+             *  <li> upper bound - the upper bound on the arithmetic scale
+             *  <li> jitter - adstring flag to "jitter" initial values
+             *  <li> scaleType
              *  <li> initVal
              *  <li> phase
              *  <li> resample
@@ -807,24 +995,32 @@
              * <\ul>
              * 
              * @param [in] is - the filestream to read from
+             * 
+             * @overrides VectorInfo::read(cifstream& is)
              */
             virtual void read(cifstream & is);
             /**
              * Writes the parameter info to an output stream, in ADMB format.
              * 
              * @param [in] os - the output stream to write to
+             * 
+             * @overrides VectorInfo::write(std::ostream & os)
              */
             virtual void write(std::ostream & os);
             /**
              * Writes the parameter info to an output stream as an R list.
              * 
              * @param [in] os - the output stream to write to
+             * 
+             * @overrides VectorInfo::writeToR(std::ostream & os)
              */
             virtual void writeToR(std::ostream & os);
             /**
              * Writes the final values to an output stream as an R structure.
              * 
              * @param [in] os - the output stream to write to
+             * 
+             * @overrides VectorInfo::writeFinalValsToR(std::ostream & os)
              */
             virtual void writeFinalValsToR(std::ostream & os);
     };
@@ -869,7 +1065,7 @@
              * Sets initial values to 0, no matter what @param x is.
              * @param x
              */
-            void setInitVal(double x){initVals = 0.0;}
+            void setInitVals(double x){initVals = 0.0;}
             /**
              * Draws a vector of random values by resampling the prior or jittering.
              * 
@@ -879,9 +1075,9 @@
              * @param [in] rng - the random number generator
              * @param [in] vif - the variance inflation factor
              * 
-             * @return - dvector
+             * @return - dvector of values (TODO: on what scale??)
              */
-            virtual dvector drawInitVals(random_number_generator& rng, double vif);//draw initial values by resampling prior
+            virtual dvector drawInitVals(random_number_generator& rng, double vif);
     };
 
 /**
@@ -969,7 +1165,13 @@
              * 
              * @return - a dvector
              */
-            dvector getPriorWgts(void);
+            dvector getPriorWgts(void);            
+            /**
+             * Gets the parameter scale types for the associated parameters.
+             * 
+             * @return - an adstring_array of scale types
+             */
+            adstring_array getScaleTypes();
             /**
              * Gets a dvector of the initial values for each parameter in the 
              * associated param_init_number_vector.
@@ -978,14 +1180,14 @@
              */
             dvector getInitVals(void);
             /**
-             * Calculates a dvar_vector of the log-scale prior probability for
-             * each element in the input vector.
-             * The input vector should have the same size and indexing as the 
-             * associated param_init_number_vector.
+             * Calculates a vector of the log-scale prior probability based on an input vector of values.
              * 
-             * @param [in] pv - a dvar_vector of values to compute log priors for
+             * The input values are presumably from the associated parameter values, 
+             * but should be on the "arithmetic" scale.
              * 
-             * @return a dvar_vector of the log priors
+             * @param x - the input dvar_vector on the arithmetic scale, presumably based on the associated parameters
+             * 
+             * @return - the log-scale prior, as a dvar_vector
              */
             dvar_vector calcLogPriors(dvar_vector & pv);    
             
@@ -995,16 +1197,28 @@
              * 
              * @return an adstring_array
              */
-            adstring_array getLabels(void);
-            
-            /** 
-             * Gets an adstring_array of parameer scale types corresponding to the 
-             * individual parameters in the associated param_init_number_vector.
+            adstring_array getLabels(void);            
+            /**
+             * Calculates arithmetic-scale values corresponding to the input parameter-scale values.
              * 
-             * @return an adstring_array
+             * @param x - parameter-scale values as a dvector
+             * @return - arithmetic-scale values as a dvector
              */
-            adstring_array getParamScales(void);
-            
+            virtual dvector calcArithScaleVals(const dvector& x);
+            /**
+             * Calculates arithmetic-scale values corresponding to the input parameter-scale values.
+             * 
+             * @param x - parameter-scale values as dvar_vector
+             * @return - arithmetic-scale values as dvar_vector
+             */
+            virtual dvar_vector calcArithScaleVals(const dvar_vector& x);
+            /**
+             * Calculates parameter-scale values corresponding to the input arithmetic-scale values.
+             * 
+             * @param x - the arithmetic-scale values as dvector
+             * @return - the parameter-scale values as dvector
+             */
+            virtual dvector calcParamScaleVals(dvector& x);            
             /**
              * Draws a dvector of random values to use as
              * initial values for each parameter in the associated param_init_number_vector, 
@@ -1018,8 +1232,8 @@
              * @return a dvar_vector of same size and indices as the associated param_init_number_vector
              */
             virtual dvector drawInitVals(random_number_generator& rng, double vif);
-            virtual void setInitVals(param_init_number_vector& x);
-            virtual void setFinalVals(param_init_number_vector& x);
+            virtual void setInitValsFromParamVals(const dvar_vector& x);
+            virtual void setFinalValsFromParamVals(const dvar_vector& x);
             virtual void read(cifstream & is);
             virtual void write(std::ostream & os);
             virtual void writeToR(std::ostream& os, adstring nm, int indent=0);
@@ -1029,9 +1243,26 @@
     };
 
 /**
- * Encapsulates info for a param_init_bounded_number_vector as a 1-d array of BoundedNumberInfo's.
+ * BoundedNumberVectorInfo: NumberVectorInfo
  * 
- * Subclass of NumberVectorInfo
+ * Encapsulates parameter info for a param_init_bounded_number_vector as a 1-d array
+ * of BoundedNumberInfo objects.
+ * 
+ * Inherited class fields:
+ * Public fields:
+ * <ul>
+ * <li> debug - static int flag to print debugging info
+ * <li> name - adstring with name of associated param_init_number_vector object
+ * <\ul>
+ * 
+ * Protected fields:
+ * <ul>
+ * <li> nNIs - number of elements (parameters) in the associated param_init_number_vector
+ * <li> ppNIs - pointer to vector of pointers to NumberInfo instances
+ * <\ul>
+ * 
+ * New class fields:
+ *  none
  */
     class BoundedNumberVectorInfo: public NumberVectorInfo {
         public:
@@ -1052,12 +1283,7 @@
              * 
              * @param name - name of associated parameter vector as a const char*
              */
-            BoundedNumberVectorInfo(const char * name):NumberVectorInfo(name){}
-            /**
-             * Class destructor.
-             */
-            ~BoundedNumberVectorInfo(){deallocate();}
-            
+            BoundedNumberVectorInfo(const char * name):NumberVectorInfo(name){}           
             /**
              * Gets a pointer to the ith BoundedNumberInfo element in the vector. 
              * i must be in the interval 1<=i<=nNIs.
@@ -1065,87 +1291,130 @@
              * @param i - index (1-based) to BoundedNumberInfo
              * @return pointer to ith BoundedNumberInfo object
              */
-            BoundedNumberInfo* operator[](int i);
-            
+            BoundedNumberInfo* operator[](int i);            
             /**
-             * Gets the parameter scale types for the associated aprameters.
+             * Get the lower bounds on the arithmetic scale for parameters as vector.
              * 
-             * @return - an adstring_array of scale types
-             */
-            adstring_array getScaleTypes();
-            
-            /**
-             * Get the lower bounds for parameters as vector.
-             * 
-             * @return - a dvector with the lower bound for each parameter
+             * @return - a dvector with the arithmetic-scale lower bound for each parameter
              */
             dvector getLowerBounds();
+            /**
+             * Get the lower bounds on the parameter scale for parameters as vector.
+             * 
+             * @return - a dvector with the lower bound on the parameter scale for each parameter
+             */
+            dvector getLowerBoundsOnParamScales();
             /**
              * Get the upper bounds for parameters as vector.
              * 
              * @return - a dvector with the upper bound for each parameter
             */
             dvector getUpperBounds();
+            /**
+             * Get the upper bounds on the parameter scale for parameters as vector.
+             * 
+             * @return - a dvector with the upper bound on the parameter scale for each parameter
+             */
+            dvector getUpperBoundsOnParamScales();
               /**
              * Calculates arithmetic-scale values corresponding to the input parameter-scale values.
              * 
              * @param x - parameter-scale values as a dvector
              * @return - arithmetic-scale values as a dvector
              */
-            dvector calcArithScaleVals(const dvector& x);
+            virtual dvector calcArithScaleVals(const dvector& x);
             /**
              * Calculates arithmetic-scale values corresponding to the input parameter-scale values.
              * 
              * @param x - parameter-scale values as dvar_vector
              * @return - arithmetic-scale values as dvar_vector
              */
-            dvar_vector calcArithScaleVals(const dvar_vector& x);
+            virtual dvar_vector calcArithScaleVals(const dvar_vector& x);
             /**
              * Calculates parameter-scale values corresponding to the input arithmetic-scale values.
              * 
              * @param x - the arithmetic-scale values as dvector
              * @return - the parameter-scale values as dvector
              */
-            dvector calcParamScaleVals(dvector& x);
+            virtual dvector calcParamScaleVals(dvector& x);
           
             virtual dvector drawInitVals(random_number_generator& rng, double vif);
-            virtual void setInitVals(param_init_bounded_number_vector& x);
-            virtual void setFinalVals(param_init_bounded_number_vector& x);
+            virtual void setInitValsFromParamVals(const dvar_vector& x);
+            virtual void setFinalValsFromParamVals(const dvar_vector& x);
             void read(cifstream & is);
             void write(std::ostream & os);
             void writeToR(std::ostream& os, adstring nm, int indent=0);
     };
     
-//--------------------------------------------------------------------------------
-//          VectorVectorInfo
-//  Encapsulates info for a param_init_vector_vector as a 1-d array of VectorInfo's
-//--------------------------------------------------------------------------------
+/**
+ * VectorVectorInfo
+ * 
+ * Encapsulates parameter info for a param_init_vector_vector as a 1-d array
+ * of VectorInfo objects.
+ * 
+ * Public fields:
+ * <ul>
+ * <li> debug - static int flag to print debugging info
+ * <li> name - adstring with name of associated param_init_vector_vector object
+ * <\ul>
+ * 
+ * Protected fields:
+ * <ul>
+ * <li> nVIs - number of elements (parameters) in the associated param_init_vector_vector
+ * <li> ppVIs - pointer to vector of pointers to VectorInfo instances
+ * <\ul>
+ * 
+ * New class fields:
+ *  none
+ */
     class VectorVectorInfo {
         public:
+            /** flag to write out debugging info */
             static int debug;
-        public:
-            adstring name;     //name of vector of parameter vectors
+            /** name of vector of associated param_init_vector_vector */
+            adstring name;     //
         protected:
-            int nVIs;          //number of parameter vectors in vector
-            VectorInfo** ppVIs;//ptr to vector of ptrs to VectorInfo instances
+            /** number of parameter vectors in vector */
+            int nVIs;
+            /** ptr to vector of ptrs to VectorInfo instances */
+            VectorInfo** ppVIs;
         public:
             VectorVectorInfo(){this->name="";nVIs=0;ppVIs=0;}
             VectorVectorInfo(adstring& name){this->name=name;nVIs=0;ppVIs=0;}
             VectorVectorInfo(const char * name){this->name=name;nVIs=0;ppVIs=0;}
             ~VectorVectorInfo(){deallocate();}
             
-            VectorInfo* operator[](int i){if ((ppVIs>0)&&(i<=nVIs)) return ppVIs[i-1]; return 0;}
             void deallocate();
+            /**
+             * Gets the number of parameter vectors represented by the instance.
+             * 
+             * @return - the number of vectors
+             */
             int getSize(void){return nVIs;}
             ivector getMinIndices(void);
             ivector getMaxIndices(void);
+            /**
+             * Gets the parameter-scale types for each associated parameter vector.
+             * 
+             * @return - an adstring_array
+             */
+            adstring_array getScaleTypes(void);
+            /**
+             * Gets the estimation phase for each associated parameter vector.
+             * @return 
+             */
             ivector getPhases(void);
             dvector getPriorWgts(void);
-            
-             /* Function to get array of labels corresponding to parameters */
+            /**
+             * Function to get array of labels corresponding to parameter vectors.
+             * 
+             * @return adstring_array of labels for associated VectorInfo instances
+             */
             adstring_array getLabels(void);
             
-           virtual void read(cifstream & is);
+            VectorInfo* operator[](int i){if ((ppVIs>0)&&(i<=nVIs)) return ppVIs[i-1]; return 0;}
+            
+            virtual void read(cifstream & is);
             virtual void write(std::ostream & os);
             virtual void writeToR(std::ostream& os, adstring nm, int indent=0);
             virtual void writeFinalValsToR(std::ostream& os);
@@ -1153,36 +1422,70 @@
             friend std::ostream& operator <<(std::ostream & os, VectorVectorInfo & obj){obj.write(os);return os;}
     };
 
-//--------------------------------------------------------------------------------
-//          BoundedVectorVectorInfo
-//  Encapsulates info for a param_init_bounded_vector_vector as a 1-d array of BoundedVectorInfo's
-//--------------------------------------------------------------------------------
-    class BoundedVectorVectorInfo {
+/**
+ * BoundedVectorVectorInfo: VectorVectorInfo
+ * 
+ * Encapsulates parameter info for a param_init_bounded_vector_vector as a 1-d array
+ * of BoundedVectorInfo objects.
+ * 
+ * Inherited class fields:
+ * Public:
+ * <ul>
+ * <li> debug - static int flag to print debugging info
+ * <li> name - adstring with name of associated param_init_vector_vector object
+ * <\ul>
+ * 
+ * Protected:
+ * <ul>
+ * <li> nVIs - number of elements (parameters) in the associated param_init_vector_vector
+ * <li> ppVIs - pointer to vector of pointers to VectorInfo instances
+ * <\ul>
+ * 
+ * New class fields:
+ *  none
+ */
+    class BoundedVectorVectorInfo: public VectorVectorInfo {
         public:
             static int debug;
         public:
-            adstring name;     //name of vector of parameter vectors
-        protected:
-            int nVIs;                 //number of parameter vectors in vector
-            BoundedVectorInfo** ppVIs;//ptr to vector of ptrs to BoundedVectorInfo instances
-        public:
-            BoundedVectorVectorInfo(){this->name="";nVIs=0;ppVIs=0;}
-            BoundedVectorVectorInfo(adstring& name){this->name=name;nVIs=0;ppVIs=0;}
-            BoundedVectorVectorInfo(const char * name){this->name=name;nVIs=0;ppVIs=0;}
-            ~BoundedVectorVectorInfo(){deallocate();}
+            BoundedVectorVectorInfo():VectorVectorInfo(){}
+            BoundedVectorVectorInfo(adstring& name):VectorVectorInfo(name){}
+            BoundedVectorVectorInfo(const char * name):VectorVectorInfo(name){}
             
-            BoundedVectorInfo* operator[](int i){if ((ppVIs>0)&&(i<=nVIs)) return ppVIs[i-1]; return 0;}
-            void deallocate();
-            int getSize(void){return nVIs;}
-            ivector getMinIndices(void);
-            ivector getMaxIndices(void);
-            ivector getPhases(void);
-            dvector getPriorWgts(void);
+            /**
+             * Returns a pointer to the ith (1s-based) BoundedVectorInfo instance
+             * encapsulated by the BoundedVectorVectorInfo instance.
+             * 
+             * @param i
+             * @return 
+             * 
+             * @overrides VectorVectorInfo::operator[](int i)
+             */
+            BoundedVectorInfo* operator[](int i){if ((ppVIs>0)&&(i<=nVIs)) return (BoundedVectorInfo*) ppVIs[i-1]; return 0;}
+            /**
+             * Gets a vector of the lower bounds (on the arithmetic scale) for the associated BoundedVectorInfo instances.
+             * 
+             * @return - a dvector of the lower bounds
+             */
             dvector getLowerBounds(void);
+            /**
+             * Gets a vector of the lower bounds (on the parameter vector scales) for the associated BoundedVectorInfo instances.
+             * 
+             * @return - a dvector of the lower bounds, on the parameter vector scales
+             */
+            dvector getLowerBoundsOnParamScales(void);
+            /**
+             * Gets a vector of the upper bounds (on the arithmetic scale) for the associated BoundedVectorInfo instances.
+             * 
+             * @return - a dvector of the upper bounds
+             */
             dvector getUpperBounds(void);
-            
-            /* Function to get array of labels corresponding to parameters */
-            adstring_array getLabels(void);
+            /**
+             * Gets a vector of the upper bounds (on the parameter vector scales) for the associated BoundedVectorInfo instances.
+             * 
+             * @return - a dvector of the upper bounds, on the parameter vector scales
+             */
+            dvector getUpperBoundsOnParamScales(void);
             
             virtual void read(cifstream & is);
             virtual void write(std::ostream & os);
@@ -1193,16 +1496,31 @@
     };
 
 /**
- * DevsVectorVectorInfo
+ * DevsVectorVectorInfo: BoundedVectorVectorInfo
  * 
-  *  Encapsulates characteristics for a param_init_bounded_vector_vector
-  *  to be used as the basis for a vector of devs vectors. Each devs vector has the
-  *  property that the sum of the elements of the vector should be 0.
-  *  This should be implemented by enforcing sum(v[])=0 on the arithmetic
- *   scale in the likelihood, for each devs vector v.
-  *  Otherwise, DevsVectorVectorInfo is identical to BoundedVectorVectorInfo,
- *   of which it is a subclass.
+ *  Encapsulates characteristics for a param_init_bounded_vector_vector
+ *  to be used as the basis for a vector of devs vectors. Each devs vector has the
+ *  property that the sum of the elements of the vector should be 0.
+ *  This should be implemented by enforcing sum(v[])=0 on the arithmetic
+ *  scale in the likelihood, for each devs vector v.
+ *  Otherwise, DevsVectorVectorInfo is identical to BoundedVectorVectorInfo,
+ *  of which it is a subclass.
  * 
+ * Inherited class fields:
+ * Public:
+ * <ul>
+ * <li> debug - static int flag to print debugging info
+ * <li> name - adstring with name of associated param_init_vector_vector object
+ * <\ul>
+ * 
+ * Protected:
+ * <ul>
+ * <li> nVIs - number of elements (parameters) in the associated param_init_vector_vector
+ * <li> ppVIs - pointer to vector of pointers to VectorInfo instances
+ * <\ul>
+ * 
+ * New class fields:
+ *  none
  */
     class DevsVectorVectorInfo: public BoundedVectorVectorInfo {
         public:
@@ -1212,12 +1530,18 @@
             DevsVectorVectorInfo(adstring& name):BoundedVectorVectorInfo(name){}
             DevsVectorVectorInfo(const char * name):BoundedVectorVectorInfo(name){}
             
+            /**
+             * Returns a pointer to the ith (1s-based) DevsVectorInfo instance
+             * encapsulated by the DevsVectorVectorInfo instance.
+             * 
+             * @param i
+             * @return 
+             * 
+             * @overrides BoundedVectorVectorInfo::operator[](int i)
+             */
             DevsVectorInfo* operator[](int i){if ((ppVIs>0)&&(i<=nVIs)) return (DevsVectorInfo*) ppVIs[i-1]; return 0;}
             
             virtual void read(cifstream & is);
-  //          virtual void write(std::ostream & os);
-  //          virtual void writeToR(std::ostream& os, adstring nm, int indent=0);
-  //          virtual void writeFinalValsToR(std::ostream& os);
             friend cifstream& operator >>(cifstream & is, DevsVectorVectorInfo & obj){obj.read(is);return is;}
             friend std::ostream& operator <<(std::ostream & os, DevsVectorVectorInfo & obj){obj.write(os);return os;}
     };

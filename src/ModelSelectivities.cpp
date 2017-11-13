@@ -30,11 +30,11 @@ const adstring SelFcns::STR_DBLLOGISTICLND50   ="dbllogisticlnd50";
 const adstring SelFcns::STR_DBLLOGISTIC5095    ="dbllogistic5095";
 const adstring SelFcns::STR_DBLLOGISTIC50LN95  ="dbllogistic50ln95";
 const adstring SelFcns::STR_DBLLOGISTICLN50LN95="dbllogisticln50ln95";
-const adstring SelFcns::STR_DBLNORMAL6         ="dblnormal6";
 const adstring SelFcns::STR_ASCLOGISTIC5099    ="asclogistic5099";
 const adstring SelFcns::STR_ASCLOGISTIC95LN50  ="asclogistic95ln50";
 const adstring SelFcns::STR_ASCNORMAL          ="ascnormal";
 const adstring SelFcns::STR_DBLNORMAL4         ="dblnormal4";
+const adstring SelFcns::STR_DBLNORMAL6         ="dblnormal6";
 
 //--------------------------------------------------------------------------------
 //          SelFcns

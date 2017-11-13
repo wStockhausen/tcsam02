@@ -62,14 +62,14 @@ double NumberInfo::calcArithScaleVal(double x){
 }
 
 /**
- * Calculate bounded arithmetic-scale value corresponding to given parameter-scale value.
+ * Calculates the arithmetic-scale value corresponding to given parameter-scale value.
  * 
  * @param x - parameter-scale value
  * @return - arithmetic-scale value
  */
-dvariable NumberInfo::calcArithScaleVal(const dvariable& x){
+dvariable NumberInfo::calcArithScaleVal(const prevariable& x){
     RETURN_ARRAYS_INCREMENT();
-    if (debug) rpt::echo<<"starting NumberInfo::calcArithScaleVal(dvariable&) "<<this<<endl;
+    if (debug) rpt::echo<<"starting NumberInfo::calcArithScaleVal(prevariable&) "<<this<<endl;
     dvariable z;
     switch (scaleType){
         case tcsam::SCALE_ARITHM:
@@ -87,7 +87,7 @@ dvariable NumberInfo::calcArithScaleVal(const dvariable& x){
             ad_exit(1);
             break;
     }
-    if (debug) rpt::echo<<"finished NumberInfo::calcArithScaleVal(dvariable&) "<<this<<endl;
+    if (debug) rpt::echo<<"finished NumberInfo::calcArithScaleVal(prevariable&) "<<this<<endl;
     RETURN_ARRAYS_DECREMENT();
     return z;
 }
@@ -150,7 +150,7 @@ double NumberInfo::drawInitVal(random_number_generator& rng, double vif){
  * 
  * The input value is on the arithmetic scale, but is presumably from the associated parameter value.
  * 
- * @param x - the arithmetic-scale value, presumably from the associated parameter
+ * @param x - the arithmetic-scale input value, presumably based on the associated parameter
  * 
  * @return - the log-scale prior, as a dvariable
  */
@@ -190,8 +190,8 @@ void NumberInfo::setPriorType(adstring & prior){
  * 
  * The read order for the parameter info is:
  * <ul>
- *  <li> scaleType
  *  <li> initVal
+ *  <li> scaleType
  *  <li> phase
  *  <li> resample
  *  <li> priorWgt
@@ -207,9 +207,9 @@ void NumberInfo::setPriorType(adstring & prior){
 void NumberInfo::read(cifstream & is){
     if (debug) rpt::echo<<"Starting NumberInfo::read(cifstream & is) "<<this<<endl;
     adstring str;
+    is>>initVal;
     is>>str; scaleType=tcsam::getScaleType(str);
     std::cout<<name<<tb<<str<<tb<<scaleType<<tb<<tcsam::getScaleType(scaleType)<<endl;
-    is>>initVal;
     is>>phase;
     is>>str; resample=wts::getOnOffType(str);
     is>>priorWgt;
@@ -262,8 +262,8 @@ void NumberInfo::read(cifstream & is){
  * 
  * Write order is in same sense as the read order:
  * <ul>
- *  <li> scaleType
  *  <li> initVal
+ *  <li> scaleType
  *  <li> phase
  *  <li> resample
  *  <li> priorWgt
@@ -276,8 +276,8 @@ void NumberInfo::read(cifstream & is){
  * @param os - the output stream to write to
  */
 void NumberInfo::write(ostream & os){
-    os<<tcsam::getScaleType(scaleType)<<tb;
     os<<initVal<<tb;
+    os<<tcsam::getScaleType(scaleType)<<tb;
     os<<phase<<tb;
     os<<wts::getOnOffType(resample)<<tb;
     os<<priorWgt<<tb;
@@ -385,14 +385,16 @@ double BoundedNumberInfo::calcArithScaleVal(double x){
 }
 
 /**
- * Calculate bounded arithmetic-scale value corresponding to given parameter-scale value.
+ * Calculates the arithmetic-scale value corresponding to given parameter-scale value.
  * 
- * @param x - parameter-scale value
- * @return - arithmetic-scale value
+ * @param x - the parameter-scale value
+ * @return - the corresponding arithmetic-scale value, as a dvariable
+ * 
+ * @overrides NumberInfo::calcArithScaleVal(const prevariable& x)
  */
-dvariable BoundedNumberInfo::calcArithScaleVal(const dvariable& x){
+dvariable BoundedNumberInfo::calcArithScaleVal(const prevariable& x){
     RETURN_ARRAYS_INCREMENT();
-    if (debug) rpt::echo<<"starting BoundedNumberInfo::calcArithScaleVal(dvariable&) "<<this<<endl;
+    if (debug) rpt::echo<<"starting BoundedNumberInfo::calcArithScaleVal(prevariable&) "<<this<<endl;
     dvariable y, z;
     switch (scaleType){
         case tcsam::SCALE_ARITHM:
@@ -411,7 +413,7 @@ dvariable BoundedNumberInfo::calcArithScaleVal(const dvariable& x){
             ad_exit(1);
             break;
     }
-    if (debug) rpt::echo<<"finished BoundedNumberInfo::calcArithScaleVal(dvariable&) "<<this<<endl;
+    if (debug) rpt::echo<<"finished BoundedNumberInfo::calcArithScaleVal(prevariable&) "<<this<<endl;
     RETURN_ARRAYS_DECREMENT();
     return z;
 }
@@ -453,10 +455,11 @@ double BoundedNumberInfo::calcParamScaleVal(double x){
  * 
  * The read order for the parameter info is:
  * <ul>
- *  <li> scaleType (as an adstring)
+ *  <li> jitter
  *  <li> lower bound, on arithmetic scale
  *  <li> upper bound, on arithmetic scale
  *  <li> initVal
+ *  <li> scaleType (as an adstring)
  *  <li> phase
  *  <li> resample
  *  <li> priorWgt
@@ -472,15 +475,17 @@ double BoundedNumberInfo::calcParamScaleVal(double x){
 void BoundedNumberInfo::read(cifstream & is){
     if (debug) rpt::echo<<"Starting BoundedNumberInfo::read(cifstream & is) "<<this<<endl;
     adstring str;
-    is>>lower;
-    is>>upper;
-    is>>str; jitter=wts::getOnOffType(str);
+    is>>str; if (debug){rpt::echo<<str<<tb<<"#jitter"<<endl;} jitter=wts::getOnOffType(str);
+    is>>lower; rpt::echo<<lower<<tb<<"#lower"<<endl;
+    is>>upper; rpt::echo<<upper<<tb<<"#upper"<<endl;
     if (debug){
+        rpt::echo<<wts::getOnOffType(jitter)<<tb<<"#jitter"<<endl;
         rpt::echo<<lower<<tb<<"#lower"<<endl;
         rpt::echo<<upper<<tb<<"#upper"<<endl;
-        rpt::echo<<wts::getOnOffType(jitter)<<tb<<"#jitter"<<endl;
     }
+    if (debug) NumberInfo::debug=1;
     NumberInfo::read(is);//finish reading
+    if (debug) NumberInfo::debug=0;
     if (debug) rpt::echo<<"Done BoundedNumberInfo::read(cifstream & is) "<<this<<endl;
 }
 
@@ -490,9 +495,9 @@ void BoundedNumberInfo::read(cifstream & is){
  * @param os - the output stream object
  */
 void BoundedNumberInfo::write(ostream & os){
+    os<<wts::getOnOffType(jitter)<<tb;
     os<<lower<<tb;
     os<<upper<<tb;
-    os<<wts::getOnOffType(jitter)<<tb;
     NumberInfo::write(os);//finish writing
 }
 
@@ -524,12 +529,57 @@ void BoundedNumberInfo::writeToR1(ostream& os){
  *  VectorInfo
  *-----------------------------------------------------------------------------*/
 /**
+ * Sets the prior type, based on an adstring value.
+ * 
+ * @param prior - the prior type, as an adstring
+ */
+void VectorInfo::setPriorType(adstring & prior){
+    if (debug) rpt::echo<<"starting NumberInfo::setPriorType(adstring prior)"<<this<<endl;
+    if (pMPI) delete pMPI;
+    pMPI = ModelPDFInfo::getInfo(prior);
+    if (pMPI) {
+        if (pMPI->getNumParams()>0) priorParams.allocate(1,pMPI->getNumParams());
+        if (pMPI->getNumConsts()>0) priorConsts.allocate(1,pMPI->getNumConsts());
+    }
+    if (debug) rpt::echo<<"finished NumberInfo::setPriorType(adstring prior)"<<this<<endl;
+}
+
+/**
+ * Calculates arithmetic-scale value corresponding to the input parameter-scale value.
+ * 
+ * @param x - parameter-scale values as a double
+ * @return - arithmetic-scale values as a double
+ */
+double VectorInfo::calcArithScaleVals(double x){
+    if (debug) rpt::echo<<"starting VectorInfo::calcArithScaleVal(double) "<<this<<endl;
+    double z = 0.0;
+    switch (scaleType){
+        case tcsam::SCALE_ARITHM:
+            z = x;
+            break;
+        case tcsam::SCALE_LOG:
+            z = mfexp(x);
+            break;
+        case tcsam::SCALE_LOGIT:
+            z = 1.0/(1.0+mfexp(-1.0*x));
+            break;
+        default:
+            cout<<"VectorInfo::calcArithScaleVal(double) "<<this<<endl;
+            cout<<"Parameter scale type "<<scaleType<<" not recognized!!"<<endl;
+            ad_exit(1);
+            break;
+    }
+    if (debug) rpt::echo<<"finished VectorInfo::calcArithScaleVal(double) "<<this<<endl;
+    return z;
+}
+
+/**
  * Calculates arithmetic-scale values corresponding to the input parameter-scale values.
  * 
  * @param x - parameter-scale values as a dvector
  * @return - arithmetic-scale values as a dvector
  */
-dvector VectorInfo::calcArithScaleVal(const dvector& x){
+dvector VectorInfo::calcArithScaleVals(const dvector& x){
     if (debug) rpt::echo<<"starting VectorInfo::calcArithScaleVal(dvector&) "<<this<<endl;
     dvector z(x.indexmin(),x.indexmax());
     switch (scaleType){
@@ -558,7 +608,7 @@ dvector VectorInfo::calcArithScaleVal(const dvector& x){
  * @param x - parameter-scale values as dvar_vector
  * @return - arithmetic-scale values as dvar_vector
  */
-dvar_vector VectorInfo::calcArithScaleVal(const dvar_vector& x){
+dvar_vector VectorInfo::calcArithScaleVals(const dvar_vector& x){
     RETURN_ARRAYS_INCREMENT();
     if (debug) rpt::echo<<"starting VectorInfo::calcArithScaleVal(dvar_vector&) "<<this<<endl;
     dvar_vector z(x.indexmin(),x.indexmax());
@@ -585,10 +635,39 @@ dvar_vector VectorInfo::calcArithScaleVal(const dvar_vector& x){
 /**
  * Calculate parameter-scale value corresponding to given bounded arithmetic-scale value.
  * 
+ * @param x - arithmetic-scale double
+ * @return - parameter-scale double
+ */
+double VectorInfo::calcParamScaleVals(double x){
+    if (debug) rpt::echo<<"starting VectorInfo::calcParamScaleVal(double) "<<this<<endl;
+    double z = 0;
+    switch (scaleType){
+        case tcsam::SCALE_ARITHM:
+            z = x;
+            break;
+        case tcsam::SCALE_LOG:
+            z = log(x);//on log scale
+            break;
+        case tcsam::SCALE_LOGIT:
+            z = log(x/(1.0-x));//on logit scale
+            break;
+        default:
+            cout<<"VectorInfo::calcParamScaleVal(double) "<<this<<endl;
+            cout<<"Parameter scale type "<<scaleType<<" not recognized!!"<<endl;
+            ad_exit(1);
+            break;
+    }
+    if (debug) rpt::echo<<"finished VectorInfo::calcParamScaleVal(double) "<<this<<endl;
+    return z;
+}
+
+/**
+ * Calculate parameter-scale values corresponding to given bounded arithmetic-scale values.
+ * 
  * @param x - arithmetic-scale dvector
  * @return - parameter-scale dvector
  */
-dvector VectorInfo::calcParamScaleVal(dvector& x){
+dvector VectorInfo::calcParamScaleVals(dvector& x){
     if (debug) rpt::echo<<"starting VectorInfo::calcParamScaleVal(dvector&) "<<this<<endl;
     dvector z(x.indexmin(),x.indexmax());
     switch (scaleType){
@@ -637,9 +716,14 @@ dvector VectorInfo::drawInitVals(random_number_generator& rng, double vif){
 }
 
 /**
- * Calculates a dvar_vector of log prior values based on an input vector.
+ * Calculates a vector of the log-scale prior probability based on an input vector of values.
  * 
- * @return - a dvar_vector
+ * The input values are presumably from the associated parameter values, 
+ * but should be on the "arithmetic" scale.
+ * 
+ * @param x - the input dvar_vector on the arithmetic scale, presumably based on the associated parameters
+ * 
+ * @return - the log-scale prior, as a dvar_vector
  */
 dvar_vector VectorInfo::calcLogPrior(dvar_vector & pv){
     RETURN_ARRAYS_INCREMENT();
@@ -653,7 +737,7 @@ dvar_vector VectorInfo::calcLogPrior(dvar_vector & pv){
         dvariable x;
         for (int i=pv.indexmin();i<=pv.indexmax();i++) {
             x = pv(i);//have to copy pv(i) )
-            lps(i) = NumberInfo::calcLogPrior(x);
+            lps(i) = pMPI->calcLogPDF(x,priorParams,priorConsts);
         }
     }
     if (debug) {
@@ -678,23 +762,89 @@ dvar_vector VectorInfo::calcLogPrior(dvar_vector & pv){
  */
 void VectorInfo::read(cifstream & is){
     if (debug) rpt::echo<<"Starting VectorInfo::read(cifstream & is) for "<<name<<endl;
+    readPart1(is);
+    readPart2(is);
+}
+
+/**
+ * Reads the index type and index block for the VectorInfo.
+ * 
+ * @param is - the stream to read from
+ */
+void VectorInfo::readPart1(cifstream & is){
+    if (debug) rpt::echo<<"Starting VectorInfo::readPart1(cifstream & is) for "<<name<<endl;
     adstring str;
     is>>idxType;
+    if (debug) rpt::echo<<idxType<<tb<<"#index type"<<endl;
     int imn; int imx; 
     tcsam::getIndexLimits(idxType,imn,imx);
     ptrIB = new IndexBlock(imn,imx);
     is>>(*ptrIB);
+    if (debug) rpt::echo<<(*ptrIB)<<tb<<"#index block"<<endl;
     N = ptrIB->getSize();
     initVals.allocate(1,N);
     is>>str; readVals = wts::getBooleanType(str);
-    NumberInfo::read(is);
+    if (debug) {
+        rpt::echo<<"idxType    = "<<idxType<<endl;
+        rpt::echo<<"IndexBlock = "<<(*ptrIB)<<endl;
+        rpt::echo<<"N          = "<<N<<endl;
+        rpt::echo<<"readVals   = "<<wts::getBooleanType(readVals)<<endl;
+        rpt::echo<<"Finished VectorInfo::readPart1(cifstream & is) for "<<name<<endl;
+    }
+}
+
+void VectorInfo::readPart2(cifstream & is){
+    if (debug) rpt::echo<<"Starting VectorInfo::readPart2(cifstream & is) for "<<name<<endl;
+    adstring str;
+    is>>initVal;
+    if (debug) rpt::echo<<initVal<<tb<<"#initVal"<<endl;
+    is>>str; scaleType=tcsam::getScaleType(str);
+    std::cout<<name<<tb<<str<<tb<<scaleType<<tb<<tcsam::getScaleType(scaleType)<<endl;
+    is>>phase;
+    is>>str; resample=wts::getOnOffType(str);
+    is>>priorWgt;
+    is>>priorType;//prior type
+    if (debug){
+        rpt::echo<<initVal<<tb<<"#initVal"<<endl;
+        rpt::echo<<phase  <<tb<<"#phase"<<endl;
+        rpt::echo<<wts::getOnOffType(resample)<<tb<<"#resample"<<endl;
+        rpt::echo<<priorWgt<<tb<<"#priorWgt"<<endl;
+        rpt::echo<<priorType<<tb<<"#prior type"<<endl;
+    }
+    setPriorType(priorType);
+    if (pMPI->getNumParams()) {
+        is>>priorParams;
+        if (debug) rpt::echo<<priorParams<<tb<<"#prior params"<<endl;
+    } else {
+        is>>str; str.to_upper();
+        if (str!=tcsam::STR_NONE){
+            rpt::echo<<"no prior params, so input should be 'none', but got '"<<str<<"'"<<endl;
+            rpt::echo<<"Please fix!!"<<endl;
+            exit(-1);
+        }
+        if (debug) rpt::echo<<"#no prior params"<<endl;
+    }
+    if (pMPI->getNumConsts()) {
+        is>>priorConsts;
+        if (debug) rpt::echo<<priorConsts<<tb<<"#prior consts"<<endl;
+    } else {
+        is>>str; str.to_upper();
+        if (str!=tcsam::STR_NONE){
+            rpt::echo<<"no prior consts, so input should be 'none', but got '"<<str<<"'"<<endl;
+            rpt::echo<<"Please fix!!"<<endl;
+            exit(-1);
+        }
+        if (debug) rpt::echo<<"#no prior consts"<<endl;
+    }
+    is>>label;
+    if (debug) rpt::echo<<label<<tb<<"#label"<<endl;
     initVals = initVal;
     if (debug) {
         rpt::echo<<"idxType = "<<idxType<<endl;
         rpt::echo<<"IndexBlock = "<<(*ptrIB)<<endl;
         rpt::echo<<"N     = "<<N<<endl;
         rpt::echo<<"init values = "<<initVals<<endl;
-        rpt::echo<<"Finished VectorInfo::read(cifstream & is) for "<<name<<endl;
+        rpt::echo<<"Finished VectorInfo::readPart2(cifstream & is) for "<<name<<endl;
     }
 }
 
@@ -703,13 +853,41 @@ void VectorInfo::read(cifstream & is){
  * 
  * @param [in] os - the output stream to write to
  */
-void VectorInfo::write(ostream & os){
+void VectorInfo::write(std::ostream & os){
+    writePart1(os);
+    writePart2(os);
+}
+
+void VectorInfo::writePart1(std::ostream& os){
     os<<idxType<<tb;
     os<<(*ptrIB)<<tb;
     os<<wts::getBooleanType(readVals);
-    NumberInfo::write(os);
 }
 
+void VectorInfo::writePart2(std::ostream& os){
+    os<<tcsam::getScaleType(scaleType)<<tb;
+    os<<initVal<<tb;
+    os<<phase<<tb;
+    os<<wts::getOnOffType(resample)<<tb;
+    os<<priorWgt<<tb;
+    os<<priorType<<tb;
+    if (pMPI->getNumParams()) os<<priorParams<<tb<<tb; else os<<"none"<<tb<<tb;
+    if (pMPI->getNumConsts()) os<<priorConsts<<tb<<tb; else os<<"none"<<tb<<tb;
+    os<<label<<tb<<tb;
+    os<<"#";
+    if (pMPI->getNumParams()){
+        os<<"prior params are ";
+        adstring_array pNames = pMPI->getNamesForParams();
+        for (int p=pNames.indexmin();p<=pNames.indexmax()-1;p++) os<<pNames(p)<<cc;
+        os<<pNames(pNames.indexmax())<<". ";
+    } else {os<<"no prior params. ";}
+    if (pMPI->getNumConsts()){
+        os<<"prior consts are ";
+        adstring_array cNames = pMPI->getNamesForConsts();
+        for (int c=cNames.indexmin();c<=cNames.indexmax();c++) os<<cNames(c)<<tb;
+        os<<cNames(cNames.indexmax())<<". ";
+    } else {os<<"no prior consts. ";}
+}
 /**
  * Writes the parameter info to an output stream as an R list.
  * 
@@ -722,10 +900,31 @@ void VectorInfo::writeToR(ostream& os){
         finlVals = initVals;
     }
     os<<"list(";
-    NumberInfo::writeToR1(os); os<<cc<<endl;
+    writeToR1(os);
+    os<<")";
+}
+
+void VectorInfo::writeToR1(ostream& os){
+    os<<"label='"<<label<<qt<<cc;
+    os<<"scaleType='"<<tcsam::getScaleType(scaleType)<<qt<<cc;
+    os<<"initVal="<<initVal<<cc;
+    os<<"finalVal="<<finlVal<<cc;
+    os<<"phase="<<phase<<cc;
+    os<<"resample="<<qt<<wts::getOnOffType(resample)<<qt<<cc;
+    os<<"priorWgt="<<priorWgt<<cc;
+    os<<"pdfType=list(type='"<<priorType<<"',";
+    if (pMPI->getNumParams()) {
+        int N=pMPI->getNumParams();
+        adstring_array names=pMPI->getNamesForParams();
+        os<<"params=list("; for(int n=1;n<N;n++) os<<names(n)<<"="<<priorParams(n)<<",";os<<names(N)<<"="<<priorParams(N)<<"),";
+    } else {os<<"params=NULL,";}
+    if (pMPI->getNumConsts()) {
+        int N=pMPI->getNumConsts();
+        adstring_array names=pMPI->getNamesForConsts();
+        os<<"consts=list("; for(int n=1;n<N;n++) os<<names(n)<<"="<<priorConsts(n)<<",";os<<names(N)<<"="<<priorConsts(N)<<")";
+    } else {os<<"consts=NULL)";}
     os<<"initVals=";  wts::writeToR(os,initVals,wts::to_qcsv(ptrIB->getFwdIndexVector())); os<<cc<<endl;
     os<<"finalVals="; wts::writeToR(os,finlVals,wts::to_qcsv(ptrIB->getFwdIndexVector()));
-    os<<")";
 }
 
 /**
@@ -747,12 +946,42 @@ void VectorInfo::writeFinalValsToR(ostream& os){
  *  BoundedVectorInfo
  *----------------------------------------------------------------------------*/
 /**
+ * Calculates arithmetic-scale values corresponding to the input parameter-scale value.
+ * 
+ * @param x - parameter-scale value as a double
+ * @return - arithmetic-scale value as a double
+ * 
+ * @overrides VectorInfo::calcArithScaleVals(double)
+ */
+double BoundedVectorInfo::calcArithScaleVals(double x){
+   if (debug) rpt::echo<<"starting BoundedVectorInfo::calcArithScaleVals(double) "<<this<<endl;
+    double z=0.0;
+    switch (scaleType){
+        case tcsam::SCALE_ARITHM:
+            z = x;
+            break;
+        case tcsam::SCALE_LOG:
+            z = mfexp(x);
+            break;
+        case tcsam::SCALE_LOGIT:
+            z = lower+(upper-lower)/(1.0+mfexp(-1.0*x));
+            break;
+        default:
+            cout<<"BoundedVectorInfo::calcArithScaleVal(double) "<<this<<endl;
+            cout<<"Parameter scale type "<<scaleType<<" not recognized!!"<<endl;
+            ad_exit(1);
+            break;
+    }
+    if (debug) rpt::echo<<"finished BoundedVectorInfo::calcArithScaleVals(double) "<<this<<endl;
+    return z;
+}
+/**
  * Calculates arithmetic-scale values corresponding to the input parameter-scale values.
  * 
  * @param x - parameter-scale values as a dvector
  * @return - arithmetic-scale values as a dvector
  */
-dvector BoundedVectorInfo::calcArithScaleVal(const dvector& x){
+dvector BoundedVectorInfo::calcArithScaleVals(const dvector& x){
     if (debug) rpt::echo<<"starting BoundedVectorInfo::calcArithScaleVal(dvector&) "<<this<<endl;
     dvector z(x.indexmin(),x.indexmax());
     switch (scaleType){
@@ -781,7 +1010,7 @@ dvector BoundedVectorInfo::calcArithScaleVal(const dvector& x){
  * @param x - parameter-scale values as dvar_vector
  * @return - arithmetic-scale values as dvar_vector
  */
-dvar_vector BoundedVectorInfo::calcArithScaleVal(const dvar_vector& x){
+dvar_vector BoundedVectorInfo::calcArithScaleVals(const dvar_vector& x){
     RETURN_ARRAYS_INCREMENT();
     if (debug) rpt::echo<<"starting BoundedVectorInfo::calcArithScaleVal(dvar_vector&) "<<this<<endl;
     dvar_vector z(x.indexmin(),x.indexmax());
@@ -808,10 +1037,46 @@ dvar_vector BoundedVectorInfo::calcArithScaleVal(const dvar_vector& x){
 /**
  * Calculate parameter-scale value corresponding to given bounded arithmetic-scale value.
  * 
+ * @param x - arithmetic-scale double
+ * @return - parameter-scale double
+ */
+double BoundedVectorInfo::calcParamScaleVals(double x){
+    if (debug) rpt::echo<<"starting BoundedVectorInfo::calcParamScaleVal(double) "<<this<<endl;
+    double z = 0;
+    switch (scaleType){
+        case tcsam::SCALE_ARITHM:
+            z = x;
+            break;
+        case tcsam::SCALE_LOG:
+            z = log(x);
+            break;
+        case tcsam::SCALE_LOGIT:
+            {
+                //copy x
+                double xp = x;
+                //replace x "near" bounds with values equivalent to z = -25 or +25
+                if (xp<=lower) xp = lower+(upper-lower)/(1+mfexp( 25.0));
+                if (xp>=upper) xp = lower+(upper-lower)/(1+mfexp(-25.0));
+                double y = (xp-lower)/(upper-lower);//scaled from [lower,upper] to [0,1]
+                z = log(y/(1.0-y));//on logit scale
+                break;
+            }
+        default:
+            cout<<"BoiundedVectorInfo::calcParamScaleVal(double) "<<this<<endl;
+            cout<<"Parameter scale type "<<scaleType<<" not recognized!!"<<endl;
+            ad_exit(1);
+            break;
+    }
+    if (debug) rpt::echo<<"finished BoundedVectorInfo::calcParamScaleVal(double) "<<this<<endl;
+    return z;
+}
+/**
+ * Calculate parameter-scale values corresponding to given bounded arithmetic-scale values.
+ * 
  * @param x - arithmetic-scale dvector
  * @return - parameter-scale dvector
  */
-dvector BoundedVectorInfo::calcParamScaleVal(dvector& x){
+dvector BoundedVectorInfo::calcParamScaleVals(dvector& x){
     if (debug) rpt::echo<<"starting BoundedVectorInfo::calcParamScaleVal(dvector&) "<<this<<endl;
     dvector z(x.indexmin(),x.indexmax());
     switch (scaleType){
@@ -835,13 +1100,32 @@ dvector BoundedVectorInfo::calcParamScaleVal(dvector& x){
                 break;
             }
         default:
-            cout<<"VectorInfo::calcParamScaleVal(dvector&) "<<this<<endl;
+            cout<<"BoundedVectorInfo::calcParamScaleVal(dvector&) "<<this<<endl;
             cout<<"Parameter scale type "<<scaleType<<" not recognized!!"<<endl;
             ad_exit(1);
             break;
     }
     if (debug) rpt::echo<<"finished BoundedVectorInfo::calcParamScaleVal(dvector&) "<<this<<endl;
     return z;
+}
+/**
+ * Set initial values on the arithmetic scale.
+ * 
+ * @param x - double for initial values
+ */
+void BoundedVectorInfo::setInitVals(double x){
+    if (debug) {
+        rpt::echo<<"starting BoundedVectorInfo::setInitVals(double x) for "<<name<<endl;
+    }
+    initVals = x;
+    for (int i=1;i<=N;i++) {
+        if (initVals(i)<=lower) initVals(i) = lower+(upper-lower)/1000000.0; else
+        if (initVals(i)>=upper) initVals(i) = upper-(upper-lower)/1000000.0; 
+    }
+    if (debug) {
+        rpt::echo<<"initVals: "<<initVals<<endl<<"vector x: "<<x<<endl;
+        rpt::echo<<"finished BoundedVectorInfo::setInitVals(double x) for "<<name<<endl;
+    }
 }
 /**
  * Set initial values on the arithmetic scale.
@@ -902,11 +1186,15 @@ dvector BoundedVectorInfo::drawInitVals(random_number_generator& rng, double vif
 }
 
 /**
- *  Calculate log prior probability for each element of the\n
- *  parameter vector.                                      \n
+ * Calculates a vector of the log-scale prior probability based on an input vector of values.
  * 
- * @param pv - dvar_vector on the arithmetic scale to calculate log priors for
-*/
+ * The input values are presumably from the associated parameter values, 
+ * but should be on the "arithmetic" scale.
+ * 
+ * @param x - the input dvar_vector on the arithmetic scale, presumably based on the associated parameters
+ * 
+ * @return - the log-scale prior, as a dvar_vector
+ */
 dvar_vector BoundedVectorInfo::calcLogPrior(dvar_vector & pv){
     RETURN_ARRAYS_INCREMENT();
     if (debug) rpt::echo<<"starting BoundedVectorInfo::calcLogPrior(pv) for "<<name<<endl;
@@ -919,7 +1207,7 @@ dvar_vector BoundedVectorInfo::calcLogPrior(dvar_vector & pv){
         dvariable x;
         for (int i=pv.indexmin();i<=pv.indexmax();i++) {
             x = pv(i);//have to copy pv(i) )
-            lps(i) = BoundedNumberInfo::calcLogPrior(x);
+            lps(i) = pMPI->calcLogPDF(x,priorParams,priorConsts);
         }
     }
     if (debug) {
@@ -931,32 +1219,49 @@ dvar_vector BoundedVectorInfo::calcLogPrior(dvar_vector & pv){
 }
 
 /**
- * Read from cifstream object.\n
- * Read order is: \n
- * mni, mxi, readVals + BoundedNumberInfo::read(is)
+ * Reads the parameter info from an input filestream.
+ * The read order is:
+ * <ul>
+ *  <li> idxType - the index type (as an adstring)
+ *  <li> the index block defining the vector indices (which determines N), as an IndexBlock
+ *  <li> readVals - an adstring flag to subsequently read a vector of initial values
+ *  <li> lower bound - the lower bound on the arithmetic scale
+ *  <li> upper bound - the upper bound on the arithmetic scale
+ *  <li> jitter - adstring flag to "jitter" initial values
+ *  <li> scaleType
+ *  <li> initVal
+ *  <li> phase
+ *  <li> resample
+ *  <li> priorWgt
+ *  <li> priorType
+ *  <li> priorParams
+ *  <li> priorConsts
+ *  <li> label
+ * <\ul>
  * 
- * @param is - input stream to read from
-*/
+ * @param [in] is - the filestream to read from
+ * 
+ * @overrides VectorInfo::read(cifstream& is)
+ */
 void BoundedVectorInfo::read(cifstream & is){
     if (debug) rpt::echo<<"Starting BoundedVectorInfo::read(cifstream & is) for "<<name<<endl;
+    if (debug) VectorInfo::debug = 1;
+    VectorInfo::readPart1(is);
+    if (debug) VectorInfo::debug = 0;
     adstring str;
-    is>>idxType;
-    int imn; int imx; 
-    tcsam::getIndexLimits(idxType,imn,imx);
-    ptrIB = new IndexBlock(imn,imx);
-    is>>(*ptrIB);
-    N = ptrIB->getSize();
-    initVals.allocate(1,N);
-    is>>str; 
-    readVals = wts::getBooleanType(str);
-    BoundedNumberInfo::read(is);
-    initVals = initVal;
-    if (debug) {
-        rpt::echo<<"idxType    = "<<idxType<<endl;
-        rpt::echo<<"IndexBlock = "<<(*ptrIB)<<endl;
-        rpt::echo<<"N          = "<<N<<endl;
-        rpt::echo<<"Done BoundedVectorInfo::read(cifstream & is) for "<<name<<endl;
+    is>>str; jitter=wts::getOnOffType(str);
+    is>>lower;
+    is>>upper;
+    if (debug){
+        rpt::echo<<wts::getOnOffType(jitter)<<tb<<"#jitter"<<endl;
+        rpt::echo<<lower<<tb<<"#lower"<<endl;
+        rpt::echo<<upper<<tb<<"#upper"<<endl;
     }
+    if (debug) VectorInfo::debug = 1;
+    VectorInfo::readPart2(is);
+    if (debug) VectorInfo::debug = 0;
+    initVals = initVal;
+    if (debug) rpt::echo<<"Done BoundedVectorInfo::read(cifstream & is) for "<<name<<endl;
 }
 
 /**
@@ -965,10 +1270,11 @@ void BoundedVectorInfo::read(cifstream & is){
  * @param os - output stream to write to
  */
 void BoundedVectorInfo::write(ostream & os){
-    os<<idxType<<tb;
-    os<<(*ptrIB)<<tb;
-    os<<wts::getBooleanType(readVals);
-    BoundedNumberInfo::write(os);
+    VectorInfo::writePart1(os);
+    os<<wts::getOnOffType(jitter)<<tb;
+    os<<lower<<tb;
+    os<<upper<<tb;
+    VectorInfo::writePart2(os);
 }
 
 /**
@@ -983,7 +1289,7 @@ void BoundedVectorInfo::writeToR(ostream& os){
         finlVals = initVals;
     }
     os<<"list(";
-    BoundedNumberInfo::writeToR1(os); os<<cc<<endl;
+    VectorInfo::writeToR1(os); os<<cc<<endl;
     os<<"initVals=";  wts::writeToR(os,initVals,wts::to_qcsv(ptrIB->getFwdIndexVector())); os<<cc<<endl;
     os<<"finalVals="; wts::writeToR(os,finlVals,wts::to_qcsv(ptrIB->getFwdIndexVector()));
     os<<")";
@@ -1044,6 +1350,19 @@ void NumberVectorInfo::deallocate(void){
     if (debug) rpt::echo<<"finished NumberVectorInfo::deallocate(void) "<<this<<endl;
 }
 
+/**
+ * Gets the parameter scale types for the associated parameters.
+ * 
+ * @return - an adstring_array of scale types
+ */
+adstring_array NumberVectorInfo::getScaleTypes(void){
+    if (debug) rpt::echo<<"starting NumberVectorInfo::getScaleTypes(void) "<<this<<endl;
+    adstring_array types(1,nNIs);
+    if (ppNIs) for (int i=1;i<=nNIs;i++) types(i) = ppNIs[i-1]->getScaleType();
+    if (debug) rpt::echo<<"finished NumberVectorInfo::getScaleTypes(void) "<<this<<endl;
+    return types;
+}
+
 /***************************************************************
 *   get phase info                                             *
 ***************************************************************/
@@ -1067,9 +1386,59 @@ dvector NumberVectorInfo::getPriorWgts(){
     return wts;
 }
 
-/***************************************************************
-*   Get initial parameter values.                              *
-***************************************************************/
+/**
+* Calculates arithmetic-scale values corresponding to the input parameter-scale values.
+* 
+* @param x - parameter-scale values as a dvector
+* @return - arithmetic-scale values as a dvector
+*/
+dvector NumberVectorInfo::calcArithScaleVals(const dvector& x){
+    if (debug) rpt::echo<<"starting NumberVectorInfo::calcArithScaleVals(dvector&) "<<this<<endl;
+    dvector asv(1,nNIs);
+    asv.initialize();
+    if (ppNIs) for (int i=1;i<=nNIs;i++) asv(i) = (ppNIs[i-1])->calcArithScaleVal(x(i));
+    if (debug) rpt::echo<<"finished NumberVectorInfo::calcArithScaleVals(dvector&) "<<this<<endl;
+    return asv;
+}
+
+/**
+* Calculates arithmetic-scale values corresponding to the input parameter-scale values.
+* 
+* @param x - parameter-scale values as dvar_vector
+* @return - arithmetic-scale values as dvar_vector
+*/
+dvar_vector NumberVectorInfo::calcArithScaleVals(const dvar_vector& x){
+    RETURN_ARRAYS_INCREMENT();
+    if (debug) rpt::echo<<"starting NumberVectorInfo::calcArithScaleVals(dvar_vector&) "<<this<<endl;
+    dvar_vector asv(1,nNIs);
+    asv.initialize();
+    if (ppNIs) for (int i=1;i<=nNIs;i++) asv(i) = (ppNIs[i-1])->calcArithScaleVal(x(i));
+    if (debug) rpt::echo<<"finished NumberVectorInfo::calcArithScaleVals(dvar_vector&) "<<this<<endl;
+    RETURN_ARRAYS_DECREMENT();
+    return asv;
+}
+
+/**
+* Calculates parameter-scale values corresponding to the input arithmetic-scale values.
+* 
+* @param x - the arithmetic-scale values as dvector
+* @return - the parameter-scale values as dvector
+*/
+dvector NumberVectorInfo::calcParamScaleVals(dvector& x){
+    if (debug) rpt::echo<<"starting NumberVectorInfo::calcParamScaleVals(dvector&) "<<this<<endl;
+    dvector asv(1,nNIs);
+    asv.initialize();
+    if (ppNIs) for (int i=1;i<=nNIs;i++) asv(i) = (ppNIs[i-1])->calcParamScaleVal(x(i));
+    if (debug) rpt::echo<<"finished NumberVectorInfo::calcParamScaleVals(dvector&) "<<this<<endl;
+    return asv;
+}
+
+/**
+ * Gets a dvector of the initial values for each parameter in the 
+ * associated param_init_number_vector.
+ * 
+ * @return - a dvector
+ */
 dvector NumberVectorInfo::getInitVals(){
     if (debug) rpt::echo<<"starting NumberVectorInfo::getInitVals()"<<this<<endl;
     dvector initVals(1,nNIs);
@@ -1078,21 +1447,28 @@ dvector NumberVectorInfo::getInitVals(){
     return initVals;
 }
 
-/***************************************************************
-*   Set initial parameter values.                              *
-***************************************************************/
-void NumberVectorInfo::setInitVals(param_init_number_vector& x){
-    if (debug) rpt::echo<<"starting NumberVectorInfo::setInitVals(x)"<<this<<endl;
-    for (int i=1;i<=nNIs;i++) ppNIs[i-1]->setInitVal(x(i));
-    if (debug) rpt::echo<<"finished NumberVectorInfo::setInitVals(x)"<<this<<endl;
+/**
+ * Sets initial values on arithmetic scale from corresponding parameter values, which may
+ * not be one the same scale. Primarily used when parameter values are set
+ * using a pin file.
+ * 
+ * @param x - a dvar_vector with the parameter-scale values to set
+ */
+void NumberVectorInfo::setInitValsFromParamVals(const dvar_vector& x){
+    if (debug) rpt::echo<<"starting NumberVectorInfo::setInitValsFromParamVals(x)"<<this<<endl;
+    for (int i=1;i<=nNIs;i++) ppNIs[i-1]->setInitValFromParamVal(x(i));
+    if (debug) rpt::echo<<"finished NumberVectorInfo::setInitValsFromParamVals(x)"<<this<<endl;
 }
 
-/***************************************************************
-*   Set final parameter values.                              *
-***************************************************************/
-void NumberVectorInfo::setFinalVals(param_init_number_vector& x){
+/**
+ * Sets final values on arithmetic scale from corresponding parameter values, which may
+ * not be one the same scale. Primarily used for output to R.
+ * 
+ * @param x - a dvar_vector with the parameter-scale values to set
+ */
+void NumberVectorInfo::setFinalValsFromParamVals(const dvar_vector& x){
     if (debug) rpt::echo<<"starting NumberVectorInfo::setFinalVals(x)"<<this<<endl;
-    for (int i=1;i<=nNIs;i++) ppNIs[i-1]->setFinalVal(x(i));
+    for (int i=1;i<=nNIs;i++) ppNIs[i-1]->setFinalValFromParamVal(x(i));
     if (debug) rpt::echo<<"finished NumberVectorInfo::setFinalVals(x)"<<this<<endl;
 }
 
@@ -1107,9 +1483,16 @@ dvector NumberVectorInfo::drawInitVals(random_number_generator& rng, double vif)
     return initVals;
 }
 
-/***************************************************************
-*   Calculate log prior probability for all parameters.        *
-***************************************************************/
+/**
+ * Calculates a vector of the log-scale prior probability based on an input vector of values.
+ * 
+ * The input values are presumably from the associated parameter values, 
+ * but should be on the "arithmetic" scale.
+ * 
+ * @param x - the input dvar_vector on the arithmetic scale, presumably based on the associated parameters
+ * 
+ * @return - the log-scale prior, as a dvar_vector
+ */
 dvar_vector NumberVectorInfo::calcLogPriors(dvar_vector & pv){
     RETURN_ARRAYS_INCREMENT();
     if (debug) rpt::echo<<"starting NumberVectorInfo::calcLogPriors(pv)"<<this<<tb<<name<<endl;
@@ -1226,22 +1609,10 @@ BoundedNumberInfo* BoundedNumberVectorInfo::operator[](int i){
 }
             
 /**
- * Gets the parameter scale types for the associated parameters.
+ * Get the lower bounds on the arithmetic scale for each parameter in the associated 
+ * param_init_bounded_number_vector.
  * 
- * @return - an adstring_array of scale types
- */
-adstring_array BoundedNumberVectorInfo::getScaleTypes(){
-    if (debug) rpt::echo<<"starting BoundedNumberVectorInfo::getScaleTypes(void) "<<this<<endl;
-    adstring_array lbs(1,nNIs);
-    if (ppNIs) for (int i=1;i<=nNIs;i++) lbs(i) = (static_cast<BoundedNumberInfo*>(ppNIs[i-1]))->getScaleType();
-    if (debug) rpt::echo<<"finished BoundedNumberVectorInfo::getScaleTypes(void) "<<this<<endl;
-    return lbs;
-}
-
-/**
- * Get the lower bounds for parameters as vector.
- * 
- * @return - a dvector with the lower bound for each parameter
+ * @return - a dvector with the lower bound on the arithmetic scale for each parameter
 */
 dvector BoundedNumberVectorInfo::getLowerBounds(void){
     if (debug) rpt::echo<<"starting BoundedNumberVectorInfo::getLowerBounds(void) "<<this<<endl;
@@ -1253,15 +1624,46 @@ dvector BoundedNumberVectorInfo::getLowerBounds(void){
 }
 
 /**
- * Get the upper bounds for parameters as vector.
+ * Gets the lower bound on the parameter scale for each parameter in the associated 
+ * param_init_bounded_number_vector.
  * 
- * @return - a dvector with the upper bound for each parameter
+ * @return - a dvector with the lower bounds on the parameter scale for each parameter
+*/
+dvector BoundedNumberVectorInfo::getLowerBoundsOnParamScales(void){
+    if (debug) rpt::echo<<"starting BoundedNumberVectorInfo::getLowerBoundsOnParamScales(void) "<<this<<endl;
+    dvector lbs(1,nNIs);
+    lbs.initialize();
+    if (ppNIs) for (int i=1;i<=nNIs;i++) lbs(i) = (static_cast<BoundedNumberInfo*>(ppNIs[i-1]))->getLowerBoundOnParamScale();
+    if (debug) rpt::echo<<"finished BoundedNumberVectorInfo::getLowerBoundsOnParamScales(void) "<<this<<endl;
+    return lbs;
+}
+
+/**
+ * Get the upper bounds on the arithmetic scale for each parameter in the associated 
+ * param_init_bounded_number_vector.
+ * 
+ * @return - a dvector with the upper bound on the arithmetic scale for each parameter
 */
 dvector BoundedNumberVectorInfo::getUpperBounds(void){
     if (debug) rpt::echo<<"starting BoundedNumberVectorInfo::getUpperBounds(void) "<<this<<endl;
     dvector ubs(1,nNIs);
     ubs.initialize();
     if (ppNIs) for (int i=1;i<=nNIs;i++) ubs(i) = (static_cast<BoundedNumberInfo*>(ppNIs[i-1]))->getUpperBound();
+    if (debug) rpt::echo<<"finished BoundedNumberVectorInfo::getUpperBounds(void) "<<this<<endl;
+    return ubs;
+}
+
+/**
+ * Get the upper bounds on the parameter scale for each parameter in the associated 
+ * param_init_bounded_number_vector.
+ * 
+ * @return - a dvector with the upper bound on the parameter scale for each parameter
+*/
+dvector BoundedNumberVectorInfo::getUpperBoundsOnParamScales(void){
+    if (debug) rpt::echo<<"starting BoundedNumberVectorInfo::getUpperBounds(void) "<<this<<endl;
+    dvector ubs(1,nNIs);
+    ubs.initialize();
+    if (ppNIs) for (int i=1;i<=nNIs;i++) ubs(i) = (static_cast<BoundedNumberInfo*>(ppNIs[i-1]))->getUpperBoundOnParamScale();
     if (debug) rpt::echo<<"finished BoundedNumberVectorInfo::getUpperBounds(void) "<<this<<endl;
     return ubs;
 }
@@ -1319,9 +1721,9 @@ dvector BoundedNumberVectorInfo::calcParamScaleVals(dvector& x){
  * @param x - reference to a param_init_bounded_number_vector instance
  * 
 */
-void BoundedNumberVectorInfo::setInitVals(param_init_bounded_number_vector& x){
+void BoundedNumberVectorInfo::setInitValsFromParamVals(const dvar_vector& x){
     if (debug) rpt::echo<<"starting BoundedNumberVectorInfo::setInitVals(x)"<<this<<endl;
-    for (int i=1;i<=nNIs;i++) (static_cast<BoundedNumberInfo*>(ppNIs[i-1]))->setInitVal(x(i));
+    for (int i=1;i<=nNIs;i++) (static_cast<BoundedNumberInfo*>(ppNIs[i-1]))->setInitValFromParamVal(x(i));
     if (debug) rpt::echo<<"finished BoundedNumberVectorInfo::setInitVals(x)"<<this<<endl;
 }
 
@@ -1331,9 +1733,9 @@ void BoundedNumberVectorInfo::setInitVals(param_init_bounded_number_vector& x){
  * @param x - reference to a param_init_bounded_number_vector instance
  * 
 */
-void BoundedNumberVectorInfo::setFinalVals(param_init_bounded_number_vector& x){
+void BoundedNumberVectorInfo::setFinalValsFromParamVals(const dvar_vector& x){
     if (debug) rpt::echo<<"starting BoundedNumberVectorInfo::setFinalVals(x)"<<this<<endl;
-    for (int i=1;i<=nNIs;i++) (static_cast<BoundedNumberInfo*>(ppNIs[i-1]))->setFinalVal(x(i));
+    for (int i=1;i<=nNIs;i++) (static_cast<BoundedNumberInfo*>(ppNIs[i-1]))->setFinalValFromParamVal(x(i));
     if (debug) rpt::echo<<"finished BoundedNumberVectorInfo::setFinalVals(x)"<<this<<endl;
 }
 
@@ -1366,9 +1768,12 @@ void BoundedNumberVectorInfo::read(cifstream & is){
         ppNIs = new NumberInfo*[nNIs];
         for (int p=0;p<nNIs;p++) {
             is>>idx;
+            if (debug) rpt::echo<<"reading idx = "<<idx<<endl;
             if (idx<=nNIs){
                 BoundedNumberInfo* pBNI = new BoundedNumberInfo();
+                if (debug) BoundedNumberInfo::debug = 1;
                 is>>(*pBNI);
+                if (debug) BoundedNumberInfo::debug = 0;
                 ppNIs[idx-1] = pBNI;
             } else {
                 rpt::echo<<"Error reading file "<<is.get_file_name()<<endl;
@@ -1394,8 +1799,8 @@ void BoundedNumberVectorInfo::read(cifstream & is){
 void BoundedNumberVectorInfo::write(ostream & os){
     if (debug) rpt::echo<<"Starting BoundedNumberVectorInfo::write(ostream & os) for "<<name<<endl;
     os<<tb<<nNIs<<"  #number of bounded parameters"<<endl;
-    os<<"#     lower  upper          param initial       resample  prior   prior  prior   prior"<<endl;
-    os<<"#id   bounds bounds jitter? scale  value  phase  values?  weight  type   params  consts  label"<<endl;
+    os<<"#           lower  upper  initial param        resample  prior   prior  prior   prior"<<endl;
+    os<<"#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label"<<endl;
     if (nNIs){
         for (int p=0;p<(nNIs-1);p++) os<<(p+1)<<tb<<(*ppNIs[p])<<endl;
         os<<nNIs<<tb<<(*ppNIs[nNIs-1]);
@@ -1463,6 +1868,19 @@ ivector VectorVectorInfo::getMaxIndices(void){
     if (ppVIs) for (int i=1;i<=nVIs;i++) idxs(i) = ppVIs[i-1]->getSize();
     if (debug) rpt::echo<<"finished VectorVectorInfo::getMaxIndices(void) for "<<name<<endl;
     return idxs;
+}
+
+/**
+ * Gets the parameter-scale types for each associated parameter vector.
+ * 
+ * @return - an adstring_array
+ */
+adstring_array VectorVectorInfo::getScaleTypes(void){
+    if (debug) rpt::echo<<"starting VectorVectorInfo::getScaleTypes(void) for "<<name<<endl;
+    adstring_array v(1,nVIs);
+    if (ppVIs) for (int i=1;i<=nVIs;i++) v(i) = ppVIs[i-1]->getScaleType();
+    if (debug) rpt::echo<<"finished VectorVectorInfo::getScaleTypes(void) for "<<name<<endl;
+    return v;
 }
 
 /**
@@ -1554,8 +1972,8 @@ void VectorVectorInfo::read(cifstream & is){
 ***************************************************************/
 void VectorVectorInfo::write(ostream & os){
     os<<tb<<nVIs<<"  #number of parameters"<<endl;
-    os<<"#     index   read   param  initial       resample  prior   prior  prior   prior"<<endl;
-    os<<"#id   block  values? scale   value  phase  values?  weight  type   params  consts  label"<<endl;
+    os<<"#     index index   read   initial param        resample  prior   prior  prior   prior"<<endl;
+    os<<"#id   type  block  values? value   scale  phase  values?  weight  type   params  consts  label"<<endl;
     if (nVIs){
         for (int p=0;p<=(nVIs-1);p++) os<<(p+1)<<tb<<(*ppVIs[p])<<endl;
         os<<"#--initial values read in (index  values):";
@@ -1597,44 +2015,60 @@ void VectorVectorInfo::writeFinalValsToR(ostream& os){
 /*------------------------------------------------------------------------------
  *  BoundedVectorVectorInfo
  *----------------------------------------------------------------------------*/
-/***************************************************************
-*   get lower bounds for parameters as vector                  *
-***************************************************************/
+/**
+ * Gets a vector of the lower bounds (on the arithmetic scale) for the associated BoundedVectorInfo instances.
+ * 
+ * @return - a dvector of the lower bounds, on the arithmetic scale
+ */
 dvector BoundedVectorVectorInfo::getLowerBounds(void){
     if (debug) rpt::echo<<"starting BoundedVectorVectorInfo::getLowerBounds(void) "<<this<<endl;
-    dvector lbs(1,nVIs);
-    lbs.initialize();
-    if (ppVIs) for (int i=1;i<=nVIs;i++) lbs(i) = (ppVIs[i-1])->getLowerBound();
+    dvector bnds(1,nVIs);
+    bnds.initialize();
+    if (ppVIs) for (int i=1;i<=nVIs;i++) bnds(i) = (static_cast<BoundedVectorInfo*>(ppVIs[i-1]))->getLowerBound();
     if (debug) rpt::echo<<"finished BoundedVectorVectorInfo::getLowerBounds(void) "<<this<<endl;
-    return lbs;
-}
-
-/***************************************************************
-*   get upper bounds for parameters as vector                  *
-***************************************************************/
-dvector BoundedVectorVectorInfo::getUpperBounds(void){
-    if (debug) rpt::echo<<"starting BoundedVectorVectorInfo::getUpperBounds(void) "<<this<<endl;
-    dvector ubs(1,nVIs);
-    ubs.initialize();
-    if (ppVIs) for (int i=1;i<=nVIs;i++) ubs(i) = (ppVIs[i-1])->getUpperBound();
-    if (debug) rpt::echo<<"finished BoundedVectorVectorInfo::getUpperBounds(void) "<<this<<endl;
-    return ubs;
+    return bnds;
 }
 
 /**
- * Function to return labels for individual parameter vectors as an
- * adstring_array.
+ * Gets a vector of the lower bounds (on the parameter vector scales) for the associated BoundedVectorInfo instances.
  * 
- * @return adstring_array
+ * @return - a dvector of the lower bounds, on the parameter vector scales
  */
-adstring_array BoundedVectorVectorInfo::getLabels(void){
-    adstring_array arr(1,1);
-    if (nVIs){
-        adstring_array arr(1,nVIs);
-        for (int i=1;i<=nVIs;i++) arr(i) = (*this)[i]->label;
-        return(arr);
-    }
-    return(arr);
+dvector BoundedVectorVectorInfo::getLowerBoundsOnParamScales(void){
+    if (debug) rpt::echo<<"starting BoundedVectorVectorInfo::getLowerBoundsOnParamScales(void) "<<this<<endl;
+    dvector bnds(1,nVIs);
+    bnds.initialize();
+    if (ppVIs) for (int i=1;i<=nVIs;i++) bnds(i) = (static_cast<BoundedVectorInfo*>(ppVIs[i-1]))->getLowerBoundOnParamScale();
+    if (debug) rpt::echo<<"finished BoundedVectorVectorInfo::getLowerBoundsOnParamScales(void) "<<this<<endl;
+    return bnds;
+}
+
+/**
+ * Gets a vector of the upper bounds (on the arithmetic scale) for the associated BoundedVectorInfo instances.
+ * 
+ * @return - a dvector of the upper bounds
+ */
+dvector BoundedVectorVectorInfo::getUpperBounds(void){
+    if (debug) rpt::echo<<"starting BoundedVectorVectorInfo::getUpperBounds(void) "<<this<<endl;
+    dvector bnds(1,nVIs);
+    bnds.initialize();
+    if (ppVIs) for (int i=1;i<=nVIs;i++) bnds(i) = (static_cast<BoundedVectorInfo*>(ppVIs[i-1]))->getUpperBound();
+    if (debug) rpt::echo<<"finished BoundedVectorVectorInfo::getUpperBounds(void) "<<this<<endl;
+    return bnds;
+}
+
+/**
+ * Gets a vector of the upper bounds (on the parameter vector scales) for the associated BoundedVectorInfo instances.
+ * 
+ * @return - a dvector of the upper bounds, on the parameter vector scales
+ */
+dvector BoundedVectorVectorInfo::getUpperBoundsOnParamScales(void){
+    if (debug) rpt::echo<<"starting BoundedVectorVectorInfo::getUpperBoundsOnParamScales(void) "<<this<<endl;
+    dvector bnds(1,nVIs);
+    bnds.initialize();
+    if (ppVIs) for (int i=1;i<=nVIs;i++) bnds(i) = (static_cast<BoundedVectorInfo*>(ppVIs[i-1]))->getUpperBoundOnParamScale();
+    if (debug) rpt::echo<<"finished BoundedVectorVectorInfo::getUpperBoundsOnParamScales(void) "<<this<<endl;
+    return bnds;
 }
 
 /***************************************************************
@@ -1647,7 +2081,7 @@ void BoundedVectorVectorInfo::read(cifstream & is){
     if (ppVIs) deallocate();
     if (nVIs>0) {
         int idx;
-        ppVIs = new BoundedVectorInfo*[nVIs];
+        ppVIs = new VectorInfo*[nVIs];
         for (int p=0;p<nVIs;p++) {
             is>>idx;
             if ((idx>0)&&(idx<=nVIs)){
@@ -1665,7 +2099,7 @@ void BoundedVectorVectorInfo::read(cifstream & is){
         }
         //read vector values, if flagged
         for (int p=0;p<nVIs;p++) {
-            BoundedVectorInfo* pVI = ppVIs[p];
+            BoundedVectorInfo* pVI = static_cast<BoundedVectorInfo*>(ppVIs[p]);
             if (pVI->readVals) {
                 if (debug) rpt::echo<<"Reading vector values for "<<p+1<<"th bounded vector"<<endl;
                 pVI->readInitVals(is);
@@ -1684,8 +2118,8 @@ void BoundedVectorVectorInfo::read(cifstream & is){
 ***************************************************************/
 void BoundedVectorVectorInfo::write(ostream & os){
     os<<tb<<nVIs<<"  #number of bounded parameters"<<endl;
-    os<<"#     index   read   lower  upper          param initial       resample  prior   prior  prior   prior"<<endl;
-    os<<"#id   block  values? bounds bounds jitter? scale  value  phase  values?  weight  type   params  consts  label"<<endl;
+    os<<"#     index index   read           lower  upper  initial param       resample  prior   prior  prior   prior"<<endl;
+    os<<"#id   type  block  values? jitter? bounds bounds  value  scale phase  values?  weight  type   params  consts  label"<<endl;
     if (nVIs){
         for (int p=0;p<=(nVIs-1);p++) os<<(p+1)<<tb<<(*ppVIs[p])<<endl;
         os<<"#--initial values read in (index  values):";
@@ -1722,65 +2156,7 @@ void BoundedVectorVectorInfo::writeFinalValsToR(ostream& os){
         os<<"NULL";
     }
 }
-/***************************************************************
-*   deallocation                                               *
-***************************************************************/
-void BoundedVectorVectorInfo::deallocate(void){
-    if (debug) rpt::echo<<"starting BoundedVectorVectorInfo::deallocate(void) "<<this<<endl;
-    if (ppVIs) {
-        for (int p=0;p<nVIs;p++) if (ppVIs[p]!=0) delete ppVIs[p];
-        delete[] ppVIs;
-        ppVIs = 0;
-    }
-    if (debug) rpt::echo<<"finished BoundedVectorVectorInfo::deallocate(void) "<<this<<endl;
-}
 
-/***************************************************************
-*   get min indices                                            *
-***************************************************************/
-ivector BoundedVectorVectorInfo::getMinIndices(void){
-    if (debug) rpt::echo<<"starting BoundedVectorVectorInfo::getMinIndices(void) "<<this<<endl;
-    ivector idxs(1,nVIs);
-    idxs.initialize();
-    if (ppVIs) idxs=1;
-    if (debug) rpt::echo<<"finished BoundedVectorVectorInfo::getMinIndices(void) "<<this<<endl;
-    return idxs;
-}
-
-/***************************************************************
-*   get max indices                                            *
-***************************************************************/
-ivector BoundedVectorVectorInfo::getMaxIndices(void){
-    if (debug) rpt::echo<<"starting BoundedVectorVectorInfo::getMaxIndices(void) "<<this<<endl;
-    ivector idxs(1,nVIs);
-    idxs.initialize();
-    if (ppVIs) for (int i=1;i<=nVIs;i++) idxs(i) = ppVIs[i-1]->getSize();
-    if (debug) rpt::echo<<"finished BoundedVectorVectorInfo::getMaxIndices(void) "<<this<<endl;
-    return idxs;
-}
-
-/***************************************************************
-*   get phase info                                             *
-***************************************************************/
-ivector BoundedVectorVectorInfo::getPhases(void){
-    if (debug) rpt::echo<<"starting BoundedVectorVectorInfo::getPhases(void) "<<this<<endl;
-    ivector phases(1,nVIs);
-    phases.initialize();
-    if (ppVIs) for (int i=1;i<=nVIs;i++) phases(i) = ppVIs[i-1]->getPhase();
-    if (debug) rpt::echo<<"finished BoundedVectorVectorInfo::getPhases(void) "<<this<<endl;
-    return phases;
-}
-
-/***************************************************************
-*   get likelihood weights for log prior probabilities         *
-***************************************************************/
-dvector BoundedVectorVectorInfo::getPriorWgts(){
-    if (debug) rpt::echo<<"starting BoundedVectorVectorInfo::getPriorWgts()"<<this<<endl;
-    dvector wts(1,nVIs);
-    for (int i=1;i<=nVIs;i++) wts(i) = ppVIs[i-1]->getPriorWgt();
-    if (debug) rpt::echo<<"finished BoundedVectorVectorInfo::getPriorWgts()"<<this<<endl;
-    return wts;
-}
 ////////////////////////////BoundedVectorVectorInfo/////////////////////////////////
 
 /*------------------------------------------------------------------------------
@@ -1834,12 +2210,15 @@ void DevsVectorVectorInfo::read(cifstream & is){
     if (ppVIs) deallocate();
     if (nVIs>0) {
         int idx;
-        ppVIs = new BoundedVectorInfo*[nVIs];
+        ppVIs = new VectorInfo*[nVIs];
         for (int p=0;p<nVIs;p++) {
             is>>idx;
+            if (debug) rpt::echo<<"reading index "<<idx<<endl;
             if ((idx>0)&&(idx<=nVIs)){
                 DevsVectorInfo* pDVI = new DevsVectorInfo();
+                if (debug) {DevsVectorInfo::debug=1; BoundedVectorInfo::debug=1;}
                 is>>(*pDVI);
+                if (debug) {DevsVectorInfo::debug=0; BoundedVectorInfo::debug=0;}
                 ppVIs[idx-1] = pDVI;
             } else {
                 rpt::echo<<"Error in DevsVectorVectorInfo::read(cifstream & is)"<<endl;

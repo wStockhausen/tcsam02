@@ -156,7 +156,7 @@ void setDevs(dvar_matrix& devs, param_init_bounded_vector_vector& pDevs, DevsVec
         for (int v=1;v<=nv;v++){
             mni = pDevs(v).indexmin();
             mxi = pDevs(v).indexmax();
-            devs(v)(mni,mxi) = (*pI)[v]->calcArithScaleVal(pDevs(v));
+            devs(v)(mni,mxi) = (*pI)[v]->calcArithScaleVals(pDevs(v));
             if (debug>=(tcsam::dbgAll)) cout<<v<<":  "<<devs(v)<<endl;
         }
         if (debug>=(tcsam::dbgAll+1)) {
@@ -432,7 +432,7 @@ void writeParameter(ostream& os, param_init_bounded_number& p,adstring& ctg1, ad
                     BoundedNumberInfo* pI, int toR, int willBeActive){
     if (!willBeActive||(willBeActive&&(p.get_phase_start()>0))){
         std::cout<<p.get_name()<<tb<<p.get_phase_start()<<tb<<p.get_minb()<<tb<<p.get_maxb()<<tb<<p<<endl;
-        std::cout<<pI->label<<tb<<pI->getLowerBound()<<tb<<pI->getUpperBound()<<tb<<pI->getInitVal()<<tb<<pI->calcParamScaleVal(pI->getInitVal())<<endl;
+        std::cout<<pI->label<<tb<<pI->getLowerBoundOnParamScale()<<tb<<pI->getUpperBoundOnParamScale()<<tb<<pI->getInitVal()<<tb<<pI->calcParamScaleVal(pI->getInitVal())<<endl;
         if (toR){
             os<<p.get_name()<<"=list("<<"type='param_init_bounded_number'"<<cc
                                 <<"ctg1="<<qt<<ctg1<<qt<<cc
@@ -467,7 +467,7 @@ void writeParameter(ostream& os, param_init_vector& p,adstring& ctg1, adstring& 
     int mn = p.indexmin();
     int mx = p.indexmax();
     if (!willBeActive||(willBeActive&&(p.get_phase_start()>0))){
-        dvector vals = pI->calcArithScaleVal(value(p));
+        dvector vals = pI->calcArithScaleVals(value(p));
         if (toR){
             os<<p.get_name()<<"=list("<<"type='param_init_vector'"<<cc
                                 <<"ctg1="<<qt<<ctg1<<qt<<cc
@@ -502,7 +502,7 @@ void writeParameter(ostream& os, param_init_bounded_vector& p,adstring& ctg1, ad
     int mn = p.indexmin();
     int mx = p.indexmax();
     if (!willBeActive||(willBeActive&&(p.get_phase_start()>0))){
-        dvector vals = pI->calcArithScaleVal(value(p));
+        dvector vals = pI->calcArithScaleVals(value(p));
         if (toR){
             os<<p.get_name()<<"=list("<<"type='param_init_bounded_vector'"<<cc
                                 <<"ctg1="<<qt<<ctg1<<qt<<cc
@@ -510,14 +510,14 @@ void writeParameter(ostream& os, param_init_bounded_vector& p,adstring& ctg1, ad
                                 <<"lbl="<<qt<<pI->label<<qt<<cc
                                 <<"dims=c("<<mn<<cc<<mx<<")"<<cc
                                 <<"phase="<<p.get_phase_start()<<cc
-                                <<"bounds=c("<<pI->calcArithScaleVal(p.get_minb())<<cc
-                                             <<pI->calcArithScaleVal(p.get_maxb())<<")"<<cc
+                                <<"bounds=c("<<pI->calcArithScaleVals(p.get_minb())<<cc
+                                             <<pI->calcArithScaleVals(p.get_maxb())<<")"<<cc
                                 <<"value=c("; for (int i=mn;i<mx;i++) {os<<vals(i)<<cc;} os<<vals(mx)<<")";
             os<<"),";
         } else {
             for (int i=mn;i<=mx;i++) os<<i<<cc<<p.get_phase_start()<<cc<<mn<<cc<<mx<<cc
-                                       <<pI->calcArithScaleVal(p.get_minb())<<cc
-                                       <<pI->calcArithScaleVal(p.get_maxb())<<cc
+                                       <<pI->calcArithScaleVals(p.get_minb())<<cc
+                                       <<pI->calcArithScaleVals(p.get_maxb())<<cc
                                        <<vals(i)<<cc<<p.get_name()<<cc<<"\"param_init_bounded_vector\",\""
                                        <<ctg1<<"\",\""<<ctg2<<"\",\""<<pI->label<<"\""<<endl;
         }
@@ -547,17 +547,17 @@ void writeParameter(ostream& os, param_init_bounded_dev_vector& p,adstring& ctg1
                                 <<"lbl="<<qt<<pI->label<<qt<<cc
                                 <<"dims=c("<<mn<<cc<<mx<<")"<<cc
                                 <<"phase="<<p.get_phase_start()<<cc
-                                <<"bounds=c("<<pI->calcArithScaleVal(p.get_minb())<<cc
-                                             <<pI->calcArithScaleVal(p.get_maxb())<<")"<<cc
+                                <<"bounds=c("<<pI->calcArithScaleVals(p.get_minb())<<cc
+                                             <<pI->calcArithScaleVals(p.get_maxb())<<")"<<cc
                                 <<"value=c("; 
-                for (int i=mn;i<mx;i++) os<<pI->calcArithScaleVal(value(p(i)))<<cc; 
-                os<<pI->calcArithScaleVal(value(p(mx)))<<")";
+                for (int i=mn;i<mx;i++) os<<pI->calcArithScaleVals(value(p(i)))<<cc; 
+                os<<pI->calcArithScaleVals(value(p(mx)))<<")";
            os<<"),";
         } else {
             for (int i=mn;i<=mx;i++) os<< i<<cc<<p.get_phase_start()<<cc<<mn<<cc<<mx<<cc
-                                       <<pI->calcArithScaleVal(p.get_minb())<<cc
-                                       <<pI->calcArithScaleVal(p.get_maxb())<<cc
-                                       <<pI->calcArithScaleVal(value(p(i)))<<cc<<p.get_name()<<cc
+                                       <<pI->calcArithScaleVals(p.get_minb())<<cc
+                                       <<pI->calcArithScaleVals(p.get_maxb())<<cc
+                                       <<pI->calcArithScaleVals(value(p(i)))<<cc<<p.get_name()<<cc
                                        <<"\"param_init_bounded_dev_vector\",\""<<ctg1<<"\",\""<<ctg2<<"\",\""
                                        <<pI->label<<"\""<<endl;
         }
@@ -649,7 +649,7 @@ void writeParameters(ostream& os, param_init_bounded_vector_vector& p, adstring&
 }
 
 /**
- * Sets the parameter info for a NumberVectorInfo object.
+ * Sets the info for a param_init_number_vector from a NumberVectorInfo object.
  * 
  * 
  * @param [in]      pNVI - pointer to a NumberVectorInfo instance
@@ -664,11 +664,13 @@ void setParameterInfo(NumberVectorInfo* pNVI,
     int np = pNVI->getSize();
     if (np){npT = np;} else {npT = 1;}
     phs.allocate(1,npT);
+    adstring_array scales(1,npT);
     if (np){
         phs = pNVI->getPhases();
+        scales = pNVI->getScaleTypes();
         os<<"parameter "<<pNVI->name<<":"<<endl;
-        os<<"#phase"<<endl;
-        for (int n=1;n<=np;n++) os<<n<<tb<<phs(n)<<endl;
+        os<<"#phase   scale"<<endl;
+        for (int n=1;n<=np;n++) os<<n<<tb<<phs(n)<<tb<<scales(n)<<endl;
     } else {
         phs = -1;
         os<<"number vector parameter "<<pNVI->name<<" has no parameter values"<<endl;
@@ -676,7 +678,7 @@ void setParameterInfo(NumberVectorInfo* pNVI,
 }
   
 /**
- * Set the parameter info for a BoundedNumberVectorInfo object.
+ * Set the info for a param_init_bounded_number_vector from a BoundedNumberVectorInfo object.
  * 
  * @param [in]      pBNVI - pointer to a BoundedNumberVectorInfo instance
  * @param [in][out] npT   - size of vector
@@ -698,8 +700,8 @@ void setParameterInfo(BoundedNumberVectorInfo* pBNVI,
     adstring_array scales(1,npT);
     if (np){
         phs = pBNVI->getPhases();
-        lb  = pBNVI->getLowerBounds();
-        ub  = pBNVI->getUpperBounds();
+        lb  = pBNVI->getLowerBoundsOnParamScales();
+        ub  = pBNVI->getUpperBoundsOnParamScales();
         scales = pBNVI->getScaleTypes();
         os<<"parameter "<<pBNVI->name<<":"<<endl;
         os<<"#lower  upper  phase  scale"<<endl;
@@ -713,7 +715,7 @@ void setParameterInfo(BoundedNumberVectorInfo* pBNVI,
 }
   
 /**
- * Set the parameter info for a VectorVectorInfo object.
+ * Set the info for a param_init_vector_vector from a VectorVectorInfo object.
  * 
  * @param pVVI - pointer to a VectorVectorInfo instance
  * @param npT - size of vector
@@ -732,13 +734,15 @@ void setParameterInfo(VectorVectorInfo* pVVI,
     mns.allocate(1,npT);
     mxs.allocate(1,npT);
     phs.allocate(1,npT);
+    adstring_array scales(1,npT);
     if (np){
         phs = pVVI->getPhases();
         mns = pVVI->getMinIndices();
         mxs = pVVI->getMaxIndices();
+        scales = pVVI->getScaleTypes();
         os<<"parameter vector"<<pVVI->name<<":"<<endl;
-        os<<"#mnIdx  mxIdx  phase"<<endl;
-        for (int n=1;n<=np;n++) os<<n<<tb<<mns(n)<<tb<<mxs(n)<<tb<<phs(n)<<endl;
+        os<<"#mnIdx  mxIdx  phase  scale"<<endl;
+        for (int n=1;n<=np;n++) os<<n<<tb<<mns(n)<<tb<<mxs(n)<<tb<<phs(n)<<tb<<scales(n)<<endl;
     } else {
         mns =  0;
         mxs =  0;
@@ -748,7 +752,7 @@ void setParameterInfo(VectorVectorInfo* pVVI,
 }
   
 /**
- * Set the parameter info for a BoundedVectorVectorInfo object.
+ * Set the info for a param_init_bounded_vector_vector from a BoundedVectorVectorInfo object.
  * 
  * @param pBVVI - pointer to a BoundedVectorVectorInfo instance
  * @param npT - size of vector
@@ -774,15 +778,17 @@ void setParameterInfo(BoundedVectorVectorInfo* pBVVI,
     lb.allocate(1,npT);
     ub.allocate(1,npT);
     phs.allocate(1,npT);
+    adstring_array scales(1,npT);
     if (np){
         phs = pBVVI->getPhases();
         mns = pBVVI->getMinIndices();
         mxs = pBVVI->getMaxIndices();
-        lb  = pBVVI->getLowerBounds();
-        ub  = pBVVI->getUpperBounds();
+        lb  = pBVVI->getLowerBoundsOnParamScales();
+        ub  = pBVVI->getUpperBoundsOnParamScales();
+        scales = pBVVI->getScaleTypes();
         os<<"parameter vector "<<pBVVI->name<<":"<<endl;
-        os<<"#mnIdx  mxIdx  lower  upper  phase"<<endl;
-        for (int n=1;n<=np;n++) os<<n<<tb<<mns(n)<<tb<<mxs(n)<<tb<<lb(n)<<tb<<ub(n)<<tb<<phs(n)<<endl;
+        os<<"#mnIdx  mxIdx  lower  upper  phase  scale"<<endl;
+        for (int n=1;n<=np;n++) os<<n<<tb<<mns(n)<<tb<<mxs(n)<<tb<<lb(n)<<tb<<ub(n)<<tb<<phs(n)<<tb<<scales(n)<<endl;
         idxs.allocate(1,np);
         for (int n=1;n<=np;n++) idxs(n) = (*pBVVI)[n]->getRevIndices();
         os<<"Reverse indices:"<<endl;
@@ -812,7 +818,8 @@ void setParameterInfo(BoundedVectorVectorInfo* pBVVI,
 }
 
 /**
- * Set the parameter info for a DevsVectorVectorInfo object.
+ * Set the info for a param_init_bounded_vector_vector acting as a devs_vector_vector
+ * from a DevsVectorVectorInfo object.
  * 
  * @param pDVVI - pointer to a DevsVectorVectorInfo instance
  * @param npT - size of vector
@@ -838,15 +845,17 @@ void setParameterInfo(DevsVectorVectorInfo* pDVVI,
     lb.allocate(1,npT);
     ub.allocate(1,npT);
     phs.allocate(1,npT);
+    adstring_array scales(1,npT);
     if (np){
         phs = pDVVI->getPhases();
         mns = pDVVI->getMinIndices();
         mxs = pDVVI->getMaxIndices();
-        lb  = pDVVI->getLowerBounds();
-        ub  = pDVVI->getUpperBounds();
+        lb  = pDVVI->getLowerBoundsOnParamScales();
+        ub  = pDVVI->getUpperBoundsOnParamScales();
+        scales = pDVVI->getScaleTypes();
         os<<"parameter vector"<<pDVVI->name<<":"<<endl;
-        os<<"#mnIdx  mxIdx  lower  upper  phase"<<endl;
-        for (int n=1;n<=np;n++) os<<n<<tb<<mns(n)<<tb<<mxs(n)<<tb<<lb(n)<<tb<<ub(n)<<tb<<phs(n)<<endl;
+        os<<"#mnIdx  mxIdx  lower  upper  phase  scale"<<endl;
+        for (int n=1;n<=np;n++) os<<n<<tb<<mns(n)<<tb<<mxs(n)<<tb<<lb(n)<<tb<<ub(n)<<tb<<phs(n)<<tb<<scales(n)<<endl;
         idxs.allocate(1,np);
         for (int n=1;n<=np;n++) idxs(n) = (*pDVVI)[n]->getRevIndices();
         os<<"Reverse indices:"<<endl;

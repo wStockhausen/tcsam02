@@ -323,7 +323,13 @@
 //                  all selectivity parameters.
 //              2. Implemented non-arithmetic input scales for recruitment parameters
 //                  except pLnR, and for pLnM (now pM) and pLnQ (now pQ). 
-//              3. Added rmse's to output for likelihood calculations
+//              3. Added rmse's to output for likelihood calculations.
+//--2017-11-08: 1. Refactored ModelParameterInfoTypes to better handle parameter scaling.
+//                  BounderVectorInfo now inherits from VectorInfo and method names 
+//                  were changed or added to reflect whether inputs/outputs are
+//                  on the parameter scale. 
+//--2017-11-13: 1. Continued refactoring ModelParameterInfoTypes to better handle parameter scaling.
+//              2. Changed MPI version to 20171113.
 // =============================================================================
 // =============================================================================
 GLOBALS_SECTION
@@ -1383,64 +1389,69 @@ PRELIMINARY_CALCS_SECTION
     rpt::echo<<"\n--calculating average effort"<<endl;
     rpt::echo<<"mapD2MFsh = "<<mapD2MFsh<<endl;    
     rpt::echo<<"nEASs     = "<<nEASs<<endl;    
-    EffAvgScenarios* ptrEASs = ptrMOs->ptrEffXtrapScenarios->ptrEffAvgScenarios;
-    for (int n=1;n<=nEASs;n++){//effort averaging scenarios
-        EffAvgScenario* ptrEAS = ptrEASs->ppEASs[n-1];
-        int fm = ptrEAS->f;    //index for fishery associate with this averaging scenario
-        int fd = mapM2DFsh(fm);//index for corresponding fishery data object
-        rpt::echo<<"n = "<<n<<". fm = "<<fm<<". fd = "<<fd<<endl;
-        if (!ptrMDS->ppFsh[fd-1]->ptrEff){
-            cout<<"---------------------------------------------------"<<endl;
-            cout<<"No effort data given for "<<ptrMC->lblsFsh[fm]<<","<<endl;
-            cout<<"but effort averaging requested! Aborting..."<<endl;
-            exit(-1);
-        }
-        rpt::echo<<"fishery has effort"<<endl;
-        //extract years for effort averaging, keeping model limits in mind
-        yrsAvgEff_ny(n).deallocate();
-        yrsAvgEff_ny(n) = wts::extractVector(mnYr,mxYr,ptrEAS->ptrIB->getFwdIndexVector());
-        //assign values for effort averaging
-        eff_ny(n).deallocate();
-        eff_ny(n) = ptrMDS->ppFsh[fd-1]->ptrEff->eff_y(yrsAvgEff_ny(n));
-        rpt::echo<<"eff_ny(n)       = "<<eff_ny(n)<<endl;
-        rpt::echo<<"yrsAvgEff_ny(n) = "<<yrsAvgEff_ny(n)<<endl;
-        avgEff_n(n) = sum(eff_ny(n))/yrsAvgEff_ny(n).size();
-        rpt::echo<<"avgEff_n(n) = "<<avgEff_n(n)<<endl;
-    }//n
-    rpt::echo<<"eff_ny       = "<<endl<<eff_ny<<endl;
-    rpt::echo<<"yrsAvgEff_ny = "<<endl<<yrsAvgEff_ny<<endl;
-    rpt::echo<<"avgEff_n     = "<<avgEff_n<<endl;
-    rpt::echo<<"finished calculating average effort scenarios"<<endl;
-    cout<<"finished calculating average effort scenarios"<<endl;
-    
-    cout<<"\n--starting allocation of arrays for average capture rates and effort extrapolation"<<endl;
-    rpt::echo<<"\n--starting allocation of arrays for average capture rates and effort extrapolation"<<endl;
-    obsEff_nxmsy.initialize();
-    for (int n=1;n<=nCRASs;n++){
-        CapRateAvgScenario* ptrCRAS = ptrMOs->ptrEffXtrapScenarios->ptrCapRateAvgScenarios->ppCRASs[n-1];
-        int idEAS = ptrCRAS->idEffAvgInfo;
-        int mnx, mxx, mnm, mxm, mns, mxs;
-        mnx = mxx = ptrCRAS->x;//sex index
-        if (mnx==tcsam::ALL_SXs) {mnx=1; mxx=tcsam::nSXs;}
-        mnm = mxm = ptrCRAS->m;//maturity index
-        if (mnm==tcsam::ALL_MSs) {mnm=1; mxm=tcsam::nMSs;}
-        mns = mxs = ptrCRAS->s;//shell index
-        if (mns==tcsam::ALL_SCs) {mns=1; mxs=tcsam::nSCs;}
-        for (int x=mnx;x<=mxx;x++){
-            for (int m=mnm;m<=mxm;m++){
-                for (int s=mns;s<=mxs;s++) {
-                    for (int iy=yrsAvgEff_ny(idEAS).indexmin();iy<=yrsAvgEff_ny(idEAS).indexmax();iy++)
-                        obsEff_nxmsy(n,x,m,s)(yrsAvgEff_ny(idEAS,iy)) = eff_ny(idEAS,iy);
-                    rpt::echo<<"n = "<<n<<". idEAS = "<<idEAS<<endl;
-                    rpt::echo<<"yrsAvgEff_ny(idEAS) = "<<yrsAvgEff_ny(idEAS)<<endl;
-                    rpt::echo<<"eff_ny(idEAS)       ="<<eff_ny(idEAS)<<endl;
-                    rpt::echo<<"obsEff_nxmsy("<<n<<cc<<x<<cc<<m<<cc<<s<<") = "<<obsEff_nxmsy(n,x,m,s)<<endl;
-                }//s
-            }//m
-        }//x
-    }//n
-    cout<<"--finished allocation of arrays for average capture rates and effort extrapolation\n"<<endl;
-    rpt::echo<<"--finished allocation of arrays for average capture rates and effort extrapolation\n"<<endl;
+    if (nEASs){
+        EffAvgScenarios* ptrEASs = ptrMOs->ptrEffXtrapScenarios->ptrEffAvgScenarios;
+        for (int n=1;n<=nEASs;n++){//effort averaging scenarios
+            EffAvgScenario* ptrEAS = ptrEASs->ppEASs[n-1];
+            int fm = ptrEAS->f;    //index for fishery associate with this averaging scenario
+            int fd = mapM2DFsh(fm);//index for corresponding fishery data object
+            rpt::echo<<"n = "<<n<<". fm = "<<fm<<". fd = "<<fd<<endl;
+            if (!ptrMDS->ppFsh[fd-1]->ptrEff){
+                cout<<"---------------------------------------------------"<<endl;
+                cout<<"No effort data given for "<<ptrMC->lblsFsh[fm]<<","<<endl;
+                cout<<"but effort averaging requested! Aborting..."<<endl;
+                exit(-1);
+            }
+            rpt::echo<<"fishery has effort"<<endl;
+            //extract years for effort averaging, keeping model limits in mind
+            yrsAvgEff_ny(n).deallocate();
+            yrsAvgEff_ny(n) = wts::extractVector(mnYr,mxYr,ptrEAS->ptrIB->getFwdIndexVector());
+            //assign values for effort averaging
+            eff_ny(n).deallocate();
+            eff_ny(n) = ptrMDS->ppFsh[fd-1]->ptrEff->eff_y(yrsAvgEff_ny(n));
+            rpt::echo<<"eff_ny(n)       = "<<eff_ny(n)<<endl;
+            rpt::echo<<"yrsAvgEff_ny(n) = "<<yrsAvgEff_ny(n)<<endl;
+            avgEff_n(n) = sum(eff_ny(n))/yrsAvgEff_ny(n).size();
+            rpt::echo<<"avgEff_n(n) = "<<avgEff_n(n)<<endl;
+        }//n
+        rpt::echo<<"eff_ny       = "<<endl<<eff_ny<<endl;
+        rpt::echo<<"yrsAvgEff_ny = "<<endl<<yrsAvgEff_ny<<endl;
+        rpt::echo<<"avgEff_n     = "<<avgEff_n<<endl;
+        rpt::echo<<"finished calculating average effort scenarios"<<endl;
+        cout<<"finished calculating average effort scenarios"<<endl;
+
+        cout<<"\n--starting allocation of arrays for average capture rates and effort extrapolation"<<endl;
+        rpt::echo<<"\n--starting allocation of arrays for average capture rates and effort extrapolation"<<endl;
+        obsEff_nxmsy.initialize();
+        for (int n=1;n<=nCRASs;n++){
+            CapRateAvgScenario* ptrCRAS = ptrMOs->ptrEffXtrapScenarios->ptrCapRateAvgScenarios->ppCRASs[n-1];
+            int idEAS = ptrCRAS->idEffAvgInfo;
+            int mnx, mxx, mnm, mxm, mns, mxs;
+            mnx = mxx = ptrCRAS->x;//sex index
+            if (mnx==tcsam::ALL_SXs) {mnx=1; mxx=tcsam::nSXs;}
+            mnm = mxm = ptrCRAS->m;//maturity index
+            if (mnm==tcsam::ALL_MSs) {mnm=1; mxm=tcsam::nMSs;}
+            mns = mxs = ptrCRAS->s;//shell index
+            if (mns==tcsam::ALL_SCs) {mns=1; mxs=tcsam::nSCs;}
+            for (int x=mnx;x<=mxx;x++){
+                for (int m=mnm;m<=mxm;m++){
+                    for (int s=mns;s<=mxs;s++) {
+                        for (int iy=yrsAvgEff_ny(idEAS).indexmin();iy<=yrsAvgEff_ny(idEAS).indexmax();iy++)
+                            obsEff_nxmsy(n,x,m,s)(yrsAvgEff_ny(idEAS,iy)) = eff_ny(idEAS,iy);
+                        rpt::echo<<"n = "<<n<<". idEAS = "<<idEAS<<endl;
+                        rpt::echo<<"yrsAvgEff_ny(idEAS) = "<<yrsAvgEff_ny(idEAS)<<endl;
+                        rpt::echo<<"eff_ny(idEAS)       ="<<eff_ny(idEAS)<<endl;
+                        rpt::echo<<"obsEff_nxmsy("<<n<<cc<<x<<cc<<m<<cc<<s<<") = "<<obsEff_nxmsy(n,x,m,s)<<endl;
+                    }//s
+                }//m
+            }//x
+        }//n
+        cout<<"--finished allocation of arrays for average capture rates and effort extrapolation\n"<<endl;
+        rpt::echo<<"--finished allocation of arrays for average capture rates and effort extrapolation\n"<<endl;
+    } else {
+        cout<<"--NO effort averaging scenarios defined!"<<endl;
+        rpt::echo<<"--NO effort averaging scenarios defined!"<<endl;
+    }
     
     if (option_match(ad_comm::argc,ad_comm::argv,"-mceval")<0) {
         cout<<"testing calcRecruitment():"<<endl;
@@ -2074,7 +2085,7 @@ FUNCTION void writeSimData(ostream& os, int debug, ostream& cout, ModelDatasets*
 //******************************************************************************
 //* Function: void setInitVals(NumberVectorInfo* pI, param_init_number_vector& p, int debug, ostream& cout)
 //* 
-//* Description: Sets initial values for a parameter vector.
+//* Description: Sets initial values for a parameter vector from the associated NumberInfo object.
 //*
 //* Note: this function MUST be declared/defined as a FUNCTION in the tpl code
 //*     because the parameter assignment is a private method but the model_parameters 
@@ -2272,7 +2283,7 @@ FUNCTION void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector
 //*  p - changes initial values
 //******************************************************************************
 FUNCTION void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
-    debug=dbgAll;
+    //debug=dbgAll;
     if (debug>=dbgAll) std::cout<<"Starting setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
     int np = pI->getSize();
     if (np){
@@ -2288,7 +2299,7 @@ FUNCTION void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_ve
                 rpt::echo<<tb<<"jittering "<<p(i).label()<<endl;
                 rpt::echo<<tb<<"pin values       = "<<pns<<endl;
                 rpt::echo<<tb<<"info values      = "<<vls<<endl;
-                dvector rvs = wts::jitterParameter(p(i), 0.1*ptrMC->jitFrac, rng);//get jittered values
+                dvector rvs = wts::jitterParameter(p(i), 0.1*ptrMC->jitFrac, rng);//get jittered values on arithmetic scale
                 //scale all devs values such that sum = 0 and all devs are within bounds
                 double sm = sum(rvs);
                 rpt::echo<<tb<<"rvs              = "<<rvs<<endl<<"sum = "<<sm<<endl;
@@ -2297,14 +2308,14 @@ FUNCTION void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_ve
                 double lower = (*pI)[i]->getLowerBound();
                 double upper = (*pI)[i]->getUpperBound();
                 if (max(fabs(rvs))>max(fabs(lower),fabs(upper))) rvs = rvs/max(fabs(lower),fabs(upper));
-                p(i) = rvs;
+                p(i) = (*pI)[i]->calcParamScaleVals(rvs);
                 rpt::echo<<tb<<"adjusted values  = "<<rvs<<endl;
                 rpt::echo<<tb<<"final values     = "<<p(i)<<endl;
             } else
             if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
                 rpt::echo<<tb<<"resampling "<<p(i).label()<<endl;
-                dvector rvs = ptrI->drawInitVals(rng,ptrMC->vif);//get resampled values
-                p(i)=rvs;
+                dvector rvs = ptrI->drawInitVals(rng,ptrMC->vif);//get resampled values on arithmetic scale
+                p(i)=(*pI)[i]->calcParamScaleVals(rvs);
                 rpt::echo<<tb<<"pin values       = "<<pns<<endl;
                 rpt::echo<<tb<<"info values      = "<<vls<<endl;
                 rpt::echo<<tb<<"resampled values = "<<rvs<<endl;
@@ -2335,7 +2346,7 @@ FUNCTION void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_ve
 //******************************************************************************
 //* Function: void setInitValsFromPinFile(NumberVectorInfo* pI, param_init_number_vector& p, int debug, ostream& cout)
 //* 
-//* Description: Sets initial values for a parameter info object from a parameter vector.
+//* Description: Sets initial values for the associated NumberVectorInfo object from a parameter vector.
 //*
 //* Inputs:
 //*  pI (NumberVectorInfo*) 
@@ -2352,8 +2363,8 @@ FUNCTION void setInitValsFromPinFile(NumberVectorInfo* pI, param_init_number_vec
     if (debug>=dbgAll) std::cout<<"Starting setInitValsFromPinFile(NumberVectorInfo* pI, param_init_number_vector& p) for "<<p(1).label()<<endl; 
     int np = pI->getSize();
     if (np){
-        dvector vls = pI->getInitVals();//initial values
-        pI->setInitVals(p);      
+        dvector vls = pI->getInitVals();//initial values on arithmetic scale
+        pI->setInitValsFromParamVals(p);      
         rpt::echo<<"InitVals for "<<p(1).label()<<": "<<endl;
         rpt::echo<<tb<<"orig inits: "<<vls<<endl;
         rpt::echo<<tb<<"pinf inits: "<<pI->getInitVals()<<endl;
@@ -2376,7 +2387,7 @@ FUNCTION void setInitValsFromPinFile(NumberVectorInfo* pI, param_init_number_vec
 //******************************************************************************
 //* Function: void setInitValsFromPinFile(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p, int debug, ostream& cout)
 //* 
-//* Description: Sets initial values for the associated parameter info object from a parameter vector.
+//* Description: Sets initial values for the associated BoundedNumberVectorInfo object from a parameter vector.
 //*
 //* Inputs:
 //*  pI (BoundedNumberVectorInfo*) 
@@ -2394,7 +2405,7 @@ FUNCTION void setInitValsFromPinFile(BoundedNumberVectorInfo* pI, param_init_bou
     int np = pI->getSize();
     if (np){
         dvector vls = pI->getInitVals();//initial values from parameter info
-        pI->setInitVals(p);
+        pI->setInitValsFromParamVals(p);
         rpt::echo<<"InitVals for "<<p(1).label()<<": "<<endl;
         rpt::echo<<tb<<"orig inits : "<<vls<<endl;
         rpt::echo<<tb<<"pinf inits : "<<pI->getInitVals()<<endl;
@@ -2417,7 +2428,7 @@ FUNCTION void setInitValsFromPinFile(BoundedNumberVectorInfo* pI, param_init_bou
 //******************************************************************************
 //* Function: void setInitValsFromPinFile(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
 //* 
-//* Description: Sets initial values for a parameter vector info object from a parameter vectors.
+//* Description: Sets initial values for the associated BoundedVectorVectorInfo object from a vector of parameter vectors.
 //*
 //* Inputs:
 //*  pI (BoundedVectorVectorInfo*) 
@@ -2438,7 +2449,7 @@ FUNCTION void setInitValsFromPinFile(BoundedVectorVectorInfo* pI, param_init_bou
             rpt::echo<<"InitVals "<<p(i).label()<<":"<<endl;
             BoundedVectorInfo* ptrI = (*pI)[i];
             dvector vls = 1.0*ptrI->getInitVals();
-            ptrI->setInitVals(p(i));
+            ptrI->setInitValsFromParamVals(p(i));
             rpt::echo<<tb<<"orig inits : "<<vls<<endl;
             rpt::echo<<tb<<"pinf inits : "<<ptrI->getInitVals()<<endl;
             rpt::echo<<tb<<"parm inits : "<<value(p(i))<<endl;
@@ -2462,7 +2473,7 @@ FUNCTION void setInitValsFromPinFile(BoundedVectorVectorInfo* pI, param_init_bou
 //******************************************************************************
 //* Function: void setInitValsFomPinFile(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
 //* 
-//* Description: Sets initial values for a vector of parameter vectors.
+//* Description: Sets initial values for the associated DevsVectorVectorInfo object from a vector of parameter vectors.
 //*
 //* Inputs:
 //*  pI (BoundedVectorVectorInfo*) 
@@ -2483,7 +2494,7 @@ FUNCTION void setInitValsFromPinFile(DevsVectorVectorInfo* pI, param_init_bounde
             rpt::echo<<"InitVals "<<p(i).label()<<":"<<endl;
             DevsVectorInfo* ptrI = (*pI)[i];
             dvector vls = 1.0*ptrI->getInitVals();
-            ptrI->setInitVals(p(i));
+            ptrI->setInitValsFromParamVals(p(i));
             rpt::echo<<tb<<"orig inits : "<<vls<<endl;
             rpt::echo<<tb<<"pinf inits : "<<ptrI->getInitVals()<<endl;
             rpt::echo<<tb<<"parm inits : "<<value(p(i))<<endl;
@@ -2531,9 +2542,9 @@ FUNCTION void setAllDevs(int debug, ostream& cout)
 
 
 //-------------------------------------------------------------------------------------
-//calculate equilibrium size distribution for unmfexploited population
+//calculate equilibrium size distribution for unexploited population
 FUNCTION void calcEqNatZF100(dvariable& R, int yr, int debug, ostream& cout)
-    if (debug>=dbgPopDy) cout<<"starting dvar calcEqNatZF100()"<<endl;
+    if (debug>=dbgPopDy) cout<<"starting void calcEqNatZF100(R,yr)"<<endl;
 
     n_xmsz.initialize();//equilibrium n-at-z
     for (int x=1;x<=nSXs;x++){
@@ -2554,13 +2565,13 @@ FUNCTION void calcEqNatZF100(dvariable& R, int yr, int debug, ostream& cout)
         n_xmsz(x) = calcEqNatZ(R_z, S1_msz, Th_sz, T_szz, S2_msz, debug, cout);
     }
     
-    if (debug>=dbgPopDy) cout<<"finished dvar calcEqNatZF100()"<<endl;
+    if (debug>=dbgPopDy) cout<<"finished void calcEqNatZF100(R,yr)"<<endl;
 
 //-------------------------------------------------------------------------------------
 //calculate sex-specific equilibrium size distribution
 FUNCTION dvar3_array calcEqNatZ(dvar_vector& R_z,dvar3_array& S1_msz, dvar_matrix& Th_sz, dvar3_array& T_szz, dvar3_array& S2_msz, int debug, ostream& cout)
     RETURN_ARRAYS_INCREMENT();
-    if (debug>=dbgPopDy) cout<<"starting calcEqNatZ()"<<endl;
+    if (debug>=dbgPopDy) cout<<"starting dvar3_array calcEqNatZ(...)"<<endl;
 
     //the equilibrium solution
     dvar3_array n_msz(1,nMSs,1,nSCs,1,nZBs); n_msz.initialize();
@@ -2616,7 +2627,7 @@ FUNCTION dvar3_array calcEqNatZ(dvar_vector& R_z,dvar3_array& S1_msz, dvar_matri
     n_msz(m,n) = lE * n_msz(i,n) + lF * n_msz(i,o); //  mature, new shell
     n_msz(m,o) = iM3 * lG * n_msz(m,n);             //  mature, old shell
         
-    if (debug>=dbgPopDy) cout<<"finished calcEqNatZ()"<<endl;
+    if (debug>=dbgPopDy) cout<<"finished dvar3_array calcEqNatZ(...)"<<endl;
     RETURN_ARRAYS_DECREMENT();
     return(n_msz);
 
@@ -4094,13 +4105,13 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
                         }
                     }
                     if (debug>dbgCalcProcs){
-                        cout<<"yrsAvgEff_ny(idEAS)       = "<<yrsAvgEff_ny(idEAS)<<endl;
-                        cout<<"avgFc_nxms(n,x,m,s)       = "<<avgFc_nxms(n,x,m,s)<<endl;
-                        cout<<"avgFc2Eff_nxms(n,x,m,s)   = "<<avgFc2Eff_nxms(n,x,m,s)<<endl;
-                        cout<<"obsFc_nxmsy(n,x,m,s) = "<<obsFc_nxmsy(n,x,m,s)<<endl;
-                        cout<<"prdFc_nxmsy(n,x,m,s) = "<<prdFc_nxmsy(n,x,m,s)<<endl;
-                        cout<<"obsEff_nxmsy(n,x,m,s) = "<<obsEff_nxmsy(n,x,m,s)<<endl;
-                        cout<<"prdEff_nxmsy(n,x,m,s) = "<<prdEff_nxmsy(n,x,m,s)<<endl;
+                        cout<<"yrsAvgEff_ny(idEAS)     = "<<yrsAvgEff_ny(idEAS)<<endl;
+                        cout<<"avgFc_nxms(n,x,m,s)     = "<<avgFc_nxms(n,x,m,s)<<endl;
+                        cout<<"avgFc2Eff_nxms(n,x,m,s) = "<<avgFc2Eff_nxms(n,x,m,s)<<endl;
+                        cout<<"obsFc_nxmsy(n,x,m,s)    = "<<obsFc_nxmsy(n,x,m,s)<<endl;
+                        cout<<"prdFc_nxmsy(n,x,m,s)    = "<<prdFc_nxmsy(n,x,m,s)<<endl;
+                        cout<<"obsEff_nxmsy(n,x,m,s)   = "<<obsEff_nxmsy(n,x,m,s)<<endl;
+                        cout<<"prdEff_nxmsy(n,x,m,s)   = "<<prdEff_nxmsy(n,x,m,s)<<endl;
                     }
                 }//s
             }//m
@@ -5894,9 +5905,9 @@ FUNCTION void calcAllPriors(int debug, ostream& cout)
 
     //recruitment parameters
     if (debug<0) cout<<tb<<"recruitment=list("<<endl;
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrRec->pLnR,  pLnR,  debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrRec->pLnR,pLnR,debug,cout); if (debug<0){cout<<cc<<endl;}
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrRec->pRCV,pRCV,debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrRec->pRX,pRX,debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrRec->pRX,pRX,  debug,cout); if (debug<0){cout<<cc<<endl;}
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrRec->pRa, pRa, debug,cout); if (debug<0){cout<<cc<<endl;}
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrRec->pRb, pRb, debug,cout); if (debug<0){cout<<cc<<endl;}
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrRec->pDevsLnR,devsLnR,debug,cout); if (debug<0){cout<<endl;}
@@ -5908,7 +5919,7 @@ FUNCTION void calcAllPriors(int debug, ostream& cout)
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrNM->pDM1, pDM1, debug,cout); if (debug<0){cout<<cc<<endl;}
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrNM->pDM2, pDM2, debug,cout); if (debug<0){cout<<cc<<endl;}
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrNM->pDM3, pDM3, debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrNM->pDM4,pDM4,debug,cout); if (debug<0){cout<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrNM->pDM4, pDM4, debug,cout); if (debug<0){cout<<endl;}
     if (debug<0) cout<<tb<<")"<<cc<<endl;
     
     //growth parameters
@@ -5941,21 +5952,21 @@ FUNCTION void calcAllPriors(int debug, ostream& cout)
     
     //fishing mortality parameters
     if (debug<0) cout<<tb<<"fisheries=list("<<endl;
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrFsh->pLnC,    pLnC,   debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrFsh->pDC1,  pDC1, debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrFsh->pDC2,  pDC2, debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrFsh->pDC3,  pDC3, debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrFsh->pDC4, pDC4,debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrFsh->pLnC, pLnC, debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrFsh->pDC1, pDC1, debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrFsh->pDC2, pDC2, debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrFsh->pDC3, pDC3, debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrFsh->pDC4, pDC4, debug,cout); if (debug<0){cout<<cc<<endl;}
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrFsh->pDevsLnC,devsLnC,debug,cout); if (debug<0){cout<<endl;}
     if (debug<0) cout<<tb<<")"<<cc<<endl;
    
     //survey catchability parameters
     if (debug<0) cout<<tb<<"surveys=list("<<endl;
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pQ,    pQ,   debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pDQ1,  pDQ1, debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pDQ2,  pDQ2, debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pDQ3,  pDQ3, debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pDQ4, pDQ4,debug,cout); if (debug<0){cout<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pQ,   pQ,   debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pDQ1, pDQ1, debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pDQ2, pDQ2, debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pDQ3, pDQ3, debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pDQ4, pDQ4, debug,cout); if (debug<0){cout<<endl;}
     if (debug<0) cout<<tb<<")"<<endl;
     
     if (debug<0) cout<<")"<<endl;
@@ -6007,7 +6018,7 @@ FUNCTION void ReportToR_ModelProcesses(ostream& os, int debug, ostream& cout)
             os<<"R_cz ="; wts::writeToR(os,value(R_cz),adstring("pc=1:"+str(npcRec)),zbDms); os<<endl;
         os<<")"<<cc<<endl;
         
-        {
+        if (nEASs){
         os<<"EffX_list=list("<<endl;
             os<<"effAvgScenarios="; ptrMOs->ptrEffXtrapScenarios->ptrEffAvgScenarios->writeToR(os); os<<cc<<endl;
             os<<"capRateScenarios="; ptrMOs->ptrEffXtrapScenarios->ptrCapRateAvgScenarios->writeToR(os); os<<cc<<endl;
@@ -6018,6 +6029,8 @@ FUNCTION void ReportToR_ModelProcesses(ostream& os, int debug, ostream& cout)
             }
             os<<"NULL)"<<endl;
         os<<")"<<cc<<endl;
+        } else {
+            os<<"EffX_list=NULL"<<cc<<endl;
         }
         
         d6_array tmF_fyxmsz(1,nFsh,mnYr,mxYr,1,nSXs,1,nMSs,1,nSCs,1,nZBs);
@@ -6157,68 +6170,68 @@ FUNCTION void updateMPI(int debug, ostream& cout)
 //    DevsVectorInfo::debug=1;
 //    DevsVectorVectorInfo::debug=1;
     //recruitment parameters
-    ptrMPI->ptrRec->pLnR->setFinalVals(pLnR);
-    ptrMPI->ptrRec->pRCV->setFinalVals(pRCV);
-    ptrMPI->ptrRec->pRX->setFinalVals(pRX);
-    ptrMPI->ptrRec->pRa->setFinalVals(pRa);
-    ptrMPI->ptrRec->pRb->setFinalVals(pRb);
+    ptrMPI->ptrRec->pLnR->setFinalValsFromParamVals(pLnR);
+    ptrMPI->ptrRec->pRCV->setFinalValsFromParamVals(pRCV);
+    ptrMPI->ptrRec->pRX->setFinalValsFromParamVals(pRX);
+    ptrMPI->ptrRec->pRa->setFinalValsFromParamVals(pRa);
+    ptrMPI->ptrRec->pRb->setFinalValsFromParamVals(pRb);
     //cout<<"setting final vals for pDevsLnR"<<endl;
-    for (int p=1;p<=ptrMPI->ptrRec->pDevsLnR->getSize();p++) (*ptrMPI->ptrRec->pDevsLnR)[p]->setFinalVals(pDevsLnR(p));
+    for (int p=1;p<=ptrMPI->ptrRec->pDevsLnR->getSize();p++) (*ptrMPI->ptrRec->pDevsLnR)[p]->setFinalValsFromParamVals(pDevsLnR(p));
      
     //natural mortality parameters
-    ptrMPI->ptrNM->pM->setFinalVals(pM);
-    ptrMPI->ptrNM->pDM1->setFinalVals(pDM1);
-    ptrMPI->ptrNM->pDM2->setFinalVals(pDM2);
-    ptrMPI->ptrNM->pDM3->setFinalVals(pDM3);
-    ptrMPI->ptrNM->pDM4->setFinalVals(pDM4);
+    ptrMPI->ptrNM->pM->setFinalValsFromParamVals(pM);
+    ptrMPI->ptrNM->pDM1->setFinalValsFromParamVals(pDM1);
+    ptrMPI->ptrNM->pDM2->setFinalValsFromParamVals(pDM2);
+    ptrMPI->ptrNM->pDM3->setFinalValsFromParamVals(pDM3);
+    ptrMPI->ptrNM->pDM4->setFinalValsFromParamVals(pDM4);
     
     //growth parameters
-    ptrMPI->ptrGrw->pGrA->setFinalVals(pGrA);
-    ptrMPI->ptrGrw->pGrB->setFinalVals(pGrB);
-    ptrMPI->ptrGrw->pGrBeta->setFinalVals(pGrBeta);
+    ptrMPI->ptrGrw->pGrA->setFinalValsFromParamVals(pGrA);
+    ptrMPI->ptrGrw->pGrB->setFinalValsFromParamVals(pGrB);
+    ptrMPI->ptrGrw->pGrBeta->setFinalValsFromParamVals(pGrBeta);
     
     //maturity parameters
     //cout<<"setting final vals for pLgtPrM2M"<<endl;
-    for (int p=1;p<=npLgtPrMat;p++) (*ptrMPI->ptrM2M->pLgtPrM2M)[p]->setFinalVals(pLgtPrM2M(p));
+    for (int p=1;p<=npLgtPrMat;p++) (*ptrMPI->ptrM2M->pLgtPrM2M)[p]->setFinalValsFromParamVals(pLgtPrM2M(p));
     
     //selectivity parameters
-    ptrMPI->ptrSel->pS1->setFinalVals(pS1);
-    ptrMPI->ptrSel->pS2->setFinalVals(pS2);
-    ptrMPI->ptrSel->pS3->setFinalVals(pS3);
-    ptrMPI->ptrSel->pS4->setFinalVals(pS4);
-    ptrMPI->ptrSel->pS5->setFinalVals(pS5);
-    ptrMPI->ptrSel->pS6->setFinalVals(pS6);
+    ptrMPI->ptrSel->pS1->setFinalValsFromParamVals(pS1);
+    ptrMPI->ptrSel->pS2->setFinalValsFromParamVals(pS2);
+    ptrMPI->ptrSel->pS3->setFinalValsFromParamVals(pS3);
+    ptrMPI->ptrSel->pS4->setFinalValsFromParamVals(pS4);
+    ptrMPI->ptrSel->pS5->setFinalValsFromParamVals(pS5);
+    ptrMPI->ptrSel->pS6->setFinalValsFromParamVals(pS6);
     //cout<<"setting final vals for pDevsS1"<<endl;
-    for (int p=1;p<=ptrMPI->ptrSel->pDevsS1->getSize();p++) (*ptrMPI->ptrSel->pDevsS1)[p]->setFinalVals(pDevsS1(p));
+    for (int p=1;p<=ptrMPI->ptrSel->pDevsS1->getSize();p++) (*ptrMPI->ptrSel->pDevsS1)[p]->setFinalValsFromParamVals(pDevsS1(p));
     //cout<<"setting final vals for pDevsS2"<<endl;
-    for (int p=1;p<=ptrMPI->ptrSel->pDevsS2->getSize();p++) (*ptrMPI->ptrSel->pDevsS2)[p]->setFinalVals(pDevsS2(p));
+    for (int p=1;p<=ptrMPI->ptrSel->pDevsS2->getSize();p++) (*ptrMPI->ptrSel->pDevsS2)[p]->setFinalValsFromParamVals(pDevsS2(p));
     //cout<<"setting final vals for pDevsS3"<<endl;
-    for (int p=1;p<=ptrMPI->ptrSel->pDevsS3->getSize();p++) (*ptrMPI->ptrSel->pDevsS3)[p]->setFinalVals(pDevsS3(p));
+    for (int p=1;p<=ptrMPI->ptrSel->pDevsS3->getSize();p++) (*ptrMPI->ptrSel->pDevsS3)[p]->setFinalValsFromParamVals(pDevsS3(p));
     //cout<<"setting final vals for pDevsS4"<<endl;
-    for (int p=1;p<=ptrMPI->ptrSel->pDevsS4->getSize();p++) (*ptrMPI->ptrSel->pDevsS4)[p]->setFinalVals(pDevsS4(p));
+    for (int p=1;p<=ptrMPI->ptrSel->pDevsS4->getSize();p++) (*ptrMPI->ptrSel->pDevsS4)[p]->setFinalValsFromParamVals(pDevsS4(p));
     //cout<<"setting final vals for pDevsS5"<<endl;
-    for (int p=1;p<=ptrMPI->ptrSel->pDevsS5->getSize();p++) (*ptrMPI->ptrSel->pDevsS5)[p]->setFinalVals(pDevsS5(p));
+    for (int p=1;p<=ptrMPI->ptrSel->pDevsS5->getSize();p++) (*ptrMPI->ptrSel->pDevsS5)[p]->setFinalValsFromParamVals(pDevsS5(p));
     //cout<<"setting final vals for pDevsS6"<<endl;
-    for (int p=1;p<=ptrMPI->ptrSel->pDevsS6->getSize();p++) (*ptrMPI->ptrSel->pDevsS6)[p]->setFinalVals(pDevsS6(p));
+    for (int p=1;p<=ptrMPI->ptrSel->pDevsS6->getSize();p++) (*ptrMPI->ptrSel->pDevsS6)[p]->setFinalValsFromParamVals(pDevsS6(p));
      
     //fully-selected fishing capture rate parameters
-    ptrMPI->ptrFsh->pHM->setFinalVals(pHM);
-    ptrMPI->ptrFsh->pLnC->setFinalVals(pLnC);
-    ptrMPI->ptrFsh->pDC1->setFinalVals(pDC1);
-    ptrMPI->ptrFsh->pDC2->setFinalVals(pDC2);
-    ptrMPI->ptrFsh->pDC3->setFinalVals(pDC3);
-    ptrMPI->ptrFsh->pDC4->setFinalVals(pDC4);
+    ptrMPI->ptrFsh->pHM->setFinalValsFromParamVals(pHM);
+    ptrMPI->ptrFsh->pLnC->setFinalValsFromParamVals(pLnC);
+    ptrMPI->ptrFsh->pDC1->setFinalValsFromParamVals(pDC1);
+    ptrMPI->ptrFsh->pDC2->setFinalValsFromParamVals(pDC2);
+    ptrMPI->ptrFsh->pDC3->setFinalValsFromParamVals(pDC3);
+    ptrMPI->ptrFsh->pDC4->setFinalValsFromParamVals(pDC4);
     //cout<<"setting final vals for pDevsLnC"<<endl;
-    for (int p=1;p<=ptrMPI->ptrFsh->pDevsLnC->getSize();p++) (*ptrMPI->ptrFsh->pDevsLnC)[p]->setFinalVals(pDevsLnC(p));
-    ptrMPI->ptrFsh->pLnEffX->setFinalVals(pLnEffX);
-    ptrMPI->ptrFsh->pLgtRet->setFinalVals(pLgtRet);
+    for (int p=1;p<=ptrMPI->ptrFsh->pDevsLnC->getSize();p++) (*ptrMPI->ptrFsh->pDevsLnC)[p]->setFinalValsFromParamVals(pDevsLnC(p));
+    ptrMPI->ptrFsh->pLnEffX->setFinalValsFromParamVals(pLnEffX);
+    ptrMPI->ptrFsh->pLgtRet->setFinalValsFromParamVals(pLgtRet);
     
     //survey catchability parameters
-    ptrMPI->ptrSrv->pQ->setFinalVals(pQ);
-    ptrMPI->ptrSrv->pDQ1->setFinalVals(pDQ1);
-    ptrMPI->ptrSrv->pDQ2->setFinalVals(pDQ2);
-    ptrMPI->ptrSrv->pDQ3->setFinalVals(pDQ3);
-    ptrMPI->ptrSrv->pDQ4->setFinalVals(pDQ4);
+    ptrMPI->ptrSrv->pQ->setFinalValsFromParamVals(pQ);
+    ptrMPI->ptrSrv->pDQ1->setFinalValsFromParamVals(pDQ1);
+    ptrMPI->ptrSrv->pDQ2->setFinalValsFromParamVals(pDQ2);
+    ptrMPI->ptrSrv->pDQ3->setFinalValsFromParamVals(pDQ3);
+    ptrMPI->ptrSrv->pDQ4->setFinalValsFromParamVals(pDQ4);
     
     if (debug) cout<<"Finished updateMPI(...)"<<endl;
 
