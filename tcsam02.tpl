@@ -330,6 +330,9 @@
 //                  on the parameter scale. 
 //--2017-11-13: 1. Continued refactoring ModelParameterInfoTypes to better handle parameter scaling.
 //              2. Changed MPI version to 20171113.
+//--2017-11-14: 1. MOre debugging info being printed, documentation improved.
+//              2. Added scripts under "docs/scripts" to produce html documentation
+//                  using doxygen.
 // =============================================================================
 // =============================================================================
 GLOBALS_SECTION
@@ -1586,6 +1589,11 @@ PROCEDURE_SECTION
 
     ctrProcCalls++;       //increment procedure section calls counter
     ctrProcCallsInPhase++;//increment in-phase procedure section calls counter
+//    {
+//        adstring fn = "tcsam02.active."+str(current_phase())+"."+str(ctrProcCalls)+".csv";
+//        ofstream os; os.open((char*) fn, ios::trunc);
+//        writeParameters(os,0,1);
+//    }
     
     int dbg = 0; //dbgAll;
     //if (current_phase()==4) dbg=1;
@@ -2106,10 +2114,12 @@ FUNCTION void setInitVals(NumberVectorInfo* pI, param_init_number_vector& p, int
     if (debug>=dbgAll) std::cout<<"Starting setInitVals(NumberVectorInfo* pI, param_init_number_vector& p) for "<<p(1).label()<<endl; 
     int np = pI->getSize();
     if (np){
-        dvector vls = pI->getInitVals();//initial values from parameter info
-        dvector def = pI->getInitVals();//defaults are initial values
+        dvector avls = pI->getInitVals();//initial values from parameter info
+        dvector adef = pI->getInitVals();//defaults are initial values
+        dvector pvls = pI->getInitValsOnParamScales();//initial values from parameter info
+        dvector pdef = pI->getInitVals();//defaults are initial values
         for (int i=1;i<=np;i++) {
-            p(i) = vls(i);  //assign initial value from parameter info
+            p(i) = pvls(i);  //assign initial value from parameter info
             NumberInfo* ptrI = (*pI)[i];
             if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
                 p(i) = ptrI->drawInitVal(rng,ptrMC->vif);//assign initial value based on resampling prior pdf
@@ -2117,8 +2127,10 @@ FUNCTION void setInitVals(NumberVectorInfo* pI, param_init_number_vector& p, int
         }
         //p.set_initial_value(vls);
         rpt::echo<<"InitVals for "<<p(1).label()<<": "<<endl;
-        rpt::echo<<tb<<"inits  : "<<vls<<endl;
-        rpt::echo<<tb<<"default: "<<def<<endl;
+        rpt::echo<<tb<<"arith inits  : "<<avls<<endl;
+        rpt::echo<<tb<<"arith default: "<<adef<<endl;
+        rpt::echo<<tb<<"param inits  : "<<pvls<<endl;
+        rpt::echo<<tb<<"param default: "<<pdef<<endl;
         rpt::echo<<tb<<"actual : "<<p<<endl;
         if (debug>=dbgAll) {
             std::cout<<"InitVals for "<<p(1).label()<<": "<<endl;
@@ -2159,10 +2171,12 @@ FUNCTION void setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number
     if (debug>=dbgAll) std::cout<<"Starting setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
     int np = pI->getSize();
     if (np){
-        dvector vls = pI->getInitVals();//initial values from parameter info
-        dvector def = 0.5*(pI->getUpperBounds()+pI->getLowerBounds());//defaults are midpoints of ranges
+        dvector avls = pI->getInitVals();                              //initial values from parameter info
+        dvector adef = 0.5*(pI->getUpperBounds()+pI->getLowerBounds());//defaults are midpoints of ranges
+        dvector pvls = pI->getInitValsOnParamScales();//initial values from parameter info
+        dvector pdef = pI->calcParamScaleVals(adef);   //defaults are midpoints of arithmetic-scale ranges on param scales
         for (int i=1;i<=np;i++) {
-            p(i) = vls(i);  //assign initial value from parameter info
+            p(i) = pvls(i);  //assign initial value from parameter info
             BoundedNumberInfo* ptrI = (*pI)[i];
             if ((p(i).get_phase_start()>0)&&(ptrMC->jitter)&&(ptrI->jitter)){
                 rpt::echo<<"jittering "<<p(i).label()<<endl;
@@ -2174,8 +2188,10 @@ FUNCTION void setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number
         }
         //p.set_initial_value(vls);
         rpt::echo<<"InitVals for "<<p(1).label()<<": "<<endl;
-        rpt::echo<<tb<<"inits  : "<<vls<<endl;
-        rpt::echo<<tb<<"default: "<<def<<endl;
+        rpt::echo<<tb<<"arith inits  : "<<avls<<endl;
+        rpt::echo<<tb<<"arith default: "<<adef<<endl;
+        rpt::echo<<tb<<"param inits  : "<<pvls<<endl;
+        rpt::echo<<tb<<"param default: "<<pdef<<endl;
         rpt::echo<<tb<<"actual : "<<p<<endl;
         if (debug>=dbgAll) {
             std::cout<<"InitVals for "<<p(1).label()<<": "<<endl;
@@ -2219,16 +2235,18 @@ FUNCTION void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector
         for (int i=1;i<=np;i++) {
             rpt::echo<<"InitVals "<<p(i).label()<<":"<<endl;
             dvector pns = value(p(i));
-            dvector vls = (*pI)[i]->getInitVals();//initial values from parameter info
-            if (debug>=dbgAll) std::cout<<"pc "<<i<<" :"<<tb<<p(i).indexmin()<<tb<<p(i).indexmax()<<tb<<vls.indexmin()<<tb<<vls.indexmax()<<endl;
-            for (int j=p(i).indexmin();j<=p(i).indexmax();j++) p(i,j)=vls(j);
+            dvector avls = (*pI)[i]->getInitVals();             //initial values on arithmetic scale from parameter info
+            dvector pvls = (*pI)[i]->getInitValsOnParamScale();//initial values on parameter scales from parameter info
+            if (debug>=dbgAll) std::cout<<"pc "<<i<<" :"<<tb<<p(i).indexmin()<<tb<<p(i).indexmax()<<tb<<pvls.indexmin()<<tb<<pvls.indexmax()<<endl;
+            for (int j=p(i).indexmin();j<=p(i).indexmax();j++) p(i,j)=pvls(j);
             BoundedVectorInfo* ptrI = (*pI)[i];
             if ((p(i).get_phase_start()>0)&&(ptrMC->jitter)&&(ptrI->jitter)){
                 rpt::echo<<tb<<"jittering "<<p(i).label()<<endl;
                 dvector rvs = wts::jitterParameter(p(i), ptrMC->jitFrac, rng);//get jittered values
                 for (int j=p(i).indexmin();j<=p(i).indexmax();j++) p(i,j)=rvs(j);
                 rpt::echo<<tb<<"pin values       = "<<pns<<endl;
-                rpt::echo<<tb<<"info values      = "<<vls<<endl;
+                rpt::echo<<tb<<"arith values     = "<<avls<<endl;
+                rpt::echo<<tb<<"param values     = "<<pvls<<endl;
                 rpt::echo<<tb<<"resampled values = "<<rvs<<endl;
                 rpt::echo<<tb<<"final values     = "<<p(i)<<endl;
             } else
@@ -2237,18 +2255,21 @@ FUNCTION void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector
                 dvector rvs = ptrI->drawInitVals(rng,ptrMC->vif);//get resampled values
                 for (int j=p(i).indexmin();j<=p(i).indexmax();j++) p(i,j)=rvs(j);
                 rpt::echo<<tb<<"pin values       = "<<pns<<endl;
-                rpt::echo<<tb<<"info values      = "<<vls<<endl;
+                rpt::echo<<tb<<"arith values     = "<<avls<<endl;
+                rpt::echo<<tb<<"param values     = "<<pvls<<endl;
                 rpt::echo<<tb<<"resampled values = "<<rvs<<endl;
                 rpt::echo<<tb<<"final values     = "<<p(i)<<endl;
             } else {
                 rpt::echo<<tb<<"No jittering or resampling "<<p(i).label()<<endl;
                 rpt::echo<<tb<<"pin values       = "<<pns<<endl;
-                rpt::echo<<tb<<"info values      = "<<vls<<endl;
+                rpt::echo<<tb<<"arith values     = "<<avls<<endl;
+                rpt::echo<<tb<<"param values     = "<<pvls<<endl;
                 rpt::echo<<tb<<"final values     = "<<p(i)<<endl;
             }
             if (debug>=dbgAll){
                 std::cout<<"pns(i) = "<<pns<<endl;
-                std::cout<<"vls(i) = "<<vls<<endl;
+                std::cout<<"avls   = "<<avls<<endl;
+                std::cout<<"pvls   = "<<pvls<<endl;
                 std::cout<<"p(i)   = "<<p(i)<<endl;
             }
         }
@@ -2290,21 +2311,23 @@ FUNCTION void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_ve
         for (int i=1;i<=np;i++) {
             rpt::echo<<"InitVals "<<p(i).label()<<":"<<endl;
             dvector pns = value(p(i));
-            dvector vls = (*pI)[i]->getInitVals();//initial values from parameter info
-            if (debug>=dbgAll) std::cout<<"pc "<<i<<" :"<<tb<<p(i).indexmin()<<tb<<p(i).indexmax()<<tb<<vls.indexmin()<<tb<<vls.indexmax()<<endl;
+            dvector avls = (*pI)[i]->getInitVals();             //initial values on arithmetic scale from parameter info
+            dvector pvls = (*pI)[i]->getInitValsOnParamScale();//initial values on parameter scales from parameter info
+            if (debug>=dbgAll) std::cout<<"pc "<<i<<" :"<<tb<<p(i).indexmin()<<tb<<p(i).indexmax()<<tb<<pvls.indexmin()<<tb<<pvls.indexmax()<<endl;
             //for (int j=p(i).indexmin();j<=p(i).indexmax();j++) p(i,j)=vls(j);
-            p(i) = vls(p(i).indexmin(),p(i).indexmax());
+            p(i) = pvls(p(i).indexmin(),p(i).indexmax());
             DevsVectorInfo* ptrI = (*pI)[i];
             if ((p(i).get_phase_start()>0)&&(ptrMC->jitter)&&(ptrI->jitter)){
                 rpt::echo<<tb<<"jittering "<<p(i).label()<<endl;
                 rpt::echo<<tb<<"pin values       = "<<pns<<endl;
-                rpt::echo<<tb<<"info values      = "<<vls<<endl;
+                rpt::echo<<tb<<"arith values     = "<<avls<<endl;
+                rpt::echo<<tb<<"param values     = "<<pvls<<endl;
                 dvector rvs = wts::jitterParameter(p(i), 0.1*ptrMC->jitFrac, rng);//get jittered values on arithmetic scale
                 //scale all devs values such that sum = 0 and all devs are within bounds
                 double sm = sum(rvs);
                 rpt::echo<<tb<<"rvs              = "<<rvs<<endl<<"sum = "<<sm<<endl;
                 rvs = rvs - sm;//adjust sum to 0
-                //adjust scaling so rvs are within bounds
+                //adjust scaling so rvs are within bounds on arithmetic scale
                 double lower = (*pI)[i]->getLowerBound();
                 double upper = (*pI)[i]->getUpperBound();
                 if (max(fabs(rvs))>max(fabs(lower),fabs(upper))) rvs = rvs/max(fabs(lower),fabs(upper));
@@ -2317,19 +2340,19 @@ FUNCTION void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_ve
                 dvector rvs = ptrI->drawInitVals(rng,ptrMC->vif);//get resampled values on arithmetic scale
                 p(i)=(*pI)[i]->calcParamScaleVals(rvs);
                 rpt::echo<<tb<<"pin values       = "<<pns<<endl;
-                rpt::echo<<tb<<"info values      = "<<vls<<endl;
+                rpt::echo<<tb<<"info values      = "<<avls<<endl;
                 rpt::echo<<tb<<"resampled values = "<<rvs<<endl;
                 rpt::echo<<tb<<"final values     = "<<p(i)<<endl;
             } else {
                 rpt::echo<<tb<<"No jittering or resampling "<<p(i).label()<<endl;
                 rpt::echo<<tb<<"pin values       = "<<pns<<endl;
-                rpt::echo<<tb<<"info values      = "<<vls<<endl;
+                rpt::echo<<tb<<"info values      = "<<avls<<endl;
                 rpt::echo<<tb<<"final values     = "<<p(i)<<endl;
             }
             if (debug>=dbgAll){
-                std::cout<<"pns(i) = "<<pns<<endl;
-                std::cout<<"vls(i) = "<<vls<<endl;
-                std::cout<<"p(i)   = "<<p(i)<<endl;
+                std::cout<<"pns(i)  = "<<pns<<endl;
+                std::cout<<"avls(i) = "<<avls<<endl;
+                std::cout<<"p(i)    = "<<p(i)<<endl;
             }
         }
     } else {
@@ -6300,7 +6323,7 @@ FUNCTION void ReportToR(ostream& os, double maxGrad, int debug, ostream& cout)
 //Write parameter information to file
 FUNCTION void writeParameters(ostream& os,int toR, int willBeActive)      
     adstring ctg1, ctg2;
-    os<<"index, phase, idx.mn, idx.mx, min, max, value, name, type, category, process, label"<<endl;
+    os<<"index, phase, idx.mn, idx.mx, min, max, value, scale, name, type, category, process, label"<<endl;
     //recruitment parameters
     ctg1="population processes";
     ctg2="recruitment";

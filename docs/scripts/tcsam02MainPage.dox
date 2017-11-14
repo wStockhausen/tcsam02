@@ -1,0 +1,37 @@
+/**
+ * @mainpage TCSAM02
+ * 
+ * \a TCSAM02 is the ADMB code
+ * 
+ * You can find more information in the following sections:
+ * - \subpage p_about
+ * - \subpage p_install
+ * 
+ * \tableofcontents
+ * 
+ * 
+ */
+
+ //-----------------------------------------------------------------------------------//
+ //	ABOUT PAGE
+ //-----------------------------------------------------------------------------------//
+ /**
+	\page p_about  About
+ Scientists at NOAA's Alaska Fisheries Science Center 
+	have developed the Tanner Crab Stock Assessment Model, version 2 (TCSAM02) using AD Model Builder.  
+	TCSAM02 is a rather generalized and flexible size-structured modeling framework, but incorporates
+  details specific to Tanner crab biology (e.g., terminal molt) in the eastern Bering Sea.
+*/
+ //-----------------------------------------------------------------------------------//
+ //	INSTALL PAGE
+ //-----------------------------------------------------------------------------------//
+ /**
+  * \page p_install Install instructions
+  * 
+  * There are two options for installing tcsam02:
+  *  -# clone the github repository (and read the wiki)
+  *  -# download the source code (and read the wiki)
+  * 
+  * 
+  */
+ 

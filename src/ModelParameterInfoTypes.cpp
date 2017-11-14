@@ -756,7 +756,7 @@ dvar_vector VectorInfo::calcLogPrior(dvar_vector & pv){
  * <li> the index block defining the vector indices (which determines N), as an IndexBlock
  * <li> readVals - an adstring flag to subsequently read a vector of initial values
  * <li> the values for a NumberInfo object (i.e., appropriate to NumberInfo::read(is))
- * <\ul>
+ * </ul>
  * 
  * @param [in] is - the filestream to read from
  */
@@ -1237,7 +1237,7 @@ dvar_vector BoundedVectorInfo::calcLogPrior(dvar_vector & pv){
  *  <li> priorParams
  *  <li> priorConsts
  *  <li> label
- * <\ul>
+ * </ul>
  * 
  * @param [in] is - the filestream to read from
  * 
@@ -1444,6 +1444,20 @@ dvector NumberVectorInfo::getInitVals(){
     dvector initVals(1,nNIs);
     for (int i=1;i<=nNIs;i++) initVals(i) = ppNIs[i-1]->getInitVal();
     if (debug) rpt::echo<<"finished NumberVectorInfo::getInitVals()"<<this<<endl;
+    return initVals;
+}
+
+/**
+ * Gets a dvector of the initial values for each parameter in the 
+ * associated param_init_number_vector.
+ * 
+ * @return - a dvector
+ */
+dvector NumberVectorInfo::getInitValsOnParamScales(){
+    if (debug) rpt::echo<<"starting NumberVectorInfo::getInitValsOnParamScales()"<<this<<endl;
+    dvector initVals(1,nNIs);
+    for (int i=1;i<=nNIs;i++) initVals(i) = ppNIs[i-1]->getInitValOnParamScale();
+    if (debug) rpt::echo<<"finished NumberVectorInfo::getInitValsOnParamScales()"<<this<<endl;
     return initVals;
 }
 
@@ -1668,90 +1682,90 @@ dvector BoundedNumberVectorInfo::getUpperBoundsOnParamScales(void){
     return ubs;
 }
 
-/**
-* Calculates arithmetic-scale values corresponding to the input parameter-scale values.
-* 
-* @param x - parameter-scale values as a dvector
-* @return - arithmetic-scale values as a dvector
-*/
-dvector BoundedNumberVectorInfo::calcArithScaleVals(const dvector& x){
-    if (debug) rpt::echo<<"starting BoundedNumberVectorInfo::calcArithScaleVals(dvector&) "<<this<<endl;
-    dvector asv(1,nNIs);
-    asv.initialize();
-    if (ppNIs) for (int i=1;i<=nNIs;i++) asv(i) = (static_cast<BoundedNumberInfo*>(ppNIs[i-1]))->calcArithScaleVal(x(i));
-    if (debug) rpt::echo<<"finished BoundedNumberVectorInfo::calcArithScaleVals(dvector&) "<<this<<endl;
-    return asv;
-}
-
-/**
-* Calculates arithmetic-scale values corresponding to the input parameter-scale values.
-* 
-* @param x - parameter-scale values as dvar_vector
-* @return - arithmetic-scale values as dvar_vector
-*/
-dvar_vector BoundedNumberVectorInfo::calcArithScaleVals(const dvar_vector& x){
-    RETURN_ARRAYS_INCREMENT();
-    if (debug) rpt::echo<<"starting BoundedNumberVectorInfo::calcArithScaleVals(dvar_vector&) "<<this<<endl;
-    dvar_vector asv(1,nNIs);
-    asv.initialize();
-    if (ppNIs) for (int i=1;i<=nNIs;i++) asv(i) = (static_cast<BoundedNumberInfo*>(ppNIs[i-1]))->calcArithScaleVal(x(i));
-    if (debug) rpt::echo<<"finished BoundedNumberVectorInfo::calcArithScaleVals(dvar_vector&) "<<this<<endl;
-    RETURN_ARRAYS_DECREMENT();
-    return asv;
-}
-
-/**
-* Calculates parameter-scale values corresponding to the input arithmetic-scale values.
-* 
-* @param x - the arithmetic-scale values as dvector
-* @return - the parameter-scale values as dvector
-*/
-dvector BoundedNumberVectorInfo::calcParamScaleVals(dvector& x){
-    if (debug) rpt::echo<<"starting BoundedNumberVectorInfo::calcParamScaleVals(dvector&) "<<this<<endl;
-    dvector asv(1,nNIs);
-    asv.initialize();
-    if (ppNIs) for (int i=1;i<=nNIs;i++) asv(i) = (static_cast<BoundedNumberInfo*>(ppNIs[i-1]))->calcParamScaleVal(x(i));
-    if (debug) rpt::echo<<"finished BoundedNumberVectorInfo::calcParamScaleVals(dvector&) "<<this<<endl;
-    return asv;
-}
-
-/**
-*   Set the initial value for each parameter in the vector.
- * 
- * @param x - reference to a param_init_bounded_number_vector instance
- * 
-*/
-void BoundedNumberVectorInfo::setInitValsFromParamVals(const dvar_vector& x){
-    if (debug) rpt::echo<<"starting BoundedNumberVectorInfo::setInitVals(x)"<<this<<endl;
-    for (int i=1;i<=nNIs;i++) (static_cast<BoundedNumberInfo*>(ppNIs[i-1]))->setInitValFromParamVal(x(i));
-    if (debug) rpt::echo<<"finished BoundedNumberVectorInfo::setInitVals(x)"<<this<<endl;
-}
-
-/**
-*   Set the final value for each parameter in the vector (for output purposes, mainly).
- * 
- * @param x - reference to a param_init_bounded_number_vector instance
- * 
-*/
-void BoundedNumberVectorInfo::setFinalValsFromParamVals(const dvar_vector& x){
-    if (debug) rpt::echo<<"starting BoundedNumberVectorInfo::setFinalVals(x)"<<this<<endl;
-    for (int i=1;i<=nNIs;i++) (static_cast<BoundedNumberInfo*>(ppNIs[i-1]))->setFinalValFromParamVal(x(i));
-    if (debug) rpt::echo<<"finished BoundedNumberVectorInfo::setFinalVals(x)"<<this<<endl;
-}
-
-/**
- * Draw initial values for parameters on the arithmetic scale.
- * 
- * @param rng - random number generator
- * @vif variance inflation factor
-*/
-dvector BoundedNumberVectorInfo::drawInitVals(random_number_generator& rng, double vif){
-    if (debug) rpt::echo<<"starting BoundedNumberVectorInfo::drawInitVals(random_number_generator& rng,vif)"<<this<<endl;
-    dvector initVals(1,nNIs);
-    for (int i=1;i<=nNIs;i++) initVals(i) = (static_cast<BoundedNumberInfo*>(ppNIs[i-1]))->drawInitVal(rng,vif);
-    if (debug) rpt::echo<<"finished BoundedNumberVectorInfo::drawInitVals(random_number_generator& rng,vif)"<<this<<endl;
-    return initVals;
-}
+///**
+//* Calculates arithmetic-scale values corresponding to the input parameter-scale values.
+//* 
+//* @param x - parameter-scale values as a dvector
+//* @return - arithmetic-scale values as a dvector
+//*/
+//dvector BoundedNumberVectorInfo::calcArithScaleVals(const dvector& x){
+//    if (debug) rpt::echo<<"starting BoundedNumberVectorInfo::calcArithScaleVals(dvector&) "<<this<<endl;
+//    dvector asv(1,nNIs);
+//    asv.initialize();
+//    if (ppNIs) for (int i=1;i<=nNIs;i++) asv(i) = (static_cast<BoundedNumberInfo*>(ppNIs[i-1]))->calcArithScaleVal(x(i));
+//    if (debug) rpt::echo<<"finished BoundedNumberVectorInfo::calcArithScaleVals(dvector&) "<<this<<endl;
+//    return asv;
+//}
+//
+///**
+//* Calculates arithmetic-scale values corresponding to the input parameter-scale values.
+//* 
+//* @param x - parameter-scale values as dvar_vector
+//* @return - arithmetic-scale values as dvar_vector
+//*/
+//dvar_vector BoundedNumberVectorInfo::calcArithScaleVals(const dvar_vector& x){
+//    RETURN_ARRAYS_INCREMENT();
+//    if (debug) rpt::echo<<"starting BoundedNumberVectorInfo::calcArithScaleVals(dvar_vector&) "<<this<<endl;
+//    dvar_vector asv(1,nNIs);
+//    asv.initialize();
+//    if (ppNIs) for (int i=1;i<=nNIs;i++) asv(i) = (static_cast<BoundedNumberInfo*>(ppNIs[i-1]))->calcArithScaleVal(x(i));
+//    if (debug) rpt::echo<<"finished BoundedNumberVectorInfo::calcArithScaleVals(dvar_vector&) "<<this<<endl;
+//    RETURN_ARRAYS_DECREMENT();
+//    return asv;
+//}
+//
+///**
+//* Calculates parameter-scale values corresponding to the input arithmetic-scale values.
+//* 
+//* @param x - the arithmetic-scale values as dvector
+//* @return - the parameter-scale values as dvector
+//*/
+//dvector BoundedNumberVectorInfo::calcParamScaleVals(dvector& x){
+//    if (debug) rpt::echo<<"starting BoundedNumberVectorInfo::calcParamScaleVals(dvector&) "<<this<<endl;
+//    dvector asv(1,nNIs);
+//    asv.initialize();
+//    if (ppNIs) for (int i=1;i<=nNIs;i++) asv(i) = (static_cast<BoundedNumberInfo*>(ppNIs[i-1]))->calcParamScaleVal(x(i));
+//    if (debug) rpt::echo<<"finished BoundedNumberVectorInfo::calcParamScaleVals(dvector&) "<<this<<endl;
+//    return asv;
+//}
+//
+///**
+//*   Set the initial value for each parameter in the vector.
+// * 
+// * @param x - reference to a param_init_bounded_number_vector instance
+// * 
+//*/
+//void BoundedNumberVectorInfo::setInitValsFromParamVals(const dvar_vector& x){
+//    if (debug) rpt::echo<<"starting BoundedNumberVectorInfo::setInitVals(x)"<<this<<endl;
+//    for (int i=1;i<=nNIs;i++) (static_cast<BoundedNumberInfo*>(ppNIs[i-1]))->setInitValFromParamVal(x(i));
+//    if (debug) rpt::echo<<"finished BoundedNumberVectorInfo::setInitVals(x)"<<this<<endl;
+//}
+//
+///**
+//*   Set the final value for each parameter in the vector (for output purposes, mainly).
+// * 
+// * @param x - reference to a param_init_bounded_number_vector instance
+// * 
+//*/
+//void BoundedNumberVectorInfo::setFinalValsFromParamVals(const dvar_vector& x){
+//    if (debug) rpt::echo<<"starting BoundedNumberVectorInfo::setFinalVals(x)"<<this<<endl;
+//    for (int i=1;i<=nNIs;i++) (static_cast<BoundedNumberInfo*>(ppNIs[i-1]))->setFinalValFromParamVal(x(i));
+//    if (debug) rpt::echo<<"finished BoundedNumberVectorInfo::setFinalVals(x)"<<this<<endl;
+//}
+//
+///**
+// * Draw initial values for parameters on the arithmetic scale.
+// * 
+// * @param rng - random number generator
+// * @vif variance inflation factor
+//*/
+//dvector BoundedNumberVectorInfo::drawInitVals(random_number_generator& rng, double vif){
+//    if (debug) rpt::echo<<"starting BoundedNumberVectorInfo::drawInitVals(random_number_generator& rng,vif)"<<this<<endl;
+//    dvector initVals(1,nNIs);
+//    for (int i=1;i<=nNIs;i++) initVals(i) = (static_cast<BoundedNumberInfo*>(ppNIs[i-1]))->drawInitVal(rng,vif);
+//    if (debug) rpt::echo<<"finished BoundedNumberVectorInfo::drawInitVals(random_number_generator& rng,vif)"<<this<<endl;
+//    return initVals;
+//}
 
 /**
  * Read parameters info from an input stream in ADMB format.

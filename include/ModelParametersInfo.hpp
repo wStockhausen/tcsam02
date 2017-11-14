@@ -1,10 +1,21 @@
-/* 
- * File:   ModelParametersInfo.hpp
- * Author: WilliamStockhausen
- *
- * Created on February 12, 2014, 3:04 PM
+/**
+ * @file
+ * Header definitions for model classes associated with model parameters
+ * information.
+ * 
+ * Includes:
+ * <ul>
+ *  <li> ParameterGroupInfo
+ *  <li> RecruitmentInfo
+ *  <li> NaturalMortalityInfo
+ *  <li> GrowthInfo
+ *  <li> Molt2MaturityInfo
+ *  <li> SelectivityInfo
+ *  <li> FisheriesInfo
+ *  <li> SurveysInfo
+ *  <li> ModelParametersInfo
+ * </ul>
  */
-
 #ifndef MODELPARAMETERSINFO_HPP
 #define	MODELPARAMETERSINFO_HPP
 
@@ -15,67 +26,114 @@
 
 /*------------------------------------------------------------------------------\n
  * ParameterGroupInfo\n
- * Description: Abstract base class for concrete ..ParametersInfo classes \n
- * except ModelParametersInfo.\n
+ * This is the abstract base class for all concrete ..ParametersInfo classes,
+ * except ModelParametersInfo.
  *----------------------------------------------------------------------------*/
 class ParameterGroupInfo{
     public:
+        /** flag to print debugginh info */
         static int debug;
     public:
-        adstring name;        //name of ParameterGroup
-        int nIVs;             //number of index variables
-        adstring_array lblIVs;//names for index variables
-        int nPVs;             //number of parameter variables
-        adstring_array lblPVs;//names for parameter variables
-        adstring_array dscPVs;//descriptions for parameter variables
+        /** name of the ParameterGroup */
+        adstring name;
+        /** number of index variables */
+        int nIVs;         
+        /** names (labels) for the index variables */
+        adstring_array lblIVs;
+        /** number of parameter variables */
+        int nPVs; 
+        /** names (labels) for the parameter variables */
+        adstring_array lblPVs;
+        /** descriptions for the parameter variables */
+        adstring_array dscPVs;
+        /** number of "extra" indices or values */
         int nXIs;             //number of extra indices/values
-        adstring_array lblXIs;//names for extra indices/values
+        /** names (labels) for the extra indices/variables */
+        adstring_array lblXIs;
         
-        int nIBSs;              //number of index variables (IVs) that are blocks
-        ivector ibsIdxs;        //indices corresponding to index variables (IVs) that are blocks
-        IndexBlockSet** ppIBSs;//pointer to a vector of pointers to IndexBlockSet objects
+        /** number of index variables (IVs) that are blocks */
+        int nIBSs;
+        /** indices corresponding to index variables (IVs) that are blocks */
+        ivector ibsIdxs;
+        /** pointer to a vector of pointers to IndexBlockSet objects */
+        IndexBlockSet** ppIBSs;
         
-        int nPCs;  //number of rows in parameter combinations matrix
-        imatrix in;//input parameter combinations matrix (all integers)
-        dmatrix xd;//extra values by parameter combination as doubles
-        imatrix** ppIdxs; //pointer to array of pointers to indices matrices for use via getModelIndices(pc)     
-        adstring_array pcLabels; //array of labels, one for each pc
+        /** number of rows in the parameter combinations matrix */
+        int nPCs;
+        /** input parameter combinations matrix (all integers) */
+        imatrix in;
+        /** "extra" values by parameter combination as doubles */
+        dmatrix xd;
+        /** pointer to array of pointers to indices matrices for use via getModelIndices(pc) */
+        imatrix** ppIdxs;
+        /** array of labels, one for each pc */
+        adstring_array pcLabels;
     public:
+        /**
+         * Constructor for the class.
+         */
         ParameterGroupInfo();
+        /** 
+         * Destructor for the class 
+         */
         ~ParameterGroupInfo();
         
         /* 
          * Returns a pointer to the index block set identified by "type".
-         * Inputs:
-         *  adstring type:  "type" identifying index block set to return
-         * Returns:
-         *  pointer to the identified IndexBlockSet
+         * 
+         * @param type - adstring "type" identifying index block set to return
+         * 
+         * @return pointer to the identified IndexBlockSet
          */
         IndexBlockSet* getIndexBlockSet(adstring type);
         
-        /*******************************************
-         * get indices for parameter combination.
-         * @param pc : id for desired parameter combination
-         ******************************************/
+        /**
+         * Gets the indices for the parameter combination.
+         * 
+         * @param pc - the id for the desired parameter combination
+         * 
+         * @return an ivector of the parameter indices specifying the parameter combination
+         */
         ivector getPCIDs(int pc);
-        /*******************************************
-         * get model indices for parameter combination.
-         * @param pc: id for desired parameter combination
-         ******************************************/
+        /**
+         * Gets the model indices associated with the parameter combination.
+         * 
+         * @param pc - the id for the desired parameter combination
+         * 
+         * @return an imatrix of model indices associated with the parameter combination
+         */
         imatrix getModelIndices(int pc);
         
         /**
          * Returns the values of the "extra variables" as doubles for
          * the pc-th parameter combination 
          * 
-         * @param pc
+         * @param pc - the index of the desired parameter combination
          * 
-         * @return dvector
+         * @return dvector of the values of the "extra" variables associated with the pc
          */
         dvector getPCXDs(int pc);
                 
+        /**
+         * Reads default info in ADMB format for the parameter group from an input filestream.
+         * Subclasseses should override this function as appropriate.
+         * 
+         * @param is - the input filestream
+         */
         virtual void read(cifstream & is);
+        /**
+         * Writes default info in ADMB format for the parameter group to an output stream.
+         * Subclasses should override this function as appropriate.
+         * 
+         * @param os - the output stream
+         */
         virtual void write(std::ostream & os);
+        /**
+         * Writes default info in R format for the parameter group to an output stream.
+         * Subclasses should override this function as appropriate.
+         * 
+         * @param os - the output stream
+         */
         virtual void writeToR(std::ostream & os);
 
         friend cifstream& operator >>(cifstream & is, ParameterGroupInfo & obj){obj.read(is); return is;}
@@ -97,57 +155,98 @@ namespace tcsam{
     wts::adstring_matrix convertPCs(ParameterGroupInfo * pgi);
 }//namespace tcsam
 
-/*------------------------------------------------------------------------------
- * RecruitmentInfo\n
- * Encapsulates the following recruitment-related parameters:\n
- *  pLnR   : mean ln-scale recruitment\n
- *  pRCV   : recruitment cv's\n
- *  pRX    : fraction males at recruitment to population\n
- *  pRa    : size-at-recruitment parameter\n
- *  pRb    : size-at-recruitment parameter\n
- *  pvLnRDevs: ln-scale annual recruitment devs
+/**
+ * @class RecruitmentInfo:ParameterGroupInfo
+ * 
+ * This class encapsulates the ParameterGroupInfo for
+ * the following recruitment-related parameters:
+ * <ul>
+ *  <li> pLnR   : mean ln-scale recruitment
+ *  <li> pRCV   : recruitment cv's
+ *  <li> pRX    : fraction males at recruitment to population
+ *  <li> pRa    : size-at-recruitment parameter
+ *  <li> pRb    : size-at-recruitment parameter
+ *  <li> pvLnRDevs: ln-scale annual recruitment devs
+ * </ul>
  * Notes:
- *  1. YEAR_BLOCK is the index variable for the parameters
- *----------------------------------------------------------------------------*/
+ * <ol>
+ *  <li> YEAR_BLOCK is the index variable for the parameters
+ * </ol>
+ */
 class RecruitmentInfo: public ParameterGroupInfo {
     public:
         static int debug;
     protected:
         static adstring NAME;//"recruitment"
     public:        
+        /** pointer to a vector of bounded parameters for the ln-scale mean recruitment */
         BoundedNumberVectorInfo* pLnR;
+        /** pointer to a vector of bounded parameters for the recruitment cv */
         BoundedNumberVectorInfo* pRCV;
+        /** pointer to a vector of bounded parameters for the fraction of males at recruitment */
         BoundedNumberVectorInfo* pRX;
+        /** pointer to a vector of bounded parameters for the recruitment distribution scale parameter */
         BoundedNumberVectorInfo* pRa;
+        /** pointer to a vector of bounded parameters for the recruitment distribution shape parameter */
         BoundedNumberVectorInfo* pRb;
-        DevsVectorVectorInfo* pDevsLnR; //parameter vectors for annual recruitment devs
+        /** pointer to info for a vector of parameter vectors for annual recruitment devs */
+        DevsVectorVectorInfo* pDevsLnR; 
         
+        /**
+         * Class constructor.
+         */
         RecruitmentInfo();
+        /**
+         * Class destructor.
+         */
         ~RecruitmentInfo();
         
+        /**
+         * Reads the ParameterGroupInfo for recruitment from an input filestream in ADMB format.
+         * 
+         * @param is - the input filestream
+         */
         void read(cifstream & is);
+        /**
+         * Writes the ParameterGroupInfo for recruitment to an output stream in ADMB format.
+         * 
+         * @param is - the output stream
+         */
         void write(std::ostream & os);
+        /**
+         * Writes the ParameterGroupInfo for recruitment to an output stream in R format.
+         * 
+         * @param is - the output stream
+         */
         void writeToR(std::ostream & os);
         
         friend cifstream& operator >>(cifstream & is, RecruitmentInfo & obj){obj.read(is); return is;}
         friend std::ostream& operator <<(std::ostream & os, RecruitmentInfo & obj){obj.write(os); return os;}
 };
 
-/*------------------------------------------------------------------------------
- * NaturalMortalityInfo\n
- * Encapsulates the following recruitment-related parameters:\n
- *   pM   : base arithmetic-scale natural mortality
- *   pDM1 : ln-scale offsets
- *   pDM2 : ln-scale offsets
- *   pDM3 : ln-scale offsets
- *   pDM4 : ln-scale offsets    
+/**
+ * @class NaturalMortalityInfo:ParameterGroupInfo
+ * 
+ * This class encapsulates the following natural mortality-related parameters:
+ * <ul>
+ *   <li> pM   : base arithmetic-scale natural mortality
+ *   <li> pDM1 : ln-scale offsets
+ *   <li> pDM2 : ln-scale offsets
+ *   <li> pDM3 : ln-scale offsets
+ *   <li> pDM4 : ln-scale offsets    
+ * </ul>
  * Notes:
- *  1. index variables for parameters
- *      a. YEAR_BLOCK
- *      b. SEX
- *      c. MATURITY
- *      d. SHELL
-*----------------------------------------------------------------------------*/
+ * <ol type="1">
+ *  <li> index variables for parameters
+ *    <ol type="a">
+ *      <li> YEAR_BLOCK
+ *      <li> SEX
+ *      <li> MATURITY
+ *      <li> SHELL
+ *    </ol>
+ *  </li>
+ * </ol>
+*/
 class NaturalMortalityInfo : public ParameterGroupInfo {
     public:
         /* flag to print debugging info (if >0)*/
@@ -179,18 +278,19 @@ class NaturalMortalityInfo : public ParameterGroupInfo {
         ~NaturalMortalityInfo();
         
         /**
-         * Read from text file input stream.
+         * Reads the ParameterGroupInfo for natural mortality from an input filestream in ADMB format.
          * 
-         * @param is - input stream
+         * @param is - the input filestream
          */
         void read(cifstream & is);
         /**
-         * Write to output stream in ADMB format
+         * Writes to an output stream in ADMB format.
+         * 
          * @param os - output stream
          */
         void write(std::ostream & os);
         /**
-         * Write component info to output stream as
+         * Writes component info to an output stream as an
          * R-format list.
          * 
          * @param os - output stream
@@ -198,56 +298,97 @@ class NaturalMortalityInfo : public ParameterGroupInfo {
         void writeToR(std::ostream & os);
 };
 
-/*------------------------------------------------------------------------------
- * GrowthInfo\n
- * Encapsulates the following recruitment-related parameters:\n
- *   pGrA : mean growth coefficient "a"
- *   pGrB : mean growth exponent "b"
- *   pGrBeta : scale factor for growth transition matrix
+/**
+ * @class GrowthInfo:ParameterGroupInfo
+ * 
+ * This class encapsulates the following recruitment-related parameters:
+ * <ul>
+ *   <li> pGrA : mean growth coefficient "a"
+ *   <li> pGrB : mean growth exponent "b"
+ *   <li> pGrBeta : scale factor for growth transition matrix
+ * </ul>
  * Notes:
- *  1. YEAR_BLOCK, SEX are the index variables for the parameters
- *----------------------------------------------------------------------------*/
+ * <ol>
+ *  <li> the index variables for the parameters are
+ *      <ol type="a">
+ *          <li> YEAR_BLOCK
+ *          <li> SEX
+ *      </ol>
+ *  </li>
+ * </ol>
+ */
 class GrowthInfo : public ParameterGroupInfo {
     public:
         static int debug;
     protected:
-        static adstring NAME;//"growth"
+        /** name for this parameter group */
+        static adstring NAME;
     public:
-        /** mean growth coefficient "a" */
+        /** pointer to info on mean growth coefficient "a" parameters */
         BoundedNumberVectorInfo* pGrA;
-        /** mean growth coefficient "b" */
+        /** pointer to info on mean growth coefficient "b" parameters */
         BoundedNumberVectorInfo* pGrB;
-        /** scale factor for growth transition matrix */
+        /** pointer to info on the scale factor for the growth transition matrix */
         BoundedNumberVectorInfo* pGrBeta;
         
+        /**
+         * Class constructor.
+         */
         GrowthInfo();
+        /**
+         * Class destructor.
+         */
         ~GrowthInfo();
         
+        /**
+         * Reads the ParameterGroupInfo for growth from an input filestream in ADMB format.
+         * 
+         * @param is - the input filestream
+         */
         void read(cifstream & is);
         void write(std::ostream & os);
         void writeToR(std::ostream & os);
 };
 
-/*------------------------------------------------------------------------------
- * MaturityInfo\n
- * Encapsulates the following molt-to-maturity-related parameters:\n
- *  pvLgtM2M: parameter vectors for logit-scale pr(molt-to-maturity|pre-molt size)
- * Notes:
- *  1. YEAR_BLOCK is the 1st index variable for the parameters
- *  1. SEX        is the 2nd index variable for the parameters
-*----------------------------------------------------------------------------*/
+/**
+ * @class MaturityInfo:ParameterGroupInfo
+ * 
+ * This class encapsulates the following molt-to-maturity-related parameters:
+ * <ul>
+ *  <li> pvLgtM2M - parameter vectors for logit-scale pr(molt-to-maturity|pre-molt size)
+ * </ul>
+ * <ol>
+ *  <li> the index variables for the parameters are
+ *      <ol type="a">
+ *          <li> YEAR_BLOCK
+ *          <li> SEX
+ *      </ol>
+ *  </li>
+ * </ol>
+*/
 class Molt2MaturityInfo: public ParameterGroupInfo {
     public:
         static int debug;
     protected:
         static adstring NAME;//"molt_to_maturity"
     public:        
-        /** parameter vectors for logit-scale pr(molt-to-maturity|size) */
+        /** pointer to info for parameter vectors describing logit-scale pr(molt-to-maturity|size) */
         BoundedVectorVectorInfo* pLgtPrM2M; 
         
+        /**
+         * Class constructor.
+         */
         Molt2MaturityInfo();
+        /**
+         * Class destructor.
+         */
         ~Molt2MaturityInfo();
         
+        /**
+         * Reads the ParameterGroupInfo for the molt-to-maturity from an input filestream in ADMB format.
+         * 
+         * @param is - the input filestream
+         */
         void read(cifstream & is);
         void write(std::ostream & os);
         void writeToR(std::ostream & os);
@@ -296,6 +437,11 @@ class SelectivityInfo : public ParameterGroupInfo {
         SelectivityInfo();
         ~SelectivityInfo();
         
+        /**
+         * Reads the ParameterGroupInfo for selectivity from an input filestream in ADMB format.
+         * 
+         * @param is - the input filestream
+         */
         void read(cifstream & is);
         void write(std::ostream & os);
         void writeToR(std::ostream & os);
@@ -356,6 +502,11 @@ class FisheriesInfo : public ParameterGroupInfo {
         FisheriesInfo();
         ~FisheriesInfo();
         
+        /**
+         * Reads the ParameterGroupInfo for the fisheries from an input filestream in ADMB format.
+         * 
+         * @param is - the input filestream
+         */
         void read(cifstream & is);
         void write(std::ostream & os);
         void writeToR(std::ostream & os);
@@ -397,33 +548,68 @@ class SurveysInfo : public ParameterGroupInfo {
         SurveysInfo();
         ~SurveysInfo();
         
+        /**
+         * Reads the ParameterGroupInfo for the surveys from an input filestream in ADMB format.
+         * 
+         * @param is - the input filestream
+         */
         void read(cifstream & is);
         void write(std::ostream & os);
         void writeToR(std::ostream & os);
 };
 
-/*------------------------------------------------------------------------------
- * ModelParametersInfo
- *----------------------------------------------------------------------------*/
+/**
+ * @class ModelParametersInfo
+ * 
+ * This class encapsulates information for all the model parameters by parameter group and
+ * provides read/write methods for ModelParametersInfo files.
+ * 
+ * The following "parameter groups" are incorporated here:
+ * <ul>
+ *  <li> recruitment       (ptrRec)
+ *  <li> natural mortality (ptrNM)
+ *  <li> growth            (ptrGrw)
+ *  <li> molt-to-maturity  (ptrM2M)
+ *  <li> selectivity       (ptrSel)
+ *  <li> fisheries         (ptrFsh)
+ *  <li> surveys           (ptrSrv)
+ * </ul>
+ */
 class ModelParametersInfo{
     public:
-        static int debug;        
+        /** a flag to print debugging info */
+        static int debug;      
+        /** an adstring with the ModelParametersInfo version */
         static const adstring version;
     public:
+        /** pointer to the ModelConfiguration object */
         ModelConfiguration* ptrMC;
         
         RecruitmentInfo*      ptrRec; //pointer to recruitment info
         NaturalMortalityInfo* ptrNM;  //pointer to natural mortality info
-        GrowthInfo*           ptrGrw;  //pointer to growth info
+        GrowthInfo*           ptrGrw; //pointer to growth info
         Molt2MaturityInfo*    ptrM2M; //pointer to molt-to-maturity info
         
         SelectivityInfo*      ptrSel; //pointer to selectivity functions info
         FisheriesInfo*        ptrFsh; //pointer to fisheries info
         SurveysInfo*          ptrSrv; //pointer to surveys info
     public:
+        /**
+         * Class constructor.
+         * 
+         * @param mc - a reference to the ModelConsfiguration object
+         */
         ModelParametersInfo(ModelConfiguration& mc);
+        /**
+         * Class destructor.
+         */
         ~ModelParametersInfo();
         
+        /**
+         * Reads the model parameters info for all parameter groups from an input filestream in ADMB format.
+         * 
+         * @param is - the input filestream
+         */
         void read(cifstream & is);
         void write(std::ostream & os);
         void writeToR(std::ostream & os);
