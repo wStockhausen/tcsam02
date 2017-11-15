@@ -140,80 +140,186 @@ namespace tcsam {
      */                                      
     void calcPriors(objective_function_value& objFun, DevsVectorVectorInfo* ptrVVI, dvar_matrix& pm, int debug, std::ostream& cout);
 
+    /**
+     * Writes the header (column names) to a stream which subsequent writeParameters functions
+     * will write to using csv format.
+     * 
+     * @param os - the output stream
+     */
+    void writeCSVHeaderForParametersFile(ostream& os);
+/**
+ * Writes information for a parameter to an output stream.
+ * 
+ * @param os - output stream
+ * @param p - parameter (param_init_number)
+ * @param ctg1 - category 1 label
+ * @param ctg2 - category 2 label
+ * @param pI - pointer to associated NumberInfo object
+ * @param toR - flag to write to R format (=1) or csv (=0)
+ * @param willBeActive - flag to write only if parameter will be active
+ */
     void writeParameter(ostream& os, param_init_number& p,             adstring& ctg1, adstring& ctg2, 
                                      NumberInfo* i, int toR, int willBeActive);
+/**
+ * Writes information for a bounded parameter to an output stream.
+ * 
+ * @param os - output stream
+ * @param p - parameter (param_init_bounded_number)
+ * @param ctg1 - category 1 label
+ * @param ctg2 - category 2 label
+ * @param pI - BoundedNumberInfo
+ * @param toR - flag to write to R format (=1) or csv (=0)
+ * @param willBeActive - flag to write only if parameter will be active
+ */
     void writeParameter(ostream& os, param_init_bounded_number& p,     adstring& ctg1, adstring& ctg2, 
                                      BoundedNumberInfo* i, int toR, int willBeActive);
+/**
+ * Writes information for a parameter vector to an output stream.
+ * 
+ * @param os - output stream
+ * @param p - parameter vector (param_init_vector)
+ * @param ctg1 - category 1 label
+ * @param ctg2 - category 2 label
+ * @param lbl - parameter-specific label
+ * @param toR - flag to write to R format (=1) or csv (=0)
+ * @param willBeActive - flag to write only if parameter vector will be active
+ */
     void writeParameters(ostream& os, param_init_vector& p,             adstring& ctg1, adstring& ctg2, 
                                      VectorInfo* i, int toR, int willBeActive);
+/**
+ * Writes information for a bounded parameter vector to an output stream.
+ * 
+ * @param os - output stream
+ * @param p - parameter vector (param_init_bounded_vector)
+ * @param ctg1 - category 1 label
+ * @param ctg2 - category 2 label
+ * @param pI - pointer to associated BoundedVectorInfo info object
+ * @param toR - flag to write to R format (=1) or csv (=0)
+ * @param willBeActive - flag to write only if parameter vector will be active
+ */
     void writeParameters(ostream& os, param_init_bounded_vector& p,     adstring& ctg1, adstring& ctg2, 
                                      BoundedVectorInfo* i, int toR, int willBeActive);
+/**
+ * Writes information for a devs parameter vector to an output stream.
+ * 
+ * @param os - output stream
+ * @param p - parameter vector (param_init_bounded_dev_vector)
+ * @param ctg1 - category 1 label
+ * @param ctg2 - category 2 label
+ * @param pI - pointer to associated DevsVectorInfo info object
+ * @param toR - flag to write to R format (=1) or csv (=0)
+ * @param willBeActive - flag to write only if parameter vector will be active
+ */
     void writeParameters(ostream& os, param_init_bounded_dev_vector& p, adstring& ctg1, adstring& ctg2, 
                                      DevsVectorInfo* i, int toR, int willBeActive);
+/**
+ * Writes a vector of parameters (param_init_number_vector) to R or csv.
+ * 
+ * @param os - output stream to write to
+ * @param p - a param_init_number_vector
+ * @param ctg1 - category 1 label
+ * @param ctg2 - category 2 label
+ * @param pI - pointer to associated NumberVectorInfo info object
+ * @param toR - flag to write to R format (=1) or csv (=0)
+ * @param willBeActive - flag to write if parameters will be active in some phase
+ */
     void writeParameters(ostream& os, param_init_number_vector& p,        adstring& ctg1, adstring& ctg2, 
                                       NumberVectorInfo* pI, int toR, int willBeActive);
+/**
+ * Writes a vector of parameters (param_init_bounded_number_vector) to R or csv.
+ * 
+ * @param os - output stream to write to
+ * @param p - a param_init_bounded_number_vector
+ * @param ctg1 - category 1 label
+ * @param ctg2 - category 2 label
+ * @param pI - pointer to associated BoundedNumberVectorInfo info object
+ * @param toR - flag to write to R format (=1) or csv (=0)
+* @param willBeActive - flag to write if parameters will be active in some phase
+ */
     void writeParameters(ostream& os, param_init_bounded_number_vector& p,adstring& ctg1, adstring& ctg2, 
                                       BoundedNumberVectorInfo* pI, int toR, int willBeActive);
+/**
+ * Writes a vector of parameter vectors (param_init_vector_vector) to R or csv.
+ * 
+ * @param os - output stream to write to
+ * @param p - a param_init_vector_vector
+ * @param ctg1 - category 1 label
+ * @param ctg2 - category 2 label
+ * @param pI - pointer to associated VectorVectorInfo info object
+ * @param toR - flag to write to R format (=1) or csv (=0)
+ * @param willBeActive - flag to write if parameters will be active in some phase
+ */
     void writeParameters(ostream& os, param_init_vector_vector& p,        adstring& ctg1, adstring& ctg2, 
                                       VectorVectorInfo* pI, int toR, int willBeActive);
+/**
+ * Writes a vector of parameter vectors (param_init_bounded_vector_vector) to R or csv.
+ * 
+ * @param os - output stream to write to
+ * @param p - a param_init_bounded_vector_vector
+ * @param ctg1 - category 1 label
+ * @param ctg2 - category 2 label
+ * @param pI - pointer to associated BoundedVectorVectorInfo info object
+ * @param toR - flag to write to R format (otherwise csv)
+ * @param willBeActive - flag to write if parameters will be active in some phase
+ */
     void writeParameters(ostream& os, param_init_bounded_vector_vector& p,adstring& ctg1, adstring& ctg2, 
                                       BoundedVectorVectorInfo* pI, int toR, int willBeActive);
     
 /**
- * Set the parameter info for a NumberVectorInfo object.
+ * Sets the info for a param_init_number_vector from a NumberVectorInfo object.
  * 
  * @param pNVI - pointer to a NumberVectorInfo instance
- * @param npT - size of vector
- * @param phs - ivector of phases for parameters
- * @param os - output stream to write to
+ * @param npT [out] - size of vector
+ * @param phs [out] - ivector of phases for parameters
+ * @param os  - output stream to write processing info to
  */
     void setParameterInfo(NumberVectorInfo* pNVI,                           
                           int& npT,
                           ivector& phs, 
                           ostream& os = std::cout);
-    /**
-     * Set the parameter info for a BoundedNumberVectorInfo object.
-     * 
-     * @param pBNVI - pointer to a BoundedNumberVectorInfo instance
-     * @param npT - size of vector
-     * @param lb - dvector of lower bounds
-     * @param ub - dvector of upper bounds
-     * @param phs - ivector of phases for parameters
-     * @param os - output stream to write to
-     */
+/**
+ * Sets the info for a param_init_bounded_number_vector from a BoundedNumberVectorInfo object.
+ * 
+ * @param pBNVI - pointer to a BoundedNumberVectorInfo instance
+ * @param npT [out]  - size of vector
+ * @param lb  [out]  - dvector of lower bounds on parameter scale
+ * @param ub  [out]  - dvector of upper bounds on parameter scale
+ * @param phs [out] - ivector of phases for parameters
+ * @param os - output stream to write to
+ */
     void setParameterInfo(BoundedNumberVectorInfo* pBNVI,
                           int& npT,
                           dvector& lb, dvector& ub, 
                           ivector& phs, 
                           ostream& os = std::cout);
-    /**
-     * Set the parameter info for a VectorVectorInfo object.
-     * 
-     * @param pVVI - pointer to a VectorVectorInfo instance
-     * @param npT - size of vector
-     * @param lb - dvector of lower bounds
-     * @param ub - dvector of upper bounds
-     * @param phs - ivector of phases for parameters
-     * @param os - output stream to write to
-     */
+/**
+ * Sets the info for a param_init_vector_vector from a VectorVectorInfo object.
+ * 
+ * @param pVVI - pointer to a VectorVectorInfo instance
+ * @param npT [out] - size of vector
+ * @param mns [out] - ivector with minimum indices for each vector
+ * @param mxs [out] - ivector with maximum indices for each vector
+ * @param phs [out] - ivector of phases for parameters
+ * @param os - output stream to write to
+ */
     void setParameterInfo(VectorVectorInfo* pVVI,   
                           int& npT,
                           ivector& mns, ivector& mxs,
                           ivector& phs, 
                           ostream& os = std::cout);
-    /**
-     * Set the parameter info for a BoundedVectorVectorInfo object.
-     * 
-     * @param pBVVI - pointer to a BoundedVectorVectorInfo instance
-     * @param npT - size of vector
-     * @param mns - ivector with minimum indices for each vector
-     * @param mxs - ivector with maximum indices for each vector
-     * @param idxs - imatrix of reverse indices
-     * @param lb - dvector of lower bounds
-     * @param ub - dvector of upper bounds
-     * @param phs - ivector of phases for parameters
-     * @param os - output stream to write to
-     */
+/**
+ * Sets the info for a param_init_bounded_vector_vector from a BoundedVectorVectorInfo object.
+ * 
+ * @param pBVVI - pointer to a BoundedVectorVectorInfo instance
+ * @param npT [out] - size of vector
+ * @param mns [out] - ivector with minimum indices for each vector
+ * @param mxs [out] - ivector with maximum indices for each vector
+ * @param idxs [out] - imatrix of reverse indices
+ * @param lb [out] - dvector of lower bounds
+ * @param ub [out] - dvector of upper bounds
+ * @param phs [out] - ivector of phases for parameters
+ * @param os - output stream to write to
+ */
     void setParameterInfo(BoundedVectorVectorInfo* pBVVI,                           
                           int& npT,
                           ivector& mns, ivector& mxs,
@@ -221,19 +327,20 @@ namespace tcsam {
                           dvector& lb, dvector& ub,
                           ivector& phs,
                           ostream& os = std::cout);
-    /**
-     * Set the parameter info for a DevsVectorVectorInfo object.
-     * 
-     * @param pDVVI - pointer to a DevsVectorVectorInfo instance
-     * @param npT - size of vector
-     * @param mns - ivector with minimum indices for each vector
-     * @param mxs - ivector with maximum indices for each vector
-     * @param idxs - imatrix of reverse indices
-     * @param lb - dvector of lower bounds
-     * @param ub - dvector of upper bounds
-     * @param phs - ivector of phases for parameters
-     * @param os - output stream to write to
-     */
+/**
+ * Sets the info for a param_init_bounded_vector_vector acting as a devs_vector_vector
+ * from a DevsVectorVectorInfo object.
+ * 
+ * @param pDVVI - pointer to a DevsVectorVectorInfo instance
+ * @param npT [out] - size of vector
+ * @param mns [out] - ivector with minimum indices for each vector
+ * @param mxs [out] - ivector with maximum indices for each vector
+ * @param idxs [out] - imatrix of reverse indices
+ * @param lb [out] - dvector of lower bounds
+ * @param ub [out] - dvector of upper bounds
+ * @param phs [out] - ivector of phases for parameters
+ * @param os - output stream to write to
+ */
     void setParameterInfo(DevsVectorVectorInfo* pDVVI,                           
                           int& npT,
                           ivector& mns, ivector& mxs,

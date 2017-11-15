@@ -330,9 +330,14 @@
 //                  on the parameter scale. 
 //--2017-11-13: 1. Continued refactoring ModelParameterInfoTypes to better handle parameter scaling.
 //              2. Changed MPI version to 20171113.
-//--2017-11-14: 1. MOre debugging info being printed, documentation improved.
+//--2017-11-14: 1. More debugging info being printed, documentation improved.
 //              2. Added scripts under "docs/scripts" to produce html documentation
 //                  using doxygen.
+//--2017-11-15: 1. Revised csv output from writeParameters(...) to include min/max/value
+//                  on both arithmetic and parameter scales.
+//              2. TODO: change jittering to occur on ARITHMETIC scales, not parameter
+//                  scales (logit-scale parameters tend to end up very near bounds when
+//                  jittering occurs on logit-scale).
 // =============================================================================
 // =============================================================================
 GLOBALS_SECTION
@@ -6323,13 +6328,13 @@ FUNCTION void ReportToR(ostream& os, double maxGrad, int debug, ostream& cout)
 //Write parameter information to file
 FUNCTION void writeParameters(ostream& os,int toR, int willBeActive)      
     adstring ctg1, ctg2;
-    os<<"index, phase, idx.mn, idx.mx, min, max, value, scale, name, type, category, process, label"<<endl;
+    if (!toR) tcsam::writeCSVHeaderForParametersFile(os);
     //recruitment parameters
     ctg1="population processes";
     ctg2="recruitment";
-    tcsam::writeParameters(os,pLnR,  ctg1,ctg2,ptrMPI->ptrRec->pLnR,  toR,willBeActive);      
+    tcsam::writeParameters(os,pLnR,ctg1,ctg2,ptrMPI->ptrRec->pLnR,toR,willBeActive);      
     tcsam::writeParameters(os,pRCV,ctg1,ctg2,ptrMPI->ptrRec->pRCV,toR,willBeActive);      
-    tcsam::writeParameters(os,pRX,ctg1,ctg2,ptrMPI->ptrRec->pRX,toR,willBeActive);      
+    tcsam::writeParameters(os,pRX, ctg1,ctg2,ptrMPI->ptrRec->pRX, toR,willBeActive);      
     tcsam::writeParameters(os,pRa, ctg1,ctg2,ptrMPI->ptrRec->pRa, toR,willBeActive);      
     tcsam::writeParameters(os,pRb, ctg1,ctg2,ptrMPI->ptrRec->pRb, toR,willBeActive);      
     tcsam::writeParameters(os,pDevsLnR,ctg1,ctg2,ptrMPI->ptrRec->pDevsLnR,toR,willBeActive);      

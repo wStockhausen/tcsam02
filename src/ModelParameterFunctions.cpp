@@ -10,34 +10,35 @@
 
 namespace tcsam{
 
-/******************************************************************************
-* Set initial values for a param_init_bounded_number_vector.
-* 
-* Description: Sets initial values for a parameter vector.
-* 
-* Inputs:
-*  @param pI : pointer to BoundedNumberVectorInfo object
-*  @param p  : reference to a param_init_bounded_number_vector
-*     
-* @return void
+/**
+ *Set initial values for a param_init_bounded_number_vector from an associated 
+ * BoundedNumberVectorInfo instance.
  * 
-* @alters - changes initial values of p
+ * @param pI : pointer to BoundedNumberVectorInfo object
+ * @param p  : reference to a param_init_bounded_number_vector
+ * @param debug: flag to print debugging info
+ * @param os: stream to print debugging info to
+ *     
+ * @return void
  * 
-******************************************************************************/
-void setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p, int debug, std::ostream& cout){
+ * @alters - changes initial values of p
+ * 
+ */
+void setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p, int debug, std::ostream& os){
     debug=tcsam::dbgAll;
-    if (debug>=tcsam::dbgAll) std::cout<<"Starting setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).get_name()<<std::endl; 
+    if (debug>=tcsam::dbgAll) os<<"Starting setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).get_name()<<std::endl; 
     int np = pI->getSize();
     if (np){
         dvector vls = pI->getInitValsOnParamScales();
         p.set_initial_value(vls);
-        rpt::echo<<"InitVals for "<<p(1).get_name()<<": "<<p<<std::endl;
+        rpt::echo<<"InitVals for "<<p(1).get_name()<<" on arith scale: "<<pI->getInitVals()<<std::endl;
+        rpt::echo<<"InitVals for "<<p(1).get_name()<<" on param scale: "<<p<<std::endl;
         if (debug>=tcsam::dbgAll) {
-            std::cout<<"vls = "<<vls<<std::endl;
-            std::cout<<"p   = "<<p<<std::endl;
+            os<<"vls = "<<vls<<std::endl;
+            os<<"p   = "<<p<<std::endl;
             double_index_guts* ptr = new dvector_index(vls);
-            std::cout<<ptr<<tb<<ptr->indexmin()<<tb<<ptr->indexmax()<<endl;
-            for (int i=ptr->indexmin();i<=ptr->indexmax();i++) std::cout<<(*((*ptr)[i]))<<tb; std::cout<<std::endl;
+            os<<ptr<<tb<<ptr->indexmin()<<tb<<ptr->indexmax()<<endl;
+            for (int i=ptr->indexmin();i<=ptr->indexmax();i++) os<<(*((*ptr)[i]))<<tb; std::cout<<std::endl;
         }
     } else {
         rpt::echo<<"InitVals for "<<p(1).get_name()<<" not defined because np = "<<np<<std::endl;
@@ -51,35 +52,39 @@ void setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& 
     }
 }
 
-/******************************************************************************
-* Set initial values for a param_init_bounded_vector_vector.
-* 
-* Description: Sets initial values for a vector of parameter vectors.
+/**
+* Set initial values for a param_init_bounded_vector_vector from its associated
+* BoundedVectorVectorInfo instance.
 * 
 * Inputs:
 *  @param pI : pointer to a BoundedVectorVectorInfo object
 *  @param p  : reference to a param_init_bounded_vector_vector
+ * @param debug: flag to print debugging info
+ * @param os: stream to print debugging info to
 *     
 * @return void
- * 
+* 
 * @alters - changes initial values of p
- * 
-******************************************************************************/
-void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, std::ostream& cout){
+* 
+*/
+void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, std::ostream& os){
     debug=tcsam::dbgAll;
     if (debug>=tcsam::dbgAll) std::cout<<"Starting setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).get_name()<<std::endl; 
     int np = pI->getSize();
     if (np){
         for (int i=1;i<=np;i++) {
             dvector vls = (*pI)[i]->getInitValsOnParamScale();
-            if (debug>=tcsam::dbgAll) cout<<"pc "<<i<<" :"<<tb<<p(i).indexmin()<<tb<<p(i).indexmax()<<tb<<vls.indexmin()<<tb<<vls.indexmax()<<std::endl;
+            if (debug>=tcsam::dbgAll) os<<"pc "<<i<<" :"<<tb<<p(i).indexmin()<<tb<<p(i).indexmax()<<tb<<vls.indexmin()<<tb<<vls.indexmax()<<std::endl;
             for (int j=vls.indexmin();j<=vls.indexmax();j++) p(i,j) = vls(j);
             if (debug>=tcsam::dbgAll) {
-                std::cout<<"vls  = "<<vls<<std::endl;
-                std::cout<<"p(i) = "<<p(i)<<std::endl;
+                os<<"vls  = "<<vls<<std::endl;
+                os<<"p(i) = "<<p(i)<<std::endl;
             }
         }
-        for (int i=1;i<=np;i++) rpt::echo<<"InitVals for "<<p(i).get_name()<<":"<<tb<<p(i)<<std::endl;
+        for (int i=1;i<=np;i++) {
+            rpt::echo<<"InitVals for "<<p(i).get_name()<<" on arith scale:"<<tb<<(*pI)[i]->getInitVals()<<std::endl;
+            rpt::echo<<"InitVals for "<<p(i).get_name()<<" on param scale:"<<tb<<p(i)<<std::endl;
+        }
     } else {
         rpt::echo<<"InitVals for "<<p(1).get_name()<<" not defined because np = "<<np<<std::endl;
     }
@@ -92,34 +97,37 @@ void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& 
     }
 }
 
-/******************************************************************************
-* Set initial devs values for a param_init_bounded_vector_vector.
-* 
-* Description: Sets initial values for a vector of devs vectors.
-* 
-* Inputs:
-*  @param pI : pointer to a DevsVectorVectorInfo object
-*  @param p  : reference to a param_init_bounded_vector_vector
-*     
-* @return void
+/**
+ * Sets initial devs values for a param_init_bounded_vector_vector from an
+ * associated DevsVectorVectorInfo instance.
  * 
-* @alters - changes initial values of p
-******************************************************************************/
-void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, std::ostream& cout){
+ * @param pI : pointer to a DevsVectorVectorInfo object
+ * @param p  : reference to a param_init_bounded_vector_vector
+ * @param debug: flag to print debugging info
+ * @param os: stream to print debugging info to
+ *     
+ * @return void
+ * 
+ * @alters - changes initial values of p
+ */
+void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, std::ostream& os){
     debug=tcsam::dbgAll;
     if (debug>=tcsam::dbgAll) std::cout<<"Starting setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).get_name()<<std::endl; 
     int np = pI->getSize();
     if (np){
         for (int i=1;i<=np;i++) {
             dvector vls = (*pI)[i]->getInitValsOnParamScale();
-            if (debug>=tcsam::dbgAll) cout<<"pc "<<i<<" :"<<tb<<p(i).indexmin()<<tb<<p(i).indexmax()<<tb<<vls.indexmin()<<tb<<vls.indexmax()<<std::endl;
+            if (debug>=tcsam::dbgAll) os<<"pc "<<i<<" :"<<tb<<p(i).indexmin()<<tb<<p(i).indexmax()<<tb<<vls.indexmin()<<tb<<vls.indexmax()<<std::endl;
             for (int j=vls.indexmin();j<=(vls.indexmax()-1);j++) p(i,j)=vls(j);
             if (debug>=tcsam::dbgAll) {
                 std::cout<<"vls  = "<<vls<<std::endl;
                 std::cout<<"p(i) = "<<p(i)<<std::endl;
             }
         }
-        for (int i=1;i<=np;i++) rpt::echo<<"InitVals for "<<p(i).get_name()<<":"<<tb<<p(i)<<std::endl;
+        for (int i=1;i<=np;i++) {
+            rpt::echo<<"InitVals for "<<p(i).get_name()<<" on arith scale:"<<tb<<(*pI)[i]->getInitVals()<<std::endl;
+            rpt::echo<<"InitVals for "<<p(i).get_name()<<" on param scale:"<<tb<<p(i)<<std::endl;
+        }
     } else {
         rpt::echo<<"InitVals for "<<p(1).get_name()<<" not defined because np = "<<np<<std::endl;
     }
@@ -140,15 +148,15 @@ void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, 
  * @param pDevs - the param_init_bounded_vector_vector
  * @param pI    - pointer to the associated DevsVectorVectorInfo object
  * @param debug - debugging level
- * @param cout  - output stream object for debugging info
+ * @param os  - output stream object for debugging info
  * 
  * @return - void
  * 
  * @alters - This alters the values in the devs dvar_matrix.
  * 
  */
-void setDevs(dvar_matrix& devs, param_init_bounded_vector_vector& pDevs, DevsVectorVectorInfo* pI, int debug, std::ostream& cout){
-    if (debug>=tcsam::dbgAll) cout<<"starting setDevs(devs,pDevs,pI)"<<std::endl;
+void setDevs(dvar_matrix& devs, param_init_bounded_vector_vector& pDevs, DevsVectorVectorInfo* pI, int debug, std::ostream& os){
+    if (debug>=tcsam::dbgAll) os<<"starting setDevs(devs,pDevs,pI)"<<std::endl;
     devs.initialize();
     if (pI->getSize()){
         int nv = pDevs.indexmax();//number of devs vectors defined
@@ -157,16 +165,16 @@ void setDevs(dvar_matrix& devs, param_init_bounded_vector_vector& pDevs, DevsVec
             mni = pDevs(v).indexmin();
             mxi = pDevs(v).indexmax();
             devs(v)(mni,mxi) = (*pI)[v]->calcArithScaleVals(pDevs(v));
-            if (debug>=(tcsam::dbgAll)) cout<<v<<":  "<<devs(v)<<endl;
+            if (debug>=(tcsam::dbgAll)) os<<v<<":  "<<devs(v)<<endl;
         }
         if (debug>=(tcsam::dbgAll+1)) {
             std::cout<<"Enter 1 to continue >>";
             std::cin>>nv;
             if (nv<0) exit(-1);
-            cout<<"finished setDevs(devs,pDevs,pI)"<<std::endl;
+            os<<"finished setDevs(devs,pDevs,pI)"<<std::endl;
         }
     } else {
-        if (debug>=(tcsam::dbgAll)) cout<<"size=0, so no devs to set"<<endl;
+        if (debug>=(tcsam::dbgAll)) os<<"size=0, so no devs to set"<<endl;
     }
 }
 
@@ -393,14 +401,27 @@ void calcPriors(objective_function_value& objFun, DevsVectorVectorInfo* ptrVVI, 
 }
 
 /**
- * Function to write parameter information to an output stream.
+ * Writes the header (column names) to a stream which subsequent writeParameters functions
+ * will write to using csv format.
+ * 
+ * @param os - the output stream
+ */
+void writeCSVHeaderForParametersFile(ostream& os){
+    os<<"index, phase, min_index, max_index, parameter_scale"<<cc;
+    os<<"min_arith, max_arith, value_arith"<<cc;
+    os<<"min_param, max_param, value_param"<<cc;
+    os<<"name, type, category, process, label"<<std::endl;
+}
+
+/**
+ * Writes information for a parameter to an output stream.
  * 
  * @param os - output stream
  * @param p - parameter (param_init_number)
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
  * @param pI - pointer to associated NumberInfo object
- * @param toR - flag to write to R format
+ * @param toR - flag to write to R format (=1) or csv (=0)
  * @param willBeActive - flag to write only if parameter will be active
  */
 void writeParameter(ostream& os, param_init_number& p, adstring& ctg1, adstring& ctg2, 
@@ -413,33 +434,35 @@ void writeParameter(ostream& os, param_init_number& p, adstring& ctg1, adstring&
                                 <<"lbl="<<qt<<pI->label<<qt<<cc
                                 <<"phase="<<p.get_phase_start()<<cc
                                 <<"scale="<<qt<<pI->getScaleType()<<qt<<cc
-                                <<"value="<<pI->calcArithScaleVal(value(p))
+                                <<"avalue="<<pI->calcArithScaleVal(value(p))<<cc
+                                <<"pvalue="<<value(p)
                                 <<"),";
         } else {
             os<<1<<cc<<p.get_phase_start()<<cc<<1<<cc<<1<<cc
-              <<"-Inf"<<cc<<"Inf"<<cc
-              <<pI->calcArithScaleVal(p)<<cc<<pI->getScaleType()<<cc
+              <<pI->getScaleType()<<cc
+              <<"-Inf"<<cc<<"Inf"<<cc<<pI->calcArithScaleVal(p)<<cc
+              <<"-Inf"<<cc<<"Inf"<<cc<<value(p)<<cc
               <<p.get_name()<<cc<<"\"param_init_number\",\""
               <<ctg1<<"\",\""<<ctg2<<"\",\""<<pI->label<<"\""<<endl;
         }
     }
 }    
 /**
- * Function to write parameter information to an output stream.
+ * Writes information for a bounded parameter to an output stream.
  * 
  * @param os - output stream
  * @param p - parameter (param_init_bounded_number)
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
  * @param pI - BoundedNumberInfo
- * @param toR - flag to write to R format
+ * @param toR - flag to write to R format (=1) or csv (=0)
  * @param willBeActive - flag to write only if parameter will be active
  */
 void writeParameter(ostream& os, param_init_bounded_number& p,adstring& ctg1, adstring& ctg2, 
                     BoundedNumberInfo* pI, int toR, int willBeActive){
     if (!willBeActive||(willBeActive&&(p.get_phase_start()>0))){
-        std::cout<<p.get_name()<<tb<<p.get_phase_start()<<tb<<p.get_minb()<<tb<<p.get_maxb()<<tb<<p<<endl;
-        std::cout<<pI->label<<tb<<pI->getLowerBoundOnParamScale()<<tb<<pI->getUpperBoundOnParamScale()<<tb<<pI->getInitVal()<<tb<<pI->calcParamScaleVal(pI->getInitVal())<<endl;
+        //std::cout<<p.get_name()<<tb<<p.get_phase_start()<<tb<<p.get_minb()<<tb<<p.get_maxb()<<tb<<p<<endl;
+        //std::cout<<pI->label<<tb<<pI->getLowerBoundOnParamScale()<<tb<<pI->getUpperBoundOnParamScale()<<tb<<pI->getInitVal()<<tb<<pI->calcParamScaleVal(pI->getInitVal())<<endl;
         if (toR){
             os<<p.get_name()<<"=list("<<"type='param_init_bounded_number'"<<cc
                                 <<"ctg1="<<qt<<ctg1<<qt<<cc
@@ -447,28 +470,30 @@ void writeParameter(ostream& os, param_init_bounded_number& p,adstring& ctg1, ad
                                 <<"lbl="<<qt<<pI->label<<qt<<cc
                                 <<"phase="<<p.phase_start<<cc
                                 <<"scale="<<qt<<pI->getScaleType()<<qt<<cc
-                                <<"bounds=c("<<pI->calcArithScaleVal(p.get_maxb())<<cc
-                                             <<pI->calcArithScaleVal(p.get_minb())<<")"<<cc
-                                <<"value="<<pI->calcArithScaleVal(p)
+                                <<"bounds=c("<<pI->getLowerBound()<<cc
+                                             <<pI->getUpperBound()<<")"<<cc
+                                <<"avalue="<<pI->calcArithScaleVal(p)<<cc
+                                <<"pvalue="<<value(p)
                                 <<"),";
         } else {
             os<<1<<cc<<p.get_phase_start()<<cc<<1<<cc<<1<<cc
-              <<pI->calcArithScaleVal(p.get_minb())<<cc<<pI->calcArithScaleVal(p.get_maxb())<<cc
-              <<pI->calcArithScaleVal(p)<<cc<<pI->getScaleType()<<cc
+              <<pI->getScaleType()<<cc
+              <<pI->getLowerBound()<<cc<<pI->getUpperBound()<<cc<<pI->calcArithScaleVal(p)<<cc
+              <<p.get_minb()<<cc<<p.get_maxb()<<cc<<value(p)<<cc
               <<p.get_name()<<cc<<"\"param_init_bounded_number\",\""
               <<ctg1<<"\",\""<<ctg2<<"\",\""<<pI->label<<"\""<<endl;;
         }
     }
 }    
 /**
- * Function to write parameter vector information to an output stream.
+ * Writes information for a parameter vector to an output stream.
  * 
  * @param os - output stream
  * @param p - parameter vector (param_init_vector)
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
  * @param lbl - parameter-specific label
- * @param toR - flag to write to R format
+ * @param toR - flag to write to R format (=1) or csv (=0)
  * @param willBeActive - flag to write only if parameter vector will be active
  */
 void writeParameter(ostream& os, param_init_vector& p,adstring& ctg1, adstring& ctg2, 
@@ -485,12 +510,14 @@ void writeParameter(ostream& os, param_init_vector& p,adstring& ctg1, adstring& 
                                 <<"dims=c("<<mn<<cc<<mx<<")"<<cc
                                 <<"phase="<<p.get_phase_start()<<cc
                                 <<"scale="<<qt<<pI->getScaleType()<<qt<<cc
-                                <<"value=c(";for (int i=mn;i<mx;i++) {os<<vals(i)<<cc;} os<<vals(mx)<<")";
+                                <<"avalue=c(";for (int i=mn;i<mx;i++) {os<<vals(i)<<cc;} os<<vals(mx)<<")"<<cc
+                                <<"pvalue=c(";for (int i=mn;i<mx;i++) {os<<p(i)<<cc;} os<<p(mx)<<")";
             os<<"),";
         } else {        
             for (int i=mn;i<=mx;i++) os<<i<<cc<<p.get_phase_start()<<cc<<mn<<cc<<mx<<cc
-                                       <<"-Inf"<<cc<<"Inf"<<cc
-                                       <<vals(i)<<cc<<pI->getScaleType()<<cc
+                                       <<pI->getScaleType()<<cc
+                                       <<"-Inf"<<cc<<"Inf"<<cc<<vals(i)<<cc
+                                       <<"-Inf"<<cc<<"Inf"<<cc<<p(i)<<cc
                                        <<p.get_name()<<cc<<"\"param_init_vector\",\""
                                        <<ctg1<<"\",\""<<ctg2<<"\",\""<<pI->label<<"\""<<endl;
         }
@@ -498,14 +525,14 @@ void writeParameter(ostream& os, param_init_vector& p,adstring& ctg1, adstring& 
 }       
 
 /**
- * Function to write parameter vector information to an output stream.
+ * Writes information for a bounded parameter vector to an output stream.
  * 
  * @param os - output stream
  * @param p - parameter vector (param_init_bounded_vector)
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
  * @param pI - pointer to associated BoundedVectorInfo info object
- * @param toR - flag to write to R format
+ * @param toR - flag to write to R format (=1) or csv (=0)
  * @param willBeActive - flag to write only if parameter vector will be active
  */
 void writeParameter(ostream& os, param_init_bounded_vector& p,adstring& ctg1, adstring& ctg2, 
@@ -523,14 +550,19 @@ void writeParameter(ostream& os, param_init_bounded_vector& p,adstring& ctg1, ad
                                 <<"phase="<<p.get_phase_start()<<cc
                                 <<"scale="<<qt<<pI->getScaleType()<<qt<<cc
                                 <<"bounds=c("<<pI->calcArithScaleVals(p.get_minb())<<cc
-                                             <<pI->calcArithScaleVals(p.get_maxb())<<")"<<cc
-                                <<"value=c("; for (int i=mn;i<mx;i++) {os<<vals(i)<<cc;} os<<vals(mx)<<")";
+                                             <<pI->calcArithScaleVals(p.get_maxb())<<")"<<cc;
+            os<<"avalue=c("; for (int i=mn;i<mx;i++) {os<<vals(i)<<cc;} os<<vals(mx)<<")"<<cc;
+            os<<"pvalue=c("; for (int i=mn;i<mx;i++) {os<<p(i)   <<cc;} os<<p(mx)   <<")";
             os<<"),";
         } else {
             for (int i=mn;i<=mx;i++) os<<i<<cc<<p.get_phase_start()<<cc<<mn<<cc<<mx<<cc
+                                       <<pI->getScaleType()<<cc
+                                       <<pI->getLowerBound()<<cc
+                                       <<pI->getUpperBound()<<cc
+                                       <<vals(i)<<cc
                                        <<pI->calcArithScaleVals(p.get_minb())<<cc
                                        <<pI->calcArithScaleVals(p.get_maxb())<<cc
-                                       <<vals(i)<<cc<<pI->getScaleType()<<cc
+                                       <<p(i)<<cc
                                        <<p.get_name()<<cc<<"\"param_init_bounded_vector\",\""
                                        <<ctg1<<"\",\""<<ctg2<<"\",\""<<pI->label<<"\""<<endl;
         }
@@ -538,14 +570,14 @@ void writeParameter(ostream& os, param_init_bounded_vector& p,adstring& ctg1, ad
 }
 
 /**
- * Function to write parameter vector information to an output stream.
+ * Writes information for a devs parameter vector to an output stream.
  * 
  * @param os - output stream
  * @param p - parameter vector (param_init_bounded_dev_vector)
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
  * @param pI - pointer to associated DevsVectorInfo info object
- * @param toR - flag to write to R format
+ * @param toR - flag to write to R format (=1) or csv (=0)
  * @param willBeActive - flag to write only if parameter vector will be active
  */
 void writeParameter(ostream& os, param_init_bounded_dev_vector& p,adstring& ctg1, adstring& ctg2, 
@@ -553,6 +585,7 @@ void writeParameter(ostream& os, param_init_bounded_dev_vector& p,adstring& ctg1
     int mn = p.indexmin();
     int mx = p.indexmax();
     if (!willBeActive||(willBeActive&&(p.get_phase_start()>0))){
+        dvector vals = pI->calcArithScaleVals(value(p));
         if (toR){
             os<<p.get_name()<<"=list("<<"type=param_init_bounded_dev_vector"<<cc
                                 <<"ctg1="<<qt<<ctg1<<qt<<cc
@@ -562,16 +595,19 @@ void writeParameter(ostream& os, param_init_bounded_dev_vector& p,adstring& ctg1
                                 <<"phase="<<p.get_phase_start()<<cc
                                 <<"scale="<<qt<<pI->getScaleType()<<qt<<cc
                                 <<"bounds=c("<<pI->calcArithScaleVals(p.get_minb())<<cc
-                                             <<pI->calcArithScaleVals(p.get_maxb())<<")"<<cc
-                                <<"value=c("; 
-                for (int i=mn;i<mx;i++) os<<pI->calcArithScaleVals(value(p(i)))<<cc; 
-                os<<pI->calcArithScaleVals(value(p(mx)))<<")";
-           os<<"),";
+                                             <<pI->calcArithScaleVals(p.get_maxb())<<")"<<cc;
+            os<<"avalue=c("; for (int i=mn;i<mx;i++) {os<<vals(i)<<cc;} os<<vals(mx)<<")"<<cc;
+            os<<"pvalue=c("; for (int i=mn;i<mx;i++) {os<<p(i)   <<cc;} os<<p(mx)   <<")";
+               os<<"),";
         } else {
             for (int i=mn;i<=mx;i++) os<< i<<cc<<p.get_phase_start()<<cc<<mn<<cc<<mx<<cc
+                                       <<pI->getScaleType()<<cc
+                                       <<pI->getLowerBound()<<cc
+                                       <<pI->getUpperBound()<<cc
+                                       <<vals(i)<<cc
                                        <<pI->calcArithScaleVals(p.get_minb())<<cc
                                        <<pI->calcArithScaleVals(p.get_maxb())<<cc
-                                       <<pI->calcArithScaleVals(value(p(i)))<<cc<<pI->getScaleType()<<cc
+                                       <<p(i)<<cc
                                        <<p.get_name()<<cc<<"\"param_init_bounded_dev_vector\",\""
                                        <<ctg1<<"\",\""<<ctg2<<"\",\""<<pI->label<<"\""<<endl;
         }
@@ -579,14 +615,14 @@ void writeParameter(ostream& os, param_init_bounded_dev_vector& p,adstring& ctg1
 }    
 
 /**
- * Function to write a vector of parameters (param_init_number_vector) to R or csv.
+ * Writes a vector of parameters (param_init_number_vector) to R or csv.
  * 
  * @param os - output stream to write to
  * @param p - a param_init_number_vector
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
  * @param pI - pointer to associated NumberVectorInfo info object
- * @param toR - flag to write to R format (otherwise csv)
+ * @param toR - flag to write to R format (=1) or csv (=0)
  * @param willBeActive - flag to write if parameters will be active in some phase
  */
 void writeParameters(ostream& os, param_init_number_vector& p, adstring& ctg1, adstring& ctg2, 
@@ -599,15 +635,15 @@ void writeParameters(ostream& os, param_init_number_vector& p, adstring& ctg1, a
 }
 
 /**
- * Function to write a vector of parameters (param_init_bounded_number_vector) to R or csv.
+ * Writes a vector of parameters (param_init_bounded_number_vector) to R or csv.
  * 
  * @param os - output stream to write to
  * @param p - a param_init_bounded_number_vector
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
  * @param pI - pointer to associated BoundedNumberVectorInfo info object
- * @param toR - flag to write to R format (otherwise csv)
- * @param willBeActive - flag to write if parameters will be active in some phase
+ * @param toR - flag to write to R format (=1) or csv (=0)
+* @param willBeActive - flag to write if parameters will be active in some phase
  */
 void writeParameters(ostream& os, param_init_bounded_number_vector& p, adstring& ctg1, adstring& ctg2, 
                      BoundedNumberVectorInfo* pI,int toR, int willBeActive){
@@ -619,14 +655,14 @@ void writeParameters(ostream& os, param_init_bounded_number_vector& p, adstring&
 }
 
 /**
- * Function to write a vector of parameters (param_init_vector_vector) to R or csv.
+ * Writes a vector of parameter vectors (param_init_vector_vector) to R or csv.
  * 
  * @param os - output stream to write to
  * @param p - a param_init_vector_vector
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
  * @param pI - pointer to associated VectorVectorInfo info object
- * @param toR - flag to write to R format (otherwise csv)
+ * @param toR - flag to write to R format (=1) or csv (=0)
  * @param willBeActive - flag to write if parameters will be active in some phase
  */
 void writeParameters(ostream& os, param_init_vector_vector& p, adstring& ctg1, adstring& ctg2, 
@@ -639,7 +675,7 @@ void writeParameters(ostream& os, param_init_vector_vector& p, adstring& ctg1, a
 }
 
 /**
- * Function to write a vector of parameters (param_init_bounded_vector_vector) to R or csv.
+ * Writes a vector of parameter vectors (param_init_bounded_vector_vector) to R or csv.
  * 
  * @param os - output stream to write to
  * @param p - a param_init_bounded_vector_vector
@@ -661,11 +697,10 @@ void writeParameters(ostream& os, param_init_bounded_vector_vector& p, adstring&
 /**
  * Sets the info for a param_init_number_vector from a NumberVectorInfo object.
  * 
- * 
- * @param [in]      pNVI - pointer to a NumberVectorInfo instance
- * @param [in][out] npT - size of vector
- * @param [in][out] phs - ivector of phases for parameters
- * @param [in]      os  - output stream to write processing info to
+ * @param pNVI - pointer to a NumberVectorInfo instance
+ * @param npT [out] - size of vector
+ * @param phs [out] - ivector of phases for parameters
+ * @param os  - output stream to write processing info to
  */
 void setParameterInfo(NumberVectorInfo* pNVI,                           
                              int& npT,
@@ -688,14 +723,14 @@ void setParameterInfo(NumberVectorInfo* pNVI,
 }
   
 /**
- * Set the info for a param_init_bounded_number_vector from a BoundedNumberVectorInfo object.
+ * Sets the info for a param_init_bounded_number_vector from a BoundedNumberVectorInfo object.
  * 
- * @param [in]      pBNVI - pointer to a BoundedNumberVectorInfo instance
- * @param [in][out] npT   - size of vector
- * @param [in][out] lb    - dvector of lower bounds on parameter scale
- * @param [in][out] ub    - dvector of upper bounds on parameter scale
- * @param [in][out] phs   - ivector of phases for parameters
- * @param [in]      os    - output stream to write to
+ * @param pBNVI - pointer to a BoundedNumberVectorInfo instance
+ * @param npT [out]  - size of vector
+ * @param lb  [out]  - dvector of lower bounds on parameter scale
+ * @param ub  [out]  - dvector of upper bounds on parameter scale
+ * @param phs [out] - ivector of phases for parameters
+ * @param os - output stream to write to
  */
 void setParameterInfo(BoundedNumberVectorInfo* pBNVI,
                              int& npT,
@@ -725,13 +760,13 @@ void setParameterInfo(BoundedNumberVectorInfo* pBNVI,
 }
   
 /**
- * Set the info for a param_init_vector_vector from a VectorVectorInfo object.
+ * Sets the info for a param_init_vector_vector from a VectorVectorInfo object.
  * 
  * @param pVVI - pointer to a VectorVectorInfo instance
- * @param npT - size of vector
- * @param mns - ivector with minimum indices for each vector
- * @param mxs - ivector with maximum indices for each vector
- * @param phs - ivector of phases for parameters
+ * @param npT [out] - size of vector
+ * @param mns [out] - ivector with minimum indices for each vector
+ * @param mxs [out] - ivector with maximum indices for each vector
+ * @param phs [out] - ivector of phases for parameters
  * @param os - output stream to write to
  */
 void setParameterInfo(VectorVectorInfo* pVVI,
@@ -762,16 +797,16 @@ void setParameterInfo(VectorVectorInfo* pVVI,
 }
   
 /**
- * Set the info for a param_init_bounded_vector_vector from a BoundedVectorVectorInfo object.
+ * Sets the info for a param_init_bounded_vector_vector from a BoundedVectorVectorInfo object.
  * 
  * @param pBVVI - pointer to a BoundedVectorVectorInfo instance
- * @param npT - size of vector
- * @param mns - ivector with minimum indices for each vector
- * @param mxs - ivector with maximum indices for each vector
- * @param idxs - imatrix of reverse indices
- * @param lb - dvector of lower bounds
- * @param ub - dvector of upper bounds
- * @param phs - ivector of phases for parameters
+ * @param npT [out] - size of vector
+ * @param mns [out] - ivector with minimum indices for each vector
+ * @param mxs [out] - ivector with maximum indices for each vector
+ * @param idxs [out] - imatrix of reverse indices
+ * @param lb [out] - dvector of lower bounds
+ * @param ub [out] - dvector of upper bounds
+ * @param phs [out] - ivector of phases for parameters
  * @param os - output stream to write to
  */
 void setParameterInfo(BoundedVectorVectorInfo* pBVVI,                           
@@ -828,17 +863,17 @@ void setParameterInfo(BoundedVectorVectorInfo* pBVVI,
 }
 
 /**
- * Set the info for a param_init_bounded_vector_vector acting as a devs_vector_vector
+ * Sets the info for a param_init_bounded_vector_vector acting as a devs_vector_vector
  * from a DevsVectorVectorInfo object.
  * 
  * @param pDVVI - pointer to a DevsVectorVectorInfo instance
- * @param npT - size of vector
- * @param mns - ivector with minimum indices for each vector
- * @param mxs - ivector with maximum indices for each vector
- * @param idxs - imatrix of reverse indices
- * @param lb - dvector of lower bounds
- * @param ub - dvector of upper bounds
- * @param phs - ivector of phases for parameters
+ * @param npT [out] - size of vector
+ * @param mns [out] - ivector with minimum indices for each vector
+ * @param mxs [out] - ivector with maximum indices for each vector
+ * @param idxs [out] - imatrix of reverse indices
+ * @param lb [out] - dvector of lower bounds
+ * @param ub [out] - dvector of upper bounds
+ * @param phs [out] - ivector of phases for parameters
  * @param os - output stream to write to
  */
 void setParameterInfo(DevsVectorVectorInfo* pDVVI,                           
