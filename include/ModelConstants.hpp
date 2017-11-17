@@ -18,6 +18,7 @@
  * 20170206: incremented tcsam::VERSION to "2017.02.06"
  * 20170606: incremented tcsam::VERSION to "2017.06.06"
  * 20171025: incremented tcsam::VERSION to "2017.10.25"
+ * 20171116: incremented tcsam::VERSION to "2017.11.16"
  */
 
 #pragma once
@@ -42,7 +43,7 @@ namespace tcsam{
     /* adstring indicating model name */
     const adstring MODEL = "tcsam02";
     /* adstring indicating model version */
-    const adstring VERSION = "2017.10.25";
+    const adstring VERSION = "2017.11.16";
     
     /* minimum debugging level that will print ALL debug info */
     const int dbgAll = 100;

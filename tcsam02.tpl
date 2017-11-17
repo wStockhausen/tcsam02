@@ -338,6 +338,8 @@
 //              2. TODO: change jittering to occur on ARITHMETIC scales, not parameter
 //                  scales (logit-scale parameters tend to end up very near bounds when
 //                  jittering occurs on logit-scale).
+//--2017-11-12: 1. Finished 2. above. Fixed problems with jittering devs.
+//              2. Updated VERSION to "2017.11.16".
 // =============================================================================
 // =============================================================================
 GLOBALS_SECTION
@@ -1356,26 +1358,31 @@ PRELIMINARY_CALCS_SECTION
     //set initial values for all parameters
     if (usePin) {
         rpt::echo<<"NOTE: setting initial values for parameters using pin file"<<endl;
-        setInitValsFromPinFile();
     } else {
-        rpt::echo<<"NOTE: setting initial values for parameters using setInitVals(...)"<<endl;
-        setInitVals();
+        rpt::echo<<"NOTE: setting initial values for parameters using MPI"<<endl;
+    }
+    setInitVals(0,rpt::echo);
+    {cout<<"writing effective MPI after setInitVals"<<endl;
+        ofstream os; os.open("effectiveMPI.dat", ios::trunc);
+        os.precision(12);
+        os<<(*ptrMPI)<<endl;
+        os.close();
     }
 
     cout<<"testing setAllDevs()"<<endl;
     setAllDevs(tcsam::dbgAll,rpt::echo);
         
     {cout<<"writing data to R"<<endl;
-     ofstream echo1; echo1.open("ModelData.R", ios::trunc);
-     echo1.precision(12);
-     ReportToR_Data(echo1,0,cout);
+     ofstream os; os.open("ModelData.R", ios::trunc);
+     os.precision(12);
+     ReportToR_Data(os,0,cout);
     }
     
     {cout<<"writing parameters info to R"<<endl;
-     ofstream echo1; echo1.open("ModelParametersInfo.R", ios::trunc);
-     echo1.precision(12);
-     ptrMPI->writeToR(echo1);
-     echo1.close();
+     ofstream os; os.open("ModelParametersInfo.R", ios::trunc);
+     os.precision(12);
+     ptrMPI->writeToR(os);
+     os.close();
      cout<<"finished writing parameters info to R"<<endl;
      
      //write initial parameter values to csv
@@ -1656,118 +1663,118 @@ PROCEDURE_SECTION
     }
 
 //*****************************************
-FUNCTION setInitVals
+FUNCTION void setInitVals(int debug, ostream& os)
     //recruitment parameters
-    setInitVals(ptrMPI->ptrRec->pLnR, pLnR, 0,rpt::echo);
-    setInitVals(ptrMPI->ptrRec->pRCV, pRCV, 0,rpt::echo);
-    setInitVals(ptrMPI->ptrRec->pRX,  pRX,  0,rpt::echo);
-    setInitVals(ptrMPI->ptrRec->pRa,  pRa,  0,rpt::echo);
-    setInitVals(ptrMPI->ptrRec->pRb,  pRb,  0,rpt::echo);
-    setInitVals(ptrMPI->ptrRec->pDevsLnR,pDevsLnR,0,rpt::echo);
+    setInitVals(ptrMPI->ptrRec->pLnR, pLnR, usePin, debug, os);
+    setInitVals(ptrMPI->ptrRec->pRCV, pRCV, usePin, debug, os);
+    setInitVals(ptrMPI->ptrRec->pRX,  pRX,  usePin, debug, os);
+    setInitVals(ptrMPI->ptrRec->pRa,  pRa,  usePin, debug, os);
+    setInitVals(ptrMPI->ptrRec->pRb,  pRb,  usePin, debug, os);
+    setInitVals(ptrMPI->ptrRec->pDevsLnR,pDevsLnR,usePin, debug, os);
 
     //natural mortality parameters
-    setInitVals(ptrMPI->ptrNM->pM, pM, 0,rpt::echo);
-    setInitVals(ptrMPI->ptrNM->pDM1, pDM1, 0,rpt::echo);
-    setInitVals(ptrMPI->ptrNM->pDM2, pDM2, 0,rpt::echo);
-    setInitVals(ptrMPI->ptrNM->pDM3, pDM3, 0,rpt::echo);
-    setInitVals(ptrMPI->ptrNM->pDM4, pDM4, 0,rpt::echo);
+    setInitVals(ptrMPI->ptrNM->pM,   pM,   usePin, debug, os);
+    setInitVals(ptrMPI->ptrNM->pDM1, pDM1, usePin, debug, os);
+    setInitVals(ptrMPI->ptrNM->pDM2, pDM2, usePin, debug, os);
+    setInitVals(ptrMPI->ptrNM->pDM3, pDM3, usePin, debug, os);
+    setInitVals(ptrMPI->ptrNM->pDM4, pDM4, usePin, debug, os);
 
     //growth parameters
-    setInitVals(ptrMPI->ptrGrw->pGrA,   pGrA,   0,rpt::echo);
-    setInitVals(ptrMPI->ptrGrw->pGrB,   pGrB,   0,rpt::echo);
-    setInitVals(ptrMPI->ptrGrw->pGrBeta,pGrBeta,0,rpt::echo);
+    setInitVals(ptrMPI->ptrGrw->pGrA,   pGrA,   usePin, debug, os);
+    setInitVals(ptrMPI->ptrGrw->pGrB,   pGrB,   usePin, debug, os);
+    setInitVals(ptrMPI->ptrGrw->pGrBeta,pGrBeta,usePin, debug, os);
 
     //maturity parameters
-    setInitVals(ptrMPI->ptrM2M->pLgtPrM2M,pLgtPrM2M,0,rpt::echo);
+    setInitVals(ptrMPI->ptrM2M->pLgtPrM2M,pLgtPrM2M,usePin, debug, os);
 
     //selectivity parameters
-    setInitVals(ptrMPI->ptrSel->pS1, pS1,0,rpt::echo);
-    setInitVals(ptrMPI->ptrSel->pS2, pS2,0,rpt::echo);
-    setInitVals(ptrMPI->ptrSel->pS3, pS3,0,rpt::echo);
-    setInitVals(ptrMPI->ptrSel->pS4, pS4,0,rpt::echo);
-    setInitVals(ptrMPI->ptrSel->pS5, pS5,0,rpt::echo);
-    setInitVals(ptrMPI->ptrSel->pS6, pS6,0,rpt::echo);
-    setInitVals(ptrMPI->ptrSel->pDevsS1, pDevsS1,0,rpt::echo);
-    setInitVals(ptrMPI->ptrSel->pDevsS2, pDevsS2,0,rpt::echo);
-    setInitVals(ptrMPI->ptrSel->pDevsS3, pDevsS3,0,rpt::echo);
-    setInitVals(ptrMPI->ptrSel->pDevsS4, pDevsS4,0,rpt::echo);
-    setInitVals(ptrMPI->ptrSel->pDevsS5, pDevsS5,0,rpt::echo);
-    setInitVals(ptrMPI->ptrSel->pDevsS6, pDevsS6,0,rpt::echo);
+    setInitVals(ptrMPI->ptrSel->pS1, pS1,usePin, debug, os);
+    setInitVals(ptrMPI->ptrSel->pS2, pS2,usePin, debug, os);
+    setInitVals(ptrMPI->ptrSel->pS3, pS3,usePin, debug, os);
+    setInitVals(ptrMPI->ptrSel->pS4, pS4,usePin, debug, os);
+    setInitVals(ptrMPI->ptrSel->pS5, pS5,usePin, debug, os);
+    setInitVals(ptrMPI->ptrSel->pS6, pS6,usePin, debug, os);
+    setInitVals(ptrMPI->ptrSel->pDevsS1, pDevsS1,usePin, debug, os);
+    setInitVals(ptrMPI->ptrSel->pDevsS2, pDevsS2,usePin, debug, os);
+    setInitVals(ptrMPI->ptrSel->pDevsS3, pDevsS3,usePin, debug, os);
+    setInitVals(ptrMPI->ptrSel->pDevsS4, pDevsS4,usePin, debug, os);
+    setInitVals(ptrMPI->ptrSel->pDevsS5, pDevsS5,usePin, debug, os);
+    setInitVals(ptrMPI->ptrSel->pDevsS6, pDevsS6,usePin, debug, os);
 
     //fully-selected fishing capture rate parameters
-    setInitVals(ptrMPI->ptrFsh->pHM,  pHM,  0,rpt::echo);
-    setInitVals(ptrMPI->ptrFsh->pLnC, pLnC, 0,rpt::echo);
-    setInitVals(ptrMPI->ptrFsh->pDC1, pDC1, 0,rpt::echo);
-    setInitVals(ptrMPI->ptrFsh->pDC2, pDC2, 0,rpt::echo);
-    setInitVals(ptrMPI->ptrFsh->pDC3, pDC3, 0,rpt::echo);
-    setInitVals(ptrMPI->ptrFsh->pDC4, pDC4, 0,rpt::echo);
-    setInitVals(ptrMPI->ptrFsh->pDevsLnC,pDevsLnC,0,rpt::echo);
-    setInitVals(ptrMPI->ptrFsh->pLnEffX, pLnEffX, 0,rpt::echo);
-    setInitVals(ptrMPI->ptrFsh->pLgtRet, pLgtRet, 0,rpt::echo);
+    setInitVals(ptrMPI->ptrFsh->pHM,  pHM,  usePin, debug, os);
+    setInitVals(ptrMPI->ptrFsh->pLnC, pLnC, usePin, debug, os);
+    setInitVals(ptrMPI->ptrFsh->pDC1, pDC1, usePin, debug, os);
+    setInitVals(ptrMPI->ptrFsh->pDC2, pDC2, usePin, debug, os);
+    setInitVals(ptrMPI->ptrFsh->pDC3, pDC3, usePin, debug, os);
+    setInitVals(ptrMPI->ptrFsh->pDC4, pDC4, usePin, debug, os);
+    setInitVals(ptrMPI->ptrFsh->pDevsLnC,pDevsLnC,usePin, debug, os);
+    setInitVals(ptrMPI->ptrFsh->pLnEffX, pLnEffX, usePin, debug, os);
+    setInitVals(ptrMPI->ptrFsh->pLgtRet, pLgtRet, usePin, debug, os);
 
     //survey catchability parameters
-    setInitVals(ptrMPI->ptrSrv->pQ, pQ, 0,rpt::echo);
-    setInitVals(ptrMPI->ptrSrv->pDQ1, pDQ1, 0,rpt::echo);
-    setInitVals(ptrMPI->ptrSrv->pDQ2, pDQ2, 0,rpt::echo);
-    setInitVals(ptrMPI->ptrSrv->pDQ3, pDQ3, 0,rpt::echo);
-    setInitVals(ptrMPI->ptrSrv->pDQ4, pDQ4, 0,rpt::echo);
+    setInitVals(ptrMPI->ptrSrv->pQ,   pQ,   usePin, debug, os);
+    setInitVals(ptrMPI->ptrSrv->pDQ1, pDQ1, usePin, debug, os);
+    setInitVals(ptrMPI->ptrSrv->pDQ2, pDQ2, usePin, debug, os);
+    setInitVals(ptrMPI->ptrSrv->pDQ3, pDQ3, usePin, debug, os);
+    setInitVals(ptrMPI->ptrSrv->pDQ4, pDQ4, usePin, debug, os);
 
-//*****************************************
-FUNCTION setInitValsFromPinFile
-    //recruitment parameters
-    setInitValsFromPinFile(ptrMPI->ptrRec->pLnR, pLnR, 0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrRec->pRCV, pRCV, 0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrRec->pRX,  pRX,  0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrRec->pRa,  pRa,  0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrRec->pRb,  pRb,  0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrRec->pDevsLnR,pDevsLnR,0,rpt::echo);
-
-    //natural mortality parameters
-    setInitValsFromPinFile(ptrMPI->ptrNM->pM,   pM,   0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrNM->pDM1, pDM1, 0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrNM->pDM2, pDM2, 0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrNM->pDM3, pDM3, 0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrNM->pDM4, pDM4, 0,rpt::echo);
-
-    //growth parameters
-    setInitValsFromPinFile(ptrMPI->ptrGrw->pGrA,   pGrA,   0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrGrw->pGrB,   pGrB,   0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrGrw->pGrBeta,pGrBeta,0,rpt::echo);
-
-    //maturity parameters
-    setInitValsFromPinFile(ptrMPI->ptrM2M->pLgtPrM2M,pLgtPrM2M,0,rpt::echo);
-
-    //selectivity parameters
-    setInitValsFromPinFile(ptrMPI->ptrSel->pS1, pS1,0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrSel->pS2, pS2,0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrSel->pS3, pS3,0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrSel->pS4, pS4,0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrSel->pS5, pS5,0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrSel->pS6, pS6,0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrSel->pDevsS1, pDevsS1,0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrSel->pDevsS2, pDevsS2,0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrSel->pDevsS3, pDevsS3,0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrSel->pDevsS4, pDevsS4,0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrSel->pDevsS5, pDevsS5,0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrSel->pDevsS6, pDevsS6,0,rpt::echo);
-
-    //fully-selected fishing capture rate parameters
-    setInitValsFromPinFile(ptrMPI->ptrFsh->pHM,  pHM,  0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrFsh->pLnC, pLnC, 0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrFsh->pDC1, pDC1, 0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrFsh->pDC2, pDC2, 0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrFsh->pDC3, pDC3, 0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrFsh->pDC4, pDC4, 0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrFsh->pDevsLnC,pDevsLnC,0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrFsh->pLnEffX, pLnEffX, 0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrFsh->pLgtRet, pLgtRet, 0,rpt::echo);
-
-    //survey catchability parameters
-    setInitValsFromPinFile(ptrMPI->ptrSrv->pQ,   pQ,   0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrSrv->pDQ1, pDQ1, 0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrSrv->pDQ2, pDQ2, 0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrSrv->pDQ3, pDQ3, 0,rpt::echo);
-    setInitValsFromPinFile(ptrMPI->ptrSrv->pDQ4, pDQ4, 0,rpt::echo);
+////*****************************************
+//FUNCTION setInitValsFromPinFile
+//    //recruitment parameters
+//    setInitValsFromPinFile(ptrMPI->ptrRec->pLnR, pLnR, 0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrRec->pRCV, pRCV, 0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrRec->pRX,  pRX,  0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrRec->pRa,  pRa,  0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrRec->pRb,  pRb,  0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrRec->pDevsLnR,pDevsLnR,0,rpt::echo);
+//
+//    //natural mortality parameters
+//    setInitValsFromPinFile(ptrMPI->ptrNM->pM,   pM,   0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrNM->pDM1, pDM1, 0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrNM->pDM2, pDM2, 0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrNM->pDM3, pDM3, 0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrNM->pDM4, pDM4, 0,rpt::echo);
+//
+//    //growth parameters
+//    setInitValsFromPinFile(ptrMPI->ptrGrw->pGrA,   pGrA,   0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrGrw->pGrB,   pGrB,   0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrGrw->pGrBeta,pGrBeta,0,rpt::echo);
+//
+//    //maturity parameters
+//    setInitValsFromPinFile(ptrMPI->ptrM2M->pLgtPrM2M,pLgtPrM2M,0,rpt::echo);
+//
+//    //selectivity parameters
+//    setInitValsFromPinFile(ptrMPI->ptrSel->pS1, pS1,0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrSel->pS2, pS2,0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrSel->pS3, pS3,0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrSel->pS4, pS4,0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrSel->pS5, pS5,0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrSel->pS6, pS6,0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrSel->pDevsS1, pDevsS1,0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrSel->pDevsS2, pDevsS2,0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrSel->pDevsS3, pDevsS3,0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrSel->pDevsS4, pDevsS4,0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrSel->pDevsS5, pDevsS5,0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrSel->pDevsS6, pDevsS6,0,rpt::echo);
+//
+//    //fully-selected fishing capture rate parameters
+//    setInitValsFromPinFile(ptrMPI->ptrFsh->pHM,  pHM,  0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrFsh->pLnC, pLnC, 0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrFsh->pDC1, pDC1, 0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrFsh->pDC2, pDC2, 0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrFsh->pDC3, pDC3, 0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrFsh->pDC4, pDC4, 0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrFsh->pDevsLnC,pDevsLnC,0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrFsh->pLnEffX, pLnEffX, 0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrFsh->pLgtRet, pLgtRet, 0,rpt::echo);
+//
+//    //survey catchability parameters
+//    setInitValsFromPinFile(ptrMPI->ptrSrv->pQ,   pQ,   0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrSrv->pDQ1, pDQ1, 0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrSrv->pDQ2, pDQ2, 0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrSrv->pDQ3, pDQ3, 0,rpt::echo);
+//    setInitValsFromPinFile(ptrMPI->ptrSrv->pDQ4, pDQ4, 0,rpt::echo);
 
 //*****************************************
 FUNCTION int checkParams(int debug, ostream& os)
@@ -2096,114 +2103,136 @@ FUNCTION void writeSimData(ostream& os, int debug, ostream& cout, ModelDatasets*
     if (debug) cout<<"finished writing model results as data"<<endl;
      
 //******************************************************************************
-//* Function: void setInitVals(NumberVectorInfo* pI, param_init_number_vector& p, int debug, ostream& cout)
+//* Function: void setInitVals(NumberVectorInfo* pI, param_init_number_vector& p, int usePin, int debug, ostream& os)
 //* 
-//* Description: Sets initial values for a parameter vector from the associated NumberInfo object.
+//* Description: Sets initial values for a vector of parameters from the associated NumberInfo object.
 //*
 //* Note: this function MUST be declared/defined as a FUNCTION in the tpl code
 //*     because the parameter assignment is a private method but the model_parameters 
 //*     class has friend access.
 //* 
-//* Inputs:
-//*  pI (NumberVectorInfo*) 
-//*     pointer to NumberVectorInfo object
-//*  p (param_init_number_vector&)
-//*     parameter vector
-//* Returns:
-//*  void
-//* Alters:
-//*  p - changes initial values
+//*  @param pI - pointer to a NumberVectorInfo object
+//*  @param p - reference to a param_init_number_vector
+//*  @param usePin - flag to use values 
+//*  @param debug - flag to print debugging info
+//*  @param os - stream for debugging output
+//*
+//*  @alters pI - if usePin=1 or jittering or resampling occurs, then the initial values will be updated 
+//*  @alters p - if usePin=0, the initial values will be updated 
 //******************************************************************************
-FUNCTION void setInitVals(NumberVectorInfo* pI, param_init_number_vector& p, int debug, ostream& cout)
+FUNCTION void setInitVals(NumberVectorInfo* pI, param_init_number_vector& p, int usePin, int debug, ostream& os)
 //    debug=dbgAll;
-    if (debug>=dbgAll) std::cout<<"Starting setInitVals(NumberVectorInfo* pI, param_init_number_vector& p) for "<<p(1).label()<<endl; 
+    if (debug>=dbgAll) os<<"Starting setInitVals(NumberVectorInfo* pI, param_init_number_vector& p, usePin, debug, os) for "<<p(1).label()<<endl; 
     int np = pI->getSize();
     if (np){
-        dvector avls = pI->getInitVals();//initial values from parameter info
-        dvector adef = pI->getInitVals();//defaults are initial values
-        dvector pvls = pI->getInitValsOnParamScales();//initial values from parameter info
-        dvector pdef = pI->getInitVals();//defaults are initial values
-        for (int i=1;i<=np;i++) {
-            p(i) = pvls(i);  //assign initial value from parameter info
-            NumberInfo* ptrI = (*pI)[i];
-            if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
-                p(i) = ptrI->drawInitVal(rng,ptrMC->vif);//assign initial value based on resampling prior pdf
+        //parameters have been defined
+        dvector aovls = 1.0*pI->getInitVals();             //original initial values on arithmetic scales from parameter info
+        dvector povls = 1.0*pI->getInitValsOnParamScales();//original initial values on parameter scales from parameter info
+        dvector afvls = 1.0*pI->getInitVals();             //final initial values on arithmetic scales from parameter info
+        if (usePin) {
+            //use values from pinfile assigned to p as initial values
+            os<<"Using pin file to set initial values for "<<p(1).label()<<endl;
+            pI->setInitValsFromParamVals(p);//update initial values in pI to those from pinfile
+            afvls = 1.0*pI->getInitVals();
+            os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
+            for (int i=1;i<=np;i++) os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
+        } else {
+            //use values from pI as initial values
+            for (int i=1;i<=np;i++) {
+                p(i) = povls(i);  //assign original initial value from parameter info
+                NumberInfo* ptrI = (*pI)[i];
+                if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
+                    //assign final initial value based on resampling prior pdf
+                    os<<"Using resampling to set initial values for "<<p(i).label()<<endl;
+                    afvls(i) = ptrI->drawInitVal(rng,ptrMC->vif); //get resampled initial value on arithmetic scale
+                    p(i) = ptrI->calcParamScaleVal(afvls(i));     //calc initial parameter value
+                    ptrI->setInitVal(afvls(i));                  //update ptrI
+                    os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
+                    os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
+                } else {
+                    os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
+                    os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
+                    os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
+                }
             }
         }
-        //p.set_initial_value(vls);
-        rpt::echo<<"InitVals for "<<p(1).label()<<": "<<endl;
-        rpt::echo<<tb<<"arith inits  : "<<avls<<endl;
-        rpt::echo<<tb<<"arith default: "<<adef<<endl;
-        rpt::echo<<tb<<"param inits  : "<<pvls<<endl;
-        rpt::echo<<tb<<"param default: "<<pdef<<endl;
-        rpt::echo<<tb<<"actual : "<<p<<endl;
-        if (debug>=dbgAll) {
-            std::cout<<"InitVals for "<<p(1).label()<<": "<<endl;
-            std::cout<<tb<<p<<std::endl;
-        }
     } else {
-        rpt::echo<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
+        //parameters have not been defined
+        os<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
     }
     
     if (debug>=dbgAll) {
         std::cout<<"Enter 1 to continue >>";
         std::cin>>np;
         if (np<0) exit(-1);
-        std::cout<<"Finished setInitVals(NumberVectorInfo* pI, param_init_number_vector& p) for "<<p(1).label()<<endl; 
+        os<<"Finished setInitVals(NumberVectorInfo* pI, param_init_number_vector& p) for "<<p(1).label()<<endl; 
     }
      
 //******************************************************************************
-//* Function: void setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p, int debug, ostream& cout)
+//* Function: void setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p, int usePin, int debug, ostream& os)
 //* 
-//* Description: Sets initial values for a parameter vector.
+//* Sets initial values for a vecotr of bounded parameters fro the associated BoundedNumberVectorInfo object.
 //*
 //* Note: this function MUST be declared/defined as a FUNCTION in the tpl code
 //*     because the parameter assignment is a private method but the model_parameters 
 //*     class has friend access.
 //* 
-//* Inputs:
-//*  pI (BoundedNumberVectorInfo*) 
-//*     pointer to BoundedNumberVectorInfo object
-//*  p (param_init_bounded_number_vector&)
-//*     parameter vector
-//* Returns:
-//*  void
-//* Alters:
-//*  p - changes initial values
+//*  @param pI - pointer to a BoundedNumberVectorInfo object
+//*  @param p - reference to a param_init_number_vector
+//*  @param usePin - flag to use values 
+//*  @param debug - flag to print debugging info
+//*  @param os - stream for debugging output
+//*
+//*  @alters pI - if usePin=1 or jittering or resampling occurs, then the initial values will be updated 
+//*  @alters p - if usePin=0, the initial values will be updated 
 //******************************************************************************
-FUNCTION void setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p, int debug, ostream& cout)
+FUNCTION void setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p, int usePin, int debug, ostream& os)
 //    debug=dbgAll;
-    if (debug>=dbgAll) std::cout<<"Starting setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
+    if (debug>=dbgAll) os<<"Starting setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
     int np = pI->getSize();
     if (np){
-        dvector avls = pI->getInitVals();                              //initial values from parameter info
-        dvector adef = 0.5*(pI->getUpperBounds()+pI->getLowerBounds());//defaults are midpoints of ranges
-        dvector pvls = pI->getInitValsOnParamScales();//initial values from parameter info
-        dvector pdef = pI->calcParamScaleVals(adef);   //defaults are midpoints of arithmetic-scale ranges on param scales
-        for (int i=1;i<=np;i++) {
-            p(i) = pvls(i);  //assign initial value from parameter info
-            BoundedNumberInfo* ptrI = (*pI)[i];
-            if ((p(i).get_phase_start()>0)&&(ptrMC->jitter)&&(ptrI->jitter)){
-                rpt::echo<<"jittering "<<p(i).label()<<endl;
-                p(i) = wts::jitterParameter(p(i), ptrMC->jitFrac, rng);//only done if parameter phase > 0
-            } else 
-            if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
-                p(i) = ptrI->drawInitVal(rng,ptrMC->vif);
+        //parameters have been defined
+        dvector aovls = 1.0*pI->getInitVals();             //original initial values on arithmetic scales from parameter info
+        dvector povls = 1.0*pI->getInitValsOnParamScales();//original initial values on parameter scales from parameter info
+        dvector afvls = 1.0*pI->getInitVals();             //original initial values on arithmetic scales from parameter info
+        if (usePin) {
+            //use values from pinfile assigned to p as initial values
+            os<<"Using pin file to set initial values for "<<p(1).label()<<endl;
+            pI->setInitValsFromParamVals(p);//update initial values in pI to those from pinfile
+            afvls = 1.0*pI->getInitVals();
+            os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
+            for (int i=1;i<=np;i++) os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
+        } else {
+            //use values from pI as initial values
+            for (int i=1;i<=np;i++) {
+                p(i) = povls(i);  //assign original initial value from parameter info
+                BoundedNumberInfo* ptrI = (*pI)[i];
+                if ((p(i).get_phase_start()>0)&&(ptrMC->jitter)&&(ptrI->jitter)){
+                    //assign final initial value based on jittering
+                    os<<"Using jittering to set initial values for "<<p(i).label()<<endl;
+                    afvls(i) = ptrI->jitterInitVal(rng,ptrMC->jitFrac);//get jittered initial value on arithmetic scale
+                    p(i) = ptrI->calcParamScaleVal(afvls(i));          //calc initial parameter value
+                    ptrI->setInitVal(afvls(i));                       //update ptrI
+                    os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
+                    os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
+                } else 
+                if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
+                    //assign final initial value based on resampling prior pdf
+                    os<<"Using resampling to set initial values for "<<p(i).label()<<endl;
+                    afvls(i) = ptrI->drawInitVal(rng,ptrMC->vif); //get resampled initial value on arithmetic scale
+                    p(i) = ptrI->calcParamScaleVal(afvls(i));     //calc initial parameter value
+                    ptrI->setInitVal(afvls(i));                  //update ptrI
+                    os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
+                    os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
+                } else {
+                    os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
+                    os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
+                    os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
+                }
             }
         }
-        //p.set_initial_value(vls);
-        rpt::echo<<"InitVals for "<<p(1).label()<<": "<<endl;
-        rpt::echo<<tb<<"arith inits  : "<<avls<<endl;
-        rpt::echo<<tb<<"arith default: "<<adef<<endl;
-        rpt::echo<<tb<<"param inits  : "<<pvls<<endl;
-        rpt::echo<<tb<<"param default: "<<pdef<<endl;
-        rpt::echo<<tb<<"actual : "<<p<<endl;
-        if (debug>=dbgAll) {
-            std::cout<<"InitVals for "<<p(1).label()<<": "<<endl;
-            std::cout<<tb<<p<<std::endl;
-        }
     } else {
-        rpt::echo<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
+        os<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
     }
     
     if (debug>=dbgAll) {
@@ -2214,333 +2243,167 @@ FUNCTION void setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number
     }
 
 //******************************************************************************
-//* Function: void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
+//* Function: void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int usePin, int debug, ostream& os)
 //* 
-//* Description: Sets initial values for a vector of parameter vectors.
+//* Sets initial values for a vector of parameter vectors.
 //*
 //* Note: this function MUST be declared/defined as a FUNCTION in the tpl code
 //*     because the parameter assignment is a private method but the model_parameters 
 //*     class has friend access.
 //* 
 //* Inputs:
-//*  pI (BoundedVectorVectorInfo*) 
-//*     pointer to BoundedNumberVectorInfo object
-//*  p (param_init_bounded_vector_vector&)
-//*     parameter vector
-//* Returns:
-//*  void
-//* Alters:
-//*  p - changes initial values
+//*  @param pI - pointer to BoundedNumberVectorInfo object
+//*  @param p - reference to a param_init_bounded_vector_vector
+//*  @param usePin - flag to use values 
+//*  @param debug - flag to print debugging info
+//*  @param os - stream for debugging output
+//* 
+//*  @alters pI - if usePin=1 or jittering or resampling occurs, then the initial values will be updated 
+//*  @alters p - if usePin=0, the initial values will be updated 
 //******************************************************************************
-FUNCTION void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
+FUNCTION void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int usePin, int debug, ostream& os)
 //    debug=dbgAll;
-    if (debug>=dbgAll) std::cout<<"Starting setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
+    if (debug>=dbgAll) os<<"Starting setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
     int np = pI->getSize();
     if (np){
-        for (int i=1;i<=np;i++) {
-            rpt::echo<<"InitVals "<<p(i).label()<<":"<<endl;
-            dvector pns = value(p(i));
-            dvector avls = (*pI)[i]->getInitVals();             //initial values on arithmetic scale from parameter info
-            dvector pvls = (*pI)[i]->getInitValsOnParamScale();//initial values on parameter scales from parameter info
-            if (debug>=dbgAll) std::cout<<"pc "<<i<<" :"<<tb<<p(i).indexmin()<<tb<<p(i).indexmax()<<tb<<pvls.indexmin()<<tb<<pvls.indexmax()<<endl;
-            for (int j=p(i).indexmin();j<=p(i).indexmax();j++) p(i,j)=pvls(j);
-            BoundedVectorInfo* ptrI = (*pI)[i];
-            if ((p(i).get_phase_start()>0)&&(ptrMC->jitter)&&(ptrI->jitter)){
-                rpt::echo<<tb<<"jittering "<<p(i).label()<<endl;
-                dvector rvs = wts::jitterParameter(p(i), ptrMC->jitFrac, rng);//get jittered values
-                for (int j=p(i).indexmin();j<=p(i).indexmax();j++) p(i,j)=rvs(j);
-                rpt::echo<<tb<<"pin values       = "<<pns<<endl;
-                rpt::echo<<tb<<"arith values     = "<<avls<<endl;
-                rpt::echo<<tb<<"param values     = "<<pvls<<endl;
-                rpt::echo<<tb<<"resampled values = "<<rvs<<endl;
-                rpt::echo<<tb<<"final values     = "<<p(i)<<endl;
-            } else
-            if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
-                rpt::echo<<tb<<"resampling "<<p(i).label()<<endl;
-                dvector rvs = ptrI->drawInitVals(rng,ptrMC->vif);//get resampled values
-                for (int j=p(i).indexmin();j<=p(i).indexmax();j++) p(i,j)=rvs(j);
-                rpt::echo<<tb<<"pin values       = "<<pns<<endl;
-                rpt::echo<<tb<<"arith values     = "<<avls<<endl;
-                rpt::echo<<tb<<"param values     = "<<pvls<<endl;
-                rpt::echo<<tb<<"resampled values = "<<rvs<<endl;
-                rpt::echo<<tb<<"final values     = "<<p(i)<<endl;
-            } else {
-                rpt::echo<<tb<<"No jittering or resampling "<<p(i).label()<<endl;
-                rpt::echo<<tb<<"pin values       = "<<pns<<endl;
-                rpt::echo<<tb<<"arith values     = "<<avls<<endl;
-                rpt::echo<<tb<<"param values     = "<<pvls<<endl;
-                rpt::echo<<tb<<"final values     = "<<p(i)<<endl;
+        if (usePin){
+            //use values from pinfile assigned to p as initial values
+            for (int i=1;i<=np;i++) {
+                os<<"Using pin file to set initial values for "<<p(i).label()<<endl;
+                BoundedVectorInfo* ptrI = (*pI)[i];
+                dvector pnvls = value(p(i));                       //original initial values on parameter scale from pin file
+                dvector aovls = 1.0*ptrI->getInitVals();            //original initial values on arithmetic scale from parameter info
+                dvector povls = 1.0*ptrI->getInitValsOnParamScale();//original initial values on parameter scale from parameter info
+                ptrI->setInitValsFromParamVals(p(i));               //set final initial values on arithmetic scale for parameter info
+                os<<tb<<"pinfile    inits : "<<pnvls<<endl;
+                os<<tb<<"orig arith inits : "<<aovls<<endl;
+                os<<tb<<"orig param inits : "<<povls<<endl;
+                os<<tb<<"final arith inits: "<<ptrI->getInitVals()<<endl;//final initial values on arithmetic scale from parameter info
+                os<<tb<<"final param inits: "<<value(p(i))<<endl;        //final initial values on parameter scale from parameter info
             }
-            if (debug>=dbgAll){
-                std::cout<<"pns(i) = "<<pns<<endl;
-                std::cout<<"avls   = "<<avls<<endl;
-                std::cout<<"pvls   = "<<pvls<<endl;
-                std::cout<<"p(i)   = "<<p(i)<<endl;
+        } else {
+            //use values based on pI as initial values for p
+            for (int i=1;i<=np;i++) {
+                dvector pnvls = value(p(i));                            //original initial values on parameter scale from pin file
+                dvector aovls = 1.0*(*pI)[i]->getInitVals();            //initial values on arithmetic scale from parameter info
+                dvector povls = 1.0*(*pI)[i]->getInitValsOnParamScale();//initial values on parameter scales from parameter info
+                if (debug>=dbgAll) os<<"pc "<<i<<" :"<<tb<<p(i).indexmin()<<tb<<p(i).indexmax()<<tb<<pnvls.indexmin()<<tb<<pnvls.indexmax()<<endl;
+                p(i)=povls;//set initial values on parameter scales from parameter info
+                BoundedVectorInfo* ptrI = static_cast<DevsVectorInfo*>((*pI)[i]);
+                if ((p(i).get_phase_start()>0)&&(ptrMC->jitter)&&(ptrI->jitter)){
+                    os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
+                    if (debug>=dbgAll) os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
+                    dvector afvls = ptrI->jitterInitVals(rng,ptrMC->jitFrac);//get jittered values on arithmetic scale
+                    ptrI->setInitVals(afvls);                               //set jittered values as initial values on arithmetic scale
+                    p(i)=ptrI->getInitValsOnParamScale();                   //get jittered values on param scale as initial parameter values
+                } else
+                if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
+                    os<<"Using resampling to set initial values for "<<p(i).label()<<" : "<<endl;
+                    if (debug>=dbgAll) os<<"Using resampling to set initial values for "<<p(i).label()<<" : "<<endl;
+                    dvector afvls = ptrI->drawInitVals(rng,ptrMC->vif);//get resampled values on arithmetic scale
+                    ptrI->setInitVals(afvls);                          //set resampled values as initial values on arithmetic scale
+                    p(i)=ptrI->getInitValsOnParamScale();              //get resampled values on param scale as initial parameter values
+                } else {
+                    os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
+                }
+                os<<tb<<"pinfile    inits : "<<pnvls<<endl;
+                os<<tb<<"orig arith inits : "<<aovls<<endl;
+                os<<tb<<"orig param inits : "<<povls<<endl;
+                os<<tb<<"final arith inits: "<<ptrI->getInitVals()<<endl;//final initial values on arithmetic scale from parameter info
+                os<<tb<<"final param inits: "<<value(p(i))<<endl;        //final initial values on parameter scale from parameter info
             }
         }
     } else {
-        rpt::echo<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
+        os<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
     }
     
     if (debug>=dbgAll) {
         std::cout<<"Enter 1 to continue >>";
         std::cin>>np;
         if (np<0) exit(-1);
-        std::cout<<"Finished setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
+        os<<"Finished setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
     }
 
 //******************************************************************************
-//* Function: void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
+//* Function: void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int usePin, int debug, ostream& os)
 //* 
-//* Description: Sets initial values for a vector of parameter vectors.
+//* Sets initial values for a vector of devs parameter vectors based on the associated DevsVectorVectorInfo object.
 //*
 //* Note: this function MUST be declared/defined as a FUNCTION in the tpl code
 //*     because the parameter assignment is a private method but the model_parameters 
 //*     class has friend access.
 //* 
 //* Inputs:
-//*  pI (BoundedVectorVectorInfo*) 
-//*     pointer to BoundedNumberVectorInfo object
-//*  p (param_init_bounded_vector_vector&)
-//*     parameter vector
-//* Returns:
-//*  void
-//* Alters:
-//*  p - changes initial values
+//*  @param pI - pointer to BoundedNumberVectorInfo object
+//*  @param p - reference to parameter_init_bounded_vector_vector acting as devs_vector_vector
+//*  @param usePin - flag to use values 
+//*  @param debug - flag to print debugging info
+//*  @param os - stream for debugging output
+//* 
+//*  @alters pI - if usePin=1 or jittering or resampling occurs, then the initial values will be updated 
+//*  @alters p - if usePin=0, the initial values will be updated 
 //******************************************************************************
-FUNCTION void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
+FUNCTION void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int usePin, int debug, ostream& os)
     //debug=dbgAll;
-    if (debug>=dbgAll) std::cout<<"Starting setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
+    if (debug>=dbgAll) os<<"Starting setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
     int np = pI->getSize();
     if (np){
-        for (int i=1;i<=np;i++) {
-            rpt::echo<<"InitVals "<<p(i).label()<<":"<<endl;
-            dvector pns = value(p(i));
-            dvector avls = (*pI)[i]->getInitVals();             //initial values on arithmetic scale from parameter info
-            dvector pvls = (*pI)[i]->getInitValsOnParamScale();//initial values on parameter scales from parameter info
-            if (debug>=dbgAll) std::cout<<"pc "<<i<<" :"<<tb<<p(i).indexmin()<<tb<<p(i).indexmax()<<tb<<pvls.indexmin()<<tb<<pvls.indexmax()<<endl;
-            //for (int j=p(i).indexmin();j<=p(i).indexmax();j++) p(i,j)=vls(j);
-            p(i) = pvls(p(i).indexmin(),p(i).indexmax());
-            DevsVectorInfo* ptrI = (*pI)[i];
-            if ((p(i).get_phase_start()>0)&&(ptrMC->jitter)&&(ptrI->jitter)){
-                rpt::echo<<tb<<"jittering "<<p(i).label()<<endl;
-                rpt::echo<<tb<<"pin values       = "<<pns<<endl;
-                rpt::echo<<tb<<"arith values     = "<<avls<<endl;
-                rpt::echo<<tb<<"param values     = "<<pvls<<endl;
-                dvector rvs = wts::jitterParameter(p(i), 0.1*ptrMC->jitFrac, rng);//get jittered values on arithmetic scale
-                //scale all devs values such that sum = 0 and all devs are within bounds
-                double sm = sum(rvs);
-                rpt::echo<<tb<<"rvs              = "<<rvs<<endl<<"sum = "<<sm<<endl;
-                rvs = rvs - sm;//adjust sum to 0
-                //adjust scaling so rvs are within bounds on arithmetic scale
-                double lower = (*pI)[i]->getLowerBound();
-                double upper = (*pI)[i]->getUpperBound();
-                if (max(fabs(rvs))>max(fabs(lower),fabs(upper))) rvs = rvs/max(fabs(lower),fabs(upper));
-                p(i) = (*pI)[i]->calcParamScaleVals(rvs);
-                rpt::echo<<tb<<"adjusted values  = "<<rvs<<endl;
-                rpt::echo<<tb<<"final values     = "<<p(i)<<endl;
-            } else
-            if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
-                rpt::echo<<tb<<"resampling "<<p(i).label()<<endl;
-                dvector rvs = ptrI->drawInitVals(rng,ptrMC->vif);//get resampled values on arithmetic scale
-                p(i)=(*pI)[i]->calcParamScaleVals(rvs);
-                rpt::echo<<tb<<"pin values       = "<<pns<<endl;
-                rpt::echo<<tb<<"info values      = "<<avls<<endl;
-                rpt::echo<<tb<<"resampled values = "<<rvs<<endl;
-                rpt::echo<<tb<<"final values     = "<<p(i)<<endl;
-            } else {
-                rpt::echo<<tb<<"No jittering or resampling "<<p(i).label()<<endl;
-                rpt::echo<<tb<<"pin values       = "<<pns<<endl;
-                rpt::echo<<tb<<"info values      = "<<avls<<endl;
-                rpt::echo<<tb<<"final values     = "<<p(i)<<endl;
+        if (usePin){
+            //use values from pinfile assigned to p as initial values
+            for (int i=1;i<=np;i++) {
+                os<<"Using pin file to set initial values for "<<p(i).label()<<endl;
+                DevsVectorInfo* ptrI = static_cast<DevsVectorInfo*>((*pI)[i]);
+                dvector pnvls = value(p(i));                       //original initial values on parameter scale from pin file
+                dvector aovls = 1.0*ptrI->getInitVals();            //original initial values on arithmetic scale from parameter info
+                dvector povls = 1.0*ptrI->getInitValsOnParamScale();//original initial values on parameter scale from parameter info
+                ptrI->setInitValsFromParamVals(p(i));               //set final initial values on arithmetic scale for parameter info
+                os<<tb<<"pinfile    inits : "<<pnvls<<endl;
+                os<<tb<<"orig arith inits : "<<aovls<<endl;
+                os<<tb<<"orig param inits : "<<povls<<endl;
+                os<<tb<<"final arith inits: "<<ptrI->getInitVals()<<endl;//final initial values on arithmetic scale from parameter info
+                os<<tb<<"final param inits: "<<value(p(i))<<endl;        //final initial values on parameter scale from parameter info
             }
-            if (debug>=dbgAll){
-                std::cout<<"pns(i)  = "<<pns<<endl;
-                std::cout<<"avls(i) = "<<avls<<endl;
-                std::cout<<"p(i)    = "<<p(i)<<endl;
+        } else {
+            //use values based on pI as initial values for p
+            for (int i=1;i<=np;i++) {
+                dvector pnvls = value(p(i));                            //original initial values on parameter scale from pin file
+                dvector aovls = 1.0*(*pI)[i]->getInitVals();            //initial values on arithmetic scale from parameter info
+                dvector povls = 1.0*(*pI)[i]->getInitValsOnParamScale();//initial values on parameter scales from parameter info
+                if (debug>=dbgAll) os<<"pc "<<i<<" :"<<tb<<p(i).indexmin()<<tb<<p(i).indexmax()<<tb<<pnvls.indexmin()<<tb<<pnvls.indexmax()<<endl;
+                p(i)=povls;//set initial values on parameter scales from parameter info
+                DevsVectorInfo* ptrI = (*pI)[i];
+                if ((p(i).get_phase_start()>0)&&(ptrMC->jitter)&&(ptrI->jitter)){
+                    os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
+                    if (debug>=dbgAll) os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
+                    dvector afvls = ptrI->jitterInitVals(rng,ptrMC->jitFrac);//get jittered values on arithmetic scale
+                    ptrI->setInitVals(afvls);                               //set jittered values as initial values on arithmetic scale
+                    p(i)=ptrI->getInitValsOnParamScale();                   //get jittered values on param scale as initial parameter values
+                } else
+                if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
+                    os<<"Using resampling to set initial values for "<<p(i).label()<<" : "<<endl;
+                    if (debug>=dbgAll) os<<"Using resampling to set initial values for "<<p(i).label()<<" : "<<endl;
+                    dvector afvls = ptrI->drawInitVals(rng,ptrMC->vif);//get resampled values on arithmetic scale
+                    ptrI->setInitVals(afvls);                          //set resampled values as initial values on arithmetic scale
+                    p(i)=ptrI->getInitValsOnParamScale();              //get resampled values on param scale as initial parameter values
+                } else {
+                    os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
+                }
+                os<<tb<<"pinfile    inits : "<<pnvls<<endl;
+                os<<tb<<"orig arith inits : "<<aovls<<endl;
+                os<<tb<<"orig param inits : "<<povls<<endl;
+                os<<tb<<"final arith inits: "<<ptrI->getInitVals()<<endl;//final initial values on arithmetic scale from parameter info
+                os<<tb<<"final param inits: "<<value(p(i))<<endl;        //final initial values on parameter scale from parameter info
             }
         }
     } else {
-        rpt::echo<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
+        os<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
     }
     
     if (debug>=dbgAll) {
         std::cout<<"Enter 1 to continue >>";
         std::cin>>np;
         if (np<0) exit(-1);
-        std::cout<<"Finished setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
-    }
-
-//******************************************************************************
-//* Function: void setInitValsFromPinFile(NumberVectorInfo* pI, param_init_number_vector& p, int debug, ostream& cout)
-//* 
-//* Description: Sets initial values for the associated NumberVectorInfo object from a parameter vector.
-//*
-//* Inputs:
-//*  pI (NumberVectorInfo*) 
-//*     pointer to NumberVectorInfo object
-//*  p (param_init_number_vector&)
-//*     parameter vector
-//* Returns:
-//*  void
-//* Alters:
-//*  pI - changes initial values
-//******************************************************************************
-FUNCTION void setInitValsFromPinFile(NumberVectorInfo* pI, param_init_number_vector& p, int debug, ostream& cout)
-    //debug=dbgAll;
-    if (debug>=dbgAll) std::cout<<"Starting setInitValsFromPinFile(NumberVectorInfo* pI, param_init_number_vector& p) for "<<p(1).label()<<endl; 
-    int np = pI->getSize();
-    if (np){
-        dvector vls = pI->getInitVals();//initial values on arithmetic scale
-        pI->setInitValsFromParamVals(p);      
-        rpt::echo<<"InitVals for "<<p(1).label()<<": "<<endl;
-        rpt::echo<<tb<<"orig inits: "<<vls<<endl;
-        rpt::echo<<tb<<"pinf inits: "<<pI->getInitVals()<<endl;
-        rpt::echo<<tb<<"parm inits: "<<value(p)<<endl;
-        if (debug>=dbgAll) {
-            std::cout<<"InitVals for "<<p(1).label()<<": "<<endl;
-            std::cout<<tb<<p<<std::endl;
-        }
-    } else {
-        rpt::echo<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
-    }
-    
-    if (debug>dbgAll) {
-        std::cout<<"Enter 1 to continue >>";
-        std::cin>>np;
-        if (np<0) exit(-1);
-        std::cout<<"Finished setInitValsFromPinFile(NumberVectorInfo* pI, param_init_number_vector& p) for "<<p(1).label()<<endl; 
-    }
-     
-//******************************************************************************
-//* Function: void setInitValsFromPinFile(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p, int debug, ostream& cout)
-//* 
-//* Description: Sets initial values for the associated BoundedNumberVectorInfo object from a parameter vector.
-//*
-//* Inputs:
-//*  pI (BoundedNumberVectorInfo*) 
-//*     pointer to BoundedNumberVectorInfo object
-//*  p (param_init_bounded_number_vector&)
-//*     parameter vector
-//* Returns:
-//*  void
-//* Alters:
-//*  pI - changes initial values
-//******************************************************************************
-FUNCTION void setInitValsFromPinFile(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p, int debug, ostream& cout)
-    //debug=dbgAll;
-    if (debug>=dbgAll) std::cout<<"Starting setInitValsFromPinFile(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
-    int np = pI->getSize();
-    if (np){
-        dvector vls = pI->getInitVals();//initial values from parameter info
-        pI->setInitValsFromParamVals(p);
-        rpt::echo<<"InitVals for "<<p(1).label()<<": "<<endl;
-        rpt::echo<<tb<<"orig inits : "<<vls<<endl;
-        rpt::echo<<tb<<"pinf inits : "<<pI->getInitVals()<<endl;
-        rpt::echo<<tb<<"parm inits : "<<value(p)<<endl;
-        if (debug>=dbgAll) {
-            std::cout<<"InitVals for "<<p(1).label()<<": "<<endl;
-            std::cout<<tb<<p<<std::endl;
-        }
-    } else {
-        rpt::echo<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
-    }
-    
-    if (debug>dbgAll) {
-        std::cout<<"Enter 1 to continue >>";
-        std::cin>>np;
-        if (np<0) exit(-1);
-        std::cout<<"Finished setInitValsFromPinFile(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
-    }
-
-//******************************************************************************
-//* Function: void setInitValsFromPinFile(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
-//* 
-//* Description: Sets initial values for the associated BoundedVectorVectorInfo object from a vector of parameter vectors.
-//*
-//* Inputs:
-//*  pI (BoundedVectorVectorInfo*) 
-//*     pointer to BoundedNumberVectorInfo object
-//*  p (param_init_bounded_vector_vector&)
-//*     parameter vector
-//* Returns:
-//*  void
-//* Alters:
-//*  pI - changes initial values
-//******************************************************************************
-FUNCTION void setInitValsFromPinFile(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
-    //debug=dbgAll;
-    if (debug>=dbgAll) std::cout<<"Starting setInitValsFromPinFile(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
-    int np = pI->getSize();
-    if (np){
-        for (int i=1;i<=np;i++) {
-            rpt::echo<<"InitVals "<<p(i).label()<<":"<<endl;
-            BoundedVectorInfo* ptrI = (*pI)[i];
-            dvector vls = 1.0*ptrI->getInitVals();
-            ptrI->setInitValsFromParamVals(p(i));
-            rpt::echo<<tb<<"orig inits : "<<vls<<endl;
-            rpt::echo<<tb<<"pinf inits : "<<ptrI->getInitVals()<<endl;
-            rpt::echo<<tb<<"parm inits : "<<value(p(i))<<endl;
-            if (debug>=dbgAll){
-                std::cout<<"orig inits = "<<vls<<endl;
-                std::cout<<"pinf inits = "<<ptrI->getInitVals()<<endl;
-                std::cout<<"p(i)       = "<<p(i)<<endl;
-            }
-        }
-    } else {
-        rpt::echo<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
-    }
-    
-    if (debug>dbgAll) {
-        std::cout<<"Enter 1 to continue >>";
-        std::cin>>np;
-        if (np<0) exit(-1);
-        std::cout<<"Finished setInitValsFromPinFile(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
-    }
-
-//******************************************************************************
-//* Function: void setInitValsFomPinFile(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
-//* 
-//* Description: Sets initial values for the associated DevsVectorVectorInfo object from a vector of parameter vectors.
-//*
-//* Inputs:
-//*  pI (BoundedVectorVectorInfo*) 
-//*     pointer to BoundedNumberVectorInfo object
-//*  p (param_init_bounded_vector_vector&)
-//*     parameter vector
-//* Returns:
-//*  void
-//* Alters:
-//*  pI - changes initial values
-//******************************************************************************
-FUNCTION void setInitValsFromPinFile(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
-    //debug=dbgAll;
-    if (debug>=dbgAll) std::cout<<"Starting setInitValsFromPinFile(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
-    int np = pI->getSize();
-    if (np){
-        for (int i=1;i<=np;i++) {
-            rpt::echo<<"InitVals "<<p(i).label()<<":"<<endl;
-            DevsVectorInfo* ptrI = (*pI)[i];
-            dvector vls = 1.0*ptrI->getInitVals();
-            ptrI->setInitValsFromParamVals(p(i));
-            rpt::echo<<tb<<"orig inits : "<<vls<<endl;
-            rpt::echo<<tb<<"pinf inits : "<<ptrI->getInitVals()<<endl;
-            rpt::echo<<tb<<"parm inits : "<<value(p(i))<<endl;
-            if (debug>=dbgAll){
-                std::cout<<"orig inits = "<<vls<<endl;
-                std::cout<<"pinf inits = "<<ptrI->getInitVals()<<endl;
-                std::cout<<"p(i)       = "<<p(i)<<endl;
-            }
-        }
-    } else {
-        rpt::echo<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
-    }
-    
-    if (debug>dbgAll) {
-        std::cout<<"Enter 1 to continue >>";
-        std::cin>>np;
-        if (np<0) exit(-1);
-        std::cout<<"Finished setInitValsFromPinFile(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
+        os<<"Finished setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
     }
 
 //-------------------------------------------------------------------------------------

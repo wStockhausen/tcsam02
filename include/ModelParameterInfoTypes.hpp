@@ -422,6 +422,19 @@ class BoundedNumberInfo : public NumberInfo {
          */
         virtual void setFinalValFromParamVal(const prevariable& x){finlVal=calcArithScaleVal(value(x));}            
         /**
+         * Draws a jittered random value on the arithmetic scale based on the 
+         * bounds set and the fraction of the range to jitter (jitFrac).
+         * 
+         * Note that this DOES NOT update initVal.
+         * If the estimation phase is \< 0, the value of initVal is returned
+         * 
+         * @param rng - the random number generator
+         * @param jitFrac - the fraction of the range across which to jitter
+         * 
+         * @return - the random number on the arithmetic scale, or the value of initVal
+         */
+        virtual double jitterInitVal(random_number_generator& rng, double jitFrac);
+        /**
          * Reads the parameter info in ADMB format from an input stream.
          * 
          * The read order for the parameter info is:
@@ -688,7 +701,7 @@ class VectorInfo {
          * 
          * @param [in] x - a dvector of initial values to set. Indices should run 1:N
          */
-        virtual void setInitVals(dvector& x){initVals=x;}     
+        virtual void setInitVals(dvector& x);     
         /**
          * Sets the vector of initial values, on the arithmetic scale, to the 
          * possibly inverse-transformed values of the input vector, 
@@ -983,6 +996,19 @@ class BoundedVectorInfo : public VectorInfo {
          */
         virtual dvector drawInitVals(random_number_generator& rng, double vif);//draw initial values by resampling prior
         /**
+         * Draws a jittered random value on the arithmetic scale based on the 
+         * bounds set and the fraction of the range to jitter (jitFrac).
+         * 
+         * Note that this DOES NOT update initVal.
+         * If the estimation phase is \< 0, the value of initVal is returned
+         * 
+         * @param rng - the random number generator
+         * @param jitFrac - the fraction of the range across which to jitter
+         * 
+         * @return - the random number on the arithmetic scale, or the value of initVal
+         */
+        virtual dvector jitterInitVals(random_number_generator& rng, double jitFrac);
+        /**
          * Reads the parameter info from an input filestream.
          * The read order is:
          * <ul>
@@ -1074,7 +1100,15 @@ class DevsVectorInfo : public BoundedVectorInfo {
          * Sets initial values to 0, no matter what @param x is.
          * @param x
          */
-        void setInitVals(double x){initVals = 0.0;}
+        virtual void setInitVals(double x){initVals = 0.0;}
+        /**
+         * Sets initVals to the input vector.
+         * 
+         * @param x - vector to set as initial values
+         * 
+         * @overrides VectorInfo::setInitVals(dvector& x)
+         */
+        virtual void setInitVals(dvector& x);
         /**
          * Draws a vector of random values by resampling the prior or jittering.
          * 
@@ -1087,6 +1121,19 @@ class DevsVectorInfo : public BoundedVectorInfo {
          * @return - dvector of values (TODO: on what scale??)
          */
         virtual dvector drawInitVals(random_number_generator& rng, double vif);
+        /**
+         * Draws a jittered random value on the arithmetic scale based on the 
+         * bounds set and the fraction of the range to jitter (jitFrac).
+         * 
+         * Note that this DOES NOT update initVal.
+         * If the estimation phase is \< 0, the value of initVal is returned
+         * 
+         * @param rng - the random number generator
+         * @param jitFrac - the fraction of the range across which to jitter
+         * 
+         * @return - the random number on the arithmetic scale, or the value of initVal
+         */
+        virtual dvector jitterInitVals(random_number_generator& rng, double jitFrac);
 };
 
 /**
@@ -1333,31 +1380,6 @@ class BoundedNumberVectorInfo: public NumberVectorInfo {
          * @return - a dvector with the upper bound on the parameter scale for each parameter
          */
         dvector getUpperBoundsOnParamScales();
-//              /**
-//             * Calculates arithmetic-scale values corresponding to the input parameter-scale values.
-//             * 
-//             * @param x - parameter-scale values as a dvector
-//             * @return - arithmetic-scale values as a dvector
-//             */
-//            virtual dvector calcArithScaleVals(const dvector& x);
-//            /**
-//             * Calculates arithmetic-scale values corresponding to the input parameter-scale values.
-//             * 
-//             * @param x - parameter-scale values as dvar_vector
-//             * @return - arithmetic-scale values as dvar_vector
-//             */
-//            virtual dvar_vector calcArithScaleVals(const dvar_vector& x);
-//            /**
-//             * Calculates parameter-scale values corresponding to the input arithmetic-scale values.
-//             * 
-//             * @param x - the arithmetic-scale values as dvector
-//             * @return - the parameter-scale values as dvector
-//             */
-//            virtual dvector calcParamScaleVals(dvector& x);
-//          
-//            virtual dvector drawInitVals(random_number_generator& rng, double vif);
-//            virtual void setInitValsFromParamVals(const dvar_vector& x);
-//            virtual void setFinalValsFromParamVals(const dvar_vector& x);
         void read(cifstream & is);
         void write(std::ostream & os);
         void writeToR(std::ostream& os, adstring nm, int indent=0);
