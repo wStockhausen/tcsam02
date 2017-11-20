@@ -943,8 +943,8 @@ void VectorInfo::writeToR1(ostream& os){
     if (pMPI->getNumConsts()) {
         int N=pMPI->getNumConsts();
         adstring_array names=pMPI->getNamesForConsts();
-        os<<"consts=list("; for(int n=1;n<N;n++) os<<names(n)<<"="<<priorConsts(n)<<",";os<<names(N)<<"="<<priorConsts(N)<<")";
-    } else {os<<"consts=NULL)";}
+        os<<"consts=list("; for(int n=1;n<N;n++) os<<names(n)<<"="<<priorConsts(n)<<",";os<<names(N)<<"="<<priorConsts(N)<<")"<<cc<<endl;
+    } else {os<<"consts=NULL)"<<cc<<endl;}
     os<<"initVals=";  wts::writeToR(os,initVals,wts::to_qcsv(ptrIB->getFwdIndexVector())); os<<cc<<endl;
     os<<"finalVals="; wts::writeToR(os,finlVals,wts::to_qcsv(ptrIB->getFwdIndexVector()));
 }
@@ -1335,9 +1335,8 @@ void BoundedVectorInfo::writeToR(ostream& os){
         finlVals = initVals;
     }
     os<<"list(";
-    VectorInfo::writeToR1(os); os<<cc<<endl;
-    os<<"initVals=";  wts::writeToR(os,initVals,wts::to_qcsv(ptrIB->getFwdIndexVector())); os<<cc<<endl;
-    os<<"finalVals="; wts::writeToR(os,finlVals,wts::to_qcsv(ptrIB->getFwdIndexVector()));
+        os<<"jitter='"<<wts::getOnOffType(jitter)<<"',lower="<<lower<<",upper="<<upper<<cc;
+        VectorInfo::writeToR1(os);
     os<<")";
 }
 

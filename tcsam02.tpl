@@ -340,6 +340,7 @@
 //                  jittering occurs on logit-scale).
 //--2017-11-12: 1. Finished 2. above. Fixed problems with jittering devs.
 //              2. Updated VERSION to "2017.11.16".
+//--2017-11-19: 1. Fixed problem with BoundedVectorInfo::writeToR(...)
 // =============================================================================
 // =============================================================================
 GLOBALS_SECTION
