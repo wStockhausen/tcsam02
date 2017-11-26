@@ -341,6 +341,10 @@
 //--2017-11-12: 1. Finished 2. above. Fixed problems with jittering devs.
 //              2. Updated VERSION to "2017.11.16".
 //--2017-11-19: 1. Fixed problem with BoundedVectorInfo::writeToR(...)
+//--2017-11-25: 1. Fixed problem with BoundedVectorVectorInfo::write(...)
+//              2. Fixed problem with BoundedVectorInfo::calcParamScaleVals(...)
+//              3. Fixed problem with calcNatMort(...) not converting params to
+//                  arithmetic scale.
 // =============================================================================
 // =============================================================================
 GLOBALS_SECTION
@@ -2263,7 +2267,7 @@ FUNCTION void setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number
 //*  @alters p - if usePin=0, the initial values will be updated 
 //******************************************************************************
 FUNCTION void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int usePin, int debug, ostream& os)
-//    debug=dbgAll;
+    debug=dbgAll;
     if (debug>=dbgAll) os<<"Starting setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
     int np = pI->getSize();
     if (np){
@@ -2285,12 +2289,16 @@ FUNCTION void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector
         } else {
             //use values based on pI as initial values for p
             for (int i=1;i<=np;i++) {
+                os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
                 dvector pnvls = value(p(i));                            //original initial values on parameter scale from pin file
-                dvector aovls = 1.0*(*pI)[i]->getInitVals();            //initial values on arithmetic scale from parameter info
-                dvector povls = 1.0*(*pI)[i]->getInitValsOnParamScale();//initial values on parameter scales from parameter info
                 if (debug>=dbgAll) os<<"pc "<<i<<" :"<<tb<<p(i).indexmin()<<tb<<p(i).indexmax()<<tb<<pnvls.indexmin()<<tb<<pnvls.indexmax()<<endl;
-                p(i)=povls;//set initial values on parameter scales from parameter info
+                os<<tb<<"pinfile    inits : "<<pnvls<<endl;
                 BoundedVectorInfo* ptrI = static_cast<DevsVectorInfo*>((*pI)[i]);
+                dvector aovls = 1.0*ptrI->getInitVals();            //initial values on arithmetic scale from parameter info
+                os<<tb<<"orig arith inits : "<<aovls<<endl;
+                dvector povls = 1.0*ptrI->getInitValsOnParamScale();//initial values on parameter scales from parameter info
+                os<<tb<<"orig param inits : "<<povls<<endl;
+                p(i)=povls;//set initial values on parameter scales from parameter info
                 if ((p(i).get_phase_start()>0)&&(ptrMC->jitter)&&(ptrI->jitter)){
                     os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
                     if (debug>=dbgAll) os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
@@ -2307,9 +2315,6 @@ FUNCTION void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector
                 } else {
                     os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
                 }
-                os<<tb<<"pinfile    inits : "<<pnvls<<endl;
-                os<<tb<<"orig arith inits : "<<aovls<<endl;
-                os<<tb<<"orig param inits : "<<povls<<endl;
                 os<<tb<<"final arith inits: "<<ptrI->getInitVals()<<endl;//final initial values on arithmetic scale from parameter info
                 os<<tb<<"final param inits: "<<value(p(i))<<endl;        //final initial values on parameter scale from parameter info
             }
@@ -3222,6 +3227,10 @@ FUNCTION void calcNatMort(int debug, ostream& cout)
 
     int y; int mnx; int mxx; int mnm; int mxm; int mns; int mxs;
     dvar_vector ptM  = ptrNM->pM->calcArithScaleVals(pM);
+    dvar_vector ptDM1  = ptrNM->pDM1->calcArithScaleVals(pDM1);
+    dvar_vector ptDM2  = ptrNM->pDM2->calcArithScaleVals(pDM2);
+    dvar_vector ptDM3  = ptrNM->pDM3->calcArithScaleVals(pDM3);
+    dvar_vector ptDM4  = ptrNM->pDM4->calcArithScaleVals(pDM4);
     for (int pc=1;pc<=ptrNM->nPCs;pc++){
         if (debug>dbgCalcProcs) cout<<"pc = "<<pc<<endl;
         lnM.initialize();
@@ -3231,56 +3240,56 @@ FUNCTION void calcNatMort(int debug, ostream& cout)
         if (ptrMOs->optParamNM==0){
             //add in base (arithmetic-scale) natural mortality
             if (pids[k]) {
-                if (debug>dbgCalcProcs) cout<<"Adding pM["<<pids[k]<<"]: "<<pM(pids[k])<<endl;
+                if (debug>dbgCalcProcs) cout<<"Adding ptM["<<pids[k]<<"]: "<<ptM(pids[k])<<endl;
                 lnM += log(ptM(pids[k]));
             } k++;
             //add in ln-scale offset 1
             if (pids[k]) {
-                if (debug>dbgCalcProcs) cout<<"Adding pDM1["<<pids[k]<<"]: "<<pDM1(pids[k])<<endl;
-                lnM += pDM1(pids[k]);
+                if (debug>dbgCalcProcs) cout<<"Adding ptDM1["<<pids[k]<<"]: "<<ptDM1(pids[k])<<endl;
+                lnM += ptDM1(pids[k]);
             } k++;
             //add in ln-scale offset 2
             if (pids[k]) {
-                if (debug>dbgCalcProcs) cout<<"Adding pDM2["<<pids[k]<<"]: "<<pDM2(pids[k])<<endl;
-                lnM += pDM2(pids[k]);
+                if (debug>dbgCalcProcs) cout<<"Adding ptDM2["<<pids[k]<<"]: "<<ptDM2(pids[k])<<endl;
+                lnM += ptDM2(pids[k]);
             } k++;
             //add in ln-scale offset 3
             if (pids[k]) {
-                if (debug>dbgCalcProcs) cout<<"Adding pDM2["<<pids[k]<<"]: "<<pDM3(pids[k])<<endl;
-                lnM += pDM3(pids[k]);
+                if (debug>dbgCalcProcs) cout<<"Adding ptDM3["<<pids[k]<<"]: "<<ptDM3(pids[k])<<endl;
+                lnM += ptDM3(pids[k]);
             } k++;
             //add in ln-scale offset 4
             if (pids[k]) {
-                if (debug>dbgCalcProcs) cout<<"Adding pDM4["<<pids[k]<<"]: "<<pDM4(pids[k])<<endl;
-                lnM += pDM4(pids[k]);
+                if (debug>dbgCalcProcs) cout<<"Adding ptDM4["<<pids[k]<<"]: "<<ptDM4(pids[k])<<endl;
+                lnM += ptDM4(pids[k]);
             }  k++; //advance k to zScaling in pids
         } else if (ptrMOs->optParamNM==1){
             //TCSAM2013 parameterization: arithmetic scale multipliers to base
             //cout<<"k = "<<k<<tb<<"pids[k] = "<<pids[k]<<endl;
             if (pids[k]) {
-                if (debug>dbgCalcProcs) cout<<"Adding pM["<<pids[k]<<"]: "<<pM(pids[k])<<endl;
+                if (debug>dbgCalcProcs) cout<<"Adding ptM["<<pids[k]<<"]: "<<ptM(pids[k])<<endl;
                 lnM += log(ptM(pids[k]));
             } k++;
             //multiply offset 1 (for immature crab)
             //cout<<"k = "<<k<<tb<<"pids[k] = "<<pids[k]<<endl;
             if (pids[k]) {
-                if (debug>dbgCalcProcs) cout<<"Multiplying by offset pDM1["<<pids[k]<<"]: "<<pDM1(pids[k])<<endl;
-                lnM += log(pDM1(pids[k]));//add on ln-scale
+                if (debug>dbgCalcProcs) cout<<"Multiplying by offset ptDM1["<<pids[k]<<"]: "<<ptDM1(pids[k])<<endl;
+                lnM += log(ptDM1(pids[k]));//add on ln-scale
             } k++;
             //cout<<"k = "<<k<<tb<<"pids[k] = "<<pids[k]<<endl;
             if (pids[k]) {
-                if (debug>dbgCalcProcs) cout<<"Multiplying by offset pDM2["<<pids[k]<<"]: "<<pDM2(pids[k])<<endl;
-                lnM += log(pDM2(pids[k]));
+                if (debug>dbgCalcProcs) cout<<"Multiplying by offset ptDM2["<<pids[k]<<"]: "<<ptDM2(pids[k])<<endl;
+                lnM += log(ptDM2(pids[k]));
             } k++;
             //cout<<"k = "<<k<<tb<<"pids[k] = "<<pids[k]<<endl;
             if (pids[k]) {
-                if (debug>dbgCalcProcs) cout<<"Multiplying by offset pDM3["<<pids[k]<<"]: "<<pDM3(pids[k])<<endl;
-                lnM += log(pDM3(pids[k]));
+                if (debug>dbgCalcProcs) cout<<"Multiplying by offset ptDM3["<<pids[k]<<"]: "<<ptDM3(pids[k])<<endl;
+                lnM += log(ptDM3(pids[k]));
             } k++;
             //cout<<"k = "<<k<<tb<<"pids[k] = "<<pids[k]<<endl;
             if (pids[k]) {
-                if (debug>dbgCalcProcs) cout<<"Multiplying by offset pDM4["<<pids[k]<<"]: "<<pDM4(pids[k])<<endl;
-                lnM += log(pDM4(pids[k]));
+                if (debug>dbgCalcProcs) cout<<"Multiplying by offset ptDM4["<<pids[k]<<"]: "<<ptDM4(pids[k])<<endl;
+                lnM += log(ptDM4(pids[k]));
             } k++;
         }//optParamNM
         

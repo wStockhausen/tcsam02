@@ -1084,7 +1084,7 @@ double BoundedVectorInfo::calcParamScaleVals(double x){
                 break;
             }
         default:
-            cout<<"BoiundedVectorInfo::calcParamScaleVal(double) "<<this<<endl;
+            cout<<"BoundedVectorInfo::calcParamScaleVal(double) "<<this<<endl;
             cout<<"Parameter scale type "<<scaleType<<" not recognized!!"<<endl;
             ad_exit(1);
             break;
@@ -1113,7 +1113,7 @@ dvector BoundedVectorInfo::calcParamScaleVals(dvector& x){
                 //copy x
                 dvector xp(x.indexmin(),x.indexmax()); xp = x;
                 //replace x "near" bounds with values equivalent to z = -25 or +25
-                for (int i=xp.indexmin();xp.indexmax();i++){
+                for (int i=xp.indexmin();i<=xp.indexmax();i++){
                     if (xp(i)<=lower) xp(i) = lower+(upper-lower)/(1+mfexp( 25.0));
                     if (xp(i)>=upper) xp(i) = lower+(upper-lower)/(1+mfexp(-25.0));
                 }
@@ -2006,10 +2006,10 @@ void VectorVectorInfo::write(ostream & os){
     os<<"#     index index   read   initial param        resample  prior   prior  prior   prior"<<endl;
     os<<"#id   type  block  values? value   scale  phase  values?  weight  type   params  consts  label"<<endl;
     if (nVIs){
-        for (int p=0;p<=(nVIs-1);p++) os<<(p+1)<<tb<<(*ppVIs[p])<<endl;
+        for (int p=0;p<nVIs;p++) os<<(p+1)<<tb<<(*ppVIs[p])<<endl;
         os<<"#--initial values read in (index  values):";
-        for (int p=0;p<=(nVIs-1);p++) {
-            os<<endl<<(p+1)<<tb<<(*ppVIs[p]);
+        for (int p=0;p<nVIs;p++) {
+            if ((ppVIs[p])->readVals) os<<endl<<(p+1)<<tb<<(ppVIs[p])->getInitVals();
         }
     }
 }
@@ -2150,10 +2150,10 @@ void BoundedVectorVectorInfo::write(ostream & os){
     os<<"#     index index   read           lower  upper  initial param       resample  prior   prior  prior   prior"<<endl;
     os<<"#id   type  block  values? jitter? bounds bounds  value  scale phase  values?  weight  type   params  consts  label"<<endl;
     if (nVIs){
-        for (int p=0;p<=(nVIs-1);p++) os<<(p+1)<<tb<<(*ppVIs[p])<<endl;
+        for (int p=0;p<nVIs;p++) os<<(p+1)<<tb<<(*ppVIs[p])<<endl;
         os<<"#--initial values read in (index  values):";
-        for (int p=0;p<=(nVIs-1);p++) {
-            os<<endl<<(p+1)<<tb<<(*ppVIs[p]);
+        for (int p=0;p<nVIs;p++) {
+            if ((ppVIs[p])->readVals) os<<endl<<(p+1)<<tb<<(ppVIs[p])->getInitVals();
         }
     }
 }

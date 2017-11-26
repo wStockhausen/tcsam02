@@ -753,8 +753,8 @@ class VectorInfo {
          *  <li> idxType - the index type (as an adstring)
          *  <li> the index block defining the vector indices (which determines N), as an IndexBlock
          *  <li> readVals - an adstring flag to subsequently read a vector of initial values
-         *  <li> scaleType
          *  <li> initVal
+         *  <li> scaleType
          *  <li> phase
          *  <li> resample
          *  <li> priorWgt
@@ -767,7 +767,35 @@ class VectorInfo {
          * @param [in] is - the filestream to read from
          */
         virtual void read(cifstream & is);
+        /**
+         * Reads part of the parameter info from an input filestream.
+         * The read order is:
+         * <ul>
+         *  <li> idxType - the index type (as an adstring)
+         *  <li> the index block defining the vector indices (which determines N), as an IndexBlock
+         *  <li> readVals - an adstring flag to subsequently read a vector of initial values
+         * </ul>
+         * 
+         * @param [in] is - the filestream to read from
+         */
         void readPart1(cifstream& is);
+        /**
+         * Reads part of the parameter info from an input filestream.
+         * The read order is:
+         * <ul>
+         *  <li> initVal
+         *  <li> scaleType
+         *  <li> phase
+         *  <li> resample
+         *  <li> priorWgt
+         *  <li> priorType
+         *  <li> priorParams
+         *  <li> priorConsts
+         *  <li> label
+         * </ul>
+         * 
+         * @param [in] is - the filestream to read from
+         */
         void readPart2(cifstream& is);
         /**
          * Writes the parameter info to an output stream, in ADMB format.
