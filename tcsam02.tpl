@@ -345,6 +345,8 @@
 //              2. Fixed problem with BoundedVectorInfo::calcParamScaleVals(...)
 //              3. Fixed problem with calcNatMort(...) not converting params to
 //                  arithmetic scale.
+//--2017-11-27: 1. Increased penalty on growth increments approaching 0 and
+//                  added debugging output to rpt::echo when penalty is invoked.
 // =============================================================================
 // =============================================================================
 GLOBALS_SECTION
@@ -3353,7 +3355,8 @@ FUNCTION void calcMolt2Maturity(int debug, ostream& cout)
     for (int pc=1;pc<=ptrM2MI->nPCs;pc++){
         ivector pids = ptrM2MI->getPCIDs(pc);
         k=ptrM2MI->nIVs+1;//first parameter variable column in ParameterComnbinations
-        dvar_vector lgtPrM2M = pLgtPrM2M(pids[k++]);
+        BoundedVectorInfo* pBVI = (*ptrM2MI->pLgtPrM2M)[pids[k]];
+        dvar_vector lgtPrM2M = pBVI->calcArithScaleVals(pLgtPrM2M(pids[k++]));
         int vmn = lgtPrM2M.indexmin();
         int vmx = lgtPrM2M.indexmax();
         if (debug>dbgCalcProcs){
@@ -4221,10 +4224,16 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
             double zGrB = pXDs[2];
             dZ = grA*mfexp(log(grB/grA)/log(zGrB/zGrA)*log(zBs/zGrA)) - zBs;
         }
-        posfun(dZ,1.0E-3,pen);
-        objFun += pen;
+        posfun(dZ,1.0,pen);
+        if (pen>0.0){
+            rpt::echo<<"--Growth Increments Approaching 0 for pc = "<<pc<<". pen = "<<pen<<endl;
+            rpt::echo<<"params = "<<grA<<cc<<grB<<endl;
+            rpt::echo<<"dZ = "<<dZ<<endl;
+            rpt::echo<<"--------"<<endl;
+        }
+        objFun += 1.0e6*pen;
         if (debug<0) {
-            cout<<tb<<tb<<tb<<"'"<<pc<<"'=list(wgt="<<1.0<<cc<<"pen="<<pen<<cc<<"objfun="<<pen<<"),"<<endl;
+            cout<<tb<<tb<<tb<<"'"<<pc<<"'=list(wgt="<<1.0e6<<cc<<"pen="<<pen<<cc<<"objfun="<<1.0e6*pen<<"),"<<endl;
         }
     }
     {
@@ -4245,10 +4254,16 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
             double zGrB = pXDs[2];
             dZ = grA*mfexp(log(grB/grA)/log(zGrB/zGrA)*log(zBs/zGrA)) - zBs;
         }
-        posfun(dZ,1.0E-3,pen);
-        objFun += pen;
+        posfun(dZ,1.0,pen);
+        if (pen>0.0){
+            rpt::echo<<"--Growth Increments Approaching 0 for pc = "<<pc<<". pen = "<<pen<<endl;
+            rpt::echo<<"params = "<<grA<<cc<<grB<<endl;
+            rpt::echo<<"dZ = "<<dZ<<endl;
+            rpt::echo<<"--------"<<endl;
+        }
+        objFun += 1.0e6*pen;
         if (debug<0) {
-            cout<<tb<<tb<<tb<<"'"<<pc<<"'=list(wgt="<<1.0<<cc<<"pen="<<pen<<cc<<"objfun="<<pen<<")"<<endl;
+            cout<<tb<<tb<<tb<<"'"<<pc<<"'=list(wgt="<<1.0<<cc<<"pen="<<pen<<cc<<"objfun="<<1.0e6*pen<<")"<<endl;
         }
     }
     if (debug<0) cout<<tb<<tb<<"))"<<cc<<endl;//end of growth penalties list

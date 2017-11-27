@@ -1551,7 +1551,7 @@ class BoundedVectorVectorInfo: public VectorVectorInfo {
          * 
          * @overrides VectorVectorInfo::operator[](int i)
          */
-        virtual BoundedVectorInfo* operator[](int i){if ((ppVIs>0)&&(i<=nVIs)) return (BoundedVectorInfo*) ppVIs[i-1]; return 0;}
+        virtual BoundedVectorInfo* operator[](int i){if ((ppVIs>0)&&(i<=nVIs)) return static_cast<BoundedVectorInfo*>(ppVIs[i-1]); return 0;}
 
         virtual void read(cifstream & is);
         virtual void write(std::ostream & os);

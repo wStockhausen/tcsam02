@@ -438,10 +438,9 @@ void writeParameter(ostream& os, param_init_number& p, adstring& ctg1, adstring&
                                 <<"pvalue="<<value(p)
                                 <<"),";
         } else {
-            os<<1<<cc<<p.get_phase_start()<<cc<<1<<cc<<1<<cc
-              <<pI->getScaleType()<<cc
+            os<<1<<cc<<p.get_phase_start()<<cc<<1<<cc<<1<<cc<<pI->getScaleType()<<cc
               <<"-Inf"<<cc<<"Inf"<<cc<<pI->calcArithScaleVal(p)<<cc
-              <<"-Inf"<<cc<<"Inf"<<cc<<value(p)<<cc
+              <<"-Inf"<<cc<<"Inf"<<cc<<value(p)                <<cc
               <<p.get_name()<<cc<<"\"param_init_number\",\""
               <<ctg1<<"\",\""<<ctg2<<"\",\""<<pI->label<<"\""<<endl;
         }
@@ -476,10 +475,9 @@ void writeParameter(ostream& os, param_init_bounded_number& p,adstring& ctg1, ad
                                 <<"pvalue="<<value(p)
                                 <<"),";
         } else {
-            os<<1<<cc<<p.get_phase_start()<<cc<<1<<cc<<1<<cc
-              <<pI->getScaleType()<<cc
+            os<<1<<cc<<p.get_phase_start()<<cc<<1<<cc<<1<<cc<<pI->getScaleType()<<cc
               <<pI->getLowerBound()<<cc<<pI->getUpperBound()<<cc<<pI->calcArithScaleVal(p)<<cc
-              <<p.get_minb()<<cc<<p.get_maxb()<<cc<<value(p)<<cc
+              <<p.get_minb()       <<cc<<p.get_maxb()       <<cc<<value(p)                <<cc
               <<p.get_name()<<cc<<"\"param_init_bounded_number\",\""
               <<ctg1<<"\",\""<<ctg2<<"\",\""<<pI->label<<"\""<<endl;;
         }
@@ -514,10 +512,9 @@ void writeParameter(ostream& os, param_init_vector& p,adstring& ctg1, adstring& 
                                 <<"pvalue=c(";for (int i=mn;i<mx;i++) {os<<p(i)<<cc;} os<<p(mx)<<")";
             os<<"),";
         } else {        
-            for (int i=mn;i<=mx;i++) os<<i<<cc<<p.get_phase_start()<<cc<<mn<<cc<<mx<<cc
-                                       <<pI->getScaleType()<<cc
+            for (int i=mn;i<=mx;i++) os<<i<<cc<<p.get_phase_start()<<cc<<mn<<cc<<mx<<cc<<pI->getScaleType()<<cc
                                        <<"-Inf"<<cc<<"Inf"<<cc<<vals(i)<<cc
-                                       <<"-Inf"<<cc<<"Inf"<<cc<<p(i)<<cc
+                                       <<"-Inf"<<cc<<"Inf"<<cc<<p(i)   <<cc
                                        <<p.get_name()<<cc<<"\"param_init_vector\",\""
                                        <<ctg1<<"\",\""<<ctg2<<"\",\""<<pI->label<<"\""<<endl;
         }
@@ -555,14 +552,9 @@ void writeParameter(ostream& os, param_init_bounded_vector& p,adstring& ctg1, ad
             os<<"pvalue=c("; for (int i=mn;i<mx;i++) {os<<p(i)   <<cc;} os<<p(mx)   <<")";
             os<<"),";
         } else {
-            for (int i=mn;i<=mx;i++) os<<i<<cc<<p.get_phase_start()<<cc<<mn<<cc<<mx<<cc
-                                       <<pI->getScaleType()<<cc
-                                       <<pI->getLowerBound()<<cc
-                                       <<pI->getUpperBound()<<cc
-                                       <<vals(i)<<cc
-                                       <<pI->calcArithScaleVals(p.get_minb())<<cc
-                                       <<pI->calcArithScaleVals(p.get_maxb())<<cc
-                                       <<p(i)<<cc
+            for (int i=mn;i<=mx;i++) os<<i<<cc<<p.get_phase_start()<<cc<<mn<<cc<<mx<<cc<<pI->getScaleType()<<cc
+                                       <<pI->getLowerBound()<<cc<<pI->getUpperBound()<<cc<<vals(i)<<cc
+                                       <<p.get_minb()       <<cc<<p.get_maxb()       <<cc<<p(i)   <<cc
                                        <<p.get_name()<<cc<<"\"param_init_bounded_vector\",\""
                                        <<ctg1<<"\",\""<<ctg2<<"\",\""<<pI->label<<"\""<<endl;
         }
@@ -600,14 +592,9 @@ void writeParameter(ostream& os, param_init_bounded_dev_vector& p,adstring& ctg1
             os<<"pvalue=c("; for (int i=mn;i<mx;i++) {os<<p(i)   <<cc;} os<<p(mx)   <<")";
                os<<"),";
         } else {
-            for (int i=mn;i<=mx;i++) os<< i<<cc<<p.get_phase_start()<<cc<<mn<<cc<<mx<<cc
-                                       <<pI->getScaleType()<<cc
-                                       <<pI->getLowerBound()<<cc
-                                       <<pI->getUpperBound()<<cc
-                                       <<vals(i)<<cc
-                                       <<pI->calcArithScaleVals(p.get_minb())<<cc
-                                       <<pI->calcArithScaleVals(p.get_maxb())<<cc
-                                       <<p(i)<<cc
+            for (int i=mn;i<=mx;i++) os<<i<<cc<<p.get_phase_start()<<cc<<mn<<cc<<mx<<cc<<pI->getScaleType()<<cc
+                                       <<pI->getLowerBound()<<cc<<pI->getUpperBound()<<cc<<vals(i)<<cc
+                                       <<p.get_minb()       <<cc<<p.get_maxb()       <<cc<<p(i)   <<cc
                                        <<p.get_name()<<cc<<"\"param_init_bounded_dev_vector\",\""
                                        <<ctg1<<"\",\""<<ctg2<<"\",\""<<pI->label<<"\""<<endl;
         }
@@ -810,12 +797,12 @@ void setParameterInfo(VectorVectorInfo* pVVI,
  * @param os - output stream to write to
  */
 void setParameterInfo(BoundedVectorVectorInfo* pBVVI,                           
-                             int& npT,
-                             ivector& mns, ivector& mxs,
-                             imatrix& idxs,
-                             dvector& lb, dvector& ub, 
-                             ivector& phs, 
-                             ostream& os){
+                      int& npT,
+                      ivector& mns, ivector& mxs,
+                      imatrix& idxs,
+                      dvector& lb, dvector& ub, 
+                      ivector& phs, 
+                      ostream& os){
     int np = pBVVI->getSize();
     if (np){npT = np;} else {npT = 1;}
     mns.allocate(1,npT);
