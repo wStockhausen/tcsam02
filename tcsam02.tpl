@@ -347,6 +347,14 @@
 //                  arithmetic scale.
 //--2017-11-27: 1. Increased penalty on growth increments approaching 0 and
 //                  added debugging output to rpt::echo when penalty is invoked.
+//--2017-11-29: 1. Revised ModelOptions so file specifies the likelihood weight and "eps"
+//                  value in posfun(...) for the penalty on approaching negative 
+//                  growth increments.
+//              2. Revised ModelOptions to reflect change in devs vectors info 
+//                  implementation from old approach (last dev = -sum(other devs)
+//                  but penalized if not within bounds)
+//                  to new approach (square(sum(devs)) penalized for > 0)
+//              3. ModelOptions version updated to 2017.11.29.
 // =============================================================================
 // =============================================================================
 GLOBALS_SECTION
@@ -1600,7 +1608,6 @@ PRELIMINARY_CALCS_SECTION
         cout<<"MCEVAL is on"<<endl;
         rpt::echo<<"MCEVAL is on"<<endl;
     }
-    
     
 // =============================================================================
 // =============================================================================
@@ -3664,7 +3671,6 @@ FUNCTION void calcSelectivities(int debug, ostream& cout)
 
     double fsZ;             //fully selected size
     int idSel;              //selectivity function id
-//    int idxFSZ = ptrSel->nIVs+ptrSel->nPVs+1;//index for fsZ in pids vector below
     int idxFSZ = 1;//index for fsZ in pXDs vector below
     
     ivector mniSelDevs(1,6);//min indices of devs vectors
@@ -3765,6 +3771,7 @@ FUNCTION void calcSelectivities(int debug, ostream& cout)
         idSel = pids[ptrSel->nIVs+ptrSel->nPVs+idxFSZ+1];
         if (debug>dbgCalcProcs) cout<<tb<<"fsZ: "<<fsZ<<tb<<"idSel"<<tb<<idSel<<tb<<SelFcns::getSelFcnID(idSel)<<tb<<params<<endl;
 
+        //calc selectivity function WITHOUT any annual devs
         sel_cz(pc) = SelFcns::calcSelFcn(idSel, zBs, params, fsZ);
         if (debug>dbgCalcProcs) cout<<tb<<"pc = "<<pc<<tb<<"sel_cz: "<<sel_cz(pc)<<endl;
             
@@ -4224,16 +4231,16 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
             double zGrB = pXDs[2];
             dZ = grA*mfexp(log(grB/grA)/log(zGrB/zGrA)*log(zBs/zGrA)) - zBs;
         }
-        posfun(dZ,1.0,pen);
+        posfun(dZ,ptrMOs->epsNegGrowth,pen);
         if (pen>0.0){
             rpt::echo<<"--Growth Increments Approaching 0 for pc = "<<pc<<". pen = "<<pen<<endl;
             rpt::echo<<"params = "<<grA<<cc<<grB<<endl;
             rpt::echo<<"dZ = "<<dZ<<endl;
             rpt::echo<<"--------"<<endl;
         }
-        objFun += 1.0e6*pen;
+        objFun += ptrMOs->wgtNegGrowth*pen;
         if (debug<0) {
-            cout<<tb<<tb<<tb<<"'"<<pc<<"'=list(wgt="<<1.0e6<<cc<<"pen="<<pen<<cc<<"objfun="<<1.0e6*pen<<"),"<<endl;
+            cout<<tb<<tb<<tb<<"'"<<pc<<"'=list(wgt="<<ptrMOs->wgtNegGrowth<<cc<<"pen="<<pen<<cc<<"objfun="<<ptrMOs->wgtNegGrowth*pen<<"),"<<endl;
         }
     }
     {
@@ -4254,16 +4261,16 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
             double zGrB = pXDs[2];
             dZ = grA*mfexp(log(grB/grA)/log(zGrB/zGrA)*log(zBs/zGrA)) - zBs;
         }
-        posfun(dZ,1.0,pen);
+        posfun(dZ,ptrMOs->epsNegGrowth,pen);
         if (pen>0.0){
             rpt::echo<<"--Growth Increments Approaching 0 for pc = "<<pc<<". pen = "<<pen<<endl;
             rpt::echo<<"params = "<<grA<<cc<<grB<<endl;
             rpt::echo<<"dZ = "<<dZ<<endl;
             rpt::echo<<"--------"<<endl;
         }
-        objFun += 1.0e6*pen;
+        objFun += ptrMOs->wgtNegGrowth*pen;
         if (debug<0) {
-            cout<<tb<<tb<<tb<<"'"<<pc<<"'=list(wgt="<<1.0<<cc<<"pen="<<pen<<cc<<"objfun="<<1.0e6*pen<<")"<<endl;
+            cout<<tb<<tb<<tb<<"'"<<pc<<"'=list(wgt="<<ptrMOs->wgtNegGrowth<<cc<<"pen="<<pen<<cc<<"objfun="<<ptrMOs->wgtNegGrowth*pen<<")"<<endl;
         }
     }
     if (debug<0) cout<<tb<<tb<<"))"<<cc<<endl;//end of growth penalties list
@@ -4365,7 +4372,7 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     
     //penalties on sums of dev vectors to enforce sum-to-zero
     double penWgt = 0.0;
-    if (current_phase()>=ptrMOs->phsLastDevsPen) penWgt = ptrMOs->wgtLastDevsPen;
+    if (current_phase()>=ptrMOs->phsSqSumDevsPen) penWgt = ptrMOs->wgtSqSumDevsPen;
     if (debug<0) cout<<tb<<"final.devs=list("<<endl;//start of devs penalties list
     //recruitment devs
     if (ptrMPI->ptrRec->pDevsLnR->getSize()){

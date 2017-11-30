@@ -1,8 +1,5 @@
 /* 
- * File:   ModelOptions.hpp
- * Author: WilliamStockhausen
- *
- * Created on February 27, 2017, 4:24 AM
+ * ModelOptions.hpp
  */
 
 #ifndef MODELOPTIONS_HPP
@@ -13,27 +10,38 @@
 #include "ModelIndexBlocks.hpp"
 #include "ModelParameterInfoTypes.hpp"
 
-/*------------------------------------------------------------------------------\n
- * EffAvgScenario: class encapsulating effort averaging information \n
- *----------------------------------------------------------------------------*/
+/**
+ * Class encapsulating information on a single effort averaging scenario
+ * 
+ * This class encapsulates information on a single fishery effort averaging scenario 
+ * used to extrapolate fully-selected fishing mortality rates to time periods
+ * when effort data is available but catch data is not.
+ */
 class EffAvgScenario{
     public:
+        /** flag to print debugging info */
         static int debug;
     private:
+        /** pointer to the global ModelConfiguration object */
         ModelConfiguration* ptrMC;
     public:
+        /** id associated with the effort averaging scenario */
         int id;
-        int f;//fishery index
-        IndexBlock* ptrIB;//pointer to an IndexBlock object
+        /** index of associated fishery */
+        int f;//
+        /** pointer to an IndexBlock object */
+        IndexBlock* ptrIB;//
     private:
-        adstring_array strVals;//names for index variables
+        /** names for index variables */
+        adstring_array strVals;//
     public:
         EffAvgScenario(ModelConfiguration& mc);
         ~EffAvgScenario();
         
         /**
-         * Get the time block as an R array dimension
-         * @return 
+         * Gets the time block for the effort averaging scenario as an R array dimension
+         * 
+         * @return - an adstring object
          */
         adstring getYDimsForR(){return ptrIB->getAsRDim();}
         
@@ -45,17 +53,25 @@ class EffAvgScenario{
         friend std::ostream& operator <<(std::ostream & os, EffAvgScenario & obj){obj.write(os); return os;}
 };
 
-/*------------------------------------------------------------------------------\n
- * EffAvgOptions: scenarios for effort averaging \n
- *----------------------------------------------------------------------------*/
+/**
+ * Class encapsulating information on ALL effort averaging scenarios
+ * 
+ * This class encapsulates information on ALL fishery effort averaging scenarios 
+ * used to extrapolate fully-selected fishing mortality rates to time periods
+ * when effort data is available but catch data is not.
+ */
 class EffAvgScenarios{
     public:
+        /** flag to print debugging info */
         static int debug;
     private:
+        /** pointer to the global ModelConfiguration object */
         ModelConfiguration* ptrMC;
     public:
-        int nAvgs; //number of effort averaging info objects
-        EffAvgScenario** ppEASs;//pointer to array of EffAvgInfo pointers 
+        /** number of effort averaging scenarios */
+        int nAvgs; 
+        /** pointer to array of pointers to individual effort averaging scenarios */
+        EffAvgScenario** ppEASs;
     public:
         EffAvgScenarios(ModelConfiguration& mc);
         ~EffAvgScenarios();
@@ -68,13 +84,18 @@ class EffAvgScenarios{
         friend std::ostream& operator <<(std::ostream & os, EffAvgScenarios & obj){obj.write(os); return os;}
 };
 
-/*------------------------------------------------------------------------------\n
- * CapRateAvgScenario: fishery capture rate averaging info \n
- *----------------------------------------------------------------------------*/
+/**
+ * Class encapsulating information on a single capture rate averaging scenario
+ * 
+ *  This class encapsulates information on a single fishery capture rate averaging scenario 
+ *  used in the OFL calculations.
+ */
 class CapRateAvgScenario{
     public:
+        /** flag to print debugging info */
         static int debug;
     public:
+        /** pointer to the global ModelConfiguration object */
         ModelConfiguration* ptrMC;
         int id;
         int f;//fishery index
@@ -99,13 +120,15 @@ class CapRateAvgScenario{
         friend std::ostream& operator <<(std::ostream & os, CapRateAvgScenario & obj){obj.write(os); return os;}
 };
 
-/*------------------------------------------------------------------------------\n
- * CapRateAvgScenarios: scenarios for capture rate averaging \n
- *----------------------------------------------------------------------------*/
+/**
+ * Class encapsulating information on all capture rate averaging scenarios for OFL calculations.
+ */
 class CapRateAvgScenarios{
     public:
+        /** flag to print debugging info */
         static int debug;
     public:
+        /** pointer to the global ModelConfiguration object */
         ModelConfiguration* ptrMC;
         int nAvgs; //number of capture rate averaging info objects
         CapRateAvgScenario** ppCRASs;//pointer to array of CapRateAvgInfo pointers 
@@ -121,21 +144,39 @@ class CapRateAvgScenarios{
         friend std::ostream& operator <<(std::ostream & os, CapRateAvgScenarios & obj){obj.write(os); return os;}
 };
 
-/*------------------------------------------------------------------------------\n
- * EffXtrapScenarios: effort extrapolation scenarios\n
- *----------------------------------------------------------------------------*/
+/**
+ * Class encapsulating information on effort extrapolation scenarios.
+ */
 class EffXtrapScenarios{
     public:
+        /** flag to print debugging info */
         static int debug;
     private:
+        /** pointer to the global ModelConfiguration object */
         ModelConfiguration* ptrMC;
     public:
+        /** pointer to effort averaging scenarios object */
         EffAvgScenarios* ptrEffAvgScenarios;//pointer to effort averaging scenarios object 
+        /** pointer to capture rate averaging scenarios object */
         CapRateAvgScenarios* ptrCapRateAvgScenarios;//pointer to capture rate averaging scenarios object 
     public:
+        /**
+         * Class constructor.
+         * 
+         * @param mc - reference to the ModelConfigurtion object
+         */
         EffXtrapScenarios(ModelConfiguration& mc);
+        /**
+         * Class destructor for effort extrapolation scenarios.
+         */
         ~EffXtrapScenarios();
         
+        /**
+         * Gets the years defining the id'th averaging time period
+         * 
+         * @param id - the id of the desired time period
+         * @return - an ivector with the years corresponding to the time period
+         */
         ivector getTimePeriodForCapRateAveraging(int id);
         
         void read(cifstream & is);
@@ -151,78 +192,83 @@ class EffXtrapScenarios{
  */
     class ModelOptions {
     public:
-        /* version string for class */
+        /** version string for class */
         const static adstring VERSION;
-        /* flag to print debug info */
-        static int debug;  //flag to print debug info        
+        /** flag to print debug info */
+        static int debug;        
     public:
-        /* pointer to model configuration object */
-        ModelConfiguration* ptrMC;      //pointer to model configuration object
+        /** pointer to model configuration object */
+        ModelConfiguration* ptrMC; 
         
-        /* labels for initial n-at-z options */
+        /** labels for initial n-at-z options */
         adstring_array optsInitNatZ;
-        /* selected option for initial n-at-z calculations */
+        /** selected option for initial n-at-z calculations */
         int optInitNatZ;               
         
-        /* labels for options for penalties on non-decreasing M2M parameters/ogives */
+        /** labels for options for penalties on non-decreasing M2M parameters or ogives */
         adstring_array optsParamNM;
-        /* integer indicating option for natural mortality parameterization */
+        /** integer indicating option for natural mortality parameterization */
         int optParamNM;
         
-        /* labels for growth parameterization options */
+        /** labels for growth parameterization options */
         adstring_array optsGrowthParam;  
-        /* selected option for growth parameterization */
+        /** selected option for growth parameterization */
         int optGrowthParam;                 
         
-        /* labels for growth pdf options */
+        /** labels for growth pdf options */
         adstring_array optsGrowthPDF;  
-        /* selected option for growth pdf */
-        int optGrowthPDF;                 
+        /** selected option for growth pdf */
+        int optGrowthPDF;   
         
-        /* labels for options for penalties on M2M parameters/ogives smoothness */
+        /** likelihood weight on penalties to prevent negative growth increments */
+        double wgtNegGrowth;
+        /** eps in penalty function using posfun to prevent negative growth increments */
+        double epsNegGrowth;
+        
+        /** labels for options for penalties on M2M parameters or ogives smoothness */
         adstring_array optsPenSmthPrM2M;
-        /* integer indicating option for penalty on M2M parameters/ogives smoothness */
+        /** integer indicating option for penalty on M2M parameters or ogives smoothness */
         int optPenSmthPrM2M;
-        /* weight for penalties on M2M parameters/ogives smoothness */
+        /** weight for penalties on M2M parameters or ogives smoothness */
         dvector wgtPenSmthPrM2M;      
-        /* labels for options for penalties on non-decreasing M2M parameters/ogives */
+        /** labels for options for penalties on non-decreasing M2M parameters or ogives */
         adstring_array optsPenNonDecPrM2M;
-        /* integer indicating option for penalty on non-decreasing M2M parameters/ogives */
+        /** integer indicating option for penalty on non-decreasing M2M parameters or ogives */
         int optPenNonDecPrM2M;
-        /* weight for penalties on maturity non-decreasing M2M parameters/ogives */
+        /** weight for penalties on maturity non-decreasing M2M parameters or ogives */
         dvector wgtPenNonDecPrM2M;    
         
-        /* pointer to effort extrapolation scenarios object */
+        /** pointer to effort extrapolation scenarios object */
         EffXtrapScenarios* ptrEffXtrapScenarios;
         
-        /* likelihood penalties for F-devs */
+        /** likelihood penalty weight (as CVs) for F-devs */
         double cvFDevsPen;              
-        /* phase to start decreasing fpenCV */
+        /** phase to start decreasing penalty weights on F-devs */
         int phsDecrFDevsPen;            
-        /* phase at which to turn off penalties on F-devs */
+        /** phase at which to turn off penalties on F-devs */
         int phsZeroFDevsPen;     
         
-        /* likelihood penalties for last dev in each devs vector */
-        double wgtLastDevsPen;          
-        /* phase to start the penalty on the last devs */
-        int phsLastDevsPen;             
+        /** likelihood penalty weight for squared sum of devs */
+        double wgtSqSumDevsPen;          
+        /** phase to start the penalties on squared sum of devs */
+        int phsSqSumDevsPen;             
         
-        /* options for OFL calculations regarding capture rate averaging */
+        /** options for OFL calculations regarding capture rate averaging */
         adstring_array optsOFLAvgCapRate;
-        /* integer vector indicating option for OFL capture rate averaging, by fishery */
+        /** integer vector indicating option for OFL capture rate averaging, by fishery */
         ivector optOFLAvgCapRate;
-        /* integer vector indicating number of years for OFL capture rate averaging, by fishery */
+        /** integer vector indicating number of years for OFL capture rate averaging, by fishery */
         ivector oflNumYrsForAvgCapRate;
-        /* average capture rate info for OFL calculations*/
+        /** average capture rate info for OFL calculations*/
         dvector oflAvgCapRateInfo;
         
-        /* options for iterative re-weighting of size compositions */
+        /** options for iterative re-weighting of size compositions */
         adstring_array optsIterativeReweighting;
-        /* type of iterative re-weighting for size compositions */
+        /** type of iterative re-weighting for size compositions */
         int optIterativeReweighting;
-        /* phase to start iterative re-weighting for size compositions */
+        /** phase to start iterative re-weighting for size compositions */
         int phsIterativeReweighting;
-        /* max number of iterations */
+        /** max number of iterations */
         int maxIterations;
 
     public:

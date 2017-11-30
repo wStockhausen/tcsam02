@@ -246,7 +246,7 @@ void EffXtrapScenarios::writeToR(std::ostream& os){
 //          ModelOptions
 //--------------------------------------------------------------------------------
 int ModelOptions::debug = 0;
-const adstring ModelOptions::VERSION = "2017.10.03";
+const adstring ModelOptions::VERSION = "2017.11.29";
 
 ModelOptions::ModelOptions(ModelConfiguration& mc){
     ptrMC=&mc;
@@ -296,9 +296,11 @@ ModelOptions::ModelOptions(ModelConfiguration& mc){
     optsIterativeReweighting(1) = "use harmonic means of McAllister-Ianelli effective N's";
     optsIterativeReweighting(2) = "use Francis weights";
 }
-/***************************************************************
-*   function to read from file in ADMB format                  *
-***************************************************************/
+/**
+ * Read from input stream in ADMB format.
+ * 
+ * @param is - input stream
+ */
 void ModelOptions::read(cifstream & is) {
     if (debug) cout<<"ModelOptions::read(cifstream & is)"<<endl;
     int idx;
@@ -333,6 +335,13 @@ void ModelOptions::read(cifstream & is) {
     is>>optGrowthPDF;
     cout<<optGrowthPDF<<tb<<"#"<<optsGrowthPDF(optGrowthPDF)<<endl;
     
+    //likelihood penalty options for mean growth approaching negative increments
+    cout<<"##Options for likelihood penalties on negative growth increments"<<endl;
+    is>>wgtNegGrowth;
+    cout<<wgtNegGrowth<<tb<<"#wgtNegGrowth"<<endl;
+    is>>epsNegGrowth;
+    cout<<epsNegGrowth<<tb<<"#epsNegGrowth"<<endl;
+    
     //terminal molt (prM2M) options
     cout<<"##Terminal molt (prM2M) options:"<<endl;
     int nw; is>>nw;
@@ -364,12 +373,12 @@ void ModelOptions::read(cifstream & is) {
     is>>phsZeroFDevsPen;
     cout<<phsZeroFDevsPen<<tb<<"#phase at which to turn off the penalties on F-devs"<<endl;
     
-    //likelihood penalties on last element in devs vectors
-    cout<<"##Likelihood penalties on last element in devs vectors:"<<endl;
-    is>>wgtLastDevsPen;
-    cout<<wgtLastDevsPen<<tb<<"#weight for last-devs penalties"<<endl;
-    is>>phsLastDevsPen;
-    cout<<phsLastDevsPen<<tb<<"#min phase to apply penalty"<<endl;
+    //likelihood penalty weights on non-zero sums for devs vectors
+    cout<<"##Likelihood penalty weights on on non-zero sums for devs vectors:"<<endl;
+    is>>wgtSqSumDevsPen;
+    cout<<wgtSqSumDevsPen<<tb<<"#weight for penalties on non-zero sums for devs vectors"<<endl;
+    is>>phsSqSumDevsPen;
+    cout<<phsSqSumDevsPen<<tb<<"#min phase to apply penalty"<<endl;
     
     //OFL calculation options
     //--averaging options for capture rate/selectivity functions
@@ -439,6 +448,7 @@ void ModelOptions::write(ostream & os) {
         os<<"#"<<o<<" - "<<optsInitNatZ(o)<<endl;
     }
     os<<optInitNatZ<<tb<<"#selected option"<<endl;
+    os<<endl;
     
     //natural mortality options
     os<<"#----Options for parameterizing natural mortality"<<endl;
@@ -446,6 +456,7 @@ void ModelOptions::write(ostream & os) {
         os<<"#"<<o<<" - "<<optsParamNM(o)<<endl;
     }
     os<<optParamNM<<tb<<"#selected option"<<endl;
+    os<<endl;
     
     //growth parameterization options
     os<<"#----Growth parameterization options"<<endl;
@@ -461,6 +472,12 @@ void ModelOptions::write(ostream & os) {
     }
     os<<optGrowthPDF<<tb<<"#selected option"<<endl;
 
+    //likelihood penalty options for mean growth approaching negative increments
+    os<<"#----Options for likelihood penalties on negative growth increments"<<endl;
+    os<<wgtNegGrowth<<tb<<"#likelihood weight for penalty on approaching negative growth increments"<<endl;
+    os<<epsNegGrowth<<tb<<"#eps parameter in posfun() for penalty on approaching negative growth increments"<<endl;
+    os<<endl;
+    
     //prM2M options
     //--smoothness likelihood options
     os<<"#----prM2M Options"<<endl;
@@ -478,21 +495,25 @@ void ModelOptions::write(ostream & os) {
     }
     os<<optPenNonDecPrM2M<<tb<<"#selected option"<<endl;
     os<<wgtPenNonDecPrM2M<<tb<<"#weights for prM2M non-decreasing penalties"<<endl;
+    os<<endl;
     
     //effort extrapolation options
     os<<"#----Effort Extrapolation Scenarios"<<endl;
     os<<(*ptrEffXtrapScenarios);
+    os<<endl;
 
     //F-devs penalties
     os<<"#----F-devs penalty options"<<endl;
     os<<cvFDevsPen<<tb<<"#initial cv for F-devs penalties"<<endl;
     os<<phsDecrFDevsPen<<tb<<"#phase at which to start decreasing the penalties on F-devs"<<endl;
     os<<phsZeroFDevsPen<<tb<<"#phase at which to turn off the penalties on F-devs"<<endl;
+    os<<endl;
     
     //likelihood penalties on final values of dev vectors
-    os<<"#----Last dev penalty options"<<endl;
-    os<<wgtLastDevsPen<<tb<<"#weight for last-dev penalties"<<endl;
-    os<<phsDecrFDevsPen<<tb<<"#min phase to apply penalty"<<endl;
+    os<<"#----Likelihood penalty weights on on non-zero sums for devs vectors"<<endl;
+    os<<wgtSqSumDevsPen<<tb<<"#weight for penalties on non-zero sums for devs vectors"<<endl;
+    os<<phsSqSumDevsPen<<tb<<"#min phase to apply penalty"<<endl;
+    os<<endl;
     
     //OFL options
     os<<"#----OFL Calculation Options"<<endl;
@@ -514,6 +535,7 @@ void ModelOptions::write(ostream & os) {
     for (int f=1;f<=ptrMC->nFsh;f++){
         os<<tb<<ptrMC->lblsFsh(f)<<tb<<tb<<oflAvgCapRateInfo(f)<<endl;
     }
+    os<<endl;
     
     //Iterative re-weighting options
     for (int o=optsIterativeReweighting.indexmin();o<=optsIterativeReweighting.indexmax();o++) {
@@ -522,6 +544,9 @@ void ModelOptions::write(ostream & os) {
     os<<optIterativeReweighting<<tb<<"#selected option"<<endl;
     os<<phsIterativeReweighting<<tb<<"#phase to start iterative re-weighting"<<endl;
     os<<maxIterations<<tb<<"#max number of iterations"<<endl;
+    os<<endl;
+    
+    os<<"#---------------------"<<endl<<endl;
     
     if (debug) cout<<"#end ModelOptions::write(ostream)"<<endl;
 }
@@ -543,7 +568,7 @@ void ModelOptions::writeToR(ostream& os, std::string nm, int indent) {
             os<<"wgtSmthLgtPrMat="; wts::writeToR(os,wgtPenSmthPrM2M); os<<cc<<endl;
             os<<"wgtNonDecLgtPrMat="; wts::writeToR(os,wgtPenNonDecPrM2M); os<<")"<<endl;
         os<<"cvFDevsPen="<<cvFDevsPen<<cc<<"phsDecr="<<phsDecrFDevsPen<<cc<<"phsZero="<<phsZeroFDevsPen<<cc
-          <<"wgtLastDevPen="<<wgtLastDevsPen<<cc<<"phsLastDevsPen="<<phsLastDevsPen<<cc;
+          <<"wgtLastDevPen="<<wgtSqSumDevsPen<<cc<<"phsLastDevsPen="<<phsSqSumDevsPen<<cc;
         os<<"effXtrapScenarios="; ptrEffXtrapScenarios->writeToR(os); os<<"),"<<endl;
         os<<"oflOptions=list(";
             os<<"optAvgCapRate="; wts::writeToR(os,optOFLAvgCapRate); os<<cc<<endl;
