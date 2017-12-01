@@ -2276,7 +2276,7 @@ FUNCTION void setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number
 //*  @alters p - if usePin=0, the initial values will be updated 
 //******************************************************************************
 FUNCTION void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int usePin, int debug, ostream& os)
-    debug=dbgAll;
+    //debug=dbgAll;
     if (debug>=dbgAll) os<<"Starting setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
     int np = pI->getSize();
     if (np){
