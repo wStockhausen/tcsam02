@@ -147,6 +147,10 @@ void GrowthData::writeToR(ostream& os, std::string nm, int indent) {
 /* keyword for chela height data */
 const adstring ChelaHeightData::KW_CHELAHEIGHT_DATA = "CHELAHEIGHT_DATA";
 /**
+ * Constructor for class.
+ */
+ChelaHeightData::ChelaHeightData(){}
+/**
  * Destructor for class.
  */
 ChelaHeightData::~ChelaHeightData(){}
@@ -186,7 +190,7 @@ void ChelaHeightData::read(cifstream & is){
     rpt::echo<<llWgt<<tb<<"#likelihood weight (multiplier)"<<std::endl;
     is>>nObs;//number of observations
     rpt::echo<<nObs<<tb<<"#number of observations"<<std::endl;
-    inpData_nc.allocate(1,nObs,1,3);
+    inpData_nc.allocate(1,nObs,1,4);
     is>>inpData_nc;
     rpt::echo<<"#year    size    nIndivs     fraction mature"<<std::endl<<inpData_nc<<std::endl;
     if (debug) cout<<"end ChelaHeightData::read(...) "<<this<<std::endl;

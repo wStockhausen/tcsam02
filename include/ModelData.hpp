@@ -379,22 +379,37 @@ class IndexBlock;
      */
     class FleetData {
     public:
+        /** flag to print debugging info */
         static int debug;
+        /** key word indicating fishery data */
         const static adstring KW_FISHERY;
+        /** key word indicating survey data */
         const static adstring KW_SURVEY;
     public:
-        adstring name;     //fleet name
-        adstring type;     //fleet type (survey or fishery)
-        int hasICD;        //flag indicating observed index (survey) catch data
-        CatchData* ptrICD; //pointer to CatchData object for index survey) catch data
-        int hasRCD;        //flag indicating retained catch data
-        CatchData* ptrRCD; //pointer to CatchData object for retained catch
-        int hasDCD;        //flag indicating observed discard catch data
-        CatchData* ptrDCD; //pointer to CatchData object for observed discards
-        int hasTCD;        //flag indicating observed total catch data
-        CatchData* ptrTCD; //pointer to CatchData object for observed total catch
-        int hasEff;        //flag indicating effort data
-        EffortData* ptrEff;//pointer to effort data
+        /** fleet name */
+        adstring name;     
+        /** fleet type (fishery or survey) */
+        adstring type;     
+        /** flag indicating observed index (survey) catch data */
+        int hasICD;        
+        /**pointer to CatchData object for index survey) catch data */
+        CatchData* ptrICD; 
+        /** flag indicating retained catch data */
+        int hasRCD;        
+        /** pointer to CatchData object for retained catch */
+        CatchData* ptrRCD; 
+        /** flag indicating observed discard catch data */
+        int hasDCD;        
+        /** pointer to CatchData object for observed discards */
+        CatchData* ptrDCD; 
+        /** flag indicating observed total catch data */
+        int hasTCD;        
+        /** pointer to CatchData object for observed total catch */
+        CatchData* ptrTCD; 
+        /** flag indicating effort data */
+        int hasEff;        
+        /** pointer to effort data */
+        EffortData* ptrEff;
     public:
         /**
          * Constructor.
@@ -451,24 +466,24 @@ class IndexBlock;
      */
     class GrowthData {
     public:
-        /* flag to print debugging info */
+        /** flag to print debugging info */
         static int debug;
-        /* keyword indicating effort data */
+        /** keyword indicating effort data */
         const static adstring KW_GROWTH_DATA;
     public:
-        /* dataset name */
+        /** dataset name */
         adstring name;
-        /* likelihood function type */
+        /** likelihood function type */
         int llType; 
-        /* likelihood weight (i.e., multiplier) */
+        /** likelihood weight (i.e., multiplier) */
         double llWgt;   
-        /* number of sex classes */
+        /** number of sex classes */
         int nSXs;
-        /* number of observations, by sex */
+        /** number of observations, by sex */
         ivector nObs_x;
-        /* years associated with observations, by sex */
+        /** years associated with observations, by sex */
         imatrix obsYears_xn;
-        /* input data, by sex, c: year,pre-molt size, post-molt size, n: observations */
+        /** input data, by sex, c: year,pre-molt size, post-molt size, n: observations */
         d3_array  inpData_xcn;  
     public:
         /**
@@ -512,26 +527,26 @@ class IndexBlock;
 //--------------------------------------------------------------------------------
     class ChelaHeightData {
     public:
-        /* flag to print debugging info */
+        /** flag to print debugging info */
         static int debug;
-        /* keyword indicating effort data */
+        /** keyword indicating effort data */
         const static adstring KW_CHELAHEIGHT_DATA;
     public:
-        /* dataset name */
+        /** dataset name */
         adstring name;
-        /* likelihood function type */
+        /** likelihood function type */
         int llType; 
-        /* likelihood weight (i.e., multiplier) */
+        /** likelihood weight (i.e., multiplier) */
         double llWgt;   
-        /* number of observations */
+        /** number of observations */
         int nObs;
-        /* input data (columns: year,size,N,fraction mature) */
+        /** input data (columns: year,size,N,fraction mature) */
         dmatrix  inpData_nc;  
     public:
         /**
          * Constructor.
          */
-        ChelaHeightData(){}
+        ChelaHeightData();
         /**
          * Destructor.
          */
