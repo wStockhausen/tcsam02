@@ -355,6 +355,26 @@
 //                  but penalized if not within bounds)
 //                  to new approach (square(sum(devs)) penalized for > 0)
 //              3. ModelOptions version updated to 2017.11.29.
+//--2017-12-01: 1. Revised output of "GrowthData.NLLs.NanReport.dat"
+//              2. ModelOptions revised to specify minimum/max pre-molt CWs at which
+//                  the growth increment must be positive. Needed to do this because
+//                  it is possible to have growth data from crab sizes outside the
+//                  model range that should be included in growth estimation. These
+//                  are enforced by applying posfun-type likelihood penalties when 
+//                  growth increments start to approach negative values.
+//              3. Updated ModelOptions version to "2017.12.01".
+//              4. Changed 'final.devs' to 'devsSumSq' in R list for likelihood penalties.
+//--2017-12-05: 1. Revised ALL selectivity functions to use mfexp() rather than exp().
+//                  Using exp() in the ...normal() functions led to model instability!
+//              2. Added save_params() function, which will save parameter values
+//                  to a file "tcsam02.PP.XX.par" when called, with PP replaced by the 
+//                  current estimation phase and XX by the number of PROCEDURE_SECTION
+//                  function calls within the phase. Should only be used for debugging
+//                  convergence problems.
+//              3. A csv version of 2 is available (but commented out) at th end of the
+//                  PROCEDURE_SECTION code section.
+//              4. Updated tcsam::VERSION to "2017.12.05".
+//
 // =============================================================================
 // =============================================================================
 GLOBALS_SECTION
@@ -1675,7 +1695,17 @@ PROCEDURE_SECTION
         updateMPI(0, cout);
         writeMCMCtoR(mcmc);
     }
-
+    
+//    if ((current_phase()==1)&&(ctrProcCallsInPhase>450)){
+//     //cout<<"writing parameters info to csv"<<endl;
+//     adstring fn = "tcsam02.params.all."+str(current_phase())+"."+str(ctrProcCallsInPhase)+".csv";
+//     ofstream os1(fn, ios::trunc);
+//     os1.precision(12);
+//     os1<<"objFun = "<<cc<<objFun<<cc<<"phase ="<<cc<<current_phase()<<cc<<"proc calls in phase = "<<cc<<ctrProcCallsInPhase<<endl;
+//     writeParameters(os1,0,0);//all parameters
+//     os1.close();
+//    }
+//
 //*****************************************
 FUNCTION void setInitVals(int debug, ostream& os)
     //recruitment parameters
@@ -4207,6 +4237,7 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     if (debug>=dbgObjFun) cout<<"Started calcPenalties()"<<endl;
     if (debug<0) cout<<"list("<<endl;//start list of penalties by category
 
+    //growth-related penalties
     if (debug<0) cout<<tb<<"growth=list(negativeGrowth=list("<<endl;//start of growth penalties list
     GrowthInfo* ptrGrw = ptrMPI->ptrGrw;
     //calculate growth parameters on arithmetic scale
@@ -4214,6 +4245,11 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     dvar_vector ptGrB = ptrGrw->pGrB->calcArithScaleVals(pGrB);
     //loop over parameter combinations
     dvariable grA, grB;
+    dvector zBsp(1,nZBs+2);
+    dvar_vector dZ(1,nZBs+2);
+    zBsp(1,nZBs) = zBs;
+    zBsp(nZBs+1) = ptrMOs->minGrowthCW;
+    zBsp(nZBs+2) = ptrMOs->maxGrowthCW;
     for (int pc=1;pc<=(ptrGrw->nPCs-1);pc++){
         ivector pids = ptrGrw->getPCIDs(pc);
         int k=ptrGrw->nIVs+1;//1st parameter column
@@ -4222,20 +4258,21 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
                 
         //add objective function penalties to keep mean size increments positive
         dvariable pen; pen.initialize();
-        dvar_vector dZ(1,nZBs);
+        dZ.initialize();
         if (ptrMOs->optGrowthParam==0){
-            dZ = mfexp(grA+grB*log(zBs)) - zBs;
+            dZ = mfexp(grA+grB*log(zBsp)) - zBsp;
         } else if (ptrMOs->optGrowthParam==1){
             dvector pXDs = ptrGrw->getPCXDs(pc);
             double zGrA = pXDs[1];
             double zGrB = pXDs[2];
-            dZ = grA*mfexp(log(grB/grA)/log(zGrB/zGrA)*log(zBs/zGrA)) - zBs;
+            dZ = grA*mfexp(log(grB/grA)/log(zGrB/zGrA)*log(zBsp/zGrA)) - zBsp;
         }
         posfun(dZ,ptrMOs->epsNegGrowth,pen);
         if (pen>0.0){
             rpt::echo<<"--Growth Increments Approaching 0 for pc = "<<pc<<". pen = "<<pen<<endl;
             rpt::echo<<"params = "<<grA<<cc<<grB<<endl;
-            rpt::echo<<"dZ = "<<dZ<<endl;
+            rpt::echo<<"zBsp = "<<zBsp<<endl;
+            rpt::echo<<"dZ   = "<<dZ<<endl;
             rpt::echo<<"--------"<<endl;
         }
         objFun += ptrMOs->wgtNegGrowth*pen;
@@ -4252,20 +4289,21 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
         
         //add objective function penalty to keep mean size increments positive
         dvariable pen; pen.initialize();
-        dvar_vector dZ(1,nZBs);
+        dZ.initialize();
         if (ptrMOs->optGrowthParam==0){
-            dZ = mfexp(grA+grB*log(zBs)) - zBs;
+            dZ = mfexp(grA+grB*log(zBsp)) - zBsp;
         } else if (ptrMOs->optGrowthParam==1){
             dvector pXDs = ptrGrw->getPCXDs(pc);
             double zGrA = pXDs[1];
             double zGrB = pXDs[2];
-            dZ = grA*mfexp(log(grB/grA)/log(zGrB/zGrA)*log(zBs/zGrA)) - zBs;
+            dZ = grA*mfexp(log(grB/grA)/log(zGrB/zGrA)*log(zBsp/zGrA)) - zBsp;
         }
         posfun(dZ,ptrMOs->epsNegGrowth,pen);
         if (pen>0.0){
             rpt::echo<<"--Growth Increments Approaching 0 for pc = "<<pc<<". pen = "<<pen<<endl;
             rpt::echo<<"params = "<<grA<<cc<<grB<<endl;
-            rpt::echo<<"dZ = "<<dZ<<endl;
+            rpt::echo<<"zBsp = "<<zBsp<<endl;
+            rpt::echo<<"dZ   = "<<dZ<<endl;
             rpt::echo<<"--------"<<endl;
         }
         objFun += ptrMOs->wgtNegGrowth*pen;
@@ -4274,6 +4312,8 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
         }
     }
     if (debug<0) cout<<tb<<tb<<"))"<<cc<<endl;//end of growth penalties list
+    
+    //maturity-related penalties
     if (debug<0) cout<<tb<<"maturity=list("<<endl;//start of maturity penalties list
     //smoothness penalties
     dvector penWgtSmthLgtPrMat = ptrMOs->wgtPenSmthPrM2M;
@@ -4314,8 +4354,7 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
         }
         if (debug<0) cout<<tb<<tb<<")"<<cc<<endl;//end of smoothness penalties list
     }
-
-    //non-decreasing penalties on maturity parameters/ogives
+    //penalties for decreasing maturity parameters/ogives
     dvector penWgtNonDecLgtPrMat = ptrMOs->wgtPenNonDecPrM2M;
     fPenNonDecLgtPrMat.initialize();
     if (debug<0) cout<<tb<<tb<<"nondecreasing=list(";//start of non-decreasing penalties list
@@ -4373,60 +4412,86 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     //penalties on sums of dev vectors to enforce sum-to-zero
     double penWgt = 0.0;
     if (current_phase()>=ptrMOs->phsSqSumDevsPen) penWgt = ptrMOs->wgtSqSumDevsPen;
-    if (debug<0) cout<<tb<<"final.devs=list("<<endl;//start of devs penalties list
+    rpt::echo<<"#----Check on sum(devs) in calcPenalties "<<current_phase()<<tb<<ctrProcCallsInPhase<<endl;
+    if (debug<0) cout<<tb<<"devsSumSq=list("<<endl;//start of devs penalties list
     //recruitment devs
     if (ptrMPI->ptrRec->pDevsLnR->getSize()){
         if (debug<0) cout<<tb<<tb<<"pDevsLnR=";
-        calcDevsPenalties(debug,cout,penWgt,pDevsLnR,devsLnR);
+        rpt::echo<<"pDevsLnR = ";
+        for (int i=1;i<=pDevsLnR.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsLnR[i])<<tb;
+        rpt::echo<<endl;
+        calcDevsPenalties(debug,cout,penWgt,pDevsLnR,devsLnR);        
         if (debug<0) cout<<cc<<endl;
     }
     //S1 devs
     if (ptrMPI->ptrSel->pDevsS1->getSize()){
         if (debug<0) cout<<tb<<tb<<"pDevsS1=";
+        rpt::echo<<"pDevsS1 = ";
+        for (int i=1;i<=pDevsS1.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsS1[i])<<tb;
+        rpt::echo<<endl;
         calcDevsPenalties(debug,cout,penWgt,pDevsS1,devsS1);
         if (debug<0) cout<<cc<<endl;
     }
     //S2 devs
     if (ptrMPI->ptrSel->pDevsS2->getSize()){
         if (debug<0) cout<<tb<<tb<<"pDevsS2=";
+        rpt::echo<<"pDevsS2 = ";
+        for (int i=1;i<=pDevsS2.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsS2[i])<<tb;
+        rpt::echo<<endl;
         calcDevsPenalties(debug,cout,penWgt,pDevsS2,devsS2);
         if (debug<0) cout<<cc<<endl;
     }
     //S3 devs
     if (ptrMPI->ptrSel->pDevsS3->getSize()){
         if (debug<0) cout<<tb<<tb<<"pDevsS3=";
+        rpt::echo<<"pDevsS3 = ";
+        for (int i=1;i<=pDevsS3.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsS3[i])<<tb;
+        rpt::echo<<endl;
         calcDevsPenalties(debug,cout,penWgt,pDevsS3,devsS3);
         if (debug<0) cout<<cc<<endl;
     }
     //S4 devs
     if (ptrMPI->ptrSel->pDevsS4->getSize()){
         if (debug<0) cout<<tb<<tb<<"pDevsS4=";
+        rpt::echo<<"pDevsS4 = ";
+        for (int i=1;i<=pDevsS4.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsS4[i])<<tb;
+        rpt::echo<<endl;
         calcDevsPenalties(debug,cout,penWgt,pDevsS4,devsS4);
         if (debug<0) cout<<cc<<endl;
     }
     //S5 devs
     if (ptrMPI->ptrSel->pDevsS5->getSize()){
         if (debug<0) cout<<tb<<tb<<"pDevsS5=";
+        rpt::echo<<"pDevsS5 = ";
+        for (int i=1;i<=pDevsS5.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsS5[i])<<tb;
+        rpt::echo<<endl;
         calcDevsPenalties(debug,cout,penWgt,pDevsS5,devsS5);
         if (debug<0) cout<<cc<<endl;
     }
     //S6 devs
     if (ptrMPI->ptrSel->pDevsS6->getSize()){
         if (debug<0) cout<<tb<<tb<<"pDevsS6=";
+        rpt::echo<<"pDevsS6 = ";
+        for (int i=1;i<=pDevsS6.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsS6[i])<<tb;
+        rpt::echo<<endl;
         calcDevsPenalties(debug,cout,penWgt,pDevsS6,devsS6);
         if (debug<0) cout<<cc<<endl;
     }
     //capture rate devs
     if (ptrMPI->ptrFsh->pDevsLnC->getSize()){
         if (debug<0) cout<<tb<<tb<<"pDevsLnC=";
+        rpt::echo<<"pDevsLnC = ";
+        for (int i=1;i<=pDevsLnC.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsLnC[i])<<tb;
+        rpt::echo<<endl;
         calcDevsPenalties(debug,cout,penWgt,pDevsLnC,devsLnC);
         if (debug<0) cout<<cc<<endl;
     }
+    rpt::echo<<"#------"<<endl<<endl;
     
     if (debug<0) cout<<tb<<"NULL)"<<endl;//end of devs penalties list
     if (debug<0) cout<<")"<<cc<<endl;//end of penalties list
     
-    //Apply penalties to F-devs
+    //Apply diminishing penalties to variances of F-devs
     {
         if (debug<0) cout<<"penFDevs=list("<<endl;
         double penWgt = 1.0/log(1.0+square(ptrMOs->cvFDevsPen));
@@ -4640,27 +4705,22 @@ FUNCTION void calcNLLs_GrowthData(int debug, ostream& cout)
                 nlls_n = -wts::log_gamma_density(incZ_n,alpha_n,ibeta_n);
                 dvariable nll = sum(nlls_n);
                 if (isnan(value(nll))){
+                    dvar_vector zscrs = elem_div((zpst_n-mnZ_n),sqrt(elem_prod(mnZ_n,grBeta_xy(x)(year_n))));
                     ofstream os("GrowthData.NLLs.NanReport.dat");
                     os.precision(12);
                     os<<"phase = "<<current_phase()<<endl;
                     os<<"sex   = "<<tcsam::getSexType(x)<<endl;
                     os<<"nll   = "<<nll<<endl;
                     os<<"nObs  = "<<nObs<<endl;
-                    os<<"years   = "<<year_n<<endl;
-                    os<<"grA     = "<<grA_xy(x)(year_n)<<endl;
-                    os<<"grB     = "<<grB_xy(x)(year_n)<<endl;
-                    os<<"zGrA    = "<<zGrA_xy(x)(year_n)<<endl;
-                    os<<"zGrB    = "<<zGrB_xy(x)(year_n)<<endl;
-                    os<<"zpre_n  = "<<zpre_n<<endl;
-                    os<<"zpst_n  = "<<zpst_n<<endl;
-                    os<<"mnZ_n   = "<<mnZ_n<<endl;
-                    os<<"incZ    = "<<zpst_n-zpre_n<<endl;
-                    os<<"mnInc   = "<<mnZ_n-zpre_n<<endl;
-                    os<<"ibeta_n = "<<ibeta_n<<endl;
-                    os<<"alpha_n = "<<alpha_n<<endl;
-                    os<<"nlls_n  = "<<nlls_n<<endl;
-                    dvar_vector zscrs = elem_div((zpst_n-mnZ_n),sqrt(elem_prod(mnZ_n,grBeta_xy(x)(year_n))));
-                    os<<"zscrs   = "<<zscrs<<endl;
+                    os<<"year  grA   zGrA    grB    zGrB   zpre_n  zpst_n  mnZ_n   incZ   mnInc  ibeta_n alpha_n nll_n  zscr"<<endl;
+                    for (int n=1;n<=nObs;n++){
+                        os<<year_n(n)<<tb<<
+                                grA_xy(x)(year_n(n))<<tb<<grB_xy(x)(year_n(n))<<tb<<
+                                zGrA_xy(x)(year_n(n))<<tb<<zGrB_xy(x)(year_n(n))<<tb<<
+                                zpre_n(n)<<tb<<zpst_n(n)<<tb<<mnZ_n(n)<<tb<<
+                                zpst_n(n)-zpre_n(n)<<tb<<mnZ_n(n)-zpre_n(n)<<tb<<
+                                ibeta_n(n)<<tb<<alpha_n(n)<<tb<<nlls_n(n)<<tb<<zscrs(n)<<endl;
+                    }
                     os.close();
                     exit(-1);
                 }
@@ -6557,6 +6617,13 @@ FUNCTION d4_array calcEffWgts(d5_array& effWgtComps,int debug, ostream& cout)
     cout<<"Finished calcEffWgts()"<<endl;
     return effWgts_nxms;
 
+FUNCTION save_params
+    adstring fn = "tcsam02."+str(current_phase())+"."+str(ctrProcCallsInPhase)+".par";
+    ofstream os1(fn, ios::trunc);
+    os1.precision(12);
+    initial_params::save(os1, 12);
+    os1.close();
+    
 // =============================================================================
 // =============================================================================
 FINAL_SECTION

@@ -246,7 +246,7 @@ void EffXtrapScenarios::writeToR(std::ostream& os){
 //          ModelOptions
 //--------------------------------------------------------------------------------
 int ModelOptions::debug = 0;
-const adstring ModelOptions::VERSION = "2017.11.29";
+const adstring ModelOptions::VERSION = "2017.12.01";
 
 ModelOptions::ModelOptions(ModelConfiguration& mc){
     ptrMC=&mc;
@@ -337,6 +337,10 @@ void ModelOptions::read(cifstream & is) {
     
     //likelihood penalty options for mean growth approaching negative increments
     cout<<"##Options for likelihood penalties on negative growth increments"<<endl;
+    is>>minGrowthCW;
+    cout<<minGrowthCW<<tb<<"#minGrowthCW"<<endl;
+    is>>maxGrowthCW;
+    cout<<maxGrowthCW<<tb<<"#maxGrowthCW"<<endl;
     is>>wgtNegGrowth;
     cout<<wgtNegGrowth<<tb<<"#wgtNegGrowth"<<endl;
     is>>epsNegGrowth;
@@ -474,6 +478,8 @@ void ModelOptions::write(ostream & os) {
 
     //likelihood penalty options for mean growth approaching negative increments
     os<<"#----Options for likelihood penalties on negative growth increments"<<endl;
+    os<<minGrowthCW <<tb<<"#min pre-molt CW to apply penalty on approaching negative growth increments"<<endl;
+    os<<maxGrowthCW <<tb<<"#min pre-molt CW to apply penalty on approaching negative growth increments"<<endl;
     os<<wgtNegGrowth<<tb<<"#likelihood weight for penalty on approaching negative growth increments"<<endl;
     os<<epsNegGrowth<<tb<<"#eps parameter in posfun() for penalty on approaching negative growth increments"<<endl;
     os<<endl;

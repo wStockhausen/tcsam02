@@ -1,8 +1,6 @@
 /* 
  * File:   ModelConstants.hpp
  * Author: william.stockhausen
- *
- * Created on March 12, 2013, 7:12 AM
  * 
  * History:
  * 20140605: added tcsam::dgbAll, dbgPriors
@@ -19,6 +17,7 @@
  * 20170606: incremented tcsam::VERSION to "2017.06.06"
  * 20171025: incremented tcsam::VERSION to "2017.10.25"
  * 20171116: incremented tcsam::VERSION to "2017.11.16"
+ * 20171205: incremented tcsam::VERSION to "2017.12.05"
  */
 
 #pragma once
@@ -43,7 +42,7 @@ namespace tcsam{
     /* adstring indicating model name */
     const adstring MODEL = "tcsam02";
     /* adstring indicating model version */
-    const adstring VERSION = "2017.11.16";
+    const adstring VERSION = "2017.12.05";
     
     /* minimum debugging level that will print ALL debug info */
     const int dbgAll = 100;

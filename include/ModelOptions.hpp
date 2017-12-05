@@ -220,6 +220,10 @@ class EffXtrapScenarios{
         /** selected option for growth pdf */
         int optGrowthPDF;   
         
+        /** min pre-molt size to apply penalty to prevent negative growth increments */
+        double minGrowthCW;
+        /** max pre-molt size to apply penalty to prevent negative growth increments */
+        double maxGrowthCW;
         /** likelihood weight on penalties to prevent negative growth increments */
         double wgtNegGrowth;
         /** eps in penalty function using posfun to prevent negative growth increments */

@@ -207,9 +207,9 @@ dvar_vector SelFcns::asclogistic(dvector& z, dvar_vector& params, double fsZ){
     if (debug) rpt::echo<<"Starting SelFcns::asclogistic(...)"<<endl;
     dvariable n; n.initialize();
     dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
-    s = 1.0/(1.0+exp(-params(2)*(z-params(1))));
+    s = 1.0/(1.0+mfexp(-params(2)*(z-params(1))));
     if (fsZ>0){
-        n = 1.0+exp(-params(2)*(fsZ-params(1)));//normalize so (s(fsZ) = 1
+        n = 1.0+mfexp(-params(2)*(fsZ-params(1)));//normalize so (s(fsZ) = 1
         s *= n;
     } else if (fsZ<0) {
         n = 1.0/max(s);
@@ -242,9 +242,9 @@ dvar_vector SelFcns::asclogisticLn50(dvector& z, dvar_vector& params, double fsZ
     if (debug) rpt::echo<<"Starting SelFcns::asclogisticLn50(...)"<<endl;
     dvariable n; n.initialize();
     dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
-    s = 1.0/(1.0+exp(-params(2)*(z-exp(params(1)))));
+    s = 1.0/(1.0+mfexp(-params(2)*(z-mfexp(params(1)))));
     if (fsZ>0){
-        n = 1.0+exp(-params(2)*(fsZ-exp(params(1))));//normalize so (s(fsZ) = 1
+        n = 1.0+mfexp(-params(2)*(fsZ-mfexp(params(1))));//normalize so (s(fsZ) = 1
         s *= n;
     } else if (fsZ<0) {
         n = 1.0/max(s);
@@ -277,9 +277,9 @@ dvar_vector SelFcns::asclogistic5095(dvector& z, dvar_vector& params, double fsZ
     if (debug) cout<<"Starting SelFcns::asclogistic5095(...)"<<endl;
     dvariable n; n.initialize();
     dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
-    s = 1.0/(1.0+exp(-log(19.0)*(z-params(1))/params(2)));
+    s = 1.0/(1.0+mfexp(-log(19.0)*(z-params(1))/params(2)));
     if (fsZ>0){
-        n = 1.0+exp(-log(19.0)*(fsZ-params(1))/params(2));//normalization constant
+        n = 1.0+mfexp(-log(19.0)*(fsZ-params(1))/params(2));//normalization constant
         s *= n;
      } else if (fsZ<0) {
         n = 1.0/max(s);
@@ -312,9 +312,9 @@ dvar_vector SelFcns::asclogistic5099(dvector& z, dvar_vector& params, double fsZ
     if (debug) cout<<"Starting SelFcns::asclogistic5099(...)"<<endl;
     dvariable n; n.initialize();
     dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
-    s = 1.0/(1.0+exp(-log(99.0)*(z-params(1))/(params(2)-params(1))));
+    s = 1.0/(1.0+mfexp(-log(99.0)*(z-params(1))/(params(2)-params(1))));
     if (fsZ>0){
-        n = 1.0+exp(-log(99.0)*(fsZ-params(1))/params(2));//normalization constant
+        n = 1.0+mfexp(-log(99.0)*(fsZ-params(1))/params(2));//normalization constant
         s *= n;
      } else if (fsZ<0) {
         n = 1.0/max(s);
@@ -348,10 +348,10 @@ dvar_vector SelFcns::asclogistic50Ln95(dvector& z, dvar_vector& params, double f
     dvariable n; n.initialize();
     dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
     dvariable z50    = params(1);
-    dvariable dz5095 = exp(params(2));
-    s = 1.0/(1.0+exp(-log(19.0)*(z-z50)/dz5095));
+    dvariable dz5095 = mfexp(params(2));
+    s = 1.0/(1.0+mfexp(-log(19.0)*(z-z50)/dz5095));
     if (fsZ>0){
-        n = 1.0+exp(-log(19.0)*(fsZ-z50)/dz5095);//normalization constant
+        n = 1.0+mfexp(-log(19.0)*(fsZ-z50)/dz5095);//normalization constant
         s *= n;
     } else if (fsZ<0) {
         n = 1.0/max(s);
@@ -384,11 +384,11 @@ dvar_vector SelFcns::asclogistic95Ln50(dvector& z, dvar_vector& params, double f
     if (debug) cout<<"Starting SelFcns::asclogistic95Ln50(...)"<<endl;
     dvariable n; n.initialize();
     dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
-    dvariable dz5095 = exp(params(2));
+    dvariable dz5095 = mfexp(params(2));
     dvariable z50    = params(1) - dz5095;
-    s = 1.0/(1.0+exp(-log(19.0)*(z-z50)/dz5095));
+    s = 1.0/(1.0+mfexp(-log(19.0)*(z-z50)/dz5095));
     if (fsZ>0){
-        n = 1.0+exp(-log(19.0)*(fsZ-z50)/dz5095);//normalization constant
+        n = 1.0+mfexp(-log(19.0)*(fsZ-z50)/dz5095);//normalization constant
         s *= n;
     } else if (fsZ<0) {
         n = 1.0/max(s);
@@ -421,11 +421,11 @@ dvar_vector SelFcns::asclogisticLn50Ln95(dvector& z, dvar_vector& params, double
     if (debug) cout<<"Starting SelFcns::asclogisticLn50Ln95(...)"<<endl;
     dvariable n; n.initialize();
     dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
-    dvariable z50    = exp(params(1));
-    dvariable dz5095 = exp(params(2));
-    s = 1.0/(1.0+exp(-log(19.0)*(z-z50)/dz5095));
+    dvariable z50    = mfexp(params(1));
+    dvariable dz5095 = mfexp(params(2));
+    s = 1.0/(1.0+mfexp(-log(19.0)*(z-z50)/dz5095));
     if (fsZ>0){
-        n = 1.0+exp(-log(19.0)*(fsZ-z50)/dz5095);//normalization constant
+        n = 1.0+mfexp(-log(19.0)*(fsZ-z50)/dz5095);//normalization constant
         s *= n;
     } else if (fsZ<0) {
         n = 1.0/max(s);
@@ -460,9 +460,9 @@ dvar_vector SelFcns::dbllogistic(dvector& z, dvar_vector& params, double fsZ){
     if (debug) cout<<"Starting SelFcns::dbllogistic(...)"<<endl;
     dvariable n; n.initialize();
     dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
-    s = elem_prod(1.0/(1.0+exp(-params(2)*(z-params(1)))),1.0/(1.0+exp(-params(4)*(params(3)-z))));
+    s = elem_prod(1.0/(1.0+mfexp(-params(2)*(z-params(1)))),1.0/(1.0+mfexp(-params(4)*(params(3)-z))));
     if (fsZ>0){
-        n = (1.0+exp(-params(2)*(fsZ-params(1))))*(1.0+exp(-params(4)*(params(3)-fsZ)));//normalization constant
+        n = (1.0+mfexp(-params(2)*(fsZ-params(1))))*(1.0+mfexp(-params(4)*(params(3)-fsZ)));//normalization constant
         s *= n;
     } else if (fsZ<0) {
         n = 1.0/max(s);
@@ -497,9 +497,9 @@ dvar_vector SelFcns::dbllogisticLnD50(dvector& z, dvar_vector& params, double fs
     if (debug) cout<<"Starting SelFcns::dbllogisticLnD50(...)"<<endl;
     dvariable n; n.initialize();
     dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
-    s = elem_prod(1.0/(1.0+exp(-params(2)*(z-params(1)))),1.0/(1.0+exp(-params(4)*(params(1)+exp(params(3))-z))));
+    s = elem_prod(1.0/(1.0+mfexp(-params(2)*(z-params(1)))),1.0/(1.0+mfexp(-params(4)*(params(1)+mfexp(params(3))-z))));
     if (fsZ>0){
-        n = (1.0+exp(-params(2)*(fsZ-params(1))))*(1.0+exp(-params(4)*(params(1)+exp(params(3))-fsZ)));//normalization constant
+        n = (1.0+mfexp(-params(2)*(fsZ-params(1))))*(1.0+mfexp(-params(4)*(params(1)+mfexp(params(3))-fsZ)));//normalization constant
         s *= n;
     } else if (fsZ<0) {
         n = 1.0/max(s);
@@ -534,9 +534,9 @@ dvar_vector SelFcns::dbllogistic5095(dvector& z, dvar_vector& params, double fsZ
     if (debug) cout<<"Starting SelFcns::dbllogistic5095(...)"<<endl;
     dvariable n; n.initialize();
     dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
-    s = elem_prod(1.0/(1.0+exp(-log(19.0)*(z-params(1))/params(2))),1.0/(1.0+exp(-log(19.0)*(params(3)-z)/params(4))));
+    s = elem_prod(1.0/(1.0+mfexp(-log(19.0)*(z-params(1))/params(2))),1.0/(1.0+mfexp(-log(19.0)*(params(3)-z)/params(4))));
     if (fsZ>0){
-        n = (1.0+exp(-log(19.0)*(fsZ-params(1))/params(2)))*(1.0+exp(-log(19.0)*(params(3)-fsZ)/params(4)));//normalization constant
+        n = (1.0+mfexp(-log(19.0)*(fsZ-params(1))/params(2)))*(1.0+mfexp(-log(19.0)*(params(3)-fsZ)/params(4)));//normalization constant
         s *= n;
     } else if (fsZ<0) {
         n = 1.0/max(s);
@@ -572,13 +572,13 @@ dvar_vector SelFcns::dbllogistic50Ln95(dvector& z, dvar_vector& params, double f
     dvariable n; n.initialize();
     dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
     dvariable z50a = params(1);
-    dvariable dza  = exp(params(2));//increment from z50a to z95a
-    dvariable dzz  = exp(params(3));//increment from z95a to z95d
-    dvariable dzd  = exp(params(4));//increment from z95d to z50d
+    dvariable dza  = mfexp(params(2));//increment from z50a to z95a
+    dvariable dzz  = mfexp(params(3));//increment from z95a to z95d
+    dvariable dzd  = mfexp(params(4));//increment from z95d to z50d
     dvariable z50d = z50a+dza+dzz+dzd; 
-    s = elem_prod(1.0/(1.0+exp(-log(19.0)*(z-z50a)/dza)),1.0/(1.0+exp(-log(19.0)*(z50d-z)/dzd)));
+    s = elem_prod(1.0/(1.0+mfexp(-log(19.0)*(z-z50a)/dza)),1.0/(1.0+mfexp(-log(19.0)*(z50d-z)/dzd)));
     if (fsZ>0){
-        n = (1.0+exp(-log(19.0)*(fsZ-z50a)/dza))*(1.0+exp(-log(19.0)*(z50d-fsZ)/dzd));//normalization constant
+        n = (1.0+mfexp(-log(19.0)*(fsZ-z50a)/dza))*(1.0+mfexp(-log(19.0)*(z50d-fsZ)/dzd));//normalization constant
         s *= n;
     } else if (fsZ<0) {
         n = 1.0/max(s);
@@ -613,14 +613,14 @@ dvar_vector SelFcns::dbllogisticLn50Ln95(dvector& z, dvar_vector& params, double
     if (debug) cout<<"Starting SelFcns::dbllogisticLn50Ln95(...)"<<endl;
     dvariable n; n.initialize();
     dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
-    dvariable z50a = exp(params(1));
-    dvariable dza  = exp(params(2));//increment from z50a to z95a
-    dvariable dzz  = exp(params(3));//increment from z95a to z95d
-    dvariable dzd  = exp(params(4));//increment from z95d to z50d
+    dvariable z50a = mfexp(params(1));
+    dvariable dza  = mfexp(params(2));//increment from z50a to z95a
+    dvariable dzz  = mfexp(params(3));//increment from z95a to z95d
+    dvariable dzd  = mfexp(params(4));//increment from z95d to z50d
     dvariable z50d = z50a+dza+dzz+dzd; 
-    s = elem_prod(1.0/(1.0+exp(-log(19.0)*(z-z50a)/dza)),1.0/(1.0+exp(-log(19.0)*(z50d-z)/dzd)));
+    s = elem_prod(1.0/(1.0+mfexp(-log(19.0)*(z-z50a)/dza)),1.0/(1.0+mfexp(-log(19.0)*(z50d-z)/dzd)));
     if (fsZ>0){
-        n = (1.0+exp(-log(19.0)*(fsZ-z50a)/dza))*(1.0+exp(-log(19.0)*(z50d-fsZ)/dzd));//normalization constant
+        n = (1.0+mfexp(-log(19.0)*(fsZ-z50a)/dza))*(1.0+mfexp(-log(19.0)*(z50d-fsZ)/dzd));//normalization constant
         s *= n;
     } else if (fsZ<0) {
         n = 1.0/max(s);
@@ -658,8 +658,8 @@ dvar_vector SelFcns::ascnormal(dvector& z, dvar_vector& params, double fsZ){
     double slp = 5.0;
     dvariable ascMnZ = params(1);//size at which ascending limb hits 1
     dvariable ascWdZ = params(2);//width of ascending limb
-    ascN = exp(-0.5*square((z-ascMnZ)/ascWdZ));
-    ascJ = 1.0/(1.0+exp(slp*(z-(ascMnZ))));
+    ascN = mfexp(-0.5*square((z-ascMnZ)/ascWdZ));
+    ascJ = 1.0/(1.0+mfexp(slp*(z-(ascMnZ))));
     s = elem_prod(ascJ,ascN)+(1.0-ascJ);
     if (debug) cout<<"Finished SelFcns::ascnormal(...)"<<endl;
     RETURN_ARRAYS_DECREMENT();
@@ -693,10 +693,10 @@ dvar_vector SelFcns::dblnormal4(dvector& z, dvar_vector& params, double fsZ){
     dvariable ascWdZ = params(2);//width of ascending limb
     dvariable dscMnZ = params(3);//size at which descending limb departs from 1
     dvariable dscWdZ = params(4);//width of descending limb
-    ascN = exp(-0.5*square((z-ascMnZ)/ascWdZ));
-    ascJ = 1.0/(1.0+exp(slp*(z-(ascMnZ))));
-    dscN = exp(-0.5*square((z-dscMnZ)/dscWdZ));
-    dscJ = 1.0/(1.0+exp(-slp*(z-(dscMnZ))));
+    ascN = mfexp(-0.5*square((z-ascMnZ)/ascWdZ));
+    ascJ = 1.0/(1.0+mfexp(slp*(z-(ascMnZ))));
+    dscN = mfexp(-0.5*square((z-dscMnZ)/dscWdZ));
+    dscJ = 1.0/(1.0+mfexp(-slp*(z-(dscMnZ))));
     s = elem_prod(elem_prod(ascJ,ascN)+(1.0-ascJ), elem_prod(dscJ,dscN)+(1.0-dscJ));
     if (debug) cout<<"Finished SelFcns::dblnormal4(...)"<<endl;
     RETURN_ARRAYS_DECREMENT();
@@ -734,10 +734,10 @@ dvar_vector SelFcns::dblnormal6(dvector& z, dvar_vector& params, double fsZ){
     dvariable dscWdZ = params(4);//width of descending limb
     dvariable ascFlr = params(5);//floor of ascending limb
     dvariable dscFlr = params(6);//floor of descending limb
-    ascN = ascFlr+(1.0-ascFlr)*exp(-0.5*square((z-ascMnZ)/ascWdZ));
-    ascJ = 1.0/(1.0+exp(slp*(z-(ascMnZ))));
-    dscN = dscFlr+(1.0-dscFlr)*exp(-0.5*square((z-dscMnZ)/dscWdZ));
-    dscJ = 1.0/(1.0+exp(-slp*(z-(dscMnZ))));
+    ascN = ascFlr+(1.0-ascFlr)*mfexp(-0.5*square((z-ascMnZ)/ascWdZ));
+    ascJ = 1.0/(1.0+mfexp(slp*(z-(ascMnZ))));
+    dscN = dscFlr+(1.0-dscFlr)*mfexp(-0.5*square((z-dscMnZ)/dscWdZ));
+    dscJ = 1.0/(1.0+mfexp(-slp*(z-(dscMnZ))));
     s = elem_prod(elem_prod(ascJ,ascN)+(1.0-ascJ), elem_prod(dscJ,dscN)+(1.0-dscJ));
     if (debug) cout<<"Finished SelFcns::dblnormal6(...)"<<endl;
     RETURN_ARRAYS_DECREMENT();
