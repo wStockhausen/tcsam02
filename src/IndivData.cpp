@@ -155,6 +155,18 @@ ChelaHeightData::ChelaHeightData(){}
  */
 ChelaHeightData::~ChelaHeightData(){}
 /**
+ * Calculates indices for model size bins corresponding to observed sizes.
+ * 
+ * @param zCs - model size bin cutpoints
+ */
+void ChelaHeightData::calcSizeBinIndices(const dvector& zCs){
+    rpt::echo<<"Starting ChelaHeightData::calcSizeBinIndices(zCs)"<<endl;
+    obsSizeBinIndex_n = wts::assignBinIndices(obsSize_n,zCs,0,0);
+    rpt::echo<<"zCs = "<<zCs<<endl;
+    for (int n=1;n<=nObs;n++) rpt::echo<<obsSize_n(n)<<tb<<obsSizeBinIndex_n(n)<<tb<<zCs(obsSizeBinIndex_n(n))<<endl;
+    rpt::echo<<"Finished ChelaHeightData::calcSizeBinIndices(zCs)"<<endl;
+}
+/**
  * Read chela height data from input file stream.
  * 
  * @param is - the file stream to read from
@@ -184,6 +196,8 @@ void ChelaHeightData::read(cifstream & is){
     }
     is>>name;
     rpt::echo<<name<<tb<<"#dataset name"<<endl;
+    is>>survey;
+    rpt::echo<<survey<<tb<<"#survey name"<<endl;
     is>>str; llType = tcsam::getLikelihoodType(str);
     rpt::echo<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood function type"<<std::endl;
     is>>llWgt;
@@ -193,7 +207,25 @@ void ChelaHeightData::read(cifstream & is){
     inpData_nc.allocate(1,nObs,1,4);
     is>>inpData_nc;
     rpt::echo<<"#year    size    nIndivs     fraction mature"<<std::endl<<inpData_nc<<std::endl;
-    if (debug) cout<<"end ChelaHeightData::read(...) "<<this<<std::endl;
+    
+    obsYear_n.allocate(1,nObs);
+    obsSize_n.allocate(1,nObs);
+    obsSS_n.allocate(1,nObs);
+    obsPrMat_n.allocate(1,nObs);
+    obsSizeBinIndex_n.allocate(1,nObs);
+   
+    obsYear_n  = wts::to_ivector(column(inpData_nc,1));
+    obsSize_n  = column(inpData_nc,2);
+    obsSS_n    = column(inpData_nc,3);
+    obsPrMat_n = column(inpData_nc,4);
+    obsSizeBinIndex_n = 0;//can't fill this in yet, need to use calcSizeBinIndices(zCs)
+    
+    rpt::echo<<"obsYear_n  = "<<obsYear_n<<endl;
+    rpt::echo<<"obsSize_n  = "<<obsSize_n<<endl;
+    rpt::echo<<"obsSS_n    = "<<obsSS_n  <<endl;
+    rpt::echo<<"obsPrMat_n = "<<obsPrMat_n<<endl;
+    
+    if (debug) cout<<"end ChelaHeightData::read(...) "<<this<<std::endl;    
 }
 /**
  * Write data to output stream.
@@ -204,6 +236,7 @@ void ChelaHeightData::write(ostream & os){
     if (debug) cout<<"start ChelaHeightData::write(...) "<<this<<std::endl;
     os<<KW_CHELAHEIGHT_DATA<<tb<<"#required keyword"<<std::endl;
     os<<name<<tb<<"#dataset name"<<std::endl;
+    os<<survey<<tb<<"#survey name"<<std::endl;
     os<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood function type"<<std::endl;
     os<<llWgt<<tb<<"#likelihood weight (multiplier)"<<std::endl;
     os<<nObs<<tb<<"#number of observations"<<std::endl;
@@ -224,6 +257,7 @@ void ChelaHeightData::writeToR(ostream& os, std::string nm, int indent) {
         indent++; 
             for (int n=0;n<indent;n++) os<<tb;
             os<<"name="<<qt<<name<<qt<<cc;
+            os<<"survey="<<qt<<survey<<qt<<cc;
             os<<"llType="<<qt<<tcsam::getLikelihoodType(llType)<<qt<<cc;
             os<<"llWgt="<<llWgt<<cc<<std::endl;
             for (int n=0;n<indent;n++) os<<tb;

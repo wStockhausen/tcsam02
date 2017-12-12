@@ -522,9 +522,9 @@ class IndexBlock;
         friend std::ostream&   operator <<(std::ostream & os,   GrowthData & obj){obj.write(os); return os;}
     };
 
-//--------------------------------------------------------------------------------
-//          ChelaHeightData
-//--------------------------------------------------------------------------------
+    /**
+     * Class encapsulating a dataset with male maturity ogives based on chela height data
+     */
     class ChelaHeightData {
     public:
         /** flag to print debugging info */
@@ -534,6 +534,8 @@ class IndexBlock;
     public:
         /** dataset name */
         adstring name;
+        /** survey name */
+        adstring survey;
         /** likelihood function type */
         int llType; 
         /** likelihood weight (i.e., multiplier) */
@@ -542,6 +544,16 @@ class IndexBlock;
         int nObs;
         /** input data (columns: year,size,N,fraction mature) */
         dmatrix  inpData_nc;  
+        /** ivector of year corresponding to observations */
+        ivector obsYear_n;
+        /** dvector of observed sizes */
+        dvector obsSize_n;
+        /** dvector for sample sizes corresponding to observations */
+        dvector obsSS_n;
+        /** dvector for observed fraction mature */
+        dvector obsPrMat_n;
+        /** ivector of indices to model size bins corresponding to observed sizes */
+        ivector obsSizeBinIndex_n;
     public:
         /**
          * Constructor.
@@ -551,6 +563,12 @@ class IndexBlock;
          * Destructor.
          */
         ~ChelaHeightData();
+        /**
+         * Calculates indices for model size bins corresponding to observed sizes.
+         * 
+         * @param zCs - model size bin cutpoints
+         */
+        void calcSizeBinIndices(const dvector& zCs);
         /**
          * Read input data in ADMB format from a file stream
          * 
@@ -587,42 +605,42 @@ class IndexBlock;
      */
     class ModelDatasets {
     public:
-        /* flag to print debugging info */
+        /** flag to print debugging info */
         static int debug;
     public:
-        /* pointer to ModelConfiguration object */
+        /** pointer to ModelConfiguration object */
         ModelConfiguration* pMC;
-        /* bio data file name */
+        /** bio data file name */
         adstring fnBioData;
-        /* pointer to bio dataset object */
+        /** pointer to bio dataset object */
         BioData* ptrBio;   
         
-        /* number of fishery datasets to read */
+        /** number of fishery datasets to read */
         int nFsh;
-        /* fishery data file names */
+        /** fishery data file names */
         adstring_array fnsFisheryData;      
-        /* pointer to array of pointers to fishery dataset objects */
+        /** pointer to array of pointers to fishery dataset objects */
         FleetData**    ppFsh;         
         
-        /* number of survey datasets to read */
+        /** number of survey datasets to read */
         int nSrv;
-        /* survey data files names */
+        /** survey data files names */
         adstring_array fnsSurveyData;
-        /* pointer to array of pointers to survey dataset objects */
+        /** pointer to array of pointers to survey dataset objects */
         FleetData**    ppSrv;        
         
-        /* number of growth datasets to read */
+        /** number of growth datasets to read */
         int nGrw;
-        /* growth data files names */
+        /** growth data files names */
         adstring_array fnsGrowthData;
-        /* pointer to array of pointers to growth dataset objects */
+        /** pointer to array of pointers to growth dataset objects */
         GrowthData**    ppGrw;        
         
-        /* number of chela height datasets to read */
+        /** number of chela height datasets to read */
         int nCHD;
-        /* chela height data files names */
+        /** chela height data files names */
         adstring_array fnsChelaHeightData;
-        /* pointer to array of pointers to chela height dataset objects */
+        /** pointer to array of pointers to chela height dataset objects */
         ChelaHeightData**    ppCHD;        
     public:
         ModelDatasets(ModelConfiguration* ptrMC);

@@ -18,6 +18,7 @@
  * 20171025: incremented tcsam::VERSION to "2017.10.25"
  * 20171116: incremented tcsam::VERSION to "2017.11.16"
  * 20171205: incremented tcsam::VERSION to "2017.12.05"
+ * 20171206: incremented tcsam::VERSION to "2017.12.06"
  */
 
 #pragma once
@@ -42,7 +43,7 @@ namespace tcsam{
     /* adstring indicating model name */
     const adstring MODEL = "tcsam02";
     /* adstring indicating model version */
-    const adstring VERSION = "2017.12.05";
+    const adstring VERSION = "2017.12.06";
     
     /* minimum debugging level that will print ALL debug info */
     const int dbgAll = 100;
@@ -131,17 +132,30 @@ namespace tcsam{
     const int FIT_BY_XM_SE = 10;
     const int FIT_BY_X_MATONLY = 11;
     
-    //likelihood types
+    /** adstring constant indicating likelihood type 'NONE' */
     const adstring STR_LL_NONE        = "NONE";
+    /** adstring constant indicating likelihood type 'NORM2' */
     const adstring STR_LL_NORM2       = "NORM2";
+    /** adstring constant indicating likelihood type 'NORMAL' */
     const adstring STR_LL_NORMAL      = "NORMAL";
+    /** adstring constant indicating likelihood type 'LOGNORMAL' */
     const adstring STR_LL_LOGNORMAL   = "LOGNORMAL";
+    /** adstring constant indicating likelihood type 'MULTINOMIAL' */
     const adstring STR_LL_MULTINOMIAL = "MULTINOMIAL";
+    /** adstring constant indicating likelihood type 'BINOMIAL' */
+    const adstring STR_LL_BINOMIAL    = "BINOMIAL";
+    /** integer constant indicating likelihood type 'NONE' */
     const int LL_NONE        = 0;
+    /** integer constant indicating likelihood type 'NORM2' */
     const int LL_NORM2       = 1;
+    /** integer constant indicating likelihood type 'NORMAL' */
     const int LL_NORMAL      = 2;
+    /** integer constant indicating likelihood type 'LOGNORMAL' */
     const int LL_LOGNORMAL   = 3;
+    /** integer constant indicating likelihood type 'MULTINOMIAL' */
     const int LL_MULTINOMIAL = 4;
+    /** integer constant indicating likelihood type 'BINOMIAL' */
+    const int LL_BINOMIAL    = 5;
     
     //Stock-recruit function types
     const adstring STR_CONSTANT = "CONSTANT";

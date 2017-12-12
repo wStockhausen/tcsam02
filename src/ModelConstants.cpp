@@ -384,6 +384,7 @@ double tcsam::getConversionMultiplier(adstring from,adstring to){
  */
 adstring tcsam::getLikelihoodType(int llType){
     adstring type = STR_LL_NONE;
+    if (llType==LL_BINOMIAL)    return STR_LL_BINOMIAL;
     if (llType==LL_LOGNORMAL)   return STR_LL_LOGNORMAL;
     if (llType==LL_MULTINOMIAL) return STR_LL_MULTINOMIAL;
     if (llType==LL_NONE)        return STR_LL_NONE;
@@ -403,6 +404,7 @@ adstring tcsam::getLikelihoodType(int llType){
  */
 int tcsam::getLikelihoodType(adstring llType){
     int type = 0;
+    if (llType==STR_LL_BINOMIAL)    return LL_BINOMIAL;
     if (llType==STR_LL_LOGNORMAL)   return LL_LOGNORMAL;
     if (llType==STR_LL_MULTINOMIAL) return LL_MULTINOMIAL;
     if (llType==STR_LL_NONE)        return LL_NONE;

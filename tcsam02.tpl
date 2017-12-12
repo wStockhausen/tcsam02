@@ -374,6 +374,9 @@
 //              3. A csv version of 2 is available (but commented out) at th end of the
 //                  PROCEDURE_SECTION code section.
 //              4. Updated tcsam::VERSION to "2017.12.05".
+//--2017-12-06: 1. Implemented first cut at incorporating chela height data (as male
+//                  maturity ogives) into likelihood calculations.
+//              4. Updated tcsam::VERSION to "2017.12.06".
 //
 // =============================================================================
 // =============================================================================
@@ -889,7 +892,7 @@ DATA_SECTION
     rpt::echo<<"#-------------------------------------------"<<endl;
  END_CALCS
         
-    //Match up model fisheries with fisheries data
+    //Match up model fisheries with fisheries datasets
     ivector mapD2MFsh(1,nFsh);
     ivector mapM2DFsh(1,nFsh);
  LOCAL_CALCS
@@ -912,7 +915,7 @@ DATA_SECTION
     }
  END_CALCS
         
-    //Match up model surveys with surveys data
+    //Match up model surveys with surveys datasets
     ivector mapD2MSrv(1,nSrv);
     ivector mapM2DSrv(1,nSrv);
  LOCAL_CALCS
@@ -932,6 +935,29 @@ DATA_SECTION
      }
      rpt::echo<<"model surveys map to survey data objects: "<<mapM2DSrv<<endl;
      cout<<"model surveys map to survey data objects: "<<mapM2DSrv<<endl;
+    }
+ END_CALCS
+ 
+    //Match up model surveys with chela height datasets
+    //Assign size bin indices to observations
+    ivector mapD2MChd(1,ptrMDS->nCHD);
+ LOCAL_CALCS
+    {
+     int idx;
+     for (int v=1;v<=ptrMDS->nCHD;v++){
+         idx = wts::which(ptrMDS->ppCHD[v-1]->survey,ptrMC->lblsSrv);
+         if (idx<1){
+             cout<<"\n\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"<<endl;
+             cout<<"Error specifying survey names and labels in CH data file and config file."<<endl;
+             cout<<"Incorrect survey name in CH data file is '"<<ptrMDS->ppCHD[v-1]<<"'"<<endl;
+             cout<<"Please fix names in files!!"<<endl;
+             exit(-1);
+         }
+         mapD2MChd(v)   = idx;//map from chela height dataset object v to model survey index
+         ptrMDS->ppCHD[v-1]->calcSizeBinIndices(ptrMC->zCutPts);
+     }
+     rpt::echo<<"chela height datasets map to model surveys: "<<mapD2MChd<<endl;
+     cout<<"chela height datasets map to model surveys: "<<mapD2MChd<<endl;
     }
  END_CALCS
  
@@ -1443,7 +1469,7 @@ PRELIMINARY_CALCS_SECTION
         EffAvgScenarios* ptrEASs = ptrMOs->ptrEffXtrapScenarios->ptrEffAvgScenarios;
         for (int n=1;n<=nEASs;n++){//effort averaging scenarios
             EffAvgScenario* ptrEAS = ptrEASs->ppEASs[n-1];
-            int fm = ptrEAS->f;    //index for fishery associate with this averaging scenario
+            int fm = ptrEAS->f;    //index for fishery associated with this averaging scenario
             int fd = mapM2DFsh(fm);//index for corresponding fishery data object
             rpt::echo<<"n = "<<n<<". fm = "<<fm<<". fd = "<<fd<<endl;
             if (!ptrMDS->ppFsh[fd-1]->ptrEff){
@@ -4639,7 +4665,7 @@ FUNCTION void calcObjFun(int debug, ostream& cout)
     calcNLLs_Fisheries(debug,cout);
     calcNLLs_Surveys(debug,cout);
     calcNLLs_GrowthData(debug,cout);
-    //calcNLLs_ChelaHeightData(debug,cout);  //TODO: implement this!
+    calcNLLs_ChelaHeightData(debug,cout);
     
     if ((debug>=dbgObjFun)||(debug<0)){
         cout<<"proc call          = "<<ctrProcCalls<<endl;
@@ -4648,6 +4674,80 @@ FUNCTION void calcObjFun(int debug, ostream& cout)
         cout<<"Finished calcObjFun"<<endl<<endl;
     }
     
+//******************************************************************************
+//* Function: void calcNLLs_ChelaHeightData
+//* 
+//* Description: Calculates NLLs for chela height data
+//* 
+//* Inputs:
+//*  none
+//* Returns:
+//*  void
+//* Alters:
+//*  objFun
+//******************************************************************************
+FUNCTION void calcNLLs_ChelaHeightData(int debug, ostream& cout)  
+    if(debug>dbgObjFun) cout<<"Starting calcNLLs_ChelaHeightData()"<<endl;
+    
+    if (debug<0) cout<<"list("<<endl;
+    for (int i=0;i<ptrMDS->nCHD;i++){
+        ChelaHeightData* pCHD = ptrMDS->ppCHD[i];
+        if (debug<0) cout<<"`"<<i<<"`=list(name='"<<pCHD->name<<"',survey='"<<pCHD->survey<<"',"<<endl;
+        int nObs = pCHD->nObs;
+        //cout<<"nObs= "<<nObs<<tb;
+        if (nObs>0) {
+            /* index of model survey corresponding to dataset */
+            int v = mapD2MChd(i+1);//
+            //cout<<"v= "<<v<<endl;
+            /* likelihood multiplier for this dataset */
+            double wgt = pCHD->llWgt;
+            /* year corresponding to observed fractions */
+            ivector y_n = pCHD->obsYear_n;
+            /* sample sizes from observations */
+            dvector ss_n = pCHD->obsSS_n;
+           /* model size bin index for size corresponding to observation */
+            ivector obsIZ = pCHD->obsSizeBinIndex_n;
+            /* observed fractions of new shell mature crab at size */
+            dvector obsPM = 1.0*pCHD->obsPrMat_n;
+            
+            dvar_vector modPM(1,nObs);  modPM.initialize();
+            dvar_vector nlls_n(1,nObs); nlls_n.initialize();
+            dvector zscrs_n(1,nObs);    zscrs_n.initialize();
+            for (int n=1;n<=nObs;n++){
+                //cout<<"n="<<n<<tb<<"obsIZ="<<tb<<obsIZ(n)<<tb;
+                if ((obsIZ(n)>0)&(obsIZ(n)<=nZBs)){
+                    //cout<<y_n(n)<<tb;
+                    dvariable nMat = n_vyxmsz(v,y_n(n),MALE,MATURE,NEW_SHELL,obsIZ(n));
+                    dvariable nTot = nMat + n_vyxmsz(v,y_n(n),MALE,IMMATURE,NEW_SHELL,obsIZ(n));
+                    modPM(n) = nMat/nTot;
+                    //cout<<nMat<<tb<<nTot<<tb<<modPM(n)<<tb;
+                    if (obsPM(n)>0.0) nlls_n(n) -= ss_n(n)*obsPM(n)*(log(modPM(n))-log(obsPM(n)));
+                    if (obsPM(n)<1.0) nlls_n(n) -= ss_n(n)*(1.0-obsPM(n))*(log(1.0-modPM(n))-log(1.0-obsPM(n)));
+                    //cout<<nlls_n(n)<<tb;
+                    double modPMv = value(modPM(n));
+                    zscrs_n(n) = (obsPM(n)-modPMv)/sqrt(modPMv*(1.0-modPMv)/ss_n(n));
+                    //cout<<"zscrs_n(n)="<<zscrs_n(n)<<endl;
+                }
+            }//loop over n
+            dvariable nll = sum(nlls_n);
+            objFun += wgt*nll;
+            if (debug<0) {
+                cout<<"type='binomial',wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl;
+                cout<<"y=";     wts::writeToR(cout,y_n);             cout<<cc<<endl;
+                cout<<"n=";     wts::writeToR(cout,ss_n);            cout<<cc<<endl;
+                cout<<"z=";     wts::writeToR(cout,pCHD->obsSize_n); cout<<cc<<endl;
+                cout<<"i=";     wts::writeToR(cout,obsIZ);           cout<<cc<<endl;
+                cout<<"obsPM="; wts::writeToR(cout,obsPM);           cout<<cc<<endl;
+                cout<<"modPM="; wts::writeToR(cout,value(modPM));    cout<<cc<<endl;
+                cout<<"nlls=";  wts::writeToR(cout,value(nlls_n));   cout<<cc<<endl;
+                cout<<"zscrs="; wts::writeToR(cout,zscrs_n);         cout<<cc<<endl;
+                cout<<"rmse="<<sqrt(norm2(zscrs_n)/zscrs_n.size())<<"),"<<endl;
+            }
+        }//nObs>0
+    }//datasets (i)
+    if (debug<0) cout<<"NULL)"<<endl;
+    if (debug>dbgObjFun) cout<<"finished calcNLLs_ChelaHeightData()"<<endl;
+
 //******************************************************************************
 //* Function: void calcNLLs_GrowthData
 //* 
@@ -4666,7 +4766,6 @@ FUNCTION void calcNLLs_GrowthData(int debug, ostream& cout)
     if (debug<0) cout<<"list("<<endl;
     for (int i=0;i<ptrMDS->nGrw;i++){
         GrowthData* pGD = ptrMDS->ppGrw[i];
-        d3_array gd_xcn = ptrMDS->ppGrw[i]->inpData_xcn; 
         if (debug<0) cout<<ptrMDS->ppGrw[i]->name<<"=list("<<endl;
         for (int x=1;x<=nSXs;x++){
             int nObs = ptrMDS->ppGrw[i]->nObs_x(x);
