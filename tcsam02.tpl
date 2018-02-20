@@ -376,7 +376,11 @@
 //              4. Updated tcsam::VERSION to "2017.12.05".
 //--2017-12-06: 1. Implemented first cut at incorporating chela height data (as male
 //                  maturity ogives) into likelihood calculations.
-//              4. Updated tcsam::VERSION to "2017.12.06".
+//              2. Updated tcsam::VERSION to "2017.12.06".
+//--2018-01-30: 1. Implemented a Dirichlet NLL for size comps. TODO: Need to figure out
+//                  how to implement associated effective N's as parameters.
+//--2018-02-12: 1. TODO: Need to figure out how to skip growth data from years > assmt year.
+//--2018-02-15: 1. Added tb to end of VectorInfo::writePart1() so output could be read back in correctly.
 //
 // =============================================================================
 // =============================================================================
@@ -4994,6 +4998,48 @@ FUNCTION void calcMultinomialNLL(double wgt, dvar_vector& mod, dvector& obs, dou
         cout<<")";
     }
     if (debug>=dbgAll) cout<<"Finished calcMultinomialNLL()"<<endl;
+ 
+//-------------------------------------------------------------------------------------
+////Calculate Dirichlet NLL contribution to objective function
+//FUNCTION void calcDirichletNLL(double wgt, dvar_vector& mod, dvector& obs, double& ss, int& yr, int debug, ostream& cout)
+//    if (debug>=dbgAll) cout<<"Starting calcDirichletNLL()"<<endl;
+//    dvariable nll = -ss*(obs*(log(mod+smlVal)-log(obs+smlVal)));//note dot-product sums
+//    objFun += wgt*nll;
+//    
+//    dvector o = obs/sum(obs);
+//    int c1 = o.indexmin();
+//    int c2 = o.indexmax();
+//    dvar_vector p = mod;
+//    dvariable vn = ???;
+//    
+//    dvariable lmnB = 0.0;
+//    dvariable sj = 0.0;
+//    dvariable alpha0 = 0.0;
+//    dvar_vector alpha = vn * p/sum(p);
+//    for ( int j = c1; j <= c2; j++ ) {
+//        aj = alpha(j);
+//        alpha0 += aj;
+//        lmnB += gammln(aj);
+//        sj += (aj - 1.0) * log(1e-10 + obs(j));
+//    }
+//    lmnB -= gammln(alpha0);
+//    nll -= sj - lmnB;
+//    
+//    if (debug<0){
+//        dvector vmod = value(mod);
+//        dvector nlls = -ss*(elem_prod(obs,log(vmod+smlVal)-log(obs+smlVal)));
+//        dvector zscrs = elem_div(obs-vmod,sqrt(elem_prod((vmod+smlVal),1.0-(vmod+smlVal))/ss));//pearson residuals
+//        double effN = 0.0;
+//        if (ss>0) effN = (vmod*(1.0-vmod))/norm2(obs-vmod);
+//        cout<<"list(nll.type='Dirichlet',yr="<<yr<<cc<<"wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<"ss="<<ss<<cc<<"effN="<<effN<<cc<<endl; 
+//        adstring dzbs = "size=c("+ptrMC->csvZBs+")";
+//        cout<<"nlls=";  wts::writeToR(cout,nlls, dzbs); cout<<cc<<endl;
+//        cout<<"obs=";   wts::writeToR(cout,obs,  dzbs); cout<<cc<<endl;
+//        cout<<"mod=";   wts::writeToR(cout,vmod, dzbs); cout<<cc<<endl;
+//        cout<<"zscrs="; wts::writeToR(cout,zscrs,dzbs); cout<<endl;
+//        cout<<")";
+//    }
+//    if (debug>=dbgAll) cout<<"Finished calcDirchletNLL()"<<endl;
  
 //-------------------------------------------------------------------------------------
 //Pass through for no NLL contribution to objective function for size comps

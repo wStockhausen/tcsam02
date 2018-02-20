@@ -883,12 +883,12 @@ void VectorInfo::write(std::ostream & os){
 void VectorInfo::writePart1(std::ostream& os){
     os<<idxType<<tb;
     os<<(*ptrIB)<<tb;
-    os<<wts::getBooleanType(readVals);
+    os<<wts::getBooleanType(readVals)<<tb;
 }
 
 void VectorInfo::writePart2(std::ostream& os){
-    os<<tcsam::getScaleType(scaleType)<<tb;
     os<<initVal<<tb;
+    os<<tcsam::getScaleType(scaleType)<<tb;
     os<<phase<<tb;
     os<<wts::getOnOffType(resample)<<tb;
     os<<priorWgt<<tb;
@@ -2009,7 +2009,7 @@ void VectorVectorInfo::write(ostream & os){
         for (int p=0;p<nVIs;p++) os<<(p+1)<<tb<<(*ppVIs[p])<<endl;
         os<<"#--initial values read in (index  values):";
         for (int p=0;p<nVIs;p++) {
-            if ((ppVIs[p])->readVals) os<<endl<<(p+1)<<tb<<(ppVIs[p])->getInitVals();
+            if ((ppVIs[p])->readVals) os<<endl<<(ppVIs[p])->getInitVals();
         }
     }
 }

@@ -1505,7 +1505,7 @@ void ModelParametersInfo::read(cifstream & is){
     rpt::echo<<"#---reading  Recruitment Info"<<endl;
     ptrRec = new RecruitmentInfo();
     is>>(*ptrRec);
-    rpt::echo<<"#---read  Recruitment Info"<<endl;
+    rpt::echo<<"#---created  RecruitmentInfo object"<<endl;
     
     //read natural mortality parameters
     rpt::echo<<"#---reading Natural Mortality Info"<<endl;
