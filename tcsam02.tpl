@@ -381,6 +381,13 @@
 //                  how to implement associated effective N's as parameters.
 //--2018-02-12: 1. TODO: Need to figure out how to skip growth data from years > assmt year.
 //--2018-02-15: 1. Added tb to end of VectorInfo::writePart1() so output could be read back in correctly.
+//--2018-02-21: 1. writing gradients to csv file in report section.
+//              2. set nllWgtRecDevs = 1 (was 0) in calcNLLs_Recruitment()
+//--2018-02-22: 1. Revised rmse calculation in calcNLLs_Recruitment() to use actual number
+//                  of z-scores, not size of z-scores vector (because vector runs mnYr:mxYr).
+//              2. added nllWgt by parameter combination to recruitment parameters info.
+//              3. updated MPI version to "2018.02.22".
+//              4. revised calculations in calcNLLs_Recruitment.
 //
 // =============================================================================
 // =============================================================================
@@ -1134,6 +1141,8 @@ DATA_SECTION
     int npcSrv;
     !!npcSrv = ptrMPI->ptrSrv->nPCs;
     
+    ivector nDevsLnR_c(1,npcRec);              //number of recruit devs by parameter combination
+    
     //growth arrays
     matrix zGrA_xy(1,nSXs,mnYr,mxYr);//pre-molt size corresponding to pGrA in alt growth parameterization
     matrix zGrB_xy(1,nSXs,mnYr,mxYr);//pre-molt size corresponding to pGrB in alt growth parameterization
@@ -1306,7 +1315,7 @@ PARAMETER_SECTION
     matrix R_cz(1,npcRec,1,nZBs);  //size distribution of recruits by parameter combination
     matrix R_yz(mnYr,mxYr,1,nZBs); //size distribution of recruits by year
     3darray R_yxz(mnYr,mxYr,1,nSXs,1,nZBs);    //size distribution of recruits by year, sex
-    matrix stdvDevsLnR_cy(1,npcRec,mnYr,mxYr); //ln-scale recruitment std. devs by parameter combination and year
+    vector stdvDevsLnR_c(1,npcRec);            //ln-scale recruitment std. devs by parameter combination
     matrix zscrDevsLnR_cy(1,npcRec,mnYr,mxYr); //standardized ln-scale recruitment residuals by parameter combination and year
     
     //natural mortality-related quantities
@@ -3182,7 +3191,8 @@ FUNCTION void calcRecruitment(int debug, ostream& cout)
     R_cz.initialize();
     R_yz.initialize();
     R_yxz.initialize();
-    stdvDevsLnR_cy.initialize();
+    nDevsLnR_c.initialize();
+    stdvDevsLnR_c.initialize();
     zscrDevsLnR_cy.initialize();
     
     int k; int y;
@@ -3214,8 +3224,9 @@ FUNCTION void calcRecruitment(int debug, ostream& cout)
         dvariable varLnR;//ln-scale variance in recruitment
         dvar_vector dvsLnR;
         ivector idxDevsLnR;
-        varLnR = log(1.0+square(cvR));//ln-scale variance
-        mnR    = mfexp(mnLnR+varLnR/2.0);  //mean recruitment
+        varLnR = log(1.0+square(cvR));    //ln-scale variance
+        stdvDevsLnR_c(pc) = sqrt(varLnR); //ln-scale std dev
+        mnR    = mfexp(mnLnR+varLnR/2.0); //mean recruitment
         if (useDevs) {
             dvsLnR     = devsLnR(useDevs);
             idxDevsLnR = idxsDevsLnR(useDevs);
@@ -3255,8 +3266,8 @@ FUNCTION void calcRecruitment(int debug, ostream& cout)
                 
                 for (int x=1;x<=nSXs;x++) R_yxz(y,x) = R_y(y)*R_yx(y,x)*R_yz(y);
 
-                stdvDevsLnR_cy(pc,y) = sqrt(varLnR); //ln-scale std dev
-                zscrDevsLnR_cy(pc,y) = dvsLnR(idxDevsLnR(y))/stdvDevsLnR_cy(pc,y);//standardized ln-scale rec devs
+                nDevsLnR_c(pc)++;//increment count of devs for this pc
+                zscrDevsLnR_cy(pc,y) = dvsLnR(idxDevsLnR(y));//rec devs by pc and year, but not yet standardized (done in calcNLLs_Recruitment)
             } else {
                 if (debug>dbgCalcProcs) cout<<"skipping y,i = "<<y<<tb<<idxDevsLnR(y)<<endl;
             }
@@ -3266,8 +3277,10 @@ FUNCTION void calcRecruitment(int debug, ostream& cout)
     if (debug>dbgCalcProcs) {
         cout<<"R_y = "<<R_y<<endl;
         cout<<"R_yx(MALE) = "<<column(R_yx,MALE)<<endl;
-        cout<<"R_yz = "<<endl<<R_yz<<endl;
-        cout<<"zscr = "<<zscrDevsLnR_cy<<endl;
+        cout<<"R_yz  = "<<endl<<R_yz<<endl;
+        cout<<"nDevs = "<<nDevsLnR_c<<endl;
+        cout<<"sigR  = "<<stdvDevsLnR_c<<endl;
+        cout<<"zscr  = "<<zscrDevsLnR_cy<<endl;
         cout<<"finished calcRecruitment()"<<endl;
     }
 
@@ -4442,81 +4455,97 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     //penalties on sums of dev vectors to enforce sum-to-zero
     double penWgt = 0.0;
     if (current_phase()>=ptrMOs->phsSqSumDevsPen) penWgt = ptrMOs->wgtSqSumDevsPen;
-    rpt::echo<<"#----Check on sum(devs) in calcPenalties "<<current_phase()<<tb<<ctrProcCallsInPhase<<endl;
+    if (debug<0) rpt::echo<<"#----Check on sum(devs) in calcPenalties "<<current_phase()<<tb<<ctrProcCallsInPhase<<endl;
     if (debug<0) cout<<tb<<"devsSumSq=list("<<endl;//start of devs penalties list
     //recruitment devs
     if (ptrMPI->ptrRec->pDevsLnR->getSize()){
+        if (debug<0) {
+            rpt::echo<<"pDevsLnR = ";
+            for (int i=1;i<=pDevsLnR.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsLnR[i])<<tb;
+            rpt::echo<<endl;
+        }
         if (debug<0) cout<<tb<<tb<<"pDevsLnR=";
-        rpt::echo<<"pDevsLnR = ";
-        for (int i=1;i<=pDevsLnR.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsLnR[i])<<tb;
-        rpt::echo<<endl;
         calcDevsPenalties(debug,cout,penWgt,pDevsLnR,devsLnR);        
         if (debug<0) cout<<cc<<endl;
     }
     //S1 devs
     if (ptrMPI->ptrSel->pDevsS1->getSize()){
+        if (debug<0) {
+            rpt::echo<<"pDevsS1 = ";
+            for (int i=1;i<=pDevsS1.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsS1[i])<<tb;
+            rpt::echo<<endl;
+        }
         if (debug<0) cout<<tb<<tb<<"pDevsS1=";
-        rpt::echo<<"pDevsS1 = ";
-        for (int i=1;i<=pDevsS1.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsS1[i])<<tb;
-        rpt::echo<<endl;
         calcDevsPenalties(debug,cout,penWgt,pDevsS1,devsS1);
         if (debug<0) cout<<cc<<endl;
     }
     //S2 devs
     if (ptrMPI->ptrSel->pDevsS2->getSize()){
+        if (debug<0) {
+            rpt::echo<<"pDevsS2 = ";
+            for (int i=1;i<=pDevsS2.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsS2[i])<<tb;
+            rpt::echo<<endl;
+        }
         if (debug<0) cout<<tb<<tb<<"pDevsS2=";
-        rpt::echo<<"pDevsS2 = ";
-        for (int i=1;i<=pDevsS2.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsS2[i])<<tb;
-        rpt::echo<<endl;
         calcDevsPenalties(debug,cout,penWgt,pDevsS2,devsS2);
         if (debug<0) cout<<cc<<endl;
     }
     //S3 devs
     if (ptrMPI->ptrSel->pDevsS3->getSize()){
+        if (debug<0) {
+            rpt::echo<<"pDevsS3 = ";
+            for (int i=1;i<=pDevsS3.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsS3[i])<<tb;
+            rpt::echo<<endl;
+        }
         if (debug<0) cout<<tb<<tb<<"pDevsS3=";
-        rpt::echo<<"pDevsS3 = ";
-        for (int i=1;i<=pDevsS3.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsS3[i])<<tb;
-        rpt::echo<<endl;
         calcDevsPenalties(debug,cout,penWgt,pDevsS3,devsS3);
         if (debug<0) cout<<cc<<endl;
     }
     //S4 devs
     if (ptrMPI->ptrSel->pDevsS4->getSize()){
+        if (debug<0) {
+            rpt::echo<<"pDevsS4 = ";
+            for (int i=1;i<=pDevsS4.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsS4[i])<<tb;
+            rpt::echo<<endl;
+        }
         if (debug<0) cout<<tb<<tb<<"pDevsS4=";
-        rpt::echo<<"pDevsS4 = ";
-        for (int i=1;i<=pDevsS4.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsS4[i])<<tb;
-        rpt::echo<<endl;
         calcDevsPenalties(debug,cout,penWgt,pDevsS4,devsS4);
         if (debug<0) cout<<cc<<endl;
     }
     //S5 devs
     if (ptrMPI->ptrSel->pDevsS5->getSize()){
+        if (debug<0) {
+            rpt::echo<<"pDevsS5 = ";
+            for (int i=1;i<=pDevsS5.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsS5[i])<<tb;
+            rpt::echo<<endl;
+        }
         if (debug<0) cout<<tb<<tb<<"pDevsS5=";
-        rpt::echo<<"pDevsS5 = ";
-        for (int i=1;i<=pDevsS5.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsS5[i])<<tb;
-        rpt::echo<<endl;
         calcDevsPenalties(debug,cout,penWgt,pDevsS5,devsS5);
         if (debug<0) cout<<cc<<endl;
     }
     //S6 devs
     if (ptrMPI->ptrSel->pDevsS6->getSize()){
+        if (debug<0) {
+            rpt::echo<<"pDevsS6 = ";
+            for (int i=1;i<=pDevsS6.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsS6[i])<<tb;
+            rpt::echo<<endl;
+        }
         if (debug<0) cout<<tb<<tb<<"pDevsS6=";
-        rpt::echo<<"pDevsS6 = ";
-        for (int i=1;i<=pDevsS6.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsS6[i])<<tb;
-        rpt::echo<<endl;
         calcDevsPenalties(debug,cout,penWgt,pDevsS6,devsS6);
         if (debug<0) cout<<cc<<endl;
     }
     //capture rate devs
     if (ptrMPI->ptrFsh->pDevsLnC->getSize()){
+        if (debug<0) {
+            rpt::echo<<"pDevsLnC = ";
+            for (int i=1;i<=pDevsLnC.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsLnC[i])<<tb;
+            rpt::echo<<endl;
+        }
         if (debug<0) cout<<tb<<tb<<"pDevsLnC=";
-        rpt::echo<<"pDevsLnC = ";
-        for (int i=1;i<=pDevsLnC.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsLnC[i])<<tb;
-        rpt::echo<<endl;
         calcDevsPenalties(debug,cout,penWgt,pDevsLnC,devsLnC);
         if (debug<0) cout<<cc<<endl;
     }
-    rpt::echo<<"#------"<<endl<<endl;
+    if (debug<0) rpt::echo<<"#------"<<endl<<endl;
     
     if (debug<0) cout<<tb<<"NULL)"<<endl;//end of devs penalties list
     if (debug<0) cout<<")"<<cc<<endl;//end of penalties list
@@ -4610,33 +4639,38 @@ FUNCTION dvar_vector calc2ndDiffs(const dvar_vector& d)
 //Calculate recruitment components in the likelihood.
 FUNCTION void calcNLLs_Recruitment(int debug, ostream& cout)
     if (debug>=dbgObjFun) cout<<"Starting calcNLLs_Recruitment"<<endl;
-    double nllWgtRecDevs = 0.0;//TODO: read in from input file (as vector?))
     nllRecDevs.initialize();
     if (debug<0) cout<<"list("<<endl;
     if (debug<0) cout<<tb<<"recDevs=list("<<endl;
     for (int pc=1;pc<npcRec;pc++){
-        nllRecDevs(pc) = 0.5*norm2(zscrDevsLnR_cy(pc));
-        for (int y=mnYr;y<=mxYr;y++) if (value(stdvDevsLnR_cy(pc,y))>0) {nllRecDevs(pc) += log(stdvDevsLnR_cy(pc,y));}
+        double nllWgtRecDevs = ptrMPI->ptrRec->xd(pc,1);
+        nllRecDevs(pc) = 0.5*(norm2(zscrDevsLnR_cy(pc))/square(stdvDevsLnR_c(pc)));
+        nllRecDevs(pc) += nDevsLnR_c(pc)*log(stdvDevsLnR_c(pc));
         objFun += nllWgtRecDevs*nllRecDevs(pc);
         if (debug<0){
-            double rmse = sqrt(value(norm2(zscrDevsLnR_cy(pc)))/zscrDevsLnR_cy(pc).size());
+            double rmse = sqrt(value(norm2(zscrDevsLnR_cy(pc)))/nDevsLnR_c(pc));
             cout<<tb<<tb<<"'"<<pc<<"'=list(type='normal',wgt="<<nllWgtRecDevs<<cc<<"nll="<<nllRecDevs(pc)<<cc
-                    <<"objfun="<<nllWgtRecDevs*nllRecDevs(pc)<<cc<<"rmse="<<rmse<<cc;
-            cout<<"zscrs="; wts::writeToR(cout,value(zscrDevsLnR_cy(pc))); cout<<cc;
-            cout<<"stdvs="; wts::writeToR(cout,value(stdvDevsLnR_cy(pc))); cout<<")"<<cc<<endl;
+                    <<"objfun="<<nllWgtRecDevs*nllRecDevs(pc)<<cc
+                    <<"n="<<nDevsLnR_c(pc)<<cc<<"rmse="<<rmse<<cc<<"sigmaR="<<stdvDevsLnR_c(pc)<<cc<<endl;
+            cout<<"devs="; wts::writeToR(cout,value(zscrDevsLnR_cy(pc))); cout<<cc<<endl;
+            zscrDevsLnR_cy(pc) /= stdvDevsLnR_c(pc);//now standardized
+            cout<<"zscrs="; wts::writeToR(cout,value(zscrDevsLnR_cy(pc))); cout<<")"<<cc<<endl;
         }
     }//pc
     {
         int pc = npcRec;
-        nllRecDevs(pc) = 0.5*norm2(zscrDevsLnR_cy(pc));
-        for (int y=mnYr;y<=mxYr;y++) if (value(stdvDevsLnR_cy(pc,y))>0) {nllRecDevs(pc) += log(stdvDevsLnR_cy(pc,y));}
+        double nllWgtRecDevs = ptrMPI->ptrRec->xd(pc,1);
+        nllRecDevs(pc) = 0.5*(norm2(zscrDevsLnR_cy(pc))/square(stdvDevsLnR_c(pc)));
+        nllRecDevs(pc) += nDevsLnR_c(pc)*log(stdvDevsLnR_c(pc));
         objFun += nllWgtRecDevs*nllRecDevs(pc);
         if (debug<0){
-            double rmse = sqrt(value(norm2(zscrDevsLnR_cy(pc)))/zscrDevsLnR_cy(pc).size());
+            double rmse = sqrt(value(norm2(zscrDevsLnR_cy(pc)))/nDevsLnR_c(pc));
             cout<<tb<<tb<<"'"<<pc<<"'=list(type='normal',wgt="<<nllWgtRecDevs<<cc<<"nll="<<nllRecDevs(pc)<<cc
-                    <<"objfun="<<nllWgtRecDevs*nllRecDevs(pc)<<cc<<"rmse="<<rmse<<cc;
-            cout<<"zscrs="; wts::writeToR(cout,value(zscrDevsLnR_cy(pc))); cout<<cc;
-            cout<<"stdvs="; wts::writeToR(cout,value(stdvDevsLnR_cy(pc))); cout<<")"<<endl;
+                    <<"objfun="<<nllWgtRecDevs*nllRecDevs(pc)<<cc
+                    <<"n="<<nDevsLnR_c(pc)<<cc<<"rmse="<<rmse<<cc<<"sigmaR="<<stdvDevsLnR_c(pc)<<cc<<endl;
+            cout<<"devs="; wts::writeToR(cout,value(zscrDevsLnR_cy(pc))); cout<<cc<<endl;
+            zscrDevsLnR_cy(pc) /= stdvDevsLnR_c(pc);//now standardized
+            cout<<"zscrs="; wts::writeToR(cout,value(zscrDevsLnR_cy(pc))); cout<<")"<<endl;
         }
     }//pc
     if (debug<0) cout<<tb<<")";//recDevs
@@ -6508,6 +6542,14 @@ REPORT_SECTION
     //write active parameters to rpt::echo
     rpt::echo<<"Finished phase "<<current_phase()<<endl;
     {
+        //write final gradients to file
+        ofstream os0("tcsam02.Gradients."+itoa(current_phase(),10)+".csv", ios::trunc);
+        for (int i=gradients.indexmin();i<=gradients.indexmax();i++){
+            os0<<i<<cc<<gradients[i]<<endl;
+        }
+        os0.close();
+    }
+    {
         //write objective function components only
         ofstream os0("tcsam02.ModelFits."+itoa(current_phase(),10)+".R", ios::trunc);
         os0.precision(12);
@@ -6762,6 +6804,7 @@ FUNCTION d4_array calcEffWgts(d5_array& effWgtComps,int debug, ostream& cout)
     cout<<"Finished calcEffWgts()"<<endl;
     return effWgts_nxms;
 
+//-------------------------------------------------------------------------------------
 FUNCTION save_params
     adstring fn = "tcsam02."+str(current_phase())+"."+str(ctrProcCallsInPhase)+".par";
     ofstream os1(fn, ios::trunc);

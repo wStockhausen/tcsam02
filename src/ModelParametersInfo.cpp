@@ -28,7 +28,7 @@ int SelectivityInfo::debug      = 0;
 int FisheriesInfo::debug        = 0;
 int SurveysInfo::debug          = 0;
 int ModelParametersInfo::debug  = 0;
-const adstring ModelParametersInfo::version = "2017.11.13";
+const adstring ModelParametersInfo::version = "2018.02.22";
     
 /*----------------------------------------------------------------------------*/
 /**
@@ -536,7 +536,10 @@ RecruitmentInfo::RecruitmentInfo(){
     pRb  = 0;
     pDevsLnR = 0;
     
-    nXIs = 0;    
+    nXIs=1;
+    lblXIs.allocate(1,nXIs);
+    k=1;
+    lblXIs(k++) = "nllWgt";
 }
 
 RecruitmentInfo::~RecruitmentInfo(){
@@ -1452,7 +1455,7 @@ void SurveysInfo::writeToR(std::ostream & os){
     int indent=0;
     os<<"srv=list("<<endl;
         ParameterGroupInfo::writeToR(os);   os<<cc<<endl;
-        pQ->writeToR(os,"pQ",indent++); os<<cc<<endl;
+        pQ  ->writeToR(os,"pQ",indent++);   os<<cc<<endl;
         pDQ1->writeToR(os,"pDQ1",indent++); os<<cc<<endl;
         pDQ2->writeToR(os,"pDQ2",indent++); os<<cc<<endl;
         pDQ3->writeToR(os,"pDQ3",indent++); os<<cc<<endl;
