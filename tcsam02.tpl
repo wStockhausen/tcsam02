@@ -388,6 +388,10 @@
 //              2. added nllWgt by parameter combination to recruitment parameters info.
 //              3. updated MPI version to "2018.02.22".
 //              4. revised calculations in calcNLLs_Recruitment.
+//--2018-02-26: 1. Revised calcNLLs_ChelaHeightData to turn "on" nll calculation in objective function
+//                  only when estimation is active.
+//              2. Added output to report file reflecting predicted male maturity ogives for
+//                  population and surveys
 //
 // =============================================================================
 // =============================================================================
@@ -1555,9 +1559,9 @@ PRELIMINARY_CALCS_SECTION
         rpt::echo<<"testing calcGrowth():"<<endl;
         calcGrowth(dbgCalcProcs+1,rpt::echo);
         
-        cout<<"testing calcMolt2Maturity():"<<endl;
-        rpt::echo<<"testing calcMolt2Maturity():"<<endl;
-        calcMolt2Maturity(dbgCalcProcs+1,rpt::echo);
+        cout<<"testing calcPrM2M():"<<endl;
+        rpt::echo<<"testing calcPrM2M():"<<endl;
+        calcPrM2M(dbgCalcProcs+1,rpt::echo);
 
         cout<<"testing calcSelectivities():"<<endl;
         rpt::echo<<"testing calcSelectivities():"<<endl;
@@ -2957,7 +2961,7 @@ FUNCTION void initPopDyMod(int debug, ostream& cout)
     calcRecruitment(debug,cout);//calculate recruitment
     calcNatMort(debug,cout);    //calculate natural mortality rates
     calcGrowth(debug,cout);     //calculate growth transition matrices
-    calcMolt2Maturity(debug,cout);   //calculate maturity ogives
+    calcPrM2M(debug,cout);   //calculate maturity ogives
     
     calcSelectivities(debug,cout); //calculate selectivity functions
     calcFisheryFs(debug,cout);     //calculate fishery F's
@@ -3423,8 +3427,8 @@ FUNCTION void calcNatMort(int debug, ostream& cout)
     
 //-------------------------------------------------------------------------------------
 //calculate Pr(maturity-at-size)
-FUNCTION void calcMolt2Maturity(int debug, ostream& cout)
-    if (debug>dbgCalcProcs) cout<<"starting calcMolt2Maturity()"<<endl;
+FUNCTION void calcPrM2M(int debug, ostream& cout)
+    if (debug>dbgCalcProcs) cout<<"starting calcPrM2M()"<<endl;
 
     Molt2MaturityInfo* ptrM2MI = ptrMPI->ptrM2M;
     
@@ -3444,8 +3448,9 @@ FUNCTION void calcMolt2Maturity(int debug, ostream& cout)
             cout<<"lgtPrM2M = "<<lgtPrM2M<<endl;
         }
 
-        prM2M_cz(pc) = 1.0;//default is 1
-        prM2M_cz(pc)(vmn,vmx) = 1.0/(1.0+mfexp(-lgtPrM2M));
+        prM2M_cz(pc) = 1.0;                                //1 for size classes larger than max estimated
+        if (vmn>1) prM2M_cz(pc)(1,vmn-1) = 0.0;            //0 for size classes smaller than min estimated
+        prM2M_cz(pc)(vmn,vmx) = 1.0/(1.0+mfexp(-lgtPrM2M));//logistic otherwise
         if (debug>dbgCalcProcs){
             cout<<"pc = "<<pc<<". mn = "<<vmn<<", mx = "<<vmx<<endl;
             cout<<"prM2M = "<<prM2M_cz(pc)<<endl;
@@ -3470,7 +3475,7 @@ FUNCTION void calcMolt2Maturity(int debug, ostream& cout)
                 cout<<"prM2M_yxz("<<y<<tb<<x<<")="<<prM2M_yxz(y,x)<<endl;
             }
         }
-        cout<<"finished calcMolt2Maturity()"<<endl;
+        cout<<"finished calcPrM2M()"<<endl;
     }
 
 //******************************************************************************
@@ -4730,7 +4735,7 @@ FUNCTION void calcNLLs_ChelaHeightData(int debug, ostream& cout)
     if (debug<0) cout<<"list("<<endl;
     for (int i=0;i<ptrMDS->nCHD;i++){
         ChelaHeightData* pCHD = ptrMDS->ppCHD[i];
-        if (debug<0) cout<<"`"<<i<<"`=list(name='"<<pCHD->name<<"',survey='"<<pCHD->survey<<"',"<<endl;
+        if (debug<0) cout<<pCHD->name<<"=list("<<endl;
         int nObs = pCHD->nObs;
         //cout<<"nObs= "<<nObs<<tb;
         if (nObs>0) {
@@ -4768,9 +4773,11 @@ FUNCTION void calcNLLs_ChelaHeightData(int debug, ostream& cout)
                 }
             }//loop over n
             dvariable nll = sum(nlls_n);
-            objFun += wgt*nll;
+            double wgt1 = 0.0;                     //turn off objective function component, by default
+            if (active(pLgtPrM2M(1))) wgt1 = 1.0;//turn on objective function component when estimation is active
+            objFun += wgt1*wgt*nll;
             if (debug<0) {
-                cout<<"type='binomial',wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl;
+                cout<<"type='binomial',wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt1*wgt*nll<<cc<<endl;
                 cout<<"y=";     wts::writeToR(cout,y_n);             cout<<cc<<endl;
                 cout<<"n=";     wts::writeToR(cout,ss_n);            cout<<cc<<endl;
                 cout<<"z=";     wts::writeToR(cout,pCHD->obsSize_n); cout<<cc<<endl;
@@ -4781,6 +4788,19 @@ FUNCTION void calcNLLs_ChelaHeightData(int debug, ostream& cout)
                 cout<<"zscrs="; wts::writeToR(cout,zscrs_n);         cout<<cc<<endl;
                 cout<<"rmse="<<sqrt(norm2(zscrs_n)/zscrs_n.size())<<"),"<<endl;
             }
+//            {
+//                rpt::echo<<current_phase()<<endl;
+//                rpt::echo<<"type='binomial',wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl;
+//                rpt::echo<<"y=";     wts::writeToR(rpt::echo,y_n);             rpt::echo<<cc<<endl;
+//                rpt::echo<<"n=";     wts::writeToR(rpt::echo,ss_n);            rpt::echo<<cc<<endl;
+//                rpt::echo<<"z=";     wts::writeToR(rpt::echo,pCHD->obsSize_n); rpt::echo<<cc<<endl;
+//                rpt::echo<<"i=";     wts::writeToR(rpt::echo,obsIZ);           rpt::echo<<cc<<endl;
+//                rpt::echo<<"obsPM="; wts::writeToR(rpt::echo,obsPM);           rpt::echo<<cc<<endl;
+//                rpt::echo<<"modPM="; wts::writeToR(rpt::echo,value(modPM));    rpt::echo<<cc<<endl;
+//                rpt::echo<<"nlls=";  wts::writeToR(rpt::echo,value(nlls_n));   rpt::echo<<cc<<endl;
+//                rpt::echo<<"zscrs="; wts::writeToR(rpt::echo,zscrs_n);         rpt::echo<<cc<<endl;
+//                rpt::echo<<"rmse="<<sqrt(norm2(zscrs_n)/zscrs_n.size())<<"),"<<endl;
+//            }
         }//nObs>0
     }//datasets (i)
     if (debug<0) cout<<"NULL)"<<endl;
@@ -6006,12 +6026,12 @@ FUNCTION void calcNLLs_ExtrapolatedEffort(int debug, ostream& cout)
         }//x
         if (debug<0){
             cout<<"`"<<n<<"`=list(n="<<n<<",f='"<<ptrMC->lblsFsh(f)<<"',stdv="<<stdv<<",wgt="<<ptrCRAS->llWgt<<cc<<endl;
-            cout<<"obsFc="; wts::writeToR(cout,obsFc_nxmsy(n),xDms,mDms,sDms,yDms);cout<<cc<<endl;
-            cout<<"prdFc="; wts::writeToR(cout,prdFc_nxmsy(n),xDms,mDms,sDms,yDms);cout<<cc<<endl;
-            cout<<"obsEff="; wts::writeToR(cout,obsEff_nxmsy(n),xDms,mDms,sDms,yDms);cout<<cc<<endl;
-            cout<<"prdEff="; wts::writeToR(cout,prdEff_nxmsy(n),xDms,mDms,sDms,yDms);cout<<cc<<endl;
+            cout<<"obsFc=";   wts::writeToR(cout,obsFc_nxmsy(n),   xDms,mDms,sDms,yDms);cout<<cc<<endl;
+            cout<<"prdFc=";   wts::writeToR(cout,prdFc_nxmsy(n),   xDms,mDms,sDms,yDms);cout<<cc<<endl;
+            cout<<"obsEff=";  wts::writeToR(cout,obsEff_nxmsy(n),  xDms,mDms,sDms,yDms);cout<<cc<<endl;
+            cout<<"prdEff=";  wts::writeToR(cout,prdEff_nxmsy(n),  xDms,mDms,sDms,yDms);cout<<cc<<endl;
             cout<<"zscores="; wts::writeToR(cout,zscrEffX_nxmsy(n),xDms,mDms,sDms,yDms);cout<<cc<<endl;
-            cout<<"nlls="; wts::writeToR(cout,nllEffX_nxms(n),xDms,mDms,sDms);cout<<endl;
+            cout<<"nlls=";    wts::writeToR(cout,nllEffX_nxms(n),  xDms,mDms,sDms);cout<<endl;
             cout<<")"<<cc<<endl;
         }
     }//n
@@ -6237,6 +6257,13 @@ FUNCTION void ReportToR_ModelResults(ostream& os, int debug, ostream& cout)
     //population numbers, biomass
     d5_array vn_yxmsz = wts::value(n_yxmsz);
     d5_array vb_yxmsz = tcsam::calcBiomass(vn_yxmsz,ptrMDS->ptrBio->wAtZ_xmz);
+    
+    //population male maturity ogives
+    dmatrix vPM_yz(mnYr,mxYrp1,1,nZBs);
+    for (int y=mnYr;y<=mxYrp1;y++){
+        vPM_yz(y) = elem_div(vn_yxmsz(y,MALE,MATURE,NEW_SHELL),
+                            (1.0e-5)+vn_yxmsz(y,MALE,IMMATURE,NEW_SHELL)+vn_yxmsz(y,MALE,MATURE,NEW_SHELL));
+    }
         
     //numbers, biomass captured (NOT mortality)
     d6_array vcpN_fyxmsz = wts::value(cpN_fyxmsz);
@@ -6257,6 +6284,13 @@ FUNCTION void ReportToR_ModelResults(ostream& os, int debug, ostream& cout)
     //survey numbers, biomass
     d6_array vn_vyxmsz = wts::value(n_vyxmsz);
     d6_array vb_vyxmsz = tcsam::calcBiomass(vn_vyxmsz,ptrMDS->ptrBio->wAtZ_xmz);
+    d3_array vPM_vyz(1,nSrv,mnYr,mxYrp1,1,nZBs);
+    for (int v=1;v<=nSrv;v++){
+        for (int y=mnYr;y<=mxYrp1;y++){
+            vPM_vyz(v,y) = elem_div(vn_vyxmsz(v,y,MALE,MATURE,NEW_SHELL),
+                                    (1.0e-5)+vn_vyxmsz(v,y,MALE,IMMATURE,NEW_SHELL)+vn_vyxmsz(v,y,MALE,MATURE,NEW_SHELL));
+        }
+    }
     
     os<<"mr=list("<<endl;
         os<<"iN_xmsz ="; wts::writeToR(os,vn_yxmsz(mnYr),xDms,mDms,sDms,zbDms); os<<cc<<endl;
@@ -6264,6 +6298,7 @@ FUNCTION void ReportToR_ModelResults(ostream& os, int debug, ostream& cout)
             os<<"MB_yx    ="; wts::writeToR(os,value(spB_yx), yDms,xDms);                        os<<cc<<endl;
             os<<"N_yxmsz  ="; wts::writeToR(os,vn_yxmsz,ypDms,xDms,mDms,sDms,zbDms);             os<<cc<<endl;
             os<<"B_yxmsz  ="; wts::writeToR(os,vb_yxmsz,ypDms,xDms,mDms,sDms,zbDms);             os<<cc<<endl;
+            os<<"prM_yz   ="; wts::writeToR(os,vPM_yz,ypDms,zbDms);                              os<<cc<<endl;
             os<<"nmN_yxmsz="; wts::writeToR(os,wts::value(nmN_yxmsz),yDms,xDms,mDms,sDms,zbDms); os<<cc<<endl;
             os<<"tmN_yxmsz="; wts::writeToR(os,wts::value(tmN_yxmsz),yDms,xDms,mDms,sDms,zbDms); os<<endl;
         os<<")"<<cc<<endl;    
@@ -6278,9 +6313,10 @@ FUNCTION void ReportToR_ModelResults(ostream& os, int debug, ostream& cout)
             os<<"dmB_fyxmsz="; wts::writeToR(os,vdmB_fyxmsz,fDms,yDms,xDms,mDms,sDms,zbDms); os<<endl;
         os<<")"<<cc<<endl;
         os<<"S_list=list("<<endl;
-           os<<"MB_vyx  ="; wts::writeToR(os,value(mb_vyx),vDms,ypDms,xDms);            os<<cc<<endl;
+           os<<"MB_vyx  ="; wts::writeToR(os,value(mb_vyx),vDms,ypDms,xDms);                 os<<cc<<endl;
            os<<"N_vyxmsz="; wts::writeToR(os,    vn_vyxmsz,vDms,ypDms,xDms,mDms,sDms,zbDms); os<<cc<<endl;
-           os<<"B_vyxmsz="; wts::writeToR(os,    vb_vyxmsz,vDms,ypDms,xDms,mDms,sDms,zbDms); os<<endl;
+           os<<"B_vyxmsz="; wts::writeToR(os,    vb_vyxmsz,vDms,ypDms,xDms,mDms,sDms,zbDms); os<<cc<<endl;
+           os<<"prM_vyz ="; wts::writeToR(os,    vPM_vyz,vDms,ypDms,zbDms);                  os<<endl;
        os<<")";
     os<<")";
     if (debug) cout<<"Finished ReportToR_ModelResults(...)"<<endl;
@@ -6318,6 +6354,8 @@ FUNCTION void ReportToR_ModelFits(ostream& os, double maxGrad, int debug, ostrea
         os<<tb<<"#end of surveys"<<endl;
         os<<tb<<"growthdata="; calcNLLs_GrowthData(-1,os);         os<<cc<<endl;
         os<<tb<<"#end of growthdata"<<endl;
+        os<<tb<<"maturitydata="; calcNLLs_ChelaHeightData(-1,os);  os<<cc<<endl;
+        os<<tb<<"#end of maturitydata"<<endl;
         os<<tb<<"effortdata="; calcNLLs_ExtrapolatedEffort(-1,os); os<<endl;
         os<<tb<<"#end of effortdata"<<endl;
     os<<")";
