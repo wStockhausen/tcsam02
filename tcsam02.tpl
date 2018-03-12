@@ -392,6 +392,10 @@
 //                  only when estimation is active.
 //              2. Added output to report file reflecting predicted male maturity ogives for
 //                  population and surveys
+//-2018-03-05:  1. Revised calcNLLs_Recruitment because zscores were being recalculated within
+//                  the function, which might be called multiple times at the REPORT stage
+//                  leading to changes in the zscores, associated NLLs, and objective function 
+//                  even though no parameter changes had occurred.
 //
 // =============================================================================
 // =============================================================================
@@ -1320,7 +1324,8 @@ PARAMETER_SECTION
     matrix R_yz(mnYr,mxYr,1,nZBs); //size distribution of recruits by year
     3darray R_yxz(mnYr,mxYr,1,nSXs,1,nZBs);    //size distribution of recruits by year, sex
     vector stdvDevsLnR_c(1,npcRec);            //ln-scale recruitment std. devs by parameter combination
-    matrix zscrDevsLnR_cy(1,npcRec,mnYr,mxYr); //standardized ln-scale recruitment residuals by parameter combination and year
+    matrix devsLnR_cy(1,npcRec,mnYr,mxYr);     //unstandardized ln-scale recruitment residuals, by parameter combination and year
+    matrix zscrDevsLnR_cy(1,npcRec,mnYr,mxYr); //standardized ln-scale recruitment residuals, by parameter combination and year
     
     //natural mortality-related quantities
     vector M_c(1,npcNM);                                   //natural mortality rate by parameter combination
@@ -1405,9 +1410,6 @@ PARAMETER_SECTION
     3darray T_szz(1,nSCs,1,nZBs,1,nZBs);         //growth matrices (indep. of molt to maturity)
     3darray S2_msz(1,nMSs,1,nSCs,1,nZBs);        //survival after molting/mating
     4darray n_xmsz(1,nSXs,1,nMSs,1,nSCs,1,nZBs); //equilibrium size distribution
-    
-    //likelihood components
-    vector nllRecDevs(1,npcRec);//negative log-likelihoods associated with recruitment
     
     //sdreport variables
     sdreport_vector sdrLnR_y(mnYr,mxYr);
@@ -3197,6 +3199,7 @@ FUNCTION void calcRecruitment(int debug, ostream& cout)
     R_yxz.initialize();
     nDevsLnR_c.initialize();
     stdvDevsLnR_c.initialize();
+    devsLnR_cy.initialize();
     zscrDevsLnR_cy.initialize();
     
     int k; int y;
@@ -3271,11 +3274,12 @@ FUNCTION void calcRecruitment(int debug, ostream& cout)
                 for (int x=1;x<=nSXs;x++) R_yxz(y,x) = R_y(y)*R_yx(y,x)*R_yz(y);
 
                 nDevsLnR_c(pc)++;//increment count of devs for this pc
-                zscrDevsLnR_cy(pc,y) = dvsLnR(idxDevsLnR(y));//rec devs by pc and year, but not yet standardized (done in calcNLLs_Recruitment)
+                devsLnR_cy(pc,y) = dvsLnR(idxDevsLnR(y));//rec devs by pc and year
             } else {
                 if (debug>dbgCalcProcs) cout<<"skipping y,i = "<<y<<tb<<idxDevsLnR(y)<<endl;
             }
         }//idx
+        zscrDevsLnR_cy(pc) = devsLnR_cy(pc)/stdvDevsLnR_c(pc);//standardized zscores (assuming mean=0)
     }//pc
     
     if (debug>dbgCalcProcs) {
@@ -3284,6 +3288,7 @@ FUNCTION void calcRecruitment(int debug, ostream& cout)
         cout<<"R_yz  = "<<endl<<R_yz<<endl;
         cout<<"nDevs = "<<nDevsLnR_c<<endl;
         cout<<"sigR  = "<<stdvDevsLnR_c<<endl;
+        cout<<"devs  = "<<devsLnR_cy<<endl;
         cout<<"zscr  = "<<zscrDevsLnR_cy<<endl;
         cout<<"finished calcRecruitment()"<<endl;
     }
@@ -4644,37 +4649,37 @@ FUNCTION dvar_vector calc2ndDiffs(const dvar_vector& d)
 //Calculate recruitment components in the likelihood.
 FUNCTION void calcNLLs_Recruitment(int debug, ostream& cout)
     if (debug>=dbgObjFun) cout<<"Starting calcNLLs_Recruitment"<<endl;
-    nllRecDevs.initialize();
+    dvariable nllRecDevs;
     if (debug<0) cout<<"list("<<endl;
     if (debug<0) cout<<tb<<"recDevs=list("<<endl;
     for (int pc=1;pc<npcRec;pc++){
         double nllWgtRecDevs = ptrMPI->ptrRec->xd(pc,1);
-        nllRecDevs(pc) = 0.5*(norm2(zscrDevsLnR_cy(pc))/square(stdvDevsLnR_c(pc)));
-        nllRecDevs(pc) += nDevsLnR_c(pc)*log(stdvDevsLnR_c(pc));
-        objFun += nllWgtRecDevs*nllRecDevs(pc);
+        nllRecDevs.initialize();
+        nllRecDevs = 0.5*norm2(zscrDevsLnR_cy(pc));
+        nllRecDevs += nDevsLnR_c(pc)*log(stdvDevsLnR_c(pc));
+        objFun += nllWgtRecDevs*nllRecDevs;
         if (debug<0){
-            double rmse = sqrt(value(norm2(zscrDevsLnR_cy(pc)))/nDevsLnR_c(pc));
-            cout<<tb<<tb<<"'"<<pc<<"'=list(type='normal',wgt="<<nllWgtRecDevs<<cc<<"nll="<<nllRecDevs(pc)<<cc
-                    <<"objfun="<<nllWgtRecDevs*nllRecDevs(pc)<<cc
+            double rmse = sqrt(value(norm2(devsLnR_cy(pc)))/nDevsLnR_c(pc));
+            cout<<tb<<tb<<"'"<<pc<<"'=list(type='normal',wgt="<<nllWgtRecDevs<<cc<<"nll="<<nllRecDevs<<cc
+                    <<"objfun="<<nllWgtRecDevs*nllRecDevs<<cc
                     <<"n="<<nDevsLnR_c(pc)<<cc<<"rmse="<<rmse<<cc<<"sigmaR="<<stdvDevsLnR_c(pc)<<cc<<endl;
-            cout<<"devs="; wts::writeToR(cout,value(zscrDevsLnR_cy(pc))); cout<<cc<<endl;
-            zscrDevsLnR_cy(pc) /= stdvDevsLnR_c(pc);//now standardized
+            cout<<"devs="; wts::writeToR(cout,value(devsLnR_cy(pc))); cout<<cc<<endl;
             cout<<"zscrs="; wts::writeToR(cout,value(zscrDevsLnR_cy(pc))); cout<<")"<<cc<<endl;
         }
     }//pc
     {
         int pc = npcRec;
         double nllWgtRecDevs = ptrMPI->ptrRec->xd(pc,1);
-        nllRecDevs(pc) = 0.5*(norm2(zscrDevsLnR_cy(pc))/square(stdvDevsLnR_c(pc)));
-        nllRecDevs(pc) += nDevsLnR_c(pc)*log(stdvDevsLnR_c(pc));
-        objFun += nllWgtRecDevs*nllRecDevs(pc);
+        nllRecDevs.initialize();
+        nllRecDevs = 0.5*norm2(zscrDevsLnR_cy(pc));
+        nllRecDevs += nDevsLnR_c(pc)*log(stdvDevsLnR_c(pc));
+        objFun += nllWgtRecDevs*nllRecDevs;
         if (debug<0){
-            double rmse = sqrt(value(norm2(zscrDevsLnR_cy(pc)))/nDevsLnR_c(pc));
-            cout<<tb<<tb<<"'"<<pc<<"'=list(type='normal',wgt="<<nllWgtRecDevs<<cc<<"nll="<<nllRecDevs(pc)<<cc
-                    <<"objfun="<<nllWgtRecDevs*nllRecDevs(pc)<<cc
+            double rmse = sqrt(value(norm2(devsLnR_cy(pc)))/nDevsLnR_c(pc));
+            cout<<tb<<tb<<"'"<<pc<<"'=list(type='normal',wgt="<<nllWgtRecDevs<<cc<<"nll="<<nllRecDevs<<cc
+                    <<"objfun="<<nllWgtRecDevs*nllRecDevs<<cc
                     <<"n="<<nDevsLnR_c(pc)<<cc<<"rmse="<<rmse<<cc<<"sigmaR="<<stdvDevsLnR_c(pc)<<cc<<endl;
-            cout<<"devs="; wts::writeToR(cout,value(zscrDevsLnR_cy(pc))); cout<<cc<<endl;
-            zscrDevsLnR_cy(pc) /= stdvDevsLnR_c(pc);//now standardized
+            cout<<"devs="; wts::writeToR(cout,value(devsLnR_cy(pc))); cout<<cc<<endl;
             cout<<"zscrs="; wts::writeToR(cout,value(zscrDevsLnR_cy(pc))); cout<<")"<<endl;
         }
     }//pc
@@ -5004,10 +5009,12 @@ FUNCTION void calcLognormalNLL(double wgt, dvar_vector& mod, dvector& obs, dvect
                 zscr(y) = (log(obs[i]+smlVal)-log(mod[y]+smlVal))/stdv[i]; cnt++;
             }
         }
-        if (cnt>0) rmse = sqrt(value(norm2(zscr))/cnt);
-        nll += 0.5*norm2(zscr);
+        if (cnt>0) {
+            rmse = sqrt(value(norm2(zscr))/cnt);
+            nll = 0.5*norm2(zscr);
+            objFun += wgt*nll;
+        }
     }
-    objFun += wgt*nll;
     if (debug<0){
         adstring obsyrs = wts::to_qcsv(yrs);
         adstring modyrs = str(mod.indexmin())+":"+str(mod.indexmax());
