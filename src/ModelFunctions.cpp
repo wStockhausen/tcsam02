@@ -4,6 +4,29 @@
 #include "ModelFunctions.hpp"
 
 /**
+ * Calculates a jittered value.
+ * 
+ * @param i - default initial value
+ * @param l - lower bound
+ * @param u - upper bound
+ * @param jitFrac - jittering fraction (0-1)
+ * @param r - uniform random deviate
+ * 
+ * @return jittered value
+ */
+double tcsam::jitterIt(double i, double l, double u, double jitFrac, double r){
+    double d = u - l;
+    l = l+0.001*d;//shrink lower bound
+    u = u-0.001*d;//shrink upper bound
+    d = u - l;    //shrink interval
+    double lp = i - 0.5*d*jitFrac;
+    double up = i + 0.5*d*jitFrac;
+    double rp = i + (r-0.5)*d*jitFrac;
+    if (rp>u)      {rp = lp - (rp-u);}
+    else if (rp<l) {rp = up + (l-rp);}
+    return rp;
+}
+/**
  * Prints a file read error.
  * 
  * @param is - input filestream

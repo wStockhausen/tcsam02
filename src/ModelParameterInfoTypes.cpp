@@ -465,9 +465,10 @@ double BoundedNumberInfo::calcParamScaleVal(double x){
 double BoundedNumberInfo::jitterInitVal(random_number_generator& rng, double jitFrac){
     double vp = initVal;
     if (phase>0){
-        double d = upper-lower;
+        //double d = upper-lower;
         double r = rng.better_rand();
-        vp = min(max(lower+0.0001*d,initVal+wts::min(1.0,jitFrac)*(r-0.5)*d),upper-0.0001*d);
+        //vp = min(max(lower+0.0001*d,initVal+wts::min(1.0,jitFrac)*(r-0.5)*d),upper-0.0001*d);
+        vp = tcsam::jitterIt(initVal, lower, upper, jitFrac, r);
     }
     return vp;
 }
@@ -1256,7 +1257,8 @@ dvector BoundedVectorInfo::jitterInitVals(random_number_generator& rng, double j
         double d = upper-lower;
         for (int i=1;i<=N;i++){
             double r = rng.better_rand();
-            vp(i) = min(max(lower+0.0001*d,initVals(i)+wts::min(1.0,jitFrac)*(r-0.5)*d),upper-0.0001*d);
+            //vp(i) = min(max(lower+0.0001*d,initVals(i)+wts::min(1.0,jitFrac)*(r-0.5)*d),upper-0.0001*d);
+            vp(i) = tcsam::jitterIt(initVals(i), lower, upper, jitFrac, r);
         }
     }
     return vp;

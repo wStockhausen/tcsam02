@@ -396,6 +396,9 @@
 //                  the function, which might be called multiple times at the REPORT stage
 //                  leading to changes in the zscores, associated NLLs, and objective function 
 //                  even though no parameter changes had occurred.
+//-2018-03-13:  1. Revised approach to jittering because old version resulted in too high
+//                  a proportion of values near a limit if the default value was near that limit
+//-2018-03-15:  1. Eliminated writes to terminal screen in PRELIMINARY_CALCS
 //
 // =============================================================================
 // =============================================================================
@@ -1445,6 +1448,7 @@ PRELIMINARY_CALCS_SECTION
     {cout<<"writing effective MPI after setInitVals"<<endl;
         ofstream os; os.open("effectiveMPI.dat", ios::trunc);
         os.precision(12);
+        ptrMPI->setToWriteVectorInitialValues(true);
         os<<(*ptrMPI)<<endl;
         os.close();
     }
@@ -1549,25 +1553,26 @@ PRELIMINARY_CALCS_SECTION
     }
     
     if (option_match(ad_comm::argc,ad_comm::argv,"-mceval")<0) {
+        int dbgLevel = 0; //set at dbgCalcProcs+1 to print to terminal 
         cout<<"testing calcRecruitment():"<<endl;
         rpt::echo<<"testing calcRecruitment():"<<endl;
-        calcRecruitment(dbgCalcProcs+1,rpt::echo);
+        calcRecruitment(dbgLevel,rpt::echo);
         
         cout<<"testing calcNatMort():"<<endl;
         rpt::echo<<"testing calcNatMort():"<<endl;
-        calcNatMort(dbgCalcProcs+1,rpt::echo);
+        calcNatMort(dbgLevel,rpt::echo);
         
         cout<<"testing calcGrowth():"<<endl;
         rpt::echo<<"testing calcGrowth():"<<endl;
-        calcGrowth(dbgCalcProcs+1,rpt::echo);
+        calcGrowth(dbgLevel,rpt::echo);
         
         cout<<"testing calcPrM2M():"<<endl;
         rpt::echo<<"testing calcPrM2M():"<<endl;
-        calcPrM2M(dbgCalcProcs+1,rpt::echo);
+        calcPrM2M(dbgLevel,rpt::echo);
 
         cout<<"testing calcSelectivities():"<<endl;
         rpt::echo<<"testing calcSelectivities():"<<endl;
-        calcSelectivities(dbgCalcProcs+1,rpt::echo);
+        calcSelectivities(dbgLevel,rpt::echo);
 
         cout<<"testing calcFisheryFs():"<<endl;
         rpt::echo<<"testing calcFisheryFs():"<<endl;
@@ -1575,11 +1580,11 @@ PRELIMINARY_CALCS_SECTION
 
         cout<<"testing calcSurveyQs():"<<endl;
         rpt::echo<<"testing calcSurveyQs():"<<endl;
-        calcSurveyQs(dbgCalcProcs+1,cout);
+        calcSurveyQs(dbgLevel,cout);
 
         cout<<"testing runPopDyMod():"<<endl;
         rpt::echo<<"testing runPopDyMod():"<<endl;
-        runPopDyMod(dbgCalcProcs+1,cout);
+        runPopDyMod(dbgLevel,cout);
         rpt::echo<<"n_yxm:"<<endl;
         for (int y=mnYr;y<=(mxYr+1);y++){
             for (int x=1;x<=nSXs;x++){
@@ -1620,9 +1625,10 @@ PRELIMINARY_CALCS_SECTION
         }
 
         if (fitSimData){
+            int dbgLevel = 0;
             cout<<"creating sim data to fit in model"<<endl;
             rpt::echo<<"creating sim data to fit in model"<<endl;
-            createSimData(1,rpt::echo,iSimDataSeed,ptrMDS);//stochastic if iSimDataSeed<>0
+            createSimData(dbgLevel,rpt::echo,iSimDataSeed,ptrMDS);//stochastic if iSimDataSeed<>0
             {cout<<"re-writing data to R"<<endl;
              rpt::echo<<"re-writing data to R"<<endl;
              ofstream echo1; echo1.open("ModelData.R", ios::trunc);
@@ -1631,13 +1637,14 @@ PRELIMINARY_CALCS_SECTION
             }
         }
         
-        cout<<"--Testing calcObjFun()"<<endl;
-        rpt::echo<<"Testing calcObjFun()"<<endl;
-        calcObjFun(-1,rpt::echo);
-        testNaNs(value(objFun),"testing calcObjFun() in PRELIMINARY_CALCS_SECTION");
-        rpt::echo<<"--Testing calcObjFun() again"<<endl;
-        calcObjFun(dbgAll,rpt::echo);
-        rpt::echo<<"--Finished testing calcObjFun()"<<endl;
+        {cout<<"--Testing calcObjFun()"<<endl;
+            rpt::echo<<"Testing calcObjFun()"<<endl;
+            calcObjFun(-1,rpt::echo);
+            testNaNs(value(objFun),"testing calcObjFun() in PRELIMINARY_CALCS_SECTION");
+            rpt::echo<<"--Testing calcObjFun() again"<<endl;
+            calcObjFun(dbgAll,rpt::echo);
+            rpt::echo<<"--Finished testing calcObjFun()"<<endl;
+        }
         
         {cout<<"writing model results to R"<<endl;
             rpt::echo<<"writing initial model report to R"<<endl;
@@ -1655,8 +1662,9 @@ PRELIMINARY_CALCS_SECTION
         }
         
         {cout<<"writing model sim data to file"<<endl;
+            int dbgLevel = 0;
             rpt::echo<<"writing model sim data to file"<<endl;
-            createSimData(1,rpt::echo,0,ptrSimMDS);//deterministic
+            createSimData(dbgLevel,rpt::echo,0,ptrSimMDS);//deterministic
             ofstream echo1; echo1.open("tcsam02.SimData.init.dat", ios::trunc);
             echo1.precision(12);
             writeSimData(echo1,0,rpt::echo,ptrSimMDS);
@@ -1808,63 +1816,6 @@ FUNCTION void setInitVals(int debug, ostream& os)
     setInitVals(ptrMPI->ptrSrv->pDQ3, pDQ3, usePin, debug, os);
     setInitVals(ptrMPI->ptrSrv->pDQ4, pDQ4, usePin, debug, os);
 
-////*****************************************
-//FUNCTION setInitValsFromPinFile
-//    //recruitment parameters
-//    setInitValsFromPinFile(ptrMPI->ptrRec->pLnR, pLnR, 0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrRec->pRCV, pRCV, 0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrRec->pRX,  pRX,  0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrRec->pRa,  pRa,  0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrRec->pRb,  pRb,  0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrRec->pDevsLnR,pDevsLnR,0,rpt::echo);
-//
-//    //natural mortality parameters
-//    setInitValsFromPinFile(ptrMPI->ptrNM->pM,   pM,   0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrNM->pDM1, pDM1, 0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrNM->pDM2, pDM2, 0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrNM->pDM3, pDM3, 0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrNM->pDM4, pDM4, 0,rpt::echo);
-//
-//    //growth parameters
-//    setInitValsFromPinFile(ptrMPI->ptrGrw->pGrA,   pGrA,   0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrGrw->pGrB,   pGrB,   0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrGrw->pGrBeta,pGrBeta,0,rpt::echo);
-//
-//    //maturity parameters
-//    setInitValsFromPinFile(ptrMPI->ptrM2M->pLgtPrM2M,pLgtPrM2M,0,rpt::echo);
-//
-//    //selectivity parameters
-//    setInitValsFromPinFile(ptrMPI->ptrSel->pS1, pS1,0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrSel->pS2, pS2,0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrSel->pS3, pS3,0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrSel->pS4, pS4,0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrSel->pS5, pS5,0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrSel->pS6, pS6,0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrSel->pDevsS1, pDevsS1,0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrSel->pDevsS2, pDevsS2,0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrSel->pDevsS3, pDevsS3,0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrSel->pDevsS4, pDevsS4,0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrSel->pDevsS5, pDevsS5,0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrSel->pDevsS6, pDevsS6,0,rpt::echo);
-//
-//    //fully-selected fishing capture rate parameters
-//    setInitValsFromPinFile(ptrMPI->ptrFsh->pHM,  pHM,  0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrFsh->pLnC, pLnC, 0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrFsh->pDC1, pDC1, 0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrFsh->pDC2, pDC2, 0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrFsh->pDC3, pDC3, 0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrFsh->pDC4, pDC4, 0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrFsh->pDevsLnC,pDevsLnC,0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrFsh->pLnEffX, pLnEffX, 0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrFsh->pLgtRet, pLgtRet, 0,rpt::echo);
-//
-//    //survey catchability parameters
-//    setInitValsFromPinFile(ptrMPI->ptrSrv->pQ,   pQ,   0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrSrv->pDQ1, pDQ1, 0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrSrv->pDQ2, pDQ2, 0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrSrv->pDQ3, pDQ3, 0,rpt::echo);
-//    setInitValsFromPinFile(ptrMPI->ptrSrv->pDQ4, pDQ4, 0,rpt::echo);
-
 //*****************************************
 FUNCTION int checkParams(int debug, ostream& os)
     int res = 0;
@@ -1908,20 +1859,20 @@ FUNCTION int checkParams(int debug, ostream& os)
     //fully-selected fishing capture rate parameters
     res += checkParams(ptrMPI->ptrFsh->pHM,     pHM,     debug,os);
     res += checkParams(ptrMPI->ptrFsh->pLnC,    pLnC,    debug,os);
-    res += checkParams(ptrMPI->ptrFsh->pDC1,  pDC1,  debug,os);
-    res += checkParams(ptrMPI->ptrFsh->pDC2,  pDC2,  debug,os);
-    res += checkParams(ptrMPI->ptrFsh->pDC3,  pDC3,  debug,os);
-    res += checkParams(ptrMPI->ptrFsh->pDC4, pDC4, debug,os);
+    res += checkParams(ptrMPI->ptrFsh->pDC1,    pDC1,    debug,os);
+    res += checkParams(ptrMPI->ptrFsh->pDC2,    pDC2,    debug,os);
+    res += checkParams(ptrMPI->ptrFsh->pDC3,    pDC3,    debug,os);
+    res += checkParams(ptrMPI->ptrFsh->pDC4,    pDC4,    debug,os);
     res += checkParams(ptrMPI->ptrFsh->pDevsLnC,pDevsLnC,debug,os);
     res += checkParams(ptrMPI->ptrFsh->pLnEffX, pLnEffX, debug,os);
     res += checkParams(ptrMPI->ptrFsh->pLgtRet, pLgtRet, debug,os);
 
     //survey catchability parameters
-    res += checkParams(ptrMPI->ptrSrv->pQ, pQ, debug,os);
+    res += checkParams(ptrMPI->ptrSrv->pQ,   pQ,   debug,os);
     res += checkParams(ptrMPI->ptrSrv->pDQ1, pDQ1, debug,os);
     res += checkParams(ptrMPI->ptrSrv->pDQ2, pDQ2, debug,os);
     res += checkParams(ptrMPI->ptrSrv->pDQ3, pDQ3, debug,os);
-    res += checkParams(ptrMPI->ptrSrv->pDQ4,pDQ4,debug,os);
+    res += checkParams(ptrMPI->ptrSrv->pDQ4, pDQ4, debug,os);
     
     return res;
 

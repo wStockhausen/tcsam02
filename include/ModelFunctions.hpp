@@ -24,6 +24,18 @@ typedef dvector     (*vPdfSamplerPtr)     (int n, random_number_generator&,const
 
 namespace tcsam{
     /**
+     * Calculates a jittered value.
+     * 
+     * @param i - default initial value
+     * @param l - lower bound
+     * @param u - upper bound
+     * @param jitFrac - jittering fraction (0-1)
+     * @param r - uniform random deviate
+     * 
+     * @return jittered value
+     */
+    double jitterIt(double i, double l, double u, double jitFrac, double r);
+    /**
      * Prints a file read error.
      * 
      * @param is - input filestream

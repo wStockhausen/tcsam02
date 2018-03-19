@@ -433,6 +433,10 @@ void ParameterGroupInfo::read(cifstream& is){
     if (debug) cout<<"finished void ParameterGroupInfo::read(is)"<<endl;
 }
 
+//void ParameterGroupInfo::setToWriteVectorInitialValues(bool flag){
+//    //do nothing [not sure why have to provide a concrete
+//}
+
 void ParameterGroupInfo::write(std::ostream& os){
 //    os<<(*ptrIBSs)<<endl;
     os<<"PARAMETER_COMBINATIONS"<<endl;
@@ -596,6 +600,26 @@ void RecruitmentInfo::read(cifstream & is){
     }
 }
 
+/**
+ * Sets the flags to write initial values for vector parameters to file 
+ * when writing parameter info to file.
+ * 
+ * @param flag - true/false to set to write initial values to file
+ */
+void RecruitmentInfo::setToWriteVectorInitialValues(bool flag){
+    if (pDevsLnR){
+        for (int i=1;i<=pDevsLnR->getSize();i++){
+            DevsVectorInfo* dvi = (*pDevsLnR)[i];
+            if (flag) dvi->readVals = INT_TRUE; else dvi->readVals = INT_FALSE;        
+        }
+    }
+}
+
+/**
+ * Write RecruitmentInfo to output stream in ADMB format
+ * 
+ * @param os - output stream
+ */
 void RecruitmentInfo::write(std::ostream & os){
     os<<NAME<<tb<<"#process name"<<endl;
     ParameterGroupInfo::write(os);
@@ -617,6 +641,11 @@ void RecruitmentInfo::write(std::ostream & os){
     os<<(*pDevsLnR)<<endl;
 }
 
+/**
+ * Write RecruitmentInfo to output stream in R format
+ * 
+ * @param os - output stream
+ */
 void RecruitmentInfo::writeToR(std::ostream & os){
     int indent=0;
     os<<"rec=list("<<endl;
@@ -737,6 +766,16 @@ void NaturalMortalityInfo::read(cifstream & is){
     }
 }
 
+/**
+ * Sets the flags to write initial values for vector parameters to file 
+ * when writing parameter info to file.
+ * 
+ * @param flag - true/false to set to write initial values to file
+ */
+void NaturalMortalityInfo::setToWriteVectorInitialValues(bool flag){
+    //does nothing: no parameter vectors
+}
+
 void NaturalMortalityInfo::write(std::ostream & os){
     os<<NAME<<tb<<"#process name"<<endl;
     os<<zRef<<tb<<"#reference size for scaling"<<endl;
@@ -850,6 +889,16 @@ void GrowthInfo::read(cifstream & is){
     }
 }
 
+/**
+ * Sets the flags to write initial values for vector parameters to file 
+ * when writing parameter info to file.
+ * 
+ * @param flag - true/false to set to write initial values to file
+ */
+void GrowthInfo::setToWriteVectorInitialValues(bool flag){
+    //does nothing: no parameter vectors
+}
+
 void GrowthInfo::write(std::ostream & os){
     os<<NAME<<tb<<"#process name"<<endl;
      ParameterGroupInfo::write(os);
@@ -938,6 +987,21 @@ void Molt2MaturityInfo::read(cifstream & is){
         cout<<"Enter 1 to continue: ";
         cin>>debug;
         if (debug<0) exit(1);
+    }
+}
+
+/**
+ * Sets the flags to write initial values for vector parameters to file 
+ * when writing parameter info to file.
+ * 
+ * @param flag - true/false to set to write initial values to file
+ */
+void Molt2MaturityInfo::setToWriteVectorInitialValues(bool flag){
+    if (pLgtPrM2M){
+        for (int i=1;i<=pLgtPrM2M->getSize();i++){
+            BoundedVectorInfo* vi = (*pLgtPrM2M)[i];
+            if (flag) vi->readVals = INT_TRUE; else vi->readVals = INT_FALSE;        
+        }
     }
 }
 
@@ -1074,6 +1138,51 @@ void SelectivityInfo::read(cifstream & is){
         cout<<"Enter 1 to continue: ";
         cin>>debug;
         if (debug<0) exit(1);
+    }
+}
+
+/**
+ * Sets the flags to write initial values for vector parameters to file 
+ * when writing parameter info to file.
+ * 
+ * @param flag - true/false to set to write initial values to file
+ */
+void SelectivityInfo::setToWriteVectorInitialValues(bool flag){
+    if (pDevsS1){
+        for (int i=1;i<=pDevsS1->getSize();i++){
+            BoundedVectorInfo* vi = (*pDevsS1)[i];
+            if (flag) vi->readVals = INT_TRUE; else vi->readVals = INT_FALSE;        
+        }
+    }
+    if (pDevsS2){
+        for (int i=1;i<=pDevsS2->getSize();i++){
+            BoundedVectorInfo* vi = (*pDevsS2)[i];
+            if (flag) vi->readVals = INT_TRUE; else vi->readVals = INT_FALSE;        
+        }
+    }
+    if (pDevsS3){
+        for (int i=1;i<=pDevsS3->getSize();i++){
+            BoundedVectorInfo* vi = (*pDevsS3)[i];
+            if (flag) vi->readVals = INT_TRUE; else vi->readVals = INT_FALSE;        
+        }
+    }
+    if (pDevsS4){
+        for (int i=1;i<=pDevsS4->getSize();i++){
+            BoundedVectorInfo* vi = (*pDevsS4)[i];
+            if (flag) vi->readVals = INT_TRUE; else vi->readVals = INT_FALSE;        
+        }
+    }
+    if (pDevsS5){
+        for (int i=1;i<=pDevsS5->getSize();i++){
+            BoundedVectorInfo* vi = (*pDevsS5)[i];
+            if (flag) vi->readVals = INT_TRUE; else vi->readVals = INT_FALSE;        
+        }
+    }
+    if (pDevsS6){
+        for (int i=1;i<=pDevsS6->getSize();i++){
+            BoundedVectorInfo* vi = (*pDevsS6)[i];
+            if (flag) vi->readVals = INT_TRUE; else vi->readVals = INT_FALSE;        
+        }
     }
 }
 
@@ -1281,6 +1390,20 @@ void FisheriesInfo::read(cifstream & is){
     }
 }
 
+/**
+ * Sets the flags to write initial values for vector parameters to file 
+ * when writing parameter info to file.
+ * 
+ * @param flag - true/false to set to write initial values to file
+ */
+void FisheriesInfo::setToWriteVectorInitialValues(bool flag){
+    if (pDevsLnC){
+        for (int i=1;i<=pDevsLnC->getSize();i++){
+            BoundedVectorInfo* vi = (*pDevsLnC)[i];
+            if (flag) vi->readVals = INT_TRUE; else vi->readVals = INT_FALSE;        
+        }
+    }
+}
 void FisheriesInfo::write(std::ostream & os){
     os<<NAME<<tb<<"#process name"<<endl;
     ParameterGroupInfo::write(os);
@@ -1432,6 +1555,16 @@ void SurveysInfo::read(cifstream & is){
     }
 }
 
+/**
+ * Sets the flags to write initial values for vector parameters to file 
+ * when writing parameter info to file.
+ * 
+ * @param flag - true/false to set to write initial values to file
+ */
+void SurveysInfo::setToWriteVectorInitialValues(bool flag){
+    //do nothing: no parameter vectors defined
+}
+
 void SurveysInfo::write(std::ostream & os){
     os<<NAME<<tb<<"#process name"<<endl;
     ParameterGroupInfo::write(os);
@@ -1485,6 +1618,22 @@ ModelParametersInfo::~ModelParametersInfo(){
     if (ptrSel) {delete ptrSel;     ptrSel  = 0;}
     if (ptrFsh) {delete ptrFsh;     ptrFsh  = 0;}
     if (ptrSrv) {delete ptrSrv;     ptrSrv  = 0;}
+}
+
+/**
+ * Sets the flags to write initial values for all vector parameters to file 
+ * when writing parameter info to file.
+ * 
+ * @param flag - true/false to set to write initial values to file
+ */
+void ModelParametersInfo::setToWriteVectorInitialValues(bool flag){
+    if (ptrRec) ptrRec->setToWriteVectorInitialValues(flag);
+    if (ptrNM)  ptrNM ->setToWriteVectorInitialValues(flag);
+    if (ptrGrw) ptrGrw->setToWriteVectorInitialValues(flag);
+    if (ptrM2M) ptrM2M->setToWriteVectorInitialValues(flag);
+    if (ptrSel) ptrSel->setToWriteVectorInitialValues(flag);
+    if (ptrFsh) ptrFsh->setToWriteVectorInitialValues(flag);
+    if (ptrSrv) ptrSrv->setToWriteVectorInitialValues(flag);
 }
 
 void ModelParametersInfo::read(cifstream & is){

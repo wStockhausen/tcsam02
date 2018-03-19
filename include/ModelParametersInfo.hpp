@@ -122,6 +122,13 @@ class ParameterGroupInfo{
          */
         virtual void read(cifstream & is);
         /**
+         * Sets the flags to write initial values for vector parameters to file 
+         * when writing parameter info to file.
+         * 
+         * @param flag - true/false to set to write initial values to file
+         */
+        virtual void setToWriteVectorInitialValues(bool flag)=0;
+        /**
          * Writes default info in ADMB format for the parameter group to an output stream.
          * Subclasses should override this function as appropriate.
          * 
@@ -201,6 +208,13 @@ class RecruitmentInfo: public ParameterGroupInfo {
          */
         ~RecruitmentInfo();
         
+        /**
+         * Sets the flags to write initial values for vector parameters to file 
+         * when writing parameter info to file.
+         * 
+         * @param flag - true/false to set to write initial values to file
+         */
+        void setToWriteVectorInitialValues(bool flag);
         /**
          * Reads the ParameterGroupInfo for recruitment from an input filestream in ADMB format.
          * 
@@ -284,6 +298,13 @@ class NaturalMortalityInfo : public ParameterGroupInfo {
          */
         void read(cifstream & is);
         /**
+         * Sets the flags to write initial values for vector parameters to file 
+         * when writing parameter info to file.
+         * 
+         * @param flag - true/false to set to write initial values to file
+         */
+        void setToWriteVectorInitialValues(bool flag);
+        /**
          * Writes to an output stream in ADMB format.
          * 
          * @param os - output stream
@@ -346,7 +367,24 @@ class GrowthInfo : public ParameterGroupInfo {
          * @param is - the input filestream
          */
         void read(cifstream & is);
+        /**
+         * Sets the flags to write initial values for vector parameters to file 
+         * when writing parameter info to file.
+         * 
+         * @param flag - true/false to set to write initial values to file
+         */
+        void setToWriteVectorInitialValues(bool flag);
+        /**
+         * Writes to an output stream in ADMB format.
+         * 
+         * @param os - output stream
+         */
         void write(std::ostream & os);
+        /**
+         * Writes to an output stream in R format.
+         * 
+         * @param os - output stream
+         */
         void writeToR(std::ostream & os);
 };
 
@@ -390,7 +428,24 @@ class Molt2MaturityInfo: public ParameterGroupInfo {
          * @param is - the input filestream
          */
         void read(cifstream & is);
+        /**
+         * Sets the flags to write initial values for vector parameters to file 
+         * when writing parameter info to file.
+         * 
+         * @param flag - true/false to set to write initial values to file
+         */
+        void setToWriteVectorInitialValues(bool flag);
+        /**
+         * Writes to an output stream in ADMB format.
+         * 
+         * @param os - output stream
+         */
         void write(std::ostream & os);
+        /**
+         * Writes to an output stream in R format.
+         * 
+         * @param os - output stream
+         */
         void writeToR(std::ostream & os);
         
         friend cifstream& operator >>(cifstream & is, Molt2MaturityInfo & obj){obj.read(is); return is;}
@@ -443,7 +498,24 @@ class SelectivityInfo : public ParameterGroupInfo {
          * @param is - the input filestream
          */
         void read(cifstream & is);
+        /**
+         * Sets the flags to write initial values for vector parameters to file 
+         * when writing parameter info to file.
+         * 
+         * @param flag - true/false to set to write initial values to file
+         */
+        void setToWriteVectorInitialValues(bool flag);
+        /**
+         * Writes to an output stream in ADMB format.
+         * 
+         * @param os - output stream
+         */
         void write(std::ostream & os);
+        /**
+         * Writes to an output stream in R format.
+         * 
+         * @param os - output stream
+         */
         void writeToR(std::ostream & os);
 };
 
@@ -508,7 +580,24 @@ class FisheriesInfo : public ParameterGroupInfo {
          * @param is - the input filestream
          */
         void read(cifstream & is);
+        /**
+         * Sets the flags to write initial values for vector parameters to file 
+         * when writing parameter info to file.
+         * 
+         * @param flag - true/false to set to write initial values to file
+         */
+        void setToWriteVectorInitialValues(bool flag);
+        /**
+         * Writes to an output stream in ADMB format.
+         * 
+         * @param os - output stream
+         */
         void write(std::ostream & os);
+        /**
+         * Writes to an output stream in R format.
+         * 
+         * @param os - output stream
+         */
         void writeToR(std::ostream & os);
 };
 
@@ -554,7 +643,24 @@ class SurveysInfo : public ParameterGroupInfo {
          * @param is - the input filestream
          */
         void read(cifstream & is);
+        /**
+         * Sets the flags to write initial values for vector parameters to file 
+         * when writing parameter info to file.
+         * 
+         * @param flag - true/false to set to write initial values to file
+         */
+        void setToWriteVectorInitialValues(bool flag);
+        /**
+         * Writes to an output stream in ADMB format.
+         * 
+         * @param os - output stream
+         */
         void write(std::ostream & os);
+        /**
+         * Writes to an output stream in R format.
+         * 
+         * @param os - output stream
+         */
         void writeToR(std::ostream & os);
 };
 
@@ -606,12 +712,29 @@ class ModelParametersInfo{
         ~ModelParametersInfo();
         
         /**
+         * Sets the flags to write initial values for vector parameters to file 
+         * when writing parameter info to file.
+         * 
+         * @param flag - true/false to set to write initial values to file
+         */
+        void setToWriteVectorInitialValues(bool flag);
+        /**
          * Reads the model parameters info for all parameter groups from an input filestream in ADMB format.
          * 
          * @param is - the input filestream
          */
         void read(cifstream & is);
+        /**
+         * Writes to an output stream in ADMB format.
+         * 
+         * @param os - output stream
+         */
         void write(std::ostream & os);
+        /**
+         * Writes to an output stream in R format.
+         * 
+         * @param os - output stream
+         */
         void writeToR(std::ostream & os);
 
         friend cifstream& operator >>(cifstream & is, ModelParametersInfo & obj){obj.read(is); return is;}
