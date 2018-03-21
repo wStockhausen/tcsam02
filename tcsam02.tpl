@@ -399,6 +399,9 @@
 //-2018-03-13:  1. Revised approach to jittering because old version resulted in too high
 //                  a proportion of values near a limit if the default value was near that limit
 //-2018-03-15:  1. Eliminated writes to terminal screen in PRELIMINARY_CALCS
+//-2018-03-19:  1. Now sets usePin to 2 if "-mcpin" is a commandline argument (i.e., running NUTS MCMC)
+//-2018-03-21:  1. Adding commandline option "-dynB0" to run dynamic B0 calculations after final phase
+//              2. Updated model version to 2018.03.21.
 //
 // =============================================================================
 // =============================================================================
@@ -450,6 +453,7 @@ GLOBALS_SECTION
     int usePin     = 0;//flag to initialize parameter values using a pin file
     int doRetro    = 0;//flag to facilitate a retrospective model run
     int fitSimData = 0;//flag to fit model to simulated data calculated in the PRELIMINARY_CALCs section
+    int runDynB0   = 0;//flag to run dynamic B0 calculations after final phase
     int ctrDebugParams = 0;//PROCEDURE_SECTION call counter value to start debugging output
     
     int yRetro = 0; //number of years to decrement for retrospective model run
@@ -562,6 +566,19 @@ DATA_SECTION
         usePin = 1;
         fnPin = ad_comm::argv[on+1];
         rpt::echo<<"#Initial parameter values from pin file: "<<fnPin<<endl;
+        rpt::echo<<"#-------------------------------------------"<<endl;
+    }
+    //parameter input file for running NUTS MCMC 
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-mcpin"))>-1) {
+        usePin = 2;
+        fnPin = ad_comm::argv[on+1];
+        rpt::echo<<"#Initial parameter values for running NUTS MCMC from pin file: "<<fnPin<<endl;
+        rpt::echo<<"#-------------------------------------------"<<endl;
+    }
+    //run dynamic B0 calculations after final phase
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-dynB0"))>-1) {
+        runDynB0 = 1;
+        rpt::echo<<"#Running dynamic B0 calculations after final phase."<<endl;
         rpt::echo<<"#-------------------------------------------"<<endl;
     }
     //opModMode
@@ -6807,21 +6824,64 @@ FUNCTION save_params
     os1.precision(12);
     initial_params::save(os1, 12);
     os1.close();
+
+//-------------------------------------------------------------------------------------
+FUNCTION void calcDynB0(int debug, ostream& cout)
+    if (debug) cout<<"starting calcDynB0()"<<endl;
+    //open file for output
+    adstring fn = "DynamicB0.R";
+    ofstream os(fn, ios::trunc);
+    os.precision(12);
     
+    //write MMB from final phase to R
+    os<<"res=list("<<endl;
+    os<<"MB_yx    ="; wts::writeToR(os,value(spB_yx), yDms,xDms); os<<cc<<endl;
+    
+    //initialize population model
+    initPopDyMod(debug, cout);
+    
+    //reset fishery F's to 0
+    hasF_fy.initialize();   //flags indicating whether or not fishery occurs
+    hmF_fy.initialize();    //handling mortality
+    cpF_fyxms.initialize(); //fully-selected capture rate
+    cpF_fyxmsz.initialize();//size-specific capture rate
+    rmF_fyxmsz.initialize();//retention rate
+    dmF_fyxmsz.initialize();//discard mortality rate
+    tmF_yxmsz.initialize(); //total mortality rate
+    
+    //run population model
+    for (int y=mnYr;y<=mxYr;y++) runPopDyModOneYear(y,debug,cout);        
+    
+    //write MMB from dynamic B0 calculations to R
+    os<<"dB0_yx    ="; wts::writeToR(os,value(spB_yx), yDms,xDms); os<<endl;
+    os<<")"<<endl;
+    os.close();
+    
+    if (debug) cout<<"finished calcDynB0()"<<endl;
 // =============================================================================
 // =============================================================================
 FINAL_SECTION
-    {cout<<"writing model sim data to file"<<endl;
+    {
+        rpt::echo<<"--FINAL_SECTION: Calculating effective weights for size compositions"<<endl;
+        cout<<"writing model sim data to file"<<endl;
         ofstream echo1; echo1.open("ModelSimData.dat", ios::trunc);
         echo1.precision(12);
         writeSimData(echo1,0,cout,ptrSimMDS);
     }
 
-    rpt::echo<<"--FINAL_SECTION: Calculating effective weights for size compositions"<<endl;
-    calcWeightsForSurveySizeComps(1,rpt::echo);
-    calcWeightsForFisherySizeComps(1,rpt::echo);
+    {
+        rpt::echo<<"--FINAL_SECTION: Calculating effective weights for size compositions"<<endl;
+        calcWeightsForSurveySizeComps(1,rpt::echo);
+        calcWeightsForFisherySizeComps(1,rpt::echo);
+    }
+    
+    if (runDynB0>0){
+        rpt::echo<<"--FINAL_SECTION: Calculating dynamic B0"<<endl;
+        calcDynB0(1,rpt::echo);
+    }
         
     if (option_match(ad_comm::argc,ad_comm::argv,"-mceval")>-1) {
+        rpt::echo<<"--FINAL_SECTION: closing mcmc file"<<endl;
         mcmc.open((char*)(fnMCMC),ofstream::out|ofstream::app);
         mcmc.precision(12);
         mcmc<<"NULL)"<<endl;
