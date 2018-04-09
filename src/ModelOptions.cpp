@@ -246,7 +246,7 @@ void EffXtrapScenarios::writeToR(std::ostream& os){
 //          ModelOptions
 //--------------------------------------------------------------------------------
 int ModelOptions::debug = 0;
-const adstring ModelOptions::VERSION = "2017.12.01";
+const adstring ModelOptions::VERSION = "2018.04.05";
 
 ModelOptions::ModelOptions(ModelConfiguration& mc){
     ptrMC=&mc;
@@ -262,9 +262,10 @@ ModelOptions::ModelOptions(ModelConfiguration& mc){
     optsParamNM(1) = "use TCSAM2013 parameterization (arithmetic scale)"; 
     
     //growth parameterization options
-    optsGrowthParam.allocate(0,1);
+    optsGrowthParam.allocate(0,2);
     optsGrowthParam(0) = "TCSAM2013 parameterization (ln-scale intercept, slope)"; 
     optsGrowthParam(1) = "parameterization based on min, max pre-molt sizes";
+    optsGrowthParam(2) = "parameterization based on min pre-molt size, ln-scale slope";
     
     //growth pdf options
     optsGrowthPDF.allocate(0,1);
