@@ -415,6 +415,7 @@
 //                  the objective function (previously, this only occurred when
 //                  the prM2M parameters were active--thus never in the
 //                  PRELIMINARY_CALCS section).
+//-2018-04-10:  1. Fix to output to R in calcNoneNLLs for size comps.
 //
 // =============================================================================
 // =============================================================================
@@ -5154,7 +5155,7 @@ FUNCTION void calcMultinomialNLL(double wgt, dvar_vector& mod, dvector& obs, dou
 FUNCTION void calcNoneNLL(double wgt, dvar_vector& mod, dvector& obs, double& ss, int& yr, int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"Starting calcNoneNLL(size comps)"<<endl;
     if (debug<0){
-        cout<<"list(nll.type='none',yr="<<yr<<cc<<"wgt="<<wgt<<cc<<"nll="<<0.0<<cc<<"objfun="<<0.0<<cc<<"ss="<<0<<cc<<"effN="<<0<<cout<<")";
+        cout<<"list(nll.type='none',yr="<<yr<<cc<<"wgt="<<wgt<<cc<<"nll="<<0.0<<cc<<"objfun="<<0.0<<cc<<"ss="<<0<<cc<<"effN="<<0<<")";
     }
     if (debug>=dbgAll) cout<<"Finished calcNoneNLL(size comps)"<<endl;
  
