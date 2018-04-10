@@ -400,7 +400,7 @@
 //                  a proportion of values near a limit if the default value was near that limit
 //-2018-03-15:  1. Eliminated writes to terminal screen in PRELIMINARY_CALCS
 //-2018-03-19:  1. Now sets usePin to 2 if "-mcpin" is a commandline argument (i.e., running NUTS MCMC)
-//-2018-03-21:  1. Adding commandline option "-dynB0" to run dynamic B0 calculations after final phase
+//-2018-03-21:  1. Adding commandline option "calcDynB0" to run dynamic B0 calculations after final phase
 //              2. Updated model version to 2018.03.21.
 //-2018-03-28:  1. Revised calcPrM2M to correctly handle small size bins being fixed at 0.
 //-2018-04-05:  1. Added new growth parameterization based on post-molt size at specified 
@@ -416,6 +416,7 @@
 //                  the prM2M parameters were active--thus never in the
 //                  PRELIMINARY_CALCS section).
 //-2018-04-10:  1. Fix to output to R in calcNoneNLLs for size comps.
+//              2. changed command line option from -dynB0 to -calcDynB0
 //
 // =============================================================================
 // =============================================================================
@@ -600,7 +601,7 @@ DATA_SECTION
         rpt::echo<<"#-------------------------------------------"<<endl;
     }
     //run dynamic B0 calculations after final phase
-    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-dynB0"))>-1) {
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-calcDynB0"))>-1) {
         doDynB0 = 1;
         rpt::echo<<"#Running dynamic B0 calculations after final phase."<<endl;
         rpt::echo<<"#-------------------------------------------"<<endl;
@@ -1828,7 +1829,7 @@ PROCEDURE_SECTION
 //     os1.close();
 //    }
 //
-    PRINT2B1("--END PROCEDURE_SECTION----------------")
+    if (dbg>=dbgObjFun) PRINT2B1("--END PROCEDURE_SECTION----------------")
             
 //*****************************************
 FUNCTION void setInitVals(int debug, ostream& os)
