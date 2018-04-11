@@ -19,6 +19,8 @@
  * 20171116: incremented tcsam::VERSION to "2017.11.16"
  * 20171205: incremented tcsam::VERSION to "2017.12.05"
  * 20171206: incremented tcsam::VERSION to "2017.12.06"
+ * 20180411: incremented tcsam::VERSION to "2018.04.11"
+ *           added LL_GAMMA and STR_LL_GAMMA
  */
 
 #pragma once
@@ -43,7 +45,7 @@ namespace tcsam{
     /* adstring indicating model name */
     const adstring MODEL = "tcsam02";
     /* adstring indicating model version */
-    const adstring VERSION = "2018.03.21";
+    const adstring VERSION = "2018.04.11";
     
     /* minimum debugging level that will print ALL debug info */
     const int dbgAll = 100;
@@ -144,6 +146,8 @@ namespace tcsam{
     const adstring STR_LL_MULTINOMIAL = "MULTINOMIAL";
     /** adstring constant indicating likelihood type 'BINOMIAL' */
     const adstring STR_LL_BINOMIAL    = "BINOMIAL";
+    /** adstring constant indicating likelihood type 'GAMMA' */
+    const adstring STR_LL_GAMMA    = "GAMMA";
     /** integer constant indicating likelihood type 'NONE' */
     const int LL_NONE        = 0;
     /** integer constant indicating likelihood type 'NORM2' */
@@ -156,6 +160,8 @@ namespace tcsam{
     const int LL_MULTINOMIAL = 4;
     /** integer constant indicating likelihood type 'BINOMIAL' */
     const int LL_BINOMIAL    = 5;
+    /** integer constant indicating likelihood type 'GAMMA' */
+    const int LL_GAMMA    = 6;
     
     //Stock-recruit function types
     const adstring STR_CONSTANT = "CONSTANT";

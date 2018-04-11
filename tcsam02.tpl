@@ -403,7 +403,7 @@
 //-2018-03-21:  1. Adding commandline option "calcDynB0" to run dynamic B0 calculations after final phase
 //              2. Updated model version to 2018.03.21.
 //-2018-03-28:  1. Revised calcPrM2M to correctly handle small size bins being fixed at 0.
-//-2018-04-05:  1. Added new growth parameterization based on post-molt size at specified 
+//-2018-04-05:  1. Added new growth parameterization option based on post-molt size at specified 
 //                  pre-molt size and ln-scale slope.
 //              2. Incremented ModelOptions.VERSION to 2018.04.05.
 //              3. Added print statements in PROCEDURE_SECTION to diagnose nuts behavior.
@@ -417,6 +417,16 @@
 //                  PRELIMINARY_CALCS section).
 //-2018-04-10:  1. Fix to output to R in calcNoneNLLs for size comps.
 //              2. changed command line option from -dynB0 to -calcDynB0
+//              3. changed lists that use survey or fishery names to surround
+//                  them with `s to be valid names in R
+//-2018-04-11:  1. Revised calculations in calcNLLs_GrowthData and calcNLLs_MaturityData
+//                  so that likelihoods are calculated for datasets with likelihood weights
+//                  set to 0 (so the fit is not included in the parameter optimization)
+//                  ONLY when output to R is requested (i.e., when debug<0 in call to function).
+//              2. changed lists that use growth dataset or maturity dataset names to surround
+//                  them with `s to be valid names in R
+//              3. Added 'GAMMA' (LL_GAMMA and STR_LL_GAMMA) as likelihood type
+//              4. Incremented tcsam::VERSION and modVer to 2018.04.11.
 //
 // =============================================================================
 // =============================================================================
@@ -437,7 +447,7 @@ GLOBALS_SECTION
     #define PRINT2B2(t,o) std::cout<<(t)<<(o)<<std::endl; rpt::echo<<(t)<<(o)<<std::endl;
 
     adstring model  = tcsam::MODEL;
-    adstring modVer = "2018.04.05"; 
+    adstring modVer = "2018.04.11"; 
     
     time_t start,finish;
     
@@ -2117,23 +2127,23 @@ FUNCTION void writeMCMCtoR(ofstream& mcmc)
     mcmc<<"list(objFun="<<objFun<<cc<<endl;
     //write parameter values
         //recruitment values
-        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pLnR);   mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pRCV); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pRX); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pRa);  mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pRb);  mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pDevsLnR);  mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pLnR);     mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pRCV);     mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pRX);      mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pRa);      mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pRb);      mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pDevsLnR); mcmc<<cc<<endl;
 
         //natural mortality parameters
-        writeMCMCtoR(mcmc,ptrMPI->ptrNM->pM); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrNM->pM);   mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrNM->pDM1); mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrNM->pDM2); mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrNM->pDM3); mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrNM->pDM4); mcmc<<cc<<endl;
 
         //growth parameters
-        writeMCMCtoR(mcmc,ptrMPI->ptrGrw->pGrA); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrGrw->pGrB); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrGrw->pGrA);    mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrGrw->pGrB);    mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrGrw->pGrBeta); mcmc<<cc<<endl;
 
         //maturity parameters
@@ -2154,22 +2164,22 @@ FUNCTION void writeMCMCtoR(ofstream& mcmc)
         writeMCMCtoR(mcmc,ptrMPI->ptrSel->pDevsS6); mcmc<<cc<<endl;
 
         //fully-selected fishing capture rate parameters
-        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pHM); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pHM);  mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pLnC); mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pDC1); mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pDC2); mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pDC3); mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pDC4); mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pDevsLnC); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pLnEffX); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pLgtRet); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pLnEffX);  mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pLgtRet);  mcmc<<cc<<endl;
 
         //survey catchability parameters
         writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pQ);    mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ1);  mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ2);  mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ3);  mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ4); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ4);  mcmc<<cc<<endl;
     
         //write other quantities
         mcmc<<"R_y="; wts::writeToR(mcmc,value(R_y)); mcmc<<cc<<endl;
@@ -2986,7 +2996,7 @@ FUNCTION void initPopDyMod(int debug, ostream& cout)
     calcRecruitment(debug,cout);//calculate recruitment
     calcNatMort(debug,cout);    //calculate natural mortality rates
     calcGrowth(debug,cout);     //calculate growth transition matrices
-    calcPrM2M(debug,cout);   //calculate maturity ogives
+    calcPrM2M(debug,cout);      //calculate maturity ogives
     
     calcSelectivities(debug,cout); //calculate selectivity functions
     calcFisheryFs(debug,cout);     //calculate fishery F's
@@ -3593,9 +3603,10 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
             if (debug>dbgCalcProcs) cout<<"mnZs:"<<tb<<mnZs<<endl;
         } else {
             //throw error
-            cout<<endl<<"#---------------------"<<endl;
-            cout<<"Invalid growth parameterization option ("<<ptrMOs->optGrowthParam<<")."<<endl;
-            cout<<"Please select a valid option and re-run."<<endl;
+            PRINT2B1(" ")
+            PRINT2B1("#---------------------")
+            PRINT2B2("Invalid growth parameterization option ",ptrMOs->optGrowthParam)
+            PRINT2B1("Please select a valid option and re-run.")
             ad_exit(-1);
         }
 
@@ -4789,73 +4800,62 @@ FUNCTION void calcNLLs_ChelaHeightData(int debug, ostream& cout)
     if (debug<0) cout<<"list("<<endl;
     for (int i=0;i<ptrMDS->nCHD;i++){
         ChelaHeightData* pCHD = ptrMDS->ppCHD[i];
-        if (debug<0) cout<<pCHD->name<<"=list("<<endl;
-        int nObs = pCHD->nObs;
-        //cout<<"nObs= "<<nObs<<tb;
-        if (nObs>0) {
-            /* index of model survey corresponding to dataset */
-            int v = mapD2MChd(i+1);//
-            //cout<<"v= "<<v<<endl;
-            /* likelihood multiplier for this dataset */
-            double wgt = pCHD->llWgt;
-            /* year corresponding to observed fractions */
-            ivector y_n = pCHD->obsYear_n;
-            /* sample sizes from observations */
-            dvector ss_n = pCHD->obsSS_n;
-           /* model size bin index for size corresponding to observation */
-            ivector obsIZ = pCHD->obsSizeBinIndex_n;
-            /* observed fractions of new shell mature crab at size */
-            dvector obsPM = 1.0*pCHD->obsPrMat_n;
-            
-            dvar_vector modPM(1,nObs);  modPM.initialize();
-            dvar_vector nlls_n(1,nObs); nlls_n.initialize();
-            dvector zscrs_n(1,nObs);    zscrs_n.initialize();
-            for (int n=1;n<=nObs;n++){
-                //cout<<"n="<<n<<tb<<"obsIZ="<<tb<<obsIZ(n)<<tb;
-                if ((obsIZ(n)>0)&(obsIZ(n)<=nZBs)){
-                    //cout<<y_n(n)<<tb;
-                    dvariable nMat = n_vyxmsz(v,y_n(n),MALE,MATURE,NEW_SHELL,obsIZ(n));
-                    dvariable nTot = nMat + n_vyxmsz(v,y_n(n),MALE,IMMATURE,NEW_SHELL,obsIZ(n));
-                    modPM(n) = nMat/nTot;
-                    //cout<<nMat<<tb<<nTot<<tb<<modPM(n)<<tb;
-                    if ((modPM(n)>0.0)&(modPM(n)<1.0)){
-                        if (obsPM(n)>0.0) nlls_n(n) -= ss_n(n)*obsPM(n)*(log(modPM(n))-log(obsPM(n)));
-                        if (obsPM(n)<1.0) nlls_n(n) -= ss_n(n)*(1.0-obsPM(n))*(log(1.0-modPM(n))-log(1.0-obsPM(n)));
-                        //cout<<nlls_n(n)<<tb;
-                        double modPMv = value(modPM(n));
-                        zscrs_n(n) = (obsPM(n)-modPMv)/sqrt(modPMv*(1.0-modPMv)/ss_n(n));
-                        //cout<<"zscrs_n(n)="<<zscrs_n(n)<<endl;
+        if ((pCHD->llWgt>0.0)||(debug<0)){
+            if (debug<0) cout<<"`"<<pCHD->name<<"`=list("<<endl;
+            int nObs = pCHD->nObs;
+            //cout<<"nObs= "<<nObs<<tb;
+            if (nObs>0) {
+                /* index of model survey corresponding to dataset */
+                int v = mapD2MChd(i+1);//
+                //cout<<"v= "<<v<<endl;
+                /* likelihood multiplier for this dataset */
+                double wgt = pCHD->llWgt;
+                /* year corresponding to observed fractions */
+                ivector y_n = pCHD->obsYear_n;
+                /* sample sizes from observations */
+                dvector ss_n = pCHD->obsSS_n;
+               /* model size bin index for size corresponding to observation */
+                ivector obsIZ = pCHD->obsSizeBinIndex_n;
+                /* observed fractions of new shell mature crab at size */
+                dvector obsPM = 1.0*pCHD->obsPrMat_n;
+
+                dvar_vector modPM(1,nObs);  modPM.initialize();
+                dvar_vector nlls_n(1,nObs); nlls_n.initialize();
+                dvector zscrs_n(1,nObs);    zscrs_n.initialize();
+                for (int n=1;n<=nObs;n++){
+                    //cout<<"n="<<n<<tb<<"obsIZ="<<tb<<obsIZ(n)<<tb;
+                    if ((obsIZ(n)>0)&(obsIZ(n)<=nZBs)){
+                        //cout<<y_n(n)<<tb;
+                        dvariable nMat = n_vyxmsz(v,y_n(n),MALE,MATURE,NEW_SHELL,obsIZ(n));
+                        dvariable nTot = nMat + n_vyxmsz(v,y_n(n),MALE,IMMATURE,NEW_SHELL,obsIZ(n));
+                        modPM(n) = nMat/nTot;
+                        //cout<<nMat<<tb<<nTot<<tb<<modPM(n)<<tb;
+                        if ((modPM(n)>0.0)&(modPM(n)<1.0)){
+                            if (obsPM(n)>0.0) nlls_n(n) -= ss_n(n)*obsPM(n)*(log(modPM(n))-log(obsPM(n)));
+                            if (obsPM(n)<1.0) nlls_n(n) -= ss_n(n)*(1.0-obsPM(n))*(log(1.0-modPM(n))-log(1.0-obsPM(n)));
+                            //cout<<nlls_n(n)<<tb;
+                            double modPMv = value(modPM(n));
+                            zscrs_n(n) = (obsPM(n)-modPMv)/sqrt(modPMv*(1.0-modPMv)/ss_n(n));
+                            //cout<<"zscrs_n(n)="<<zscrs_n(n)<<endl;
+                        }
                     }
+                }//loop over n
+                dvariable nll = sum(nlls_n);
+                objFun += wgt*nll;
+                if (debug<0) {
+                    cout<<"type='binomial',wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl;
+                    cout<<"y=";     wts::writeToR(cout,y_n);             cout<<cc<<endl;
+                    cout<<"n=";     wts::writeToR(cout,ss_n);            cout<<cc<<endl;
+                    cout<<"z=";     wts::writeToR(cout,pCHD->obsSize_n); cout<<cc<<endl;
+                    cout<<"i=";     wts::writeToR(cout,obsIZ);           cout<<cc<<endl;
+                    cout<<"obsPM="; wts::writeToR(cout,obsPM);           cout<<cc<<endl;
+                    cout<<"modPM="; wts::writeToR(cout,value(modPM));    cout<<cc<<endl;
+                    cout<<"nlls=";  wts::writeToR(cout,value(nlls_n));   cout<<cc<<endl;
+                    cout<<"zscrs="; wts::writeToR(cout,zscrs_n);         cout<<cc<<endl;
+                    cout<<"rmse="<<sqrt(norm2(zscrs_n)/zscrs_n.size())<<"),"<<endl;
                 }
-            }//loop over n
-            dvariable nll = sum(nlls_n);
-            objFun += wgt*nll;
-            if (debug<0) {
-                cout<<"type='binomial',wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl;
-                cout<<"y=";     wts::writeToR(cout,y_n);             cout<<cc<<endl;
-                cout<<"n=";     wts::writeToR(cout,ss_n);            cout<<cc<<endl;
-                cout<<"z=";     wts::writeToR(cout,pCHD->obsSize_n); cout<<cc<<endl;
-                cout<<"i=";     wts::writeToR(cout,obsIZ);           cout<<cc<<endl;
-                cout<<"obsPM="; wts::writeToR(cout,obsPM);           cout<<cc<<endl;
-                cout<<"modPM="; wts::writeToR(cout,value(modPM));    cout<<cc<<endl;
-                cout<<"nlls=";  wts::writeToR(cout,value(nlls_n));   cout<<cc<<endl;
-                cout<<"zscrs="; wts::writeToR(cout,zscrs_n);         cout<<cc<<endl;
-                cout<<"rmse="<<sqrt(norm2(zscrs_n)/zscrs_n.size())<<"),"<<endl;
-            }
-//            {
-//                rpt::echo<<current_phase()<<endl;
-//                rpt::echo<<"type='binomial',wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl;
-//                rpt::echo<<"y=";     wts::writeToR(rpt::echo,y_n);             rpt::echo<<cc<<endl;
-//                rpt::echo<<"n=";     wts::writeToR(rpt::echo,ss_n);            rpt::echo<<cc<<endl;
-//                rpt::echo<<"z=";     wts::writeToR(rpt::echo,pCHD->obsSize_n); rpt::echo<<cc<<endl;
-//                rpt::echo<<"i=";     wts::writeToR(rpt::echo,obsIZ);           rpt::echo<<cc<<endl;
-//                rpt::echo<<"obsPM="; wts::writeToR(rpt::echo,obsPM);           rpt::echo<<cc<<endl;
-//                rpt::echo<<"modPM="; wts::writeToR(rpt::echo,value(modPM));    rpt::echo<<cc<<endl;
-//                rpt::echo<<"nlls=";  wts::writeToR(rpt::echo,value(nlls_n));   rpt::echo<<cc<<endl;
-//                rpt::echo<<"zscrs="; wts::writeToR(rpt::echo,zscrs_n);         rpt::echo<<cc<<endl;
-//                rpt::echo<<"rmse="<<sqrt(norm2(zscrs_n)/zscrs_n.size())<<"),"<<endl;
-//            }
-        }//nObs>0
+            }//nObs>0
+        }//((pCHD->llWgt>0)||(debug<0))
     }//datasets (i)
     if (debug<0) cout<<"NULL)"<<endl;
     if (debug>dbgObjFun) cout<<"finished calcNLLs_ChelaHeightData()"<<endl;
@@ -4878,82 +4878,101 @@ FUNCTION void calcNLLs_GrowthData(int debug, ostream& cout)
     if (debug<0) cout<<"list("<<endl;
     for (int i=0;i<ptrMDS->nGrw;i++){
         GrowthData* pGD = ptrMDS->ppGrw[i];
-        if (debug<0) cout<<ptrMDS->ppGrw[i]->name<<"=list("<<endl;
-        for (int x=1;x<=nSXs;x++){
-            int nObs = ptrMDS->ppGrw[i]->nObs_x(x);
-            if (nObs>0) {
-                double wgt = ptrMDS->ppGrw[i]->llWgt;
-                /* observation year */
-                ivector year_n = ptrMDS->ppGrw[i]->obsYears_xn(x);
-                /* pre-molt size, by observation */
-                dvar_vector zpre_n = ptrMDS->ppGrw[i]->inpData_xcn(x,2);
-                /* post-molt size, by observation */
-                dvar_vector zpst_n = ptrMDS->ppGrw[i]->inpData_xcn(x,3);
-                /* molt increment, by observation */
-                dvar_vector incZ_n = zpst_n - zpre_n;
-                /* mean post-molt size, by observation */
-                //dvar_vector mnZ_n = elem_prod(mfexp(grA_xy(x)(year_n)),pow(zpre_n,grB_xy(x)(year_n)));
-                dvar_vector mnZ_n(zpre_n.indexmin(),zpre_n.indexmax());
-                if (ptrMOs->optGrowthParam==0){
-                    mnZ_n = mfexp(grA_xy(x)(year_n)+elem_prod(grB_xy(x)(year_n),log(zpre_n)));
-                } else if (ptrMOs->optGrowthParam==1){
-                    mnZ_n  = elem_prod(
-                                 grA_xy(x)(year_n),
-                                 mfexp(
-                                     elem_prod(
-                                         elem_div(log(elem_div( grB_xy(x)(year_n), grA_xy(x)(year_n))),
-                                                  log(elem_div(zGrB_xy(x)(year_n),zGrA_xy(x)(year_n)))),
-                                         log(elem_div(zpre_n,zGrA_xy(x)(year_n)))
-                                     )
-                                 )
-                             );
-                }
-                /* multiplicative scale factor, by observation */
-                dvar_vector ibeta_n = 1.0/grBeta_xy(x)(year_n);
-                /* location factor, by observation */
-                dvar_vector alpha_n = elem_prod(mnZ_n-zpre_n,ibeta_n);
-                dvar_vector nlls_n(1,nObs); nlls_n.initialize();
-                nlls_n = -wts::log_gamma_density(incZ_n,alpha_n,ibeta_n);
-                dvariable nll = sum(nlls_n);
-                if (isnan(value(nll))){
-                    dvar_vector zscrs = elem_div((zpst_n-mnZ_n),sqrt(elem_prod(mnZ_n,grBeta_xy(x)(year_n))));
-                    ofstream os("GrowthData.NLLs.NanReport.dat");
-                    os.precision(12);
-                    os<<"phase = "<<current_phase()<<endl;
-                    os<<"sex   = "<<tcsam::getSexType(x)<<endl;
-                    os<<"nll   = "<<nll<<endl;
-                    os<<"nObs  = "<<nObs<<endl;
-                    os<<"year  grA   zGrA    grB    zGrB   zpre_n  zpst_n  mnZ_n   incZ   mnInc  ibeta_n alpha_n nll_n  zscr"<<endl;
-                    for (int n=1;n<=nObs;n++){
-                        os<<year_n(n)<<tb<<
-                                grA_xy(x)(year_n(n))<<tb<<grB_xy(x)(year_n(n))<<tb<<
-                                zGrA_xy(x)(year_n(n))<<tb<<zGrB_xy(x)(year_n(n))<<tb<<
-                                zpre_n(n)<<tb<<zpst_n(n)<<tb<<mnZ_n(n)<<tb<<
-                                zpst_n(n)-zpre_n(n)<<tb<<mnZ_n(n)-zpre_n(n)<<tb<<
-                                ibeta_n(n)<<tb<<alpha_n(n)<<tb<<nlls_n(n)<<tb<<zscrs(n)<<endl;
+        if ((pGD->llWgt>0.0)||(debug<0)){
+            if (debug<0) cout<<"`"<<ptrMDS->ppGrw[i]->name<<"`=list("<<endl;
+            for (int x=1;x<=nSXs;x++){
+                int nObs = pGD->nObs_x(x);
+                if (nObs>0) {
+                    double wgt = pGD->llWgt;
+                    /* observation year */
+                    ivector year_n = pGD->obsYears_xn(x);
+                    /* pre-molt size, by observation */
+                    dvar_vector zpre_n = pGD->inpData_xcn(x,2);
+                    /* post-molt size, by observation */
+                    dvar_vector zpst_n = ptrMDS->ppGrw[i]->inpData_xcn(x,3);
+                    /* molt increment, by observation */
+                    dvar_vector incZ_n = zpst_n - zpre_n;
+                    /* mean post-molt size, by observation */
+                    //dvar_vector mnZ_n = elem_prod(mfexp(grA_xy(x)(year_n)),pow(zpre_n,grB_xy(x)(year_n)));
+                    dvar_vector mnZ_n(zpre_n.indexmin(),zpre_n.indexmax());
+                    if (ptrMOs->optGrowthParam==0){
+                        mnZ_n = mfexp(grA_xy(x)(year_n)+elem_prod(grB_xy(x)(year_n),log(zpre_n)));
+                    } else if (ptrMOs->optGrowthParam==1){
+                        mnZ_n = elem_prod(
+                                    grA_xy(x)(year_n),
+                                    mfexp(
+                                        elem_prod(
+                                            elem_div(log(elem_div( grB_xy(x)(year_n), grA_xy(x)(year_n))),
+                                                     log(elem_div(zGrB_xy(x)(year_n),zGrA_xy(x)(year_n)))),
+                                            log(elem_div(zpre_n,zGrA_xy(x)(year_n)))
+                                        )
+                                    )
+                                );
+                    } else if (ptrMOs->optGrowthParam==2){
+                        mnZ_n = elem_prod(
+                                    grA_xy(x)(year_n),
+                                    mfexp(
+                                        elem_prod(
+                                            grB_xy(x)(year_n),
+                                            log(elem_div(zpre_n,zGrA_xy(x)(year_n)))
+                                        )
+                                    )
+                                );
+                    } else {
+                        //throw error
+                        PRINT2B1(" ")
+                        PRINT2B1("#---------------------")
+                        PRINT2B2("Unknown growth parameterization option",ptrMOs->optGrowthParam)
+                        PRINT2B1("Terminating model run. Please correct.")
+                        ad_exit(-1);
                     }
-                    os.close();
-                    exit(-1);
-                }
-                objFun += wgt*nll;
-                if (debug<0) {
-                    dvar_vector zscrs = elem_div((zpst_n-mnZ_n),sqrt(elem_prod(mnZ_n,grBeta_xy(x)(year_n))));
-                    cout<<tcsam::getSexType(x)<<"=list(type='normal',wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl;
-                    cout<<"years="; wts::writeToR(cout,year_n);         cout<<cc<<endl;
-                    cout<<"zPre=";  wts::writeToR(cout,value(zpre_n));  cout<<cc<<endl;
-                    cout<<"zPst=";  wts::writeToR(cout,value(zpst_n));  cout<<cc<<endl;
-                    cout<<"grA=";   wts::writeToR(cout,value(grA_xy(x)(year_n))); cout<<cc<<endl;
-                    cout<<"grB=";   wts::writeToR(cout,value(grB_xy(x)(year_n))); cout<<cc<<endl;
-                    cout<<"mnZ =";  wts::writeToR(cout,value(mnZ_n));   cout<<cc<<endl;
-                    cout<<"ibeta="; wts::writeToR(cout,value(ibeta_n)); cout<<cc<<endl;
-                    cout<<"alpha="; wts::writeToR(cout,value(alpha_n)); cout<<cc<<endl;
-                    cout<<"nlls=";  wts::writeToR(cout,value(nlls_n));  cout<<cc<<endl;
-                    cout<<"zscrs="; wts::writeToR(cout,value(zscrs));   cout<<cc<<endl;
-                    cout<<"rmse="<<sqrt(value(norm2(zscrs))/zscrs.size())<<"),"<<endl;
-                }
-            }//nObs>0
-        }//x
-        if (debug<0) cout<<"NULL),";
+                    /* multiplicative scale factor, by observation */
+                    dvar_vector ibeta_n = 1.0/grBeta_xy(x)(year_n);
+                    /* location factor, by observation */
+                    dvar_vector alpha_n = elem_prod(mnZ_n-zpre_n,ibeta_n);
+                    dvar_vector nlls_n(1,nObs); nlls_n.initialize();
+                    nlls_n = -wts::log_gamma_density(incZ_n,alpha_n,ibeta_n);
+                    dvariable nll = sum(nlls_n);
+                    if (isnan(value(nll))){
+                        dvar_vector zscrs = elem_div((zpst_n-mnZ_n),sqrt(elem_prod(mnZ_n,grBeta_xy(x)(year_n))));
+                        ofstream os("GrowthData.NLLs.NanReport.dat");
+                        os.precision(12);
+                        os<<"phase = "<<current_phase()<<endl;
+                        os<<"sex   = "<<tcsam::getSexType(x)<<endl;
+                        os<<"nll   = "<<nll<<endl;
+                        os<<"nObs  = "<<nObs<<endl;
+                        os<<"year  grA   zGrA    grB    zGrB   zpre_n  zpst_n  mnZ_n   incZ   mnInc  ibeta_n alpha_n nll_n  zscr"<<endl;
+                        for (int n=1;n<=nObs;n++){
+                            os<<year_n(n)<<tb<<
+                                    grA_xy(x)(year_n(n))<<tb<<grB_xy(x)(year_n(n))<<tb<<
+                                    zGrA_xy(x)(year_n(n))<<tb<<zGrB_xy(x)(year_n(n))<<tb<<
+                                    zpre_n(n)<<tb<<zpst_n(n)<<tb<<mnZ_n(n)<<tb<<
+                                    zpst_n(n)-zpre_n(n)<<tb<<mnZ_n(n)-zpre_n(n)<<tb<<
+                                    ibeta_n(n)<<tb<<alpha_n(n)<<tb<<nlls_n(n)<<tb<<zscrs(n)<<endl;
+                        }
+                        os.close();
+                        exit(-1);
+                    }
+                    objFun += wgt*nll;
+                    if (debug<0) {
+                        dvar_vector zscrs = elem_div((zpst_n-mnZ_n),sqrt(elem_prod(mnZ_n,grBeta_xy(x)(year_n))));
+                        cout<<tcsam::getSexType(x)<<"=list(type='gamma',wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl;
+                        cout<<"years="; wts::writeToR(cout,year_n);         cout<<cc<<endl;
+                        cout<<"zPre=";  wts::writeToR(cout,value(zpre_n));  cout<<cc<<endl;
+                        cout<<"zPst=";  wts::writeToR(cout,value(zpst_n));  cout<<cc<<endl;
+                        cout<<"grA=";   wts::writeToR(cout,value(grA_xy(x)(year_n))); cout<<cc<<endl;
+                        cout<<"grB=";   wts::writeToR(cout,value(grB_xy(x)(year_n))); cout<<cc<<endl;
+                        cout<<"mnZ =";  wts::writeToR(cout,value(mnZ_n));   cout<<cc<<endl;
+                        cout<<"ibeta="; wts::writeToR(cout,value(ibeta_n)); cout<<cc<<endl;
+                        cout<<"alpha="; wts::writeToR(cout,value(alpha_n)); cout<<cc<<endl;
+                        cout<<"nlls=";  wts::writeToR(cout,value(nlls_n));  cout<<cc<<endl;
+                        cout<<"zscrs="; wts::writeToR(cout,value(zscrs));   cout<<cc<<endl;
+                        cout<<"rmse="<<sqrt(value(norm2(zscrs))/zscrs.size())<<"),"<<endl;
+                    }
+                }//nObs>0
+            }//x
+            if (debug<0) cout<<"NULL),";
+        }//(pGD->llWgt>0.0)||(debug<0)
     }//datasets
     if (debug<0) cout<<"NULL)"<<endl;
     if (debug>dbgObjFun) cout<<"finished calcNLLs_GrowthData()"<<endl;
@@ -5956,7 +5975,7 @@ FUNCTION void calcNLLs_Fisheries(int debug, ostream& cout)
     if (debug<0) cout<<"list("<<endl;
     for (int f=1;f<=nFsh;f++){
         if (debug>=dbgAll) cout<<"calculating NLLs for fishery "<<ptrMC->lblsFsh[f]<<endl;
-        if (debug<0) cout<<ptrMC->lblsFsh[f]<<"=list("<<endl;
+        if (debug<0) cout<<"`"<<ptrMC->lblsFsh[f]<<"`=list("<<endl;
         int fd = mapM2DFsh(f);//get index for fishery data corresponding to model fishery f
         FleetData* ptrObs = ptrMDS->ppFsh[fd-1];
         if (ptrObs->hasRCD){//retained catch data
@@ -6102,7 +6121,7 @@ FUNCTION void calcNLLs_Surveys(int debug, ostream& cout)
     if (debug<0) cout<<"list("<<endl;
     for (int v=1;v<=nSrv;v++){
         if (debug>=dbgAll) cout<<"calculating NLLs for survey "<<ptrMC->lblsSrv[v]<<endl;
-        if (debug<0) cout<<ptrMC->lblsSrv[v]<<"=list("<<endl;
+        if (debug<0) cout<<"`"<<ptrMC->lblsSrv[v]<<"`=list("<<endl;
         FleetData* ptrObs = ptrMDS->ppSrv[v-1];
         if (ptrObs->hasICD){//index catch data
             if (debug<0) cout<<"index.catch=list("<<endl;
