@@ -419,7 +419,7 @@ const adstring SizeFrequencyData::KW_SIZEFREQUENCY_DATA = "SIZE_FREQUENCY_DATA";
  * @cout - output stream to print debugging info to
  */
 void SizeFrequencyData::calcReWeightingFactors(d3_array& newF_xms,int debug,ostream& cout){
-    if (debug) cout<<"--starting SizeFrequencyData::calcReWeightingFactors(...)"<<endl;
+    if (debug) cout<<"#--starting SizeFrequencyData::calcReWeightingFactors(...)"<<endl;
     for (int x=newF_xms.indexmin();x<=newF_xms.indexmax();x++){
         dmatrix newF_ms = newF_xms(x);
         int mnX= x; int mxX=x;
@@ -442,9 +442,22 @@ void SizeFrequencyData::calcReWeightingFactors(d3_array& newF_xms,int debug,ostr
             }//m
         }//xp
     }//x
-    if (debug) cout<<"Iterative reweighting factors = "<<endl; wts::print(itrF_xms,cout,0); cout<<endl;
-    if (debug) cout<<"Cumulative reweighting factors = "<<endl; wts::print(cumF_xms,cout,0); cout<<endl;
-    if (debug) cout<<"--finished SizeFrequencyData::calcReWeightingFactors(...)"<<endl;
+    if (debug>0) {
+        cout<<"Iterative reweighting factors = " <<endl; wts::print(itrF_xms,cout,0); cout<<endl;
+        cout<<"Cumulative reweighting factors = "<<endl; wts::print(cumF_xms,cout,0); cout<<endl;
+        cout<<"#--finished SizeFrequencyData::calcReWeightingFactors(...)"<<endl;
+    }
+    if (debug<0) {
+        ivector bnds = wts::getBounds(itrF_xms);
+        adstring x = tcsamDims::getSXsForR(bnds(1),bnds(2));
+        adstring m = tcsamDims::getMSsForR(bnds(3),bnds(4));
+        adstring s = tcsamDims::getSCsForR(bnds(5),bnds(6));
+        cout<<"list("<<endl;
+        cout<<"\titFacs="; wts::writeToR(cout,itrF_xms,x,m,s); cout<<","<<endl;
+        cout<<"\tcmFacs="; wts::writeToR(cout,cumF_xms,x,m,s); cout<<endl;
+        cout<<")"<<endl;
+        cout<<"#--finished SizeFrequencyData::calcReWeightingFactors(...)"<<endl;
+    }
 }
 
 /**

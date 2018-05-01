@@ -427,6 +427,9 @@
 //                  them with `s to be valid names in R
 //              3. Added 'GAMMA' (LL_GAMMA and STR_LL_GAMMA) as likelihood type
 //              4. Incremented tcsam::VERSION and modVer to 2018.04.11.
+//-2018-04-24:  1. Revised some print statements (need to surround PRINT2B macros
+//                  with brackets to include in a 1-line if statement.
+//-2018-04-29:  1. Revised output for iterative reweighting to write to "effectiveWeights.R".
 //
 // =============================================================================
 // =============================================================================
@@ -1839,7 +1842,7 @@ PROCEDURE_SECTION
 //     os1.close();
 //    }
 //
-    if (dbg>=dbgObjFun) PRINT2B1("--END PROCEDURE_SECTION----------------")
+    if (dbg>=dbgObjFun) {PRINT2B1("--END PROCEDURE_SECTION----------------")}
             
 //*****************************************
 FUNCTION void setInitVals(int debug, ostream& os)
@@ -4746,7 +4749,7 @@ FUNCTION void calcNLLs_Recruitment(int debug, ostream& cout)
 //-------------------------------------------------------------------------------------
 //Calculate objective function TODO: finish
 FUNCTION void calcObjFun(int debug, ostream& cout)
-    if ((debug>=dbgObjFun)||(debug<0)) PRINT2B1("----Starting calcObjFun()")
+    if ((debug>=dbgObjFun)||(debug<0)) {PRINT2B1("----Starting calcObjFun()")}
 
     int k = 0;
     dvector objFunV(0,20);
@@ -6715,26 +6718,41 @@ REPORT_SECTION
 // =============================================================================
 BETWEEN_PHASES_SECTION
     PRINT2B1(" ")
-    PRINT2B1("--BETWEEN_PHASES_SECTION---------------------")
-    adstring msg = "----Starting phase "+str(current_phase())+" of "+str(initial_params::max_number_phases);
+    PRINT2B1("#--BETWEEN_PHASES_SECTION---------------------")
+    adstring msg = "#----Starting phase "+str(current_phase())+" of "+str(initial_params::max_number_phases);
     PRINT2B1(msg)
     calcObjFun(dbgObjFun,cout);
     ctrProcCallsInPhase=0;//reset in-phase counter
     for (int n=1;n<=npLnEffX;n++){
-        rpt::echo<<"----is pLnEffX["<<n<<"] active? "<<active(pLnEffX[n])<<endl;
+        rpt::echo<<"#----is pLnEffX["<<n<<"] active? "<<active(pLnEffX[n])<<endl;
     }
     if ((current_phase()>=phsItsRewgt)){
-        PRINT2B1("--Calculating effective weights for size compositions")
+        PRINT2B1("#--Calculating effective weights for size compositions")
         //note that the following modifies the objective function value
-        calcWeightsForSurveySizeComps(1,rpt::echo);
-        calcWeightsForFisherySizeComps(1,rpt::echo);
+        ofstream os; 
+        if ((current_phase()==phsItsRewgt)){
+            os.open("effectiveWeights.R", ios::trunc);
+            os<<"effWgts=list("<<endl;
+        } else {
+            os.open("effectiveWeights.R", ios::app);
+        }
+        os<<"#--BETWEEN_PHASES_SECTION: Calculating effective weights for size compositions at start of "<<str(current_phase())<<endl;
+        os<<"effWgts."<<current_phase()-phsItsRewgt+1<<"=list("<<endl;
+        os<<"surveys="  <<endl; calcWeightsForSurveySizeComps( -1,os); os<<","<<endl;
+        os<<"fisheries="<<endl; calcWeightsForFisherySizeComps(-1,os); os<<endl;
+        os<<"),"<<endl;
+        os<<"#--BETWEEN_PHASES_SECTION: Finished calculating effective weights for size compositions"<<endl<<endl;
         if ((ptrMOs->optIterativeReweighting)&&(numItsRewgt<maxItsRewgt)){
-            PRINT2B1("--Re-weighting size compositions")
-            reWeightSurveySizeComps(1,rpt::echo);
-            reWeightFisherySizeComps(1,rpt::echo);
+            PRINT2B1("#--Re-weighting size compositions using reWeightXXXSizeComps")
+            os<<"#--BETWEEN_PHASES_SECTION: Re-weighting size compositions using reWeightXXXSizeComps"<<endl;
+            //reWeightSurveySizeComps(-1,os);
+            reWeightFisherySizeComps(-1,os);
+            os<<"#--BETWEEN_PHASES_SECTION: Finished r-weighting size compositions using reWeightXXXSizeComps"<<endl<<endl;
+            PRINT2B1("#--Finished re-weighting size compositions using reWeightXXXSizeComps")
             numItsRewgt++;
             calcObjFun(dbgObjFun,cout);
         }
+        os.close();
     }
         
     PRINT2B1("#---END BETWEEN_PHASES_SECTION")
@@ -6742,134 +6760,52 @@ BETWEEN_PHASES_SECTION
 //----------------------------------------------------------------------
 //re-weight survey size comps
 FUNCTION void reWeightSurveySizeComps(int debug,ostream& cout)
-    if (debug) cout<<"Starting reWeightSurveySizeComps()"<<endl;
+    if (debug) cout<<"#--Starting reWeightSurveySizeComps()"<<endl;
     if (ptrMOs->optIterativeReweighting){
         for (int v=1;v<=nSrv;v++){
-            cout<<"--reweighting size comps for survey "<<ptrMC->lblsSrv[v]<<endl;
+            if (debug) cout<<"#--reweighting size comps for survey "<<ptrMC->lblsSrv[v]<<endl;
             int vd = mapM2DSrv(v);//get index for survey data corresponding to model survey v
             FleetData* ptrObs = ptrMDS->ppSrv[vd-1];
             if (ptrObs->hasICD){//index catch data
                  if (ptrObs->ptrICD->hasZFD && ptrObs->ptrICD->ptrZFD->optFit){
-                    if (debug) cout<<"---index catch size frequencies"<<endl;
+                    if (debug) cout<<"#---index catch size frequencies"<<endl;
                     ptrObs->ptrICD->ptrZFD->applyReWeightingFactors();
                 }
             }
         }//surveys loop
     }
-    if (debug) cout<<"Finished reWeightSurveySizeComps()"<<endl;
+    if (debug) cout<<"#--Finished reWeightSurveySizeComps()"<<endl<<endl;
 
 //----------------------------------------------------------------------
 //re-weight fishery size comps
 FUNCTION void reWeightFisherySizeComps(int debug,ostream& cout)
-    if (debug) cout<<"Starting reWeightsForFisherySizeComps()"<<endl;
+    if (debug) cout<<"#--Starting reWeightsForFisherySizeComps()"<<endl;
     if (ptrMOs->optIterativeReweighting){
         for (int f=1;f<=nFsh;f++){
-            cout<<"--reweighting size comps for fishery "<<ptrMC->lblsFsh[f]<<endl;
+            if (debug) cout<<"#---reweighting size comps for fishery "<<ptrMC->lblsFsh[f]<<endl;
             int fd = mapM2DFsh(f);//get index for fishery data corresponding to model fishery f
             FleetData* ptrObs = ptrMDS->ppFsh[fd-1];
             if (ptrObs->hasRCD){//retained catch data
                 if (ptrObs->ptrRCD->hasZFD && ptrObs->ptrRCD->ptrZFD->optFit){
-                    if (debug) cout<<"---retained catch size frequencies"<<endl;
+                    if (debug) cout<<"#----retained catch size frequencies"<<endl;
                     ptrObs->ptrRCD->ptrZFD->applyReWeightingFactors();
                 }
             }
             if (ptrObs->hasTCD){//observed total catch data
                  if (ptrObs->ptrTCD->hasZFD && ptrObs->ptrTCD->ptrZFD->optFit){
-                    if (debug) cout<<"---total catch size frequencies"<<endl;
+                    if (debug) cout<<"#----total catch size frequencies"<<endl;
                     ptrObs->ptrTCD->ptrZFD->applyReWeightingFactors();
                 }
             }
             if (ptrObs->hasDCD){//observed discard catch data
                 if (ptrObs->ptrDCD->hasZFD && ptrObs->ptrDCD->ptrZFD->optFit){
-                    if (debug) cout<<"---discard catch size frequencies"<<endl;
+                    if (debug) cout<<"#----discard catch size frequencies"<<endl;
                     ptrObs->ptrDCD->ptrZFD->applyReWeightingFactors();
                 }
             }
         }//fisheries
     }
-    if (debug) cout<<"Finished reWeightFisherySizeComps()"<<endl;
-
-//-------------------------------------------------------------------------------------
-//**
-// * Calculate effective weights for fishery size comps
-// * 
-// * NOTE: As a side effect, this function modifies the value of the objective function
-// * because it calls calcNLLs_CatchNatZ() to calculate the effective weights. THE USER
-// * MUST RECALCULATE objFun using calcObjFun() after calling this function to obtain a valid
-// * value for the objective function.
-// * 
-// * @param debug - integer indicating debug level (<0 writes R list to cout)
-// * @param cout - output stream to write debugging info to
-// * 
-// * @details If ptrMOs->optIterativeReweighting > 0, then re-weighting factors for the 
-// * size comps are calculated (but not applied) using the method corresponding to its value 
-// * (1=McAllister-Ianelli, 2=Francis). Re-weighting is accomplished using reWeightFisherySizeComps().
-// * 
-// * @return none.
-// */
-FUNCTION void calcWeightsForFisherySizeComps(int debug, ostream& cout)
-    if (debug>=dbgAll) cout<<"Starting calcWeightsForFisherySizeComps()"<<endl;
-    int opt = ptrMOs->optIterativeReweighting;
-    if (debug<0) cout<<"list("<<endl;
-    for (int f=1;f<=nFsh;f++){
-        cout<<"--calculating effective weights for fishery "<<ptrMC->lblsFsh[f]<<endl;
-        if (debug<0) cout<<ptrMC->lblsFsh[f]<<"=list("<<endl;
-        int fd = mapM2DFsh(f);//get index for fishery data corresponding to model fishery f
-        FleetData* ptrObs = ptrMDS->ppFsh[fd-1];
-        if (ptrObs->hasRCD){//retained catch data
-            if (debug<0) cout<<"retained.catch=list("<<endl;
-            if (ptrObs->ptrRCD->hasZFD && ptrObs->ptrRCD->ptrZFD->optFit){
-                if (debug>=dbgAll) cout<<"---retained catch size frequencies"<<endl;
-                if (debug<0) cout<<"n.at.z="<<endl;
-                smlVal = 0.001;//match to TCSAM2013
-                d5_array effWgtComps_xmsyn = calcNLLs_CatchNatZ(ptrObs->ptrRCD->ptrZFD,rmN_fyxmsz(f),debug,cout);
-                if (effWgtComps_xmsyn.size()>0){
-                    cout<<"Retained catch size comps weights using "<<tcsam::getFitType(ptrObs->ptrRCD->ptrZFD->optFit)<<endl;
-                    d4_array effWgts_nxms = calcEffWgts(effWgtComps_xmsyn,debug,cout);
-                    if (opt) ptrObs->ptrRCD->ptrZFD->calcReWeightingFactors(effWgts_nxms(opt),debug,cout);
-                }//if
-                if (debug<0) cout<<","<<endl;
-            }
-            if (debug<0) cout<<"NULL),"<<endl;
-        }
-        if (ptrObs->hasTCD){//observed total catch data
-            if (debug<0) cout<<"total.catch=list("<<endl;
-            if (ptrObs->ptrTCD->hasZFD && ptrObs->ptrTCD->ptrZFD->optFit){
-                if (debug>=dbgAll) cout<<"---total catch size frequencies"<<endl;
-                if (debug<0) cout<<"n.at.z="<<endl;
-                smlVal = 0.001;//match to TCSAM2013
-                d5_array effWgtComps_xmsyn = calcNLLs_CatchNatZ(ptrObs->ptrTCD->ptrZFD,cpN_fyxmsz(f),debug,cout);
-                if (effWgtComps_xmsyn.size()>0){
-                    cout<<"Total catch size comps weights using "<<tcsam::getFitType(ptrObs->ptrTCD->ptrZFD->optFit)<<endl;
-//                    wts::print(effWgtComps_xmsyn, cout, 1);
-                    d4_array effWgts_nxms = calcEffWgts(effWgtComps_xmsyn,debug,cout);
-                    if (opt) ptrObs->ptrTCD->ptrZFD->calcReWeightingFactors(effWgts_nxms(opt),debug,cout);
-                }//if
-                if (debug<0) cout<<","<<endl;
-            }
-            if (debug<0) cout<<"NULL),"<<endl;
-        }
-        if (ptrObs->hasDCD){//observed discard catch data
-            if (debug<0) cout<<"discard.catch=list("<<endl;
-            if (ptrObs->ptrDCD->hasZFD && ptrObs->ptrDCD->ptrZFD->optFit){
-                if (debug>=dbgAll) cout<<"---discard catch size frequencies"<<endl;
-                if (debug<0) cout<<"n.at.z="<<endl;
-                smlVal = 0.001;//match to TCSAM2013
-                d5_array effWgtComps_xmsyn = calcNLLs_CatchNatZ(ptrObs->ptrDCD->ptrZFD,dsN_fyxmsz(f),debug,cout);
-                if (effWgtComps_xmsyn.size()>0){
-                    cout<<"Discard catch size comps weights using "<<tcsam::getFitType(ptrObs->ptrDCD->ptrZFD->optFit)<<endl;
-//                    wts::print(effWgtComps_xmsyn, cout, 1);
-                    d4_array effWgts_nxms = calcEffWgts(effWgtComps_xmsyn,debug,cout);
-                    if (opt) ptrObs->ptrDCD->ptrZFD->calcReWeightingFactors(effWgts_nxms(opt),debug,cout);
-                }//if
-                if (debug<0) cout<<","<<endl;
-            }
-            if (debug<0) cout<<"NULL),"<<endl;
-        }
-        if (debug<0) cout<<"NULL),"<<endl;
-    }//fisheries
-    if (debug<0) cout<<"NULL)"<<endl;
-    if (debug>=dbgAll) cout<<"Finished calcWeightsForFisherySizeComps()"<<endl;
+    if (debug) cout<<"#--Finished reWeightFisherySizeComps()"<<endl;
 
 //-------------------------------------------------------------------------------------
 //**
@@ -6890,36 +6826,167 @@ FUNCTION void calcWeightsForFisherySizeComps(int debug, ostream& cout)
 // * @return none.
 // */
 FUNCTION void calcWeightsForSurveySizeComps(int debug, ostream& cout)
-    if (debug) cout<<"Starting calcWeightsForSurveySizeComps()"<<endl;
+    if (debug) cout<<"#--Starting calcWeightsForSurveySizeComps()"<<endl;
     int opt = ptrMOs->optIterativeReweighting;
     adstring nDims = "c('N','McAllister-Ianelli','Francis')";
     if (debug<0) cout<<"list("<<endl;
     for (int v=1;v<=nSrv;v++){
-        cout<<"calculating size comps weights for survey "<<ptrMC->lblsSrv[v]<<endl;
-        if (debug<0) cout<<ptrMC->lblsSrv[v]<<"=list("<<endl;
+        if (debug) cout<<"#--calculating size comps weights for survey "<<ptrMC->lblsSrv[v]<<endl;
+        if (debug<0) cout<<"`"<<ptrMC->lblsSrv[v]<<"`=list("<<endl;
         int vd = mapM2DSrv(v);//get index for survey data corresponding to model survey v
         FleetData* ptrObs = ptrMDS->ppSrv[vd-1];
         if (ptrObs->hasICD){//index catch data
             if (debug<0) cout<<"index.catch=list("<<endl;
             if (ptrObs->ptrICD->hasZFD && ptrObs->ptrICD->ptrZFD->optFit){
-                if (debug<0) cout<<"effWgts="<<endl;
                 smlVal = 0.001;//match to TCSAM2013
-                d5_array effWgtComps_xmsyn = calcNLLs_CatchNatZ(ptrObs->ptrICD->ptrZFD,n_vyxmsz(v),debug,cout);
+                d5_array effWgtComps_xmsyn = calcNLLs_CatchNatZ(ptrObs->ptrICD->ptrZFD,n_vyxmsz(v),0,cout);//don't debug
                 if (effWgtComps_xmsyn.size()>0){
-                    if (debug) cout<<"Index catch size comps weights using "<<tcsam::getFitType(ptrObs->ptrICD->ptrZFD->optFit)<<endl;
+                    if (debug>0) cout<<"#--Index catch size comps weights using "<<tcsam::getFitType(ptrObs->ptrICD->ptrZFD->optFit)<<endl;
                     d4_array effWgts_nxms = calcEffWgts(effWgtComps_xmsyn,debug,cout);
-                    if (debug) {cout<<"effWgts_nxms ="<<endl; wts::print(effWgts_nxms,cout,0); cout<<endl;}
-                    if (debug<0) wts::Rpr::writeDataToR(cout, effWgts_nxms);
-                    if (opt) ptrObs->ptrICD->ptrZFD->calcReWeightingFactors(effWgts_nxms(opt),debug,cout);
-                }//if
-                if (debug<0) cout<<","<<endl;
+                    if (debug>0) {cout<<"effWgts_nxms ="<<endl; wts::print(effWgts_nxms,cout,0); cout<<endl;}
+                    if (debug<0) {
+                        ivector bnds = wts::getBounds(effWgts_nxms);
+                        adstring x = tcsamDims::getSXsForR(bnds(3),bnds(4));
+                        adstring m = tcsamDims::getMSsForR(bnds(5),bnds(6));
+                        adstring s = tcsamDims::getSCsForR(bnds(7),bnds(8));
+                        cout<<"effWgts="<<endl; wts::writeToR(cout, effWgts_nxms,nDims,x,m,s); cout<<cc<<endl;
+                    }
+                    if (opt) {
+                        cout<<"#----Calculating reweighting size comps in call to calcWeightsForSurveySizeComps!!"<<endl;
+                        if (debug<0) {
+                            cout<<"opt="<<opt<<cc<<endl;
+                            cout<<"applied="<<endl;
+                        }
+                        ptrObs->ptrICD->ptrZFD->calcReWeightingFactors(effWgts_nxms(opt),debug,cout);
+                    }
+                }//if effWgtComps_xmsyn.size()>0
             }
-            if (debug<0) cout<<"NULL),"<<endl;
-        }
-        if (debug<0) cout<<"NULL),"<<endl;
+            if (debug<0) cout<<")"<<endl;
+        }//ptrObs->hasICD
+        if (debug<0) cout<<"),"<<endl;
     }//surveys loop
     if (debug<0) cout<<"NULL)"<<endl;
-    if (debug) cout<<"Finished calcWeightsForSurveySizeComps()"<<endl;
+    if (debug) cout<<"#--Finished calcWeightsForSurveySizeComps()"<<endl;
+
+//-------------------------------------------------------------------------------------
+//**
+// * Calculate effective weights for fishery size comps
+// * 
+// * NOTE: As a side effect, this function modifies the value of the objective function
+// * because it calls calcNLLs_CatchNatZ() to calculate the effective weights. THE USER
+// * MUST RECALCULATE objFun using calcObjFun() after calling this function to obtain a valid
+// * value for the objective function.
+// * 
+// * @param debug - integer indicating debug level (<0 writes R list to cout)
+// * @param cout - output stream to write debugging info to
+// * 
+// * @details If ptrMOs->optIterativeReweighting > 0, then re-weighting factors for the 
+// * size comps are calculated (but not applied) using the method corresponding to its value 
+// * (1=McAllister-Ianelli, 2=Francis). Re-weighting is accomplished using reWeightFisherySizeComps().
+// * 
+// * @return none.
+// */
+FUNCTION void calcWeightsForFisherySizeComps(int debug, ostream& cout)
+    if (debug) cout<<"#--Starting calcWeightsForFisherySizeComps()"<<endl;
+    int opt = ptrMOs->optIterativeReweighting;
+    adstring nDims = "c('N','McAllister-Ianelli','Francis')";
+    if (debug<0) cout<<"list("<<endl;
+    for (int f=1;f<=nFsh;f++){
+        if (debug) cout<<"#--calculating effective weights for fishery "<<ptrMC->lblsFsh[f]<<endl;
+        if (debug<0) cout<<"`"<<ptrMC->lblsFsh[f]<<"`=list("<<endl;
+        int fd = mapM2DFsh(f);//get index for fishery data corresponding to model fishery f
+        FleetData* ptrObs = ptrMDS->ppFsh[fd-1];
+        if (ptrObs->hasRCD){//retained catch data
+            if (debug<0) cout<<"retained.catch=list("<<endl;
+            if (ptrObs->ptrRCD->hasZFD && ptrObs->ptrRCD->ptrZFD->optFit){
+                if (debug) cout<<"#---retained catch size frequencies"<<endl;
+                smlVal = 0.001;//match to TCSAM2013
+                d5_array effWgtComps_xmsyn = calcNLLs_CatchNatZ(ptrObs->ptrRCD->ptrZFD,rmN_fyxmsz(f),0,cout);
+                if (effWgtComps_xmsyn.size()>0){
+                    if (debug>0) cout<<"#--Retained catch size comps weights using "<<tcsam::getFitType(ptrObs->ptrRCD->ptrZFD->optFit)<<endl;
+                    d4_array effWgts_nxms = calcEffWgts(effWgtComps_xmsyn,debug,cout);
+                    if (debug>0) {cout<<"effWgts_nxms ="<<endl; wts::print(effWgts_nxms,cout,0); cout<<endl;}
+                    if (debug<0) {
+                        ivector bnds = wts::getBounds(effWgts_nxms);
+                        adstring x = tcsamDims::getSXsForR(bnds(3),bnds(4));
+                        adstring m = tcsamDims::getMSsForR(bnds(5),bnds(6));
+                        adstring s = tcsamDims::getSCsForR(bnds(7),bnds(8));
+                        cout<<"effWgts="<<endl; wts::writeToR(cout, effWgts_nxms,nDims,x,m,s); cout<<cc<<endl;
+                    }
+                    if (opt) {
+                        cout<<"#----Calculating reweighting size comps in call to calcWeightsForFisherySizeComps!!"<<endl;
+                        if (debug<0) {
+                            cout<<"opt="<<opt<<cc<<endl;
+                            cout<<"applied="<<endl;
+                        }
+                        ptrObs->ptrRCD->ptrZFD->calcReWeightingFactors(effWgts_nxms(opt),debug,cout);
+                    }
+                }//if effWgtComps_xmsyn.size()>0
+            }
+            if (debug<0) cout<<"),"<<endl;
+        }//ptrObs->hasRCD
+        if (ptrObs->hasTCD){//observed total catch data
+            if (debug<0) cout<<"total.catch=list("<<endl;
+            if (ptrObs->ptrTCD->hasZFD && ptrObs->ptrTCD->ptrZFD->optFit){
+                if (debug) cout<<"#---total catch size frequencies"<<endl;
+                smlVal = 0.001;//match to TCSAM2013
+                d5_array effWgtComps_xmsyn = calcNLLs_CatchNatZ(ptrObs->ptrTCD->ptrZFD,cpN_fyxmsz(f),0,cout);
+                if (effWgtComps_xmsyn.size()>0){
+                    if (debug>0) cout<<"#--Total catch size comps weights using "<<tcsam::getFitType(ptrObs->ptrTCD->ptrZFD->optFit)<<endl;
+                    d4_array effWgts_nxms = calcEffWgts(effWgtComps_xmsyn,debug,cout);
+                    if (debug>0) {cout<<"effWgts_nxms ="<<endl; wts::print(effWgts_nxms,cout,0); cout<<endl;}
+                    if (debug<0) {
+                        ivector bnds = wts::getBounds(effWgts_nxms);
+                        adstring x = tcsamDims::getSXsForR(bnds(3),bnds(4));
+                        adstring m = tcsamDims::getMSsForR(bnds(5),bnds(6));
+                        adstring s = tcsamDims::getSCsForR(bnds(7),bnds(8));
+                        cout<<"effWgts="<<endl; wts::writeToR(cout, effWgts_nxms,nDims,x,m,s); cout<<cc<<endl;
+                    }
+                    if (opt) {
+                        cout<<"#----Calculating reweighting size comps in call to calcWeightsForFisherySizeComps!!"<<endl;
+                        if (debug<0) {
+                            cout<<"opt="<<opt<<cc<<endl;
+                            cout<<"applied="<<endl;
+                        }
+                        ptrObs->ptrTCD->ptrZFD->calcReWeightingFactors(effWgts_nxms(opt),debug,cout);
+                    }
+                }//if effWgtComps_xmsyn.size()>0
+            }
+            if (debug<0) cout<<"),"<<endl;
+        }//ptrObs->hasTCD
+        if (ptrObs->hasDCD){//observed discard catch data
+            if (debug<0) cout<<"discard.catch=list("<<endl;
+            if (ptrObs->ptrDCD->hasZFD && ptrObs->ptrDCD->ptrZFD->optFit){
+                if (debug) cout<<"#---discard catch size frequencies"<<endl;
+                smlVal = 0.001;//match to TCSAM2013
+                d5_array effWgtComps_xmsyn = calcNLLs_CatchNatZ(ptrObs->ptrDCD->ptrZFD,dsN_fyxmsz(f),0,cout);
+                if (effWgtComps_xmsyn.size()>0){
+                    if (debug>0) cout<<"#--Discard catch size comps weights using "<<tcsam::getFitType(ptrObs->ptrDCD->ptrZFD->optFit)<<endl;
+                    d4_array effWgts_nxms = calcEffWgts(effWgtComps_xmsyn,debug,cout);
+                    if (debug>0) {cout<<"effWgts_nxms ="<<endl; wts::print(effWgts_nxms,cout,0); cout<<endl;}
+                    if (debug<0) {
+                        ivector bnds = wts::getBounds(effWgts_nxms);
+                        adstring x = tcsamDims::getSXsForR(bnds(3),bnds(4));
+                        adstring m = tcsamDims::getMSsForR(bnds(5),bnds(6));
+                        adstring s = tcsamDims::getSCsForR(bnds(7),bnds(8));
+                        cout<<"effWgts="<<endl; wts::writeToR(cout, effWgts_nxms,nDims,x,m,s); cout<<cc<<endl;
+                    }
+                    if (opt) {
+                        cout<<"#----Calculating reweighting size comps in call to calcWeightsForFisherySizeComps!!"<<endl;
+                        if (debug<0) {
+                            cout<<"opt="<<opt<<cc<<endl;
+                            cout<<"applied="<<endl;
+                        }
+                        ptrObs->ptrDCD->ptrZFD->calcReWeightingFactors(effWgts_nxms(opt),debug,cout);
+                    }
+                }//if effWgtComps_xmsyn.size()>0
+            }
+            if (debug<0) cout<<"),"<<endl;
+        }//ptrObs->hasDCD
+        if (debug<0) cout<<"NULL),"<<endl;
+    }//fisheries
+    if (debug<0) cout<<"NULL)"<<endl;
+    if (debug) cout<<"#--Finished calcWeightsForFisherySizeComps()"<<endl;
 
 //-------------------------------------------------------------------------------------
 //**
@@ -7036,12 +7103,12 @@ FUNCTION void calcDynB0(int debug, ostream& cout)
 // =============================================================================
 FINAL_SECTION
     PRINT2B1(" ")
-    PRINT2B1("--Starting FINAL_SECTION")
+    PRINT2B1("#--Starting FINAL_SECTION")
         
     int mceval_on = option_match(ad_comm::argc,ad_comm::argv,"-mceval");
     if (mceval_on>-1) {
-        PRINT2B1("----Closing mcmc file")
-        mcmc.open((char*)(fnMCMC),ofstream::out|ofstream::app);
+        PRINT2B1("#----Closing mcmc file")
+        mcmc.open((char*)(fnMCMC),ios::app);
         mcmc.precision(12);
         mcmc<<"NULL)"<<endl;
         mcmc.close();
@@ -7052,7 +7119,7 @@ FINAL_SECTION
         PRINT2B2("obj fun = ",objFun)
         PRINT2B1(" ")
         {
-            PRINT2B1("----Writing sim data to file")
+            PRINT2B1("#----Writing sim data to file")
             ofstream echo1; echo1.open("ModelSimData.dat", ios::trunc);
             echo1.precision(12);
             writeSimData(echo1,0,cout,ptrSimMDS);
@@ -7061,27 +7128,34 @@ FINAL_SECTION
         }
 
         {
-            PRINT2B1("----Calculating final effective weights for size compositions")
-            PRINT2B1("----Note that the value of objFun is not valid now!!")
+            PRINT2B1("#----Calculating final effective weights for size compositions")
+            PRINT2B1("#----Note that the value of objFun is not valid now!!")
             //note that this modifies the value of the objective function!
-            calcWeightsForSurveySizeComps(1,rpt::echo);
-            calcWeightsForFisherySizeComps(1,rpt::echo);
-            PRINT2B2("obj fun = ",objFun)
+            ofstream os; os.open("effectiveWeights.R", ios::app);
+            os<<"#--Calculating effective weights in FINAL_PHASE--"<<endl;
+            os<<"effWgts.final=list("<<endl;
+            os<<"surveys=";   calcWeightsForSurveySizeComps( -1,os); os<<","<<endl;
+            os<<"fisheries="; calcWeightsForFisherySizeComps(-1,os); os<<endl;
+            os<<")"<<endl;
+            os<<"#--Finished calculating effective weights in FINAL_PHASE--"<<endl;
+            os<<")"<<endl;
+            os.close();
+            PRINT2B2("#--obj fun = ",objFun)
             PRINT2B1(" ")
         }
 
         if (doDynB0>0){
-            PRINT2B1("----Calculating dynamic B0")
-            PRINT2B1("----Note that the value of objFun is not valid now!!")
+            PRINT2B1("#----Calculating dynamic B0")
+            PRINT2B1("#----Note that the value of objFun is not valid now!!")
             calcDynB0(1,rpt::echo);
-            PRINT2B2("obj fun = ",objFun)
+            PRINT2B2("#--obj fun = ",objFun)
             PRINT2B1(" ")
         }
 
         PRINT2B1("#----Recalculating final objective function value")
         runPopDyMod(0,cout);
         calcObjFun(dbgObjFun,cout);
-        PRINT2B2("Final obj fun = ",objFun)
+        PRINT2B2("#--Final obj fun = ",objFun)
     }
     
     int hour,minute,second;
