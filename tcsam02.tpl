@@ -430,6 +430,8 @@
 //-2018-04-24:  1. Revised some print statements (need to surround PRINT2B macros
 //                  with brackets to include in a 1-line if statement.
 //-2018-04-29:  1. Revised output for iterative reweighting to write to "effectiveWeights.R".
+//-2018-08-24:  1. Incremented version to "2018.08.24".
+//              2. Added FIT_BY_X_MSE option to fit size compositions
 //
 // =============================================================================
 // =============================================================================
@@ -450,7 +452,7 @@ GLOBALS_SECTION
     #define PRINT2B2(t,o) std::cout<<(t)<<(o)<<std::endl; rpt::echo<<(t)<<(o)<<std::endl;
 
     adstring model  = tcsam::MODEL;
-    adstring modVer = "2018.04.11"; 
+    adstring modVer = "2018.08.24"; 
     
     time_t start,finish;
     
@@ -5939,6 +5941,65 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
             } //if ((mny<=y)&&(y<=mxy))
         } //loop over iy
         //FIT_BY_XM_SE
+    } else 
+    if (ptrZFD->optFit==tcsam::FIT_BY_X_MSE){
+        effWgtComps_xmsyn.allocate(1,nSXs,
+                               tcsam::ALL_MSs,tcsam::ALL_MSs,
+                               tcsam::ALL_SCs,tcsam::ALL_SCs,
+                               mny,mxy,1,3);
+        oP_z.allocate(1,nMSs*nSCs*nZBs);
+        mP_z.allocate(1,nMSs*nSCs*nZBs);
+        for (int iy=1;iy<=yrs.size();iy++) {
+            y = yrs[iy];
+            if (debug>=dbgNLLs) cout<<"y = "<<y<<endl;
+            if ((mny<=y)&&(y<=mxy)) {
+                for (int x=1;x<=nSXs;x++) {
+                    ss = 0;
+                    nT = sum(mA_yxmsz(y,x));//=0 if not calculated
+                    if (value(nT)>0){
+                        oP_z.initialize();//observed size comp.
+                        mP_z.initialize();//model size comp.
+                        for (int m=1;m<=nMSs;m++) {
+                            for (int s=1;s<=nSCs;s++) {
+                                int mnz = 1+(s-1)*nZBs+(m-1)*nSCs*nZBs;
+                                int mxz =       s*nZBs+(m-1)*nSCs*nZBs;
+                                ss += ptrZFD->ss_xmsy(x,m,s,iy);
+                                oP_z(mnz,mxz).shift(1) += ptrZFD->PatZ_xmsyz(x,m,s,iy);
+                                mP_z(mnz,mxz).shift(1) += mA_yxmsz(y,x,m,s);
+                            }//s
+                        }//m
+                        if (sum(oP_z)>0) oP_z /= sum(oP_z);
+                        if (debug>=dbgNLLs){
+                            cout<<"ss = "<<ss<<endl;
+                            cout<<"oP_Z = "<<oP_z<<endl;
+                        }
+                        mP_z /= nT;//normalize model size comp
+                        if (debug>=dbgNLLs) cout<<"mP_z = "<<mP_z<<endl;
+                        for (int m=1;m<=nMSs;m++) {
+                            for (int s=1;s<=nSCs;s++) {
+                                int mnz = 1+(s-1)*nZBs+(m-1)*nSCs*nZBs;
+                                int mxz =       s*nZBs+(m-1)*nSCs*nZBs;
+                                dvar_vector mPt = mP_z(mnz,mxz);
+                                dvector oPt = oP_z(mnz,mxz);
+                                if (debug<0) {
+                                    cout<<"'"<<y<<"'=list(";
+                                    cout<<"fit.type='"<<tcsam::getFitType(ptrZFD->optFit)<<"'"<<cc;
+                                    cout<<"y="<<y<<cc;
+                                    cout<<"x='"<<tcsam::getSexType(x)<<"'"<<cc;
+                                    cout<<"m='"<<tcsam::getMaturityType(m)<<"'"<<cc;
+                                    cout<<"s='"<<tcsam::getShellType(s)<<"'"<<cc;
+                                    cout<<"fit=";
+                                }
+                                calcNLL(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,y,debug,cout);
+                                if (debug<0) cout<<")"<<cc<<endl;
+                            }//s
+                        }//m
+                        effWgtComps_xmsyn(x,tcsam::ALL_MSs,tcsam::ALL_SCs,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
+                    }//nT>0
+                }//x
+            } //if ((mny<=y)&&(y<=mxy))
+        } //loop over iy
+        //FIT_BY_X_MSE
     } else 
     {
         std::cout<<"Calling calcNLLs_CatchNatZ with invalid fit option."<<endl;

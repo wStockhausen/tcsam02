@@ -21,6 +21,8 @@
  * 20171206: incremented tcsam::VERSION to "2017.12.06"
  * 20180411: incremented tcsam::VERSION to "2018.04.11"
  *           added LL_GAMMA and STR_LL_GAMMA
+ * 20180824: incremented tcsam::VERSION to "2018.08.24"
+ *           added FIT_BY_X_MSE string and int constants
  */
 
 #pragma once
@@ -120,6 +122,7 @@ namespace tcsam{
     const adstring STR_FIT_BY_X_SE = "BY_X_SE";
     const adstring STR_FIT_BY_XME  = "BY_XME";
     const adstring STR_FIT_BY_XM_SE = "BY_XM_SE";
+    const adstring STR_FIT_BY_X_MSE = "BY_X_MSE";
     const adstring STR_FIT_BY_X_MATONLY = "BY_X_MATONLY";
     const int FIT_NONE    = 0;
     const int FIT_BY_TOT  = 1;
@@ -133,6 +136,7 @@ namespace tcsam{
     const int FIT_BY_XME  = 9;
     const int FIT_BY_XM_SE = 10;
     const int FIT_BY_X_MATONLY = 11;
+    const int FIT_BY_X_MSE = 12;
     
     /** adstring constant indicating likelihood type 'NONE' */
     const adstring STR_LL_NONE        = "NONE";
