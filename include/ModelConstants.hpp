@@ -47,7 +47,7 @@ namespace tcsam{
     /* adstring indicating model name */
     const adstring MODEL = "tcsam02";
     /* adstring indicating model version */
-    const adstring VERSION = "2018.04.11";
+    const adstring VERSION = "2018.08.27";
     
     /* minimum debugging level that will print ALL debug info */
     const int dbgAll = 100;

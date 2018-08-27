@@ -314,7 +314,7 @@ dvar_vector SelFcns::asclogistic5099(dvector& z, dvar_vector& params, double fsZ
     dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
     s = 1.0/(1.0+mfexp(-log(99.0)*(z-params(1))/(params(2)-params(1))));
     if (fsZ>0){
-        n = 1.0+mfexp(-log(99.0)*(fsZ-params(1))/params(2));//normalization constant
+        n = 1.0+mfexp(-log(99.0)*(fsZ-params(1))/(params(2)-params(1)));//normalization constant
         s *= n;
      } else if (fsZ<0) {
         n = 1.0/max(s);

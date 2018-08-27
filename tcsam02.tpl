@@ -432,6 +432,8 @@
 //-2018-04-29:  1. Revised output for iterative reweighting to write to "effectiveWeights.R".
 //-2018-08-24:  1. Incremented version to "2018.08.24".
 //              2. Added FIT_BY_X_MSE option to fit size compositions
+//-2018-08-27:  1. Corrected error in normalization factor for asclogistic5095 function.
+//              2. Incremented version to "2018.08.27".
 //
 // =============================================================================
 // =============================================================================
@@ -452,7 +454,7 @@ GLOBALS_SECTION
     #define PRINT2B2(t,o) std::cout<<(t)<<(o)<<std::endl; rpt::echo<<(t)<<(o)<<std::endl;
 
     adstring model  = tcsam::MODEL;
-    adstring modVer = "2018.08.24"; 
+    adstring modVer = "2018.08.27"; 
     
     time_t start,finish;
     
@@ -3600,7 +3602,7 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
             mnZs = grA*mfexp(log(grB/grA)/log(zGrB/zGrA)*log(zBs/zGrA));
             if (debug>dbgCalcProcs) cout<<"mnZs:"<<tb<<mnZs<<endl;
         } else if (ptrMOs->optGrowthParam==2){
-            //parameterization at min, max pre-molt sizes
+            //parameterization at min pre-molt size and ln-scale slope
             dvector pXDs = ptrGrw->getPCXDs(pc);
             zGrA = pXDs[1]; //pre-molt size corresponding to pGrA as mean post-molt size
             if (debug>dbgCalcProcs) cout<<"growth parameterization 2. "<<"zGrA:"<<tb<<zGrA<<endl;
