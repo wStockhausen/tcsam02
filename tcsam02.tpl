@@ -434,6 +434,8 @@
 //              2. Added FIT_BY_X_MSE option to fit size compositions
 //-2018-08-27:  1. Corrected error in normalization factor for asclogistic5095 function.
 //              2. Incremented version to "2018.08.27".
+//              3. Fixed effN=nan problem with output to R when size comp component 
+//                  is identically 0 but ss>0 (possible when fitting an 'extended' comp).
 //
 // =============================================================================
 // =============================================================================
@@ -5124,7 +5126,7 @@ FUNCTION void calcMultinomialNLL(double wgt, dvar_vector& mod, dvector& obs, dou
         dvector nlls = -ss*(elem_prod(obs,log(vmod+smlVal)-log(obs+smlVal)));
         dvector zscrs = elem_div(obs-vmod,sqrt(elem_prod((vmod+smlVal),1.0-(vmod+smlVal))/ss));//pearson residuals
         double effN = 0.0;
-        if (ss>0) effN = (vmod*(1.0-vmod))/norm2(obs-vmod);
+        if ((ss>0)&&(norm2(obs-vmod)>0)) effN = (vmod*(1.0-vmod))/norm2(obs-vmod);
         cout<<"list(nll.type='multinomial',yr="<<yr<<cc<<"wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<"ss="<<ss<<cc<<"effN="<<effN<<cc<<endl; 
         adstring dzbs = "size=c("+ptrMC->csvZBs+")";
         cout<<"nlls=";  wts::writeToR(cout,nlls, dzbs); cout<<cc<<endl;
