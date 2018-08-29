@@ -23,6 +23,10 @@
  *           added LL_GAMMA and STR_LL_GAMMA
  * 20180824: incremented tcsam::VERSION to "2018.08.24"
  *           added FIT_BY_X_MSE string and int constants
+ * 20180827: incremented tcsam::VERSION to "2018.08.27"
+ *           reflecting changes to tpl file.
+ * 20180824: incremented tcsam::VERSION to "2018.08.29"
+ *           reflecting changes to tpl file.
  */
 
 #pragma once

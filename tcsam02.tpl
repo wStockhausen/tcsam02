@@ -436,6 +436,11 @@
 //              2. Incremented version to "2018.08.27".
 //              3. Fixed effN=nan problem with output to R when size comp component 
 //                  is identically 0 but ss>0 (possible when fitting an 'extended' comp).
+//-2018-08-29:  1. Incremented version to "2018.08.29".
+//              2. Corrected missing calculation of penalty on approaching negative growth
+//                  increments when growth parameterization option 2 was selected 
+//                  (did not affect optimization because it simply added a very
+//                  large constant to the objective function).
 //
 // =============================================================================
 // =============================================================================
@@ -456,7 +461,7 @@ GLOBALS_SECTION
     #define PRINT2B2(t,o) std::cout<<(t)<<(o)<<std::endl; rpt::echo<<(t)<<(o)<<std::endl;
 
     adstring model  = tcsam::MODEL;
-    adstring modVer = "2018.08.27"; 
+    adstring modVer = "2018.08.29"; 
     
     time_t start,finish;
     
@@ -4381,6 +4386,11 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
             double zGrA = pXDs[1];
             double zGrB = pXDs[2];
             dZ = grA*mfexp(log(grB/grA)/log(zGrB/zGrA)*log(zBsp/zGrA)) - zBsp;
+        } else if (ptrMOs->optGrowthParam==2){
+            dvector pXDs = ptrGrw->getPCXDs(pc);
+            double zGrA = pXDs[1];
+            double zGrB = pXDs[2];
+            dZ = grA*mfexp(grB*log(zBsp/zGrA)) - zBsp;
         }
         posfun(dZ,ptrMOs->epsNegGrowth,pen);
         if (pen>0.0){
