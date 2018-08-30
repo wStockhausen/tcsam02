@@ -441,6 +441,11 @@
 //                  increments when growth parameterization option 2 was selected 
 //                  (did not affect optimization because it simply added a very
 //                  large constant to the objective function).
+//-2018-08-30:  1. Corrected missing calculation of penalty on approaching negative growth
+//                  increments when growth parameterization option 2 was selected 
+//                  (did not affect optimization because it simply added a very
+//                  large constant to the objective function). Again.
+
 //
 // =============================================================================
 // =============================================================================
@@ -4422,6 +4427,11 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
             double zGrA = pXDs[1];
             double zGrB = pXDs[2];
             dZ = grA*mfexp(log(grB/grA)/log(zGrB/zGrA)*log(zBsp/zGrA)) - zBsp;
+        } else if (ptrMOs->optGrowthParam==2){
+            dvector pXDs = ptrGrw->getPCXDs(pc);
+            double zGrA = pXDs[1];
+            double zGrB = pXDs[2];
+            dZ = grA*mfexp(grB*log(zBsp/zGrA)) - zBsp;
         }
         posfun(dZ,ptrMOs->epsNegGrowth,pen);
         if (pen>0.0){
