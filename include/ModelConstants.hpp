@@ -25,7 +25,9 @@
  *           added FIT_BY_X_MSE string and int constants
  * 20180827: incremented tcsam::VERSION to "2018.08.27"
  *           reflecting changes to tpl file.
- * 20180824: incremented tcsam::VERSION to "2018.08.29"
+ * 20180829: incremented tcsam::VERSION to "2018.08.29"
+ *           reflecting changes to tpl file.
+ * 20180902: incremented tcsam::VERSION to "2018.09.02"
  *           reflecting changes to tpl file.
  */
 
@@ -51,7 +53,7 @@ namespace tcsam{
     /* adstring indicating model name */
     const adstring MODEL = "tcsam02";
     /* adstring indicating model version */
-    const adstring VERSION = "2018.08.27";
+    const adstring VERSION = "2018.09.02";
     
     /* minimum debugging level that will print ALL debug info */
     const int dbgAll = 100;

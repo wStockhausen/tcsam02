@@ -441,11 +441,14 @@
 //                  increments when growth parameterization option 2 was selected 
 //                  (did not affect optimization because it simply added a very
 //                  large constant to the objective function).
-//-2018-08-30:  1. Corrected missing calculation of penalty on approaching negative growth
+//-2018-08-30:  1. Corrected (again) missing calculation of penalty on approaching negative growth
 //                  increments when growth parameterization option 2 was selected 
 //                  (did not affect optimization because it simply added a very
-//                  large constant to the objective function). Again.
-
+//                  large constant to the objective function).
+//-2018-09-02:  1. Revised format for mcmc output to R.
+//              2. Revised threshold on discrepancy between msy and totCM that
+//                  triggers diagnostic printout in OFL_Calculator::calcMSY(...).
+//              3. Model version now taken from tcsam::VERSION in ModelConstants.hpp.
 //
 // =============================================================================
 // =============================================================================
@@ -466,7 +469,7 @@ GLOBALS_SECTION
     #define PRINT2B2(t,o) std::cout<<(t)<<(o)<<std::endl; rpt::echo<<(t)<<(o)<<std::endl;
 
     adstring model  = tcsam::MODEL;
-    adstring modVer = "2018.08.29"; 
+    adstring modVer = tcsam::VERSION; 
     
     time_t start,finish;
     
@@ -491,7 +494,8 @@ GLOBALS_SECTION
     adstring zcDms;
     
     //file streams and filenames
-    std::ofstream mcmc;        //stream for mcmc output
+    long ctrMCMC = 0;    //counter for mcmc output
+    std::ofstream mcmc;  //stream for mcmc output
     
     //filenames
     adstring fnMCMC = "tcsam02.MCMC.R";
@@ -2121,7 +2125,8 @@ FUNCTION int checkParams(DevsVectorVectorInfo* pI, param_init_bounded_vector_vec
 //write header to MCMC eval file
 FUNCTION writeMCMCHeader
     mcmc.open((char*)(fnMCMC),ofstream::out|ofstream::trunc);
-    mcmc<<"mcmc=list("<<endl;
+    ctrMCMC = 0;
+    mcmc<<"mcmc<-list();"<<endl;
     mcmc.close();
     
 //******************************************************************************
@@ -2143,7 +2148,9 @@ FUNCTION void writeMCMCtoR(ostream& mcmc,DevsVectorVectorInfo* ptr)
 //******************************************************************************
 FUNCTION void writeMCMCtoR(ofstream& mcmc)
     mcmc.open((char *) fnMCMC, ofstream::out|ofstream::app);
-    mcmc<<"list(objFun="<<objFun<<cc<<endl;
+    ctrMCMC+=1;
+    std::cout<<"writing mcmc iteration "<<ctrMCMC<<endl;
+    mcmc<<"mcmc[["<<ctrMCMC<<"]]<-list(objFun="<<objFun<<cc<<endl;
     //write parameter values
         //recruitment values
         writeMCMCtoR(mcmc,ptrMPI->ptrRec->pLnR);     mcmc<<cc<<endl;
@@ -2210,7 +2217,7 @@ FUNCTION void writeMCMCtoR(ofstream& mcmc)
             ptrOFLResults->writeToR(mcmc,ptrMC,"ptrOFLResults",0);//mcm<<cc<<endl;
         }
         
-    mcmc<<")"<<cc<<endl;
+    mcmc<<");"<<endl;
     mcmc.close();
     
 //******************************************************************************
@@ -7195,7 +7202,7 @@ FINAL_SECTION
         PRINT2B1("#----Closing mcmc file")
         mcmc.open((char*)(fnMCMC),ios::app);
         mcmc.precision(12);
-        mcmc<<"NULL)"<<endl;
+        //mcmc<<"NULL)"<<endl;
         mcmc.close();
         PRINT2B1(" ")
     }

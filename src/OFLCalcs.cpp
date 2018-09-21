@@ -1210,7 +1210,7 @@ double OFL_Calculator::calcMSY(dvector R_x, double Fmsy, ostream& cout){
     }
     
     double msy = sum(msy_fx);
-    if (debug||(msy!=totCM)) {
+    if (debug||abs(100*0.5*(msy-totCM)/(msy+totCM))>0.01) {
         cout<<"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"<<endl;
         cout<<"in double OFL_Calculator::calcMSY(R_x,Fmsy,n_xmsz)"<<endl;
         cout<<"MSY   = "<<msy<<endl;
