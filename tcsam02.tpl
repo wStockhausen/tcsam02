@@ -449,6 +449,9 @@
 //              2. Revised threshold on discrepancy between msy and totCM that
 //                  triggers diagnostic printout in OFL_Calculator::calcMSY(...).
 //              3. Model version now taken from tcsam::VERSION in ModelConstants.hpp.
+//-2018-09-21:  1. Revising code to accommodate running in an operating mode and an 
+//                  estimation mode to facilitate MSEs which will require feedback
+//                  between the two modes and extension to subsequent years.
 //
 // =============================================================================
 // =============================================================================
@@ -507,10 +510,14 @@ GLOBALS_SECTION
     int jitter     = 0;//use jittering for initial parameter values
     int resample   = 0;//use resampling for initial parameter values
     int opModMode  = 0;//run as operating model, no fitting
+    int mseOpModMode  = 0;//flag indicating model is being run in an MSE in operating model mode
+    int mseEstModMode = 0;//flag indicating model is being run in an MSE in estimation model mode 
     int usePin     = 0;//flag to initialize parameter values using a pin file
     int doRetro    = 0;//flag to facilitate a retrospective model run
     int fitSimData = 0;//flag to fit model to simulated data calculated in the PRELIMINARY_CALCs section
     int doDynB0    = 0;//flag to run dynamic B0 calculations after final phase
+    
+    
     int ctrDebugParams = 0;//PROCEDURE_SECTION call counter value to start debugging output
     
     int yRetro = 0; //number of years to decrement for retrospective model run
@@ -542,8 +549,8 @@ GLOBALS_SECTION
     int debugMCMC = 0;
     
     int phsItsRewgt  = 1000;//min phase to calculate effective weights for size comps
-    int maxItsRewgt = 0;   //maximum number of terations for re-weighting
-    int numItsRewgt = 0;   //number of re-weighting iterations completed
+    int maxItsRewgt = 0;    //maximum number of terations for re-weighting
+    int numItsRewgt = 0;    //number of re-weighting iterations completed
     
     //note: consider using std::bitset to implement debug functionality
     int dbgCalcProcs = 10;
@@ -643,6 +650,20 @@ DATA_SECTION
     if ((on=option_match(ad_comm::argc,ad_comm::argv,"-opModMode"))>-1) {
         opModMode=1;
         rpt::echo<<"#operating model mode turned ON"<<endl;
+        rpt::echo<<"#-------------------------------------------"<<endl;
+        flg = 1;
+    }
+    //mseOpModMode
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-mseOpModMode"))>-1) {
+        mseOpModMode=1;
+        rpt::echo<<"#MSE operating model mode turned ON"<<endl;
+        rpt::echo<<"#-------------------------------------------"<<endl;
+        flg = 1;
+    }
+    //mseESTModMode
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-mseEstModMode"))>-1) {
+        mseEstModMode=1;
+        rpt::echo<<"#MSE estimation model mode turned ON"<<endl;
         rpt::echo<<"#-------------------------------------------"<<endl;
         flg = 1;
     }
@@ -825,6 +846,21 @@ DATA_SECTION
         rpt::echo<<"#debugMCMC turned ON"<<endl;
         rpt::echo<<"#-------------------------------------------"<<endl;
         flg = 1;
+    }
+    if (mseOpModMode&&mseOpModMode){
+        cout<<endl;
+        cout<<"--------ERROR!-----------"<<endl;
+        cout<<"mseOpModMode and mseEstModMode cannot both be 'on'."<<endl;
+        cout<<"Terminating model run!!"<<endl;
+        cout<<"--------ERROR!-----------"<<endl;
+        cout<<endl;
+        rpt::echo<<endl;
+        rpt::echo<<"--------ERROR!-----------"<<endl;
+        rpt::echo<<"mseOpModMode and mseEstModMode cannot both be 'on'."<<endl;
+        rpt::echo<<"Terminating model run!!"<<endl;
+        rpt::echo<<"--------ERROR!-----------"<<endl;
+        rpt::echo<<endl;
+        exit(1);
     }
  END_CALCS
  
