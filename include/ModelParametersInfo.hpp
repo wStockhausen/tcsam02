@@ -566,8 +566,8 @@ class FisheriesInfo : public ParameterGroupInfo {
         BoundedNumberVectorInfo* pDC2; //ln-scale offsets
         BoundedNumberVectorInfo* pDC3; //ln-scale offsets
         BoundedNumberVectorInfo* pDC4; //ln-scale offsets 
-        BoundedNumberVectorInfo* pLnEffX;//ln-scale effort extrapolation 
-        BoundedNumberVectorInfo* pLgtRet;//logit-scale retained fraction (for old shell crab)
+        BoundedNumberVectorInfo* pLnEffX; //ln-scale effort extrapolation 
+        BoundedNumberVectorInfo* pLgtRet; //logit-scale retained fraction (for old shell crab)
         
         DevsVectorVectorInfo* pDevsLnC;//annual ln-scale devs w/in year_blocks
         
@@ -664,6 +664,58 @@ class SurveysInfo : public ParameterGroupInfo {
         void writeToR(std::ostream & os);
 };
 
+/*------------------------------------------------------------------------------
+ * MSE_Info\n
+ * Encapsulates the following MSE-related parameters:\n
+ *   pMSE_F   : base capture rate in directed fishery
+ * 
+ * Notes:
+ *  1. index variables for parameters:
+ *      a. FISHERY
+ *      b. YEAR_BLOCK
+ *      c. SEX
+ *      d. MATURITY
+ *      e. SHELL
+*----------------------------------------------------------------------------*/
+class MSE_Info : public ParameterGroupInfo {
+    public:
+        static int debug;
+        static int idxMSE_F; //column in parameter combinations matrix with parameter index for capture rate for MSE op mod
+    protected:
+        static adstring NAME;//"MSE"
+    public:
+        BoundedNumberVectorInfo* pMSE_F;//capture rate for MSE op mod 
+        
+        MSE_Info();
+        ~MSE_Info();
+        
+        /**
+         * Reads the ParameterGroupInfo for the fisheries from an input filestream in ADMB format.
+         * 
+         * @param is - the input filestream
+         */
+        void read(cifstream & is);
+        /**
+         * Sets the flags to write initial values for vector parameters to file 
+         * when writing parameter info to file.
+         * 
+         * @param flag - true/false to set to write initial values to file
+         */
+        void setToWriteVectorInitialValues(bool flag);
+        /**
+         * Writes to an output stream in ADMB format.
+         * 
+         * @param os - output stream
+         */
+        void write(std::ostream & os);
+        /**
+         * Writes to an output stream in R format.
+         * 
+         * @param os - output stream
+         */
+        void writeToR(std::ostream & os);
+};
+
 /**
  * @class ModelParametersInfo
  * 
@@ -679,6 +731,7 @@ class SurveysInfo : public ParameterGroupInfo {
  *  <li> selectivity       (ptrSel)
  *  <li> fisheries         (ptrFsh)
  *  <li> surveys           (ptrSrv)
+ *  <li> MSE               (ptrMSE)
  * </ul>
  */
 class ModelParametersInfo{
@@ -699,6 +752,8 @@ class ModelParametersInfo{
         SelectivityInfo*      ptrSel; //pointer to selectivity functions info
         FisheriesInfo*        ptrFsh; //pointer to fisheries info
         SurveysInfo*          ptrSrv; //pointer to surveys info
+        
+        MSE_Info*             ptrMSE; //pointer to MSE info
     public:
         /**
          * Class constructor.

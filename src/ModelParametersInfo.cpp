@@ -27,8 +27,9 @@ int Molt2MaturityInfo::debug    = 0;
 int SelectivityInfo::debug      = 0;
 int FisheriesInfo::debug        = 0;
 int SurveysInfo::debug          = 0;
+int MSE_Info::debug             = 0;
 int ModelParametersInfo::debug  = 0;
-const adstring ModelParametersInfo::version = "2018.02.22";
+const adstring ModelParametersInfo::version = "2018.10.09";
     
 /*----------------------------------------------------------------------------*/
 /**
@@ -1335,8 +1336,9 @@ FisheriesInfo::~FisheriesInfo(){
     if (pDC3) delete pDC3;  pDC3=0;
     if (pDC4) delete pDC4;  pDC4=0;
     if (pDC4) delete pDC4;  pDC4=0;
-    if (pLnEffX) delete pLnEffX;  pLnEffX=0;
-    if (pLgtRet) delete pLgtRet;  pLgtRet=0;
+    if (pDevsLnC) delete pDevsLnC; pDevsLnC=0;
+    if (pLnEffX)  delete pLnEffX;  pLnEffX=0;
+    if (pLgtRet)  delete pLgtRet;  pLgtRet=0;
 }
 
 void FisheriesInfo::read(cifstream & is){
@@ -1597,6 +1599,124 @@ void SurveysInfo::writeToR(std::ostream & os){
 }
 
 /*------------------------------------------------------------------------------
+ * MSE_Info
+ -----------------------------------------------------------------------------*/
+adstring MSE_Info::NAME = "MSE";
+int MSE_Info::idxMSE_F  = 5+1;//column in parameter combinations matrix with parameter index for capture rate for MSE op mod 
+/*------------------------------------------------------------------------------
+ * MSE_Info\n
+ * Encapsulates the following MSE-related parameters:\n
+ *   pMSE_LnC : ln-scale capture rate for MSE op mod   
+ *
+ * Notes:
+ *  1. FISHERY, YEAR_BLOCK, SEX, MATURITY_STATE, SHELL_CONDITION are the index variables for the parameters
+*----------------------------------------------------------------------------*/
+MSE_Info::MSE_Info(){
+    if (debug) cout<<"starting MSE_Info::MSE_Info()"<<endl;
+    name = NAME;//assign static NAME to ParameterGroupInfo::name
+    
+    int k;
+    //create "independent variables" for parameter group assignment
+    nIVs = 5;//number of independent variables
+    lblIVs.allocate(1,nIVs);
+    k=1;
+    lblIVs(k++) = tcsam::STR_FISHERY;
+    lblIVs(k++) = "YEAR_BLOCK";
+    lblIVs(k++) = tcsam::STR_SEX;
+    lblIVs(k++) = tcsam::STR_MATURITY_STATE;
+    lblIVs(k++) = tcsam::STR_SHELL_CONDITION;
+    //create index block sets for "BLOCKS" (e.g. year blocks)
+    nIBSs = 1;
+    ibsIdxs.allocate(1,nIBSs);
+    ibsIdxs(1) = 2; //YEAR_BLOCK
+    ParameterGroupInfo::createIndexBlockSets();
+    for (int i=1;i<=nIBSs;i++) ppIBSs[i-1]->setType(lblIVs(ibsIdxs(i)));
+    
+    nPVs=1;
+    lblPVs.allocate(1,nPVs); dscPVs.allocate(1,nPVs);
+    k=1;
+    lblPVs(k) = "pMSE_F"; dscPVs(k++) = "capture rate for directed fishery in MSE op mod";
+    pMSE_F = 0;
+    
+    //create "extra indices"
+    nXIs=2;
+    lblXIs.allocate(1,nXIs);
+    k=1;
+    lblXIs(k++) = "idx.SelFcn";
+    lblXIs(k++) = "idx.RetFcn";
+    
+    if (debug) cout<<"finished MSE_Info::MSE_Info()"<<endl;
+}
+
+MSE_Info::~MSE_Info(){
+    if (pMSE_F) delete pMSE_F;  pMSE_F=0;
+}
+
+void MSE_Info::read(cifstream & is){
+    if (debug) cout<<"starting MSE_Info::read(cifstream & is)"<<endl;
+    
+    adstring str;
+    is>>str;
+    rpt::echo<<str<<tb<<"#Required keyword ("<<NAME<<")"<<endl;
+    if (!(str==NAME)){
+        cout<<"Error in MSE_Info::read(cifstream & is)"<<endl;
+        tcsam::readError(is,NAME,str);
+        exit(-1);
+    }
+    ParameterGroupInfo::read(is);
+    
+    is>>str;
+    rpt::echo<<str<<tb<<"#Required keyword (PARAMETERS)"<<endl;
+    if (str=="PARAMETERS"){
+        int k=1;
+        pMSE_F    = ParameterGroupInfo::read(is,lblPVs(k),pMSE_F);    
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pMSE_F)<<endl;  k++;
+    } else {
+        cout<<"Error reading MSE_Info from "<<is.get_file_name()<<endl;
+        cout<<"Expected keyword 'PARAMETERS' but got '"<<str<<"'."<<endl;
+        cout<<"Aborting..."<<endl;
+        exit(-1);
+    }
+    
+    if (debug){
+        cout<<"MSE_Info object "<<this<<endl<<(*this)<<endl;
+        cout<<"finished MSE_Info::read(cifstream & is)"<<endl;
+        cout<<"Enter 1 to continue: ";
+        cin>>debug;
+        if (debug<0) exit(1);
+    }
+}
+
+/**
+ * Sets the flags to write initial values for vector parameters to file 
+ * when writing parameter info to file.
+ * 
+ * @param flag - true/false to set to write initial values to file
+ */
+void MSE_Info::setToWriteVectorInitialValues(bool flag){
+    //do nothing: no parameter vectors defined
+}
+
+void MSE_Info::write(std::ostream & os){
+    os<<NAME<<tb<<"#process name"<<endl;
+    ParameterGroupInfo::write(os);
+    
+    os<<"PARAMETERS"<<endl;
+    
+    int k=1;
+    os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
+    os<<(*pMSE_F)<<endl;
+ }
+
+void MSE_Info::writeToR(std::ostream & os){
+    int indent=0;
+    os<<"mse=list("<<endl;
+        ParameterGroupInfo::writeToR(os);         os<<cc<<endl;
+        pMSE_F->writeToR(os, "pMSE_F", indent++); os<<endl;
+    os<<")";
+}
+
+/*------------------------------------------------------------------------------
  * ModelParametersInfo
  -----------------------------------------------------------------------------*/
 ModelParametersInfo::ModelParametersInfo(ModelConfiguration& mc){
@@ -1608,6 +1728,7 @@ ModelParametersInfo::ModelParametersInfo(ModelConfiguration& mc){
     ptrSel=0;
     ptrFsh=0;
     ptrSrv=0;
+    ptrMSE=0;
 }
 
 ModelParametersInfo::~ModelParametersInfo(){
@@ -1618,6 +1739,7 @@ ModelParametersInfo::~ModelParametersInfo(){
     if (ptrSel) {delete ptrSel;     ptrSel  = 0;}
     if (ptrFsh) {delete ptrFsh;     ptrFsh  = 0;}
     if (ptrSrv) {delete ptrSrv;     ptrSrv  = 0;}
+    if (ptrMSE) {delete ptrMSE;     ptrMSE  = 0;}
 }
 
 /**
@@ -1633,7 +1755,8 @@ void ModelParametersInfo::setToWriteVectorInitialValues(bool flag){
     if (ptrM2M) ptrM2M->setToWriteVectorInitialValues(flag);
     if (ptrSel) ptrSel->setToWriteVectorInitialValues(flag);
     if (ptrFsh) ptrFsh->setToWriteVectorInitialValues(flag);
-    if (ptrSrv) ptrSrv->setToWriteVectorInitialValues(flag);
+    if (ptrSrv) ptrSrv->setToWriteVectorInitialValues(flag); //not needed for SurveysInfo
+    if (ptrMSE) ptrSrv->setToWriteVectorInitialValues(flag); //not needed for MSE_Info
 }
 
 void ModelParametersInfo::read(cifstream & is){
@@ -1695,6 +1818,12 @@ void ModelParametersInfo::read(cifstream & is){
     is>>(*ptrSrv);
     rpt::echo<<"#---read Surveys Info"<<endl;
     
+    //read MSE-related parameters
+    rpt::echo<<"#---reading MSE Info"<<endl;
+    ptrMSE = new MSE_Info();
+    is>>(*ptrMSE);
+    rpt::echo<<"#---read MSE Info"<<endl;
+    
     if (debug) cout<<"finished void ModelParametersInfo::read(cifstream & is)"<<endl;
 }
     
@@ -1735,6 +1864,11 @@ void ModelParametersInfo::write(std::ostream & os){
     os<<"# Surveys parameters  "<<endl;
     os<<"#-------------------------------"<<endl;
     os<<(*ptrSrv)<<endl;
+    
+    os<<"#-------------------------------"<<endl;
+    os<<"# MSE-related parameters  "<<endl;
+    os<<"#-------------------------------"<<endl;
+    os<<(*ptrMSE)<<endl;
 }
 
 void ModelParametersInfo::writeToR(std::ostream & os){
@@ -1746,7 +1880,8 @@ void ModelParametersInfo::writeToR(std::ostream & os){
     ptrM2M->writeToR(os); os<<cc<<endl;
     ptrSel->writeToR(os); os<<cc<<endl;
     ptrFsh->writeToR(os); os<<cc<<endl;
-    ptrSrv->writeToR(os); os<<endl;
+    ptrSrv->writeToR(os); os<<cc<<endl;
+    ptrMSE->writeToR(os); os<<endl;
     os<<")";
 }
         

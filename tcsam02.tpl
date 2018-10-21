@@ -510,6 +510,7 @@ GLOBALS_SECTION
     int jitter     = 0;//use jittering for initial parameter values
     int resample   = 0;//use resampling for initial parameter values
     int opModMode  = 0;//run as operating model, no fitting
+    int mseMode    = 0;//flag indicating model is being run in an MSE
     int mseOpModMode  = 0;//flag indicating model is being run in an MSE in operating model mode
     int mseEstModMode = 0;//flag indicating model is being run in an MSE in estimation model mode 
     int usePin     = 0;//flag to initialize parameter values using a pin file
@@ -578,7 +579,7 @@ GLOBALS_SECTION
     int ALL_SCs   = tcsam::ALL_SCs;
     
     double smlVal = 0.00001;//small value to keep things > 0
-    
+        
 // =============================================================================
 // =============================================================================
 DATA_SECTION
@@ -640,12 +641,6 @@ DATA_SECTION
         rpt::echo<<"#Initial parameter values for running NUTS MCMC from pin file: "<<fnPin<<endl;
         rpt::echo<<"#-------------------------------------------"<<endl;
     }
-    //run dynamic B0 calculations after final phase
-    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-calcDynB0"))>-1) {
-        doDynB0 = 1;
-        rpt::echo<<"#Running dynamic B0 calculations after final phase."<<endl;
-        rpt::echo<<"#-------------------------------------------"<<endl;
-    }
     //opModMode
     if ((on=option_match(ad_comm::argc,ad_comm::argv,"-opModMode"))>-1) {
         opModMode=1;
@@ -653,17 +648,17 @@ DATA_SECTION
         rpt::echo<<"#-------------------------------------------"<<endl;
         flg = 1;
     }
-    //mseOpModMode
-    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-mseOpModMode"))>-1) {
-        mseOpModMode=1;
-        rpt::echo<<"#MSE operating model mode turned ON"<<endl;
-        rpt::echo<<"#-------------------------------------------"<<endl;
-        flg = 1;
-    }
-    //mseESTModMode
-    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-mseEstModMode"))>-1) {
-        mseEstModMode=1;
-        rpt::echo<<"#MSE estimation model mode turned ON"<<endl;
+    //mseMode
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-mseMode"))>-1) {
+        mseMode=1;
+        adstring type = ad_comm::argv[on+1];
+        if (type=="mseOpModMode"){
+            mseOpModMode = 1;
+            rpt::echo<<"#MSE operating model mode turned ON"<<endl;
+        } else if (type=="mseEstModMode"){
+            mseEstModMode = 1;
+            rpt::echo<<"#MSE estimation model mode turned ON"<<endl;
+        }
         rpt::echo<<"#-------------------------------------------"<<endl;
         flg = 1;
     }
@@ -674,40 +669,11 @@ DATA_SECTION
         rpt::echo<<"#-------------------------------------------"<<endl;
         flg = 1;
     }
-    //debugOFL
-    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-debugOFL"))>-1) {
-        debugOFL=1;
-        rpt::echo<<"#debugOFL turned ON"<<endl;
+    //run dynamic B0 calculations after final phase
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-calcDynB0"))>-1) {
+        doDynB0 = 1;
+        rpt::echo<<"#Running dynamic B0 calculations after final phase."<<endl;
         rpt::echo<<"#-------------------------------------------"<<endl;
-        flg = 1;
-    }
-    //debugModelConfig
-    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-debugModelConfig"))>-1) {
-        debugModelConfig=1;
-        rpt::echo<<"#debugModelConfig turned ON"<<endl;
-        rpt::echo<<"#-------------------------------------------"<<endl;
-        flg = 1;
-    }
-    //debugModelDatasets
-    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-debugModelDatasets"))>-1) {
-        debugModelDatasets=1;
-        rpt::echo<<"#debugModelDatasets turned ON"<<endl;
-        rpt::echo<<"#-------------------------------------------"<<endl;
-        flg = 1;
-    }
-    //debugModelParamsInfo
-    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-debugModelParamsInfo"))>-1) {
-        debugModelParamsInfo=1;
-        rpt::echo<<"#debugModelParamsInfo turned ON"<<endl;
-        rpt::echo<<"#-------------------------------------------"<<endl;
-        flg = 1;
-    }
-    //debugModelOptions
-    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-debugModelOptions"))>-1) {
-        debugModelOptions=1;
-        rpt::echo<<"#debugModelOptions turned ON"<<endl;
-        rpt::echo<<"#-------------------------------------------"<<endl;
-        flg = 1;
     }
     //doRetro
     if ((on=option_match(ad_comm::argc,ad_comm::argv,"-doRetro"))>-1) {
@@ -819,6 +785,34 @@ DATA_SECTION
         rpt::echo<<"#-------------------------------------------"<<endl;
         flg = 1;
     }
+    //debugOFL
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-debugOFL"))>-1) {
+        debugOFL=1;
+        rpt::echo<<"#debugOFL turned ON"<<endl;
+        rpt::echo<<"#-------------------------------------------"<<endl;
+        flg = 1;
+    }
+    //debugModelDatasets
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-debugModelDatasets"))>-1) {
+        debugModelDatasets=1;
+        rpt::echo<<"#debugModelDatasets turned ON"<<endl;
+        rpt::echo<<"#-------------------------------------------"<<endl;
+        flg = 1;
+    }
+    //debugModelParamsInfo
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-debugModelParamsInfo"))>-1) {
+        debugModelParamsInfo=1;
+        rpt::echo<<"#debugModelParamsInfo turned ON"<<endl;
+        rpt::echo<<"#-------------------------------------------"<<endl;
+        flg = 1;
+    }
+    //debugModelOptions
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-debugModelOptions"))>-1) {
+        debugModelOptions=1;
+        rpt::echo<<"#debugModelOptions turned ON"<<endl;
+        rpt::echo<<"#-------------------------------------------"<<endl;
+        flg = 1;
+    }
     //debugRunModel
     if (option_match(ad_comm::argc,ad_comm::argv,"-debugRunModel")>-1) {
         debugRunModel=1;
@@ -833,13 +827,6 @@ DATA_SECTION
         rpt::echo<<"#-------------------------------------------"<<endl;
         flg = 1;
     }
-    //showActiveParams
-    if (option_match(ad_comm::argc,ad_comm::argv,"-showActiveParams")>-1) {
-        showActiveParams=1;
-        rpt::echo<<"#showActiveParams turned ON"<<endl;
-        rpt::echo<<"#-------------------------------------------"<<endl;
-        flg = 1;
-    }
     //debuMCMC
     if (option_match(ad_comm::argc,ad_comm::argv,"-debugMCMC")>-1) {
         debugMCMC=1;
@@ -847,7 +834,14 @@ DATA_SECTION
         rpt::echo<<"#-------------------------------------------"<<endl;
         flg = 1;
     }
-    if (mseOpModMode&&mseOpModMode){
+    //showActiveParams
+    if (option_match(ad_comm::argc,ad_comm::argv,"-showActiveParams")>-1) {
+        showActiveParams=1;
+        rpt::echo<<"#showActiveParams turned ON"<<endl;
+        rpt::echo<<"#-------------------------------------------"<<endl;
+        flg = 1;
+    }
+    if (mseOpModMode&&mseEstModMode){
         cout<<endl;
         cout<<"--------ERROR!-----------"<<endl;
         cout<<"mseOpModMode and mseEstModMode cannot both be 'on'."<<endl;
@@ -1114,6 +1108,16 @@ DATA_SECTION
     int npDevsLnR; ivector mniDevsLnR; ivector mxiDevsLnR; imatrix idxsDevsLnR;
     vector lbDevsLnR; vector ubDevsLnR; ivector phsDevsLnR;
     !!tcsam::setParameterInfo(ptrMPI->ptrRec->pDevsLnR,npDevsLnR,mniDevsLnR,mxiDevsLnR,idxsDevsLnR,lbDevsLnR,ubDevsLnR,phsDevsLnR,rpt::echo);
+ LOCAL_CALCS    
+    if (mseOpModMode) {
+        phsLnR = -1;
+        phsRCV = -1;
+        phsRX  = -1;
+        phsRa  = -1;
+        phsRb  = -1;
+        phsDevsLnR = -1;
+    }
+ END_CALCS    
     
     //natural mortality parameters
     int npM; ivector phsM; vector lbM; vector ubM;
@@ -1133,11 +1137,27 @@ DATA_SECTION
     
     number zMref;
     !!zMref = ptrMPI->ptrNM->zRef;
+ LOCAL_CALCS    
+    if (mseOpModMode) {
+        phsM = -1;
+        phsDM1 = -1;
+        phsDM2 = -1;
+        phsDM3 = -1;
+        phsDM4 = -1;
+    }
+ END_CALCS    
+        
     
     //maturity parameters
     int npLgtPrMat; ivector mniLgtPrMat; ivector mxiLgtPrMat; imatrix idxsLgtPrMat;
     vector lbLgtPrMat; vector ubLgtPrMat; ivector phsLgtPrMat;
     !!tcsam::setParameterInfo(ptrMPI->ptrM2M->pLgtPrM2M,npLgtPrMat,mniLgtPrMat,mxiLgtPrMat,idxsLgtPrMat,lbLgtPrMat,ubLgtPrMat,phsLgtPrMat,rpt::echo);
+ LOCAL_CALCS    
+    if (mseOpModMode) {
+        phsLgtPrMat = -1;
+    }
+ END_CALCS    
+        
  
     //growth parameters
     int npGrA; ivector phsGrA; vector lbGrA; vector ubGrA;
@@ -1148,6 +1168,14 @@ DATA_SECTION
     
     int npGrBeta; ivector phsGrBeta; vector lbGrBeta; vector ubGrBeta;
     !!tcsam::setParameterInfo(ptrMPI->ptrGrw->pGrBeta,npGrBeta,lbGrBeta,ubGrBeta,phsGrBeta,rpt::echo);
+ LOCAL_CALCS    
+    if (mseOpModMode) {
+        phsGrA = -1;
+        phsGrB = -1;
+        phsGrBeta = -1;
+    }
+ END_CALCS    
+        
     
     //selectivity parameters
     !!nSel = ptrMPI->ptrSel->nPCs;//number of selectivity functions defined
@@ -1182,7 +1210,22 @@ DATA_SECTION
     int npDevsS6; ivector mniDevsS6; ivector mxiDevsS6;  imatrix idxsDevsS6;
     vector lbDevsS6; vector ubDevsS6; ivector phsDevsS6;
     !!tcsam::setParameterInfo(ptrMPI->ptrSel->pDevsS6,npDevsS6,mniDevsS6,mxiDevsS6,idxsDevsS6,lbDevsS6,ubDevsS6,phsDevsS6,rpt::echo);
-    
+ LOCAL_CALCS    
+    if (mseOpModMode) {
+        phsS1 = -1;
+        phsS2 = -1;
+        phsS3 = -1;
+        phsS4 = -1;
+        phsS5 = -1;
+        phsS6 = -1;
+        phsDevsS1 = -1;
+        phsDevsS2 = -1;
+        phsDevsS3 = -1;
+        phsDevsS4 = -1;
+        phsDevsS5 = -1;
+        phsDevsS6 = -1;
+    }
+ END_CALCS    
         
     //fisheries parameters
     int npHM; ivector phsHM; vector lbHM; vector ubHM;
@@ -1213,6 +1256,20 @@ DATA_SECTION
     int npLgtRet; ivector phsLgtRet; vector lbLgtRet; vector ubLgtRet;
     !!tcsam::setParameterInfo(ptrMPI->ptrFsh->pLgtRet,npLgtRet,lbLgtRet,ubLgtRet,phsLgtRet,rpt::echo);
     
+ LOCAL_CALCS    
+    if (mseOpModMode) {
+        phsHM = -1;
+        phsLnC = -1;
+        phsDC1 = -1;
+        phsDC2 = -1;
+        phsDC3 = -1;
+        phsDC4 = -1;
+        phsDevsLnC = -1;
+        phsLnEffX = -1;
+        phsLgtRet = -1;
+    }
+ END_CALCS    
+         
     //surveys parameters
     int npQ; ivector phsQ; vector lbQ; vector ubQ;
     !!tcsam::setParameterInfo(ptrMPI->ptrSrv->pQ,npQ,lbQ,ubQ,phsQ,rpt::echo);
@@ -1228,7 +1285,22 @@ DATA_SECTION
     
     int npDQ4; ivector phsDQ4; vector lbDQ4; vector ubDQ4;
     !!tcsam::setParameterInfo(ptrMPI->ptrSrv->pDQ4,npDQ4,lbDQ4,ubDQ4,phsDQ4,rpt::echo);
-
+    
+ LOCAL_CALCS    
+    if (mseOpModMode) {
+        phsQ = -1;
+        phsDQ1 = -1;
+        phsDQ2 = -1;
+        phsDQ3 = -1;
+        phsDQ4 = -1;
+    }
+ END_CALCS    
+         
+    //MSE-related parameters
+    int npMSE_LnC; ivector phsMSE_LnC; vector lbMSE_LnC; vector ubMSE_LnC;
+    !!tcsam::setParameterInfo(ptrMPI->ptrMSE->pMSE_F,npMSE_LnC,lbMSE_LnC,ubMSE_LnC,phsMSE_LnC,rpt::echo);
+    !!if (!mseOpModMode) {phsMSE_LnC = -1;}
+     
     //other data
     vector dtF_y(mnYr,mxYr);//timing of midpoint of fishing season (by year)
     !!dtF_y = ptrMDS->ptrBio->fshTiming_y(mnYr,mxYr);
@@ -1292,6 +1364,18 @@ DATA_SECTION
     !!ctrProcCalls        = 0;
     !!ctrProcCallsInPhase = 0;
     
+    //MSE-related variables
+    vector tac(1,npMSE_LnC); //TAC for upcoming year
+ LOCAL_CALCS
+     tac = 0.0;
+     if (mseOpModMode){
+        ad_comm::change_datafile_name("tac.txt");
+        (*ad_comm::global_datafile)>>tac;
+        rpt::echo<<"TAC for year is: "<<tac<<endl;
+        cout<<"TAC for year is: "<<tac<<endl;
+     }
+ END_CALCS
+ 
     !!PRINT2B1("#finished DATA_SECTION")
             
 // =============================================================================
@@ -7233,58 +7317,90 @@ FINAL_SECTION
     PRINT2B1(" ")
     PRINT2B1("#--Starting FINAL_SECTION")
         
-    int mceval_on = option_match(ad_comm::argc,ad_comm::argv,"-mceval");
-    if (mceval_on>-1) {
-        PRINT2B1("#----Closing mcmc file")
-        mcmc.open((char*)(fnMCMC),ios::app);
-        mcmc.precision(12);
-        //mcmc<<"NULL)"<<endl;
-        mcmc.close();
-        PRINT2B1(" ")
-    }
-    
-    if (mceval_on<0){
-        PRINT2B2("obj fun = ",objFun)
-        PRINT2B1(" ")
-        {
-            PRINT2B1("#----Writing sim data to file")
-            ofstream echo1; echo1.open("ModelSimData.dat", ios::trunc);
-            echo1.precision(12);
-            writeSimData(echo1,0,cout,ptrSimMDS);
+    if (!mseMode){
+        int mceval_on = option_match(ad_comm::argc,ad_comm::argv,"-mceval");
+        if (mceval_on>-1) {
+            PRINT2B1("#----Closing mcmc file")
+            mcmc.open((char*)(fnMCMC),ios::app);
+            mcmc.precision(12);
+            //mcmc<<"NULL)"<<endl;
+            mcmc.close();
+            PRINT2B1(" ")
+        }
+
+        if (mceval_on<0){
             PRINT2B2("obj fun = ",objFun)
             PRINT2B1(" ")
-        }
+            {
+                PRINT2B1("#----Writing sim data to file")
+                ofstream echo1; echo1.open("ModelSimData.dat", ios::trunc);
+                echo1.precision(12);
+                writeSimData(echo1,0,cout,ptrSimMDS);
+                PRINT2B2("obj fun = ",objFun)
+                PRINT2B1(" ")
+            }
 
-        {
-            PRINT2B1("#----Calculating final effective weights for size compositions")
-            PRINT2B1("#----Note that the value of objFun is not valid now!!")
-            //note that this modifies the value of the objective function!
-            ofstream os; os.open("effectiveWeights.R", ios::app);
-            os<<"#--Calculating effective weights in FINAL_PHASE--"<<endl;
-            os<<"effWgts.final=list("<<endl;
-            os<<"surveys=";   calcWeightsForSurveySizeComps( -1,os); os<<","<<endl;
-            os<<"fisheries="; calcWeightsForFisherySizeComps(-1,os); os<<endl;
-            os<<")"<<endl;
-            os<<"#--Finished calculating effective weights in FINAL_PHASE--"<<endl;
-            os<<")"<<endl;
-            os.close();
-            PRINT2B2("#--obj fun = ",objFun)
-            PRINT2B1(" ")
-        }
+            {
+                PRINT2B1("#----Calculating final effective weights for size compositions")
+                PRINT2B1("#----Note that the value of objFun is not valid now!!")
+                //note that this modifies the value of the objective function!
+                ofstream os; os.open("effectiveWeights.R", ios::app);
+                os<<"#--Calculating effective weights in FINAL_PHASE--"<<endl;
+                os<<"effWgts.final=list("<<endl;
+                os<<"surveys=";   calcWeightsForSurveySizeComps( -1,os); os<<","<<endl;
+                os<<"fisheries="; calcWeightsForFisherySizeComps(-1,os); os<<endl;
+                os<<")"<<endl;
+                os<<"#--Finished calculating effective weights in FINAL_PHASE--"<<endl;
+                os<<")"<<endl;
+                os.close();
+                PRINT2B2("#--obj fun = ",objFun)
+                PRINT2B1(" ")
+            }
 
-        if (doDynB0>0){
-            PRINT2B1("#----Calculating dynamic B0")
-            PRINT2B1("#----Note that the value of objFun is not valid now!!")
-            calcDynB0(1,rpt::echo);
-            PRINT2B2("#--obj fun = ",objFun)
-            PRINT2B1(" ")
-        }
+            if (doDynB0>0){
+                PRINT2B1("#----Calculating dynamic B0")
+                PRINT2B1("#----Note that the value of objFun is not valid now!!")
+                calcDynB0(1,rpt::echo);
+                PRINT2B2("#--obj fun = ",objFun)
+                PRINT2B1(" ")
+            }
 
-        PRINT2B1("#----Recalculating final objective function value")
-        runPopDyMod(0,cout);
-        calcObjFun(dbgObjFun,cout);
-        PRINT2B2("#--Final obj fun = ",objFun)
-    }
+            PRINT2B1("#----Recalculating final objective function value")
+            runPopDyMod(0,cout);
+            calcObjFun(dbgObjFun,cout);
+            PRINT2B2("#--Final obj fun = ",objFun)
+        }
+    } else if (mseEstModMode){
+        //running in estModMode
+        //--calculate OFL
+        calcOFL(mxYrp1, 0, cout);
+        double OFL = ptrOFLResults->OFL;
+
+        //--calculate TAC for upcoming year using harvest control rule
+
+        //--save TAC to file for OpMod to read
+
+        //--write pin for EstMod for upcoming year based on this year
+        //----devs for upcoming year are zero
+
+        //--write model parameters info file for EstMod for upcoming year
+        //----values for devs vectors SHOULD NOT be written into file
+
+
+    } else if (mseOpModMode){
+        //running in opModMode
+        //--generate year-end recruitment here or previously??
+        //--will need mean ln-scale rec., recruitment CV, and random draw
+
+        //--write fisheries data files 
+        //----only need to update just-finished year
+
+        //--write surveys data files
+        //----only need to update just-starting year            
+
+        //--write pin file for OpMod for subsequent year
+
+    }//opModMode
     
     int hour,minute,second;
     double elapsed_time;
