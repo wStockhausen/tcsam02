@@ -411,7 +411,7 @@ class Molt2MaturityInfo: public ParameterGroupInfo {
         static adstring NAME;//"molt_to_maturity"
     public:        
         /** pointer to info for parameter vectors describing logit-scale pr(molt-to-maturity|size) */
-        BoundedVectorVectorInfo* pLgtPrM2M; 
+        BoundedVectorVectorInfo* pvLgtPrM2M; 
         
         /**
          * Class constructor.
@@ -488,6 +488,7 @@ class SelectivityInfo : public ParameterGroupInfo {
         DevsVectorVectorInfo* pDevsS4;
         DevsVectorVectorInfo* pDevsS5;
         DevsVectorVectorInfo* pDevsS6;
+        BoundedVectorVectorInfo* pvNPSel;
         
         SelectivityInfo();
         ~SelectivityInfo();
@@ -673,18 +674,15 @@ class SurveysInfo : public ParameterGroupInfo {
  *  1. index variables for parameters:
  *      a. FISHERY
  *      b. YEAR_BLOCK
- *      c. SEX
- *      d. MATURITY
- *      e. SHELL
 *----------------------------------------------------------------------------*/
 class MSE_Info : public ParameterGroupInfo {
     public:
         static int debug;
-        static int idxMSE_F; //column in parameter combinations matrix with parameter index for capture rate for MSE op mod
+        static int idxMSE_LnC; //column in parameter combinations matrix with parameter index for capture rate for MSE op mod
     protected:
         static adstring NAME;//"MSE"
     public:
-        BoundedNumberVectorInfo* pMSE_F;//capture rate for MSE op mod 
+        BoundedNumberVectorInfo* pMSE_LnC;//ln-scale capture rate for MSE op mod 
         
         MSE_Info();
         ~MSE_Info();

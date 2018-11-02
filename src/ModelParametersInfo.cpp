@@ -29,7 +29,7 @@ int FisheriesInfo::debug        = 0;
 int SurveysInfo::debug          = 0;
 int MSE_Info::debug             = 0;
 int ModelParametersInfo::debug  = 0;
-const adstring ModelParametersInfo::version = "2018.10.09";
+const adstring ModelParametersInfo::version = "2018.10.29";
     
 /*----------------------------------------------------------------------------*/
 /**
@@ -51,7 +51,7 @@ wts::adstring_matrix tcsam::convertPCs(ParameterGroupInfo * pgi){
         if (pgi->lblIVs(i)==tcsam::STR_SEX)             {a(i,0)=pgi->lblIVs(i);} else
         if (pgi->lblIVs(i)==tcsam::STR_MATURITY_STATE)  {a(i,0)=pgi->lblIVs(i);} else
         if (pgi->lblIVs(i)==tcsam::STR_SHELL_CONDITION) {a(i,0)=pgi->lblIVs(i);} else 
-        if (i==pgi->ibsIdxs(ibsIdx)){
+        if ((pgi->ibsIdxs.allocated())&&(i==pgi->ibsIdxs(ibsIdx))){
             a(i,0)=pgi->ppIBSs[ibsIdx-1]->getType();
             if (ibsIdx<pgi->nIBSs) ibsIdx++;//increment to next
         }
@@ -64,7 +64,7 @@ wts::adstring_matrix tcsam::convertPCs(ParameterGroupInfo * pgi){
             if (pgi->lblIVs(i)==tcsam::STR_SEX)             {a(i,r)=tcsam::getSexType(pgi->in(r,i));}      else
             if (pgi->lblIVs(i)==tcsam::STR_MATURITY_STATE)  {a(i,r)=tcsam::getMaturityType(pgi->in(r,i));} else
             if (pgi->lblIVs(i)==tcsam::STR_SHELL_CONDITION) {a(i,r)=tcsam::getShellType(pgi->in(r,i));}    else 
-            if (i==pgi->ibsIdxs(ibsIdx)){
+            if ((pgi->ibsIdxs.allocated())&&(i==pgi->ibsIdxs(ibsIdx))){
                 a(i,r)=pgi->ppIBSs[ibsIdx-1]->getIndexBlock(r)->asString();
                 if (ibsIdx<pgi->nIBSs) ibsIdx++;//increment to next
             } else {a(i,r)=str(pgi->in(r,i));}
@@ -295,7 +295,7 @@ void ParameterGroupInfo::createIndices(void){
 }
 
 /**
- * Reads info for a BoundedNumberVector object from an input  filestream.
+ * Reads info for a BoundedNumberVector object from an input filestream.
  * @param is
  * @param lbl
  * @param pBNVI
@@ -324,6 +324,7 @@ BoundedNumberVectorInfo* ParameterGroupInfo::read(cifstream& is, adstring& lbl, 
  * @return 
  */
 BoundedVectorVectorInfo* ParameterGroupInfo::read(cifstream& is, adstring& lbl, BoundedVectorVectorInfo* pBVVI){
+    if (debug) cout<<"Starting BVVI* PGI::read(is,lbl,BVVI*) for "<<lbl<<endl;
     adstring param;
     is>>param;
     if (param==lbl){
@@ -335,6 +336,7 @@ BoundedVectorVectorInfo* ParameterGroupInfo::read(cifstream& is, adstring& lbl, 
         tcsam::readError(is,lbl,param);
         exit(-1);
     }
+    if (debug) cout<<"Finished BVVI* PGI::read(is,lbl,BVVI*) for "<<lbl<<endl;
     return pBVVI;
 }
 
@@ -369,17 +371,27 @@ void ParameterGroupInfo::read(cifstream& is){
     adstring str; 
     //read parameter combinations
     is>>str;
+    if (debug) cout<<str<<tb<<"#Required keyword (PARAMETER_COMBINATIONS)"<<endl;
     rpt::echo<<str<<tb<<"#Required keyword (PARAMETER_COMBINATIONS)"<<endl;
     if (str=="PARAMETER_COMBINATIONS"){
         is>>nPCs;
+        if (debug) cout<<nPCs<<tb<<"#number of parameter combinations"<<endl;
+        if (debug) cout<<"#id  "; 
         rpt::echo<<nPCs<<tb<<"#number of parameter combinations"<<endl;
         rpt::echo<<"#id  "; 
+        if (debug){
+            for (int i=1;i<=nIVs;i++) cout<<lblIVs(i)<<tb; 
+            for (int i=1;i<=nPVs;i++) cout<<lblPVs(i)<<tb; 
+            for (int i=1;i<=nXIs;i++) cout<<lblXIs(i)<<tb; 
+        }
         for (int i=1;i<=nIVs;i++) rpt::echo<<lblIVs(i)<<tb; 
         for (int i=1;i<=nPVs;i++) rpt::echo<<lblPVs(i)<<tb; 
         for (int i=1;i<=nXIs;i++) rpt::echo<<lblXIs(i)<<tb; 
-        rpt::echo<<tb<<"label"<<tb;
-        rpt::echo<<endl;
+        if (debug) cout<<tb<<"label"<<tb<<endl;
+        rpt::echo<<tb<<"label"<<tb<<endl;
+        if (debug) cout<<"About to allocate ppIBSs"<<endl;
         for (int i=0;i<nIBSs;i++) ppIBSs[i]->allocate(nPCs);
+        if (debug) cout<<"Finished allocating ppIBSs"<<endl;
         //read parameters combinations definition matrix
         int ibsIdx=1;
         in.allocate(1,nPCs,1,nIVs+nPVs+nXIs);
@@ -388,22 +400,26 @@ void ParameterGroupInfo::read(cifstream& is){
         for (int r=1;r<=nPCs;r++){//loop over rows
             is>>str; //read id
             rpt::echo<<str<<tb;
+            if (debug) cout<<"pc = "<<r<<tb<<"looping over index variables"<<endl;
             for (int i=1;i<=nIVs;i++){//loop over index variables
                 is>>str;
+                if (debug) cout<<tb<<"index variable"<<tb<<i<<tb<<str<<endl;
                 rpt::echo<<str<<tb;
                 if (lblIVs(i)==tcsam::STR_SEX)             {in(r,i) = tcsam::getSexType(str);}      else
                 if (lblIVs(i)==tcsam::STR_MATURITY_STATE)  {in(r,i) = tcsam::getMaturityType(str);} else
                 if (lblIVs(i)==tcsam::STR_SHELL_CONDITION) {in(r,i) = tcsam::getShellType(str);}    else
-                if (i==ibsIdxs(ibsIdx)){//variable is a block
+                if ((ibsIdxs.allocated())&&(i==ibsIdxs(ibsIdx))){//variable is a block
                     ppIBSs[ibsIdx-1]->getIndexBlock(r)->parse(str);
                     in(r,i)=ibsIdx;//index to associated IndexBlockSet
                     if (ibsIdx<nIBSs) ibsIdx++;//increment to next IBS
                 } else {in(r,i)=::atoi(str);}
             }
+            if (debug) cout<<"looping over parameter indices"<<endl;
             for (int p=1;p<=nPVs;p++) {is>>in(r,nIVs+p); rpt::echo<<in(r,nIVs+p)<<tb;}  
-            //rpt::echo<<"looping over extra variables"<<endl;
+            if (debug) cout<<"looping over extra variables"<<endl;
             for (int x=1;x<=nXIs;x++) {//loop over "extra" variables
                 is>>str;
+                if (debug) cout<<str<<endl;
                 rpt::echo<<str<<tb;
                 if (lblXIs(x)==tcsam::STR_SELFCN){
                     //identify selectivity function and return function index
@@ -415,9 +431,14 @@ void ParameterGroupInfo::read(cifstream& is){
                 //rpt::echo<<"x = "<<x<<tb<<"str = "<<str<<tb<<"in() = "<<in(r,nIVs+nPVs+x)<<tb<<"xd() = "<<xd(r,x)<<endl;
             }
             is>>pcLabels(r);
+            if (debug) cout<<pcLabels(r)<<endl;
             rpt::echo<<pcLabels(r)<<tb;
             rpt::echo<<endl;
-            if (debug) cout<<"pc row "<<r<<": "<<in(r)<<tb<<"xd: "<<xd(r)<<endl;
+            if (debug) {
+                cout<<"pc row "<<r<<": "<<in(r);
+                if (nXIs) cout<<tb<<"xd: "<<xd(r);
+                cout<<endl;
+            }
         }
         //revert reading back to sub-class to read values for parameters
     } else {
@@ -439,6 +460,7 @@ void ParameterGroupInfo::read(cifstream& is){
 //}
 
 void ParameterGroupInfo::write(std::ostream& os){
+    if (debug) cout<<"starting ParameterGroupInfo::write(std::ostream& os)"<<endl;
 //    os<<(*ptrIBSs)<<endl;
     os<<"PARAMETER_COMBINATIONS"<<endl;
     os<<nPCs<<tb<<"#number of parameter combinations"<<endl;
@@ -455,7 +477,7 @@ void ParameterGroupInfo::write(std::ostream& os){
             if (lblIVs(i)==tcsam::STR_SEX)             {os<<tcsam::getSexType(in(r,i))<<tb;} else
             if (lblIVs(i)==tcsam::STR_MATURITY_STATE)  {os<<tcsam::getMaturityType(in(r,i))<<tb;} else
             if (lblIVs(i)==tcsam::STR_SHELL_CONDITION) {os<<tcsam::getShellType(in(r,i))<<tb;} else 
-            if (i==ibsIdxs(ibsIdx)){
+            if ((ibsIdxs.allocated())&&(i==ibsIdxs(ibsIdx))){
                 os<<(*ppIBSs[ibsIdx-1]->getIndexBlock(r))<<tb;
                 if (ibsIdx<nIBSs) ibsIdx++;//increment to next
             } else {os<<in(r,i)<<tb;}
@@ -470,6 +492,7 @@ void ParameterGroupInfo::write(std::ostream& os){
         os<<pcLabels(r)<<tb;
         os<<endl;
     }//r
+    if (debug) cout<<"finished ParameterGroupInfo::write(std::ostream& os)"<<endl;
 }
 /**
  * This should be called from sub-classes to write generic information to R.
@@ -492,7 +515,7 @@ void ParameterGroupInfo::writeToR(std::ostream& os){
                     if (lblIVs(i)==tcsam::STR_SEX)             {os<<tcsam::getSexType(in(p,i))     <<"',";} else
                     if (lblIVs(i)==tcsam::STR_MATURITY_STATE)  {os<<tcsam::getMaturityType(in(p,i))<<"',";} else
                     if (lblIVs(i)==tcsam::STR_SHELL_CONDITION) {os<<tcsam::getShellType(in(p,i))   <<"',";} else 
-                    if (i==ibsIdxs(ibsIdx)){
+                    if ((ibsIdxs.allocated())&&(i==ibsIdxs(ibsIdx))){
                         os<<(*ppIBSs[ibsIdx-1]->getIndexBlock(p))<<"',";
                         if (ibsIdx<nIBSs) ibsIdx++;//increment to next
                     } else {os<<in(p,i)<<"',";}
@@ -947,13 +970,13 @@ Molt2MaturityInfo::Molt2MaturityInfo(){
     lblPVs.allocate(1,nPVs); dscPVs.allocate(1,nPVs);
     k=1;
     lblPVs(k) = "pvLgtPrM2M";dscPVs(k++) = "logit-scale parameter vectors for Pr(molt-to-maturity|size)";    
-    pLgtPrM2M = 0;
+    pvLgtPrM2M = 0;
     
     nXIs = 0;    
 }
 
 Molt2MaturityInfo::~Molt2MaturityInfo(){
-    if (pLgtPrM2M) delete pLgtPrM2M; pLgtPrM2M = 0;
+    if (pvLgtPrM2M) delete pvLgtPrM2M; pvLgtPrM2M = 0;
 }
 
 void Molt2MaturityInfo::read(cifstream & is){
@@ -973,8 +996,8 @@ void Molt2MaturityInfo::read(cifstream & is){
     rpt::echo<<str<<tb<<"#Required keyword (PARAMETERS)"<<endl;
     if (str=="PARAMETERS"){
         int k=1;
-        pLgtPrM2M = ParameterGroupInfo::read(is,lblPVs(k),pLgtPrM2M);
-        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLgtPrM2M)<<endl;  
+        pvLgtPrM2M = ParameterGroupInfo::read(is,lblPVs(k),pvLgtPrM2M);
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pvLgtPrM2M)<<endl;  
     } else {
         cout<<"Error reading MaturityInfo from "<<is.get_file_name()<<endl;
         cout<<"Expected keyword 'PARAMETERS' but got '"<<str<<"'."<<endl;
@@ -998,9 +1021,9 @@ void Molt2MaturityInfo::read(cifstream & is){
  * @param flag - true/false to set to write initial values to file
  */
 void Molt2MaturityInfo::setToWriteVectorInitialValues(bool flag){
-    if (pLgtPrM2M){
-        for (int i=1;i<=pLgtPrM2M->getSize();i++){
-            BoundedVectorInfo* vi = (*pLgtPrM2M)[i];
+    if (pvLgtPrM2M){
+        for (int i=1;i<=pvLgtPrM2M->getSize();i++){
+            BoundedVectorInfo* vi = (*pvLgtPrM2M)[i];
             if (flag) vi->readVals = INT_TRUE; else vi->readVals = INT_FALSE;        
         }
     }
@@ -1014,14 +1037,14 @@ void Molt2MaturityInfo::write(std::ostream & os){
     
     int k=1;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
-    os<<(*pLgtPrM2M)<<endl;
+    os<<(*pvLgtPrM2M)<<endl;
 }
 
 void Molt2MaturityInfo::writeToR(std::ostream & os){
     int indent=0;
     os<<"mat=list("<<endl;
         ParameterGroupInfo::writeToR(os);             os<<cc<<endl;
-        pLgtPrM2M->writeToR(os,"pLgtPrM2M",indent+1); os<<endl;
+        pvLgtPrM2M->writeToR(os,"pvLgtPrM2M",indent+1); os<<endl;
     os<<")";
 }
 
@@ -1042,7 +1065,7 @@ SelectivityInfo::SelectivityInfo(){
     ParameterGroupInfo::createIndexBlockSets();
     for (int i=1;i<=nIBSs;i++) ppIBSs[i-1]->setType(lblIVs(ibsIdxs(i)));
     
-    nPVs=12;
+    nPVs=13;
     lblPVs.allocate(1,nPVs); dscPVs.allocate(1,nPVs);
     k=1;
     lblPVs(k) = "pS1"; dscPVs(k++) = "1st input to selectivity function";
@@ -1057,6 +1080,7 @@ SelectivityInfo::SelectivityInfo(){
     lblPVs(k) = "pDevsS4"; dscPVs(k++) = "devs to 4th input to selectivity function";
     lblPVs(k) = "pDevsS5"; dscPVs(k++) = "devs to 5th input to selectivity function";
     lblPVs(k) = "pDevsS6"; dscPVs(k++) = "devs to 6th input to selectivity function";
+    lblPVs(k) = "pvNPSel"; dscPVs(k++) = "non-parametric selectivity functions";
     
     nXIs=2;
     lblXIs.allocate(1,nXIs);
@@ -1079,6 +1103,7 @@ SelectivityInfo::~SelectivityInfo(){
     if (pDevsS4) delete pDevsS4; pDevsS4=0;
     if (pDevsS5) delete pDevsS5; pDevsS5=0;
     if (pDevsS6) delete pDevsS6; pDevsS6=0;
+    if (pvNPSel) delete pvNPSel; pvNPSel=0;
 }
 
 void SelectivityInfo::read(cifstream & is){
@@ -1126,6 +1151,8 @@ void SelectivityInfo::read(cifstream & is){
         rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDevsS5)<<endl;  k++;
         pDevsS6 = ParameterGroupInfo::read(is,lblPVs(k),pDevsS6); 
         rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDevsS6)<<endl;  k++;
+        pvNPSel = ParameterGroupInfo::read(is,lblPVs(k),pvNPSel); 
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pvNPSel)<<endl;  k++;
     } else {
         cout<<"Error reading SelectivityInfo from "<<is.get_file_name()<<endl;
         cout<<"Expected keyword 'PARAMETERS' but got '"<<str<<"'."<<endl;
@@ -1185,6 +1212,12 @@ void SelectivityInfo::setToWriteVectorInitialValues(bool flag){
             if (flag) vi->readVals = INT_TRUE; else vi->readVals = INT_FALSE;        
         }
     }
+    if (pvNPSel){
+        for (int i=1;i<=pvNPSel->getSize();i++){
+            BoundedVectorInfo* vi = (*pvNPSel)[i];
+            if (flag) vi->readVals = INT_TRUE; else vi->readVals = INT_FALSE;        
+        }
+    }
 }
 
 void SelectivityInfo::write(std::ostream & os){
@@ -1219,6 +1252,8 @@ void SelectivityInfo::write(std::ostream & os){
     os<<(*pDevsS5)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
     os<<(*pDevsS6)<<endl;
+    os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
+    os<<(*pvNPSel)<<endl;
  }
 
 void SelectivityInfo::writeToR(std::ostream & os){
@@ -1236,7 +1271,8 @@ void SelectivityInfo::writeToR(std::ostream & os){
         pDevsS3->writeToR(os,"pDevsS3",indent+1); os<<cc<<endl;
         pDevsS4->writeToR(os,"pDevsS4",indent+1); os<<cc<<endl;
         pDevsS5->writeToR(os,"pDevsS5",indent+1); os<<cc<<endl;
-        pDevsS6->writeToR(os,"pDevsS6",indent+1); os<<endl;
+        pDevsS6->writeToR(os,"pDevsS6",indent+1); os<<cc<<endl;
+        pvNPSel->writeToR(os,"pvNPSel",indent+1); os<<endl;
     os<<")";
 }
 
@@ -1602,14 +1638,14 @@ void SurveysInfo::writeToR(std::ostream & os){
  * MSE_Info
  -----------------------------------------------------------------------------*/
 adstring MSE_Info::NAME = "MSE";
-int MSE_Info::idxMSE_F  = 5+1;//column in parameter combinations matrix with parameter index for capture rate for MSE op mod 
+int MSE_Info::idxMSE_LnC  = 1+1;//column in parameter combinations matrix with parameter index for capture rate for MSE op mod 
 /*------------------------------------------------------------------------------
  * MSE_Info\n
  * Encapsulates the following MSE-related parameters:\n
  *   pMSE_LnC : ln-scale capture rate for MSE op mod   
  *
  * Notes:
- *  1. FISHERY, YEAR_BLOCK, SEX, MATURITY_STATE, SHELL_CONDITION are the index variables for the parameters
+ *  1. FISHERY is the only index variable for the parameters
 *----------------------------------------------------------------------------*/
 MSE_Info::MSE_Info(){
     if (debug) cout<<"starting MSE_Info::MSE_Info()"<<endl;
@@ -1617,39 +1653,39 @@ MSE_Info::MSE_Info(){
     
     int k;
     //create "independent variables" for parameter group assignment
-    nIVs = 5;//number of independent variables
+    nIVs = 1;//number of independent variables
     lblIVs.allocate(1,nIVs);
     k=1;
     lblIVs(k++) = tcsam::STR_FISHERY;
-    lblIVs(k++) = "YEAR_BLOCK";
-    lblIVs(k++) = tcsam::STR_SEX;
-    lblIVs(k++) = tcsam::STR_MATURITY_STATE;
-    lblIVs(k++) = tcsam::STR_SHELL_CONDITION;
+//    lblIVs(k++) = "YEAR_BLOCK";
+//    lblIVs(k++) = tcsam::STR_SEX;
+//    lblIVs(k++) = tcsam::STR_MATURITY_STATE;
+//    lblIVs(k++) = tcsam::STR_SHELL_CONDITION;
     //create index block sets for "BLOCKS" (e.g. year blocks)
-    nIBSs = 1;
-    ibsIdxs.allocate(1,nIBSs);
-    ibsIdxs(1) = 2; //YEAR_BLOCK
+    nIBSs = 0;
+//    ibsIdxs.allocate(1,nIBSs);
+//    ibsIdxs(1) = 2; //YEAR_BLOCK
     ParameterGroupInfo::createIndexBlockSets();
     for (int i=1;i<=nIBSs;i++) ppIBSs[i-1]->setType(lblIVs(ibsIdxs(i)));
     
     nPVs=1;
     lblPVs.allocate(1,nPVs); dscPVs.allocate(1,nPVs);
     k=1;
-    lblPVs(k) = "pMSE_F"; dscPVs(k++) = "capture rate for directed fishery in MSE op mod";
-    pMSE_F = 0;
+    lblPVs(k) = "pMSE_LnC"; dscPVs(k++) = "ln-scale capture rate for directed fishery in MSE op mod";
+    pMSE_LnC = 0;
     
     //create "extra indices"
-    nXIs=2;
-    lblXIs.allocate(1,nXIs);
-    k=1;
-    lblXIs(k++) = "idx.SelFcn";
-    lblXIs(k++) = "idx.RetFcn";
+    nXIs=0;
+//    lblXIs.allocate(1,nXIs);//
+//    k=1;
+//    lblXIs(k++) = "idx.SelFcn";
+//    lblXIs(k++) = "idx.RetFcn";
     
     if (debug) cout<<"finished MSE_Info::MSE_Info()"<<endl;
 }
 
 MSE_Info::~MSE_Info(){
-    if (pMSE_F) delete pMSE_F;  pMSE_F=0;
+    if (pMSE_LnC) delete pMSE_LnC;  pMSE_LnC=0;
 }
 
 void MSE_Info::read(cifstream & is){
@@ -1663,28 +1699,35 @@ void MSE_Info::read(cifstream & is){
         tcsam::readError(is,NAME,str);
         exit(-1);
     }
+    if (debug) {
+        cout<<"MSE_Info starting ParameterGroupInfo::read(is)"<<endl;
+        ParameterGroupInfo::debug=1;
+    }
     ParameterGroupInfo::read(is);
+    if (debug) {
+        ParameterGroupInfo::debug=0;
+        cout<<"MSE_Info finished ParameterGroupInfo::read(is)"<<endl;
+    }
     
     is>>str;
+    if (debug) cout<<str<<tb<<"#Required keyword (PARAMETERS)"<<endl;
     rpt::echo<<str<<tb<<"#Required keyword (PARAMETERS)"<<endl;
     if (str=="PARAMETERS"){
         int k=1;
-        pMSE_F    = ParameterGroupInfo::read(is,lblPVs(k),pMSE_F);    
-        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pMSE_F)<<endl;  k++;
+        if (debug) cout<<"MSE_Info::read--starting PGI::read(is,lblPVs(k),pMSE_LnC"<<endl;
+        pMSE_LnC = ParameterGroupInfo::read(is,lblPVs(k),pMSE_LnC);    
+        if (debug) {
+            cout<<"MSE_Info::read--finished PGI::read(is,lblPVs(k),pMSE_LnC"<<endl;
+            cout<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; cout<<(*pMSE_LnC)<<endl;
+        }
+        rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pMSE_LnC)<<endl;  k++;
     } else {
         cout<<"Error reading MSE_Info from "<<is.get_file_name()<<endl;
         cout<<"Expected keyword 'PARAMETERS' but got '"<<str<<"'."<<endl;
         cout<<"Aborting..."<<endl;
         exit(-1);
     }
-    
-    if (debug){
-        cout<<"MSE_Info object "<<this<<endl<<(*this)<<endl;
-        cout<<"finished MSE_Info::read(cifstream & is)"<<endl;
-        cout<<"Enter 1 to continue: ";
-        cin>>debug;
-        if (debug<0) exit(1);
-    }
+    if (debug) cout<<"finished MSE_Info::read(is)"<<endl;
 }
 
 /**
@@ -1705,14 +1748,14 @@ void MSE_Info::write(std::ostream & os){
     
     int k=1;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
-    os<<(*pMSE_F)<<endl;
+    os<<(*pMSE_LnC)<<endl;
  }
 
 void MSE_Info::writeToR(std::ostream & os){
     int indent=0;
     os<<"mse=list("<<endl;
         ParameterGroupInfo::writeToR(os);         os<<cc<<endl;
-        pMSE_F->writeToR(os, "pMSE_F", indent++); os<<endl;
+        pMSE_LnC->writeToR(os, "pMSE_LnC", indent++); os<<endl;
     os<<")";
 }
 
@@ -1756,7 +1799,7 @@ void ModelParametersInfo::setToWriteVectorInitialValues(bool flag){
     if (ptrSel) ptrSel->setToWriteVectorInitialValues(flag);
     if (ptrFsh) ptrFsh->setToWriteVectorInitialValues(flag);
     if (ptrSrv) ptrSrv->setToWriteVectorInitialValues(flag); //not needed for SurveysInfo
-    if (ptrMSE) ptrSrv->setToWriteVectorInitialValues(flag); //not needed for MSE_Info
+    if (ptrMSE) ptrMSE->setToWriteVectorInitialValues(flag); //not needed for MSE_Info
 }
 
 void ModelParametersInfo::read(cifstream & is){
@@ -1880,7 +1923,7 @@ void ModelParametersInfo::writeToR(std::ostream & os){
     ptrM2M->writeToR(os); os<<cc<<endl;
     ptrSel->writeToR(os); os<<cc<<endl;
     ptrFsh->writeToR(os); os<<cc<<endl;
-    ptrSrv->writeToR(os); os<<cc<<endl;
+    ptrSrv->writeToR(os); os<<endl;
     ptrMSE->writeToR(os); os<<endl;
     os<<")";
 }

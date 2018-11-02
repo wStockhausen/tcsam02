@@ -35,6 +35,7 @@ const adstring SelFcns::STR_ASCLOGISTIC95LN50  ="asclogistic95ln50";
 const adstring SelFcns::STR_ASCNORMAL          ="ascnormal";
 const adstring SelFcns::STR_DBLNORMAL4         ="dblnormal4";
 const adstring SelFcns::STR_DBLNORMAL6         ="dblnormal6";
+const adstring SelFcns::STR_NONPARAMETRIC      ="nonparametric";
 
 //--------------------------------------------------------------------------------
 //          SelFcns
@@ -70,11 +71,12 @@ int SelFcns::getSelFcnID(adstring str){
     if (str==STR_DBLLOGISTIC5095)     return ID_DBLLOGISTIC5095;
     if (str==STR_DBLLOGISTIC50LN95)   return ID_DBLLOGISTIC50LN95;
     if (str==STR_DBLLOGISTICLN50LN95) return ID_DBLLOGISTICLN50LN95;
-    if (str==STR_DBLNORMAL6)          return ID_DBLNORMAL6;
     if (str==STR_ASCLOGISTIC5099)     return ID_ASCLOGISTIC5099;
     if (str==STR_ASCLOGISTIC95LN50)   return ID_ASCLOGISTIC95LN50;
     if (str==STR_ASCNORMAL)           return ID_ASCNORMAL;
     if (str==STR_DBLNORMAL4)          return ID_DBLNORMAL4;
+    if (str==STR_DBLNORMAL6)          return ID_DBLNORMAL6;
+    if (str==STR_NONPARAMETRIC)       return ID_NONPARAMETRIC;
     cout<<"Error in SelFcns::getSelFcnID(adstring str)"<<endl;
     cout<<"Function name '"<<str<<"' not a valid selectivity function name."<<endl;
     cout<<"Aborting..."<<endl;
@@ -122,9 +124,6 @@ adstring SelFcns::getSelFcnID(int id){
         case ID_DBLLOGISTICLN50LN95: 
             if (debug) cout<<"SelFcn = "<<STR_DBLLOGISTICLN50LN95<<endl;
             return STR_DBLLOGISTICLN50LN95;
-        case ID_DBLNORMAL6: 
-            if (debug) cout<<"SelFcn = "<<STR_DBLNORMAL6<<endl;
-            return STR_DBLNORMAL6;
         case ID_ASCLOGISTIC5099: 
             if (debug) cout<<"SelFcn = "<<STR_ASCLOGISTIC5099<<endl;
             return STR_ASCLOGISTIC5099;
@@ -134,6 +133,15 @@ adstring SelFcns::getSelFcnID(int id){
         case ID_ASCNORMAL: 
             if (debug) cout<<"SelFcn = "<<STR_ASCNORMAL<<endl;
             return STR_ASCNORMAL;
+        case ID_DBLNORMAL4: 
+            if (debug) cout<<"SelFcn = "<<STR_DBLNORMAL4<<endl;
+            return STR_DBLNORMAL4;
+        case ID_DBLNORMAL6: 
+            if (debug) cout<<"SelFcn = "<<STR_DBLNORMAL6<<endl;
+            return STR_DBLNORMAL6;
+        case ID_NONPARAMETRIC: 
+            if (debug) cout<<"SelFcn = "<<STR_NONPARAMETRIC<<endl;
+            return STR_NONPARAMETRIC;
         default:
         {
             cout<<endl;
@@ -173,11 +181,12 @@ dvar_vector SelFcns::calcSelFcn(int id,dvector& z, dvar_vector& params, double f
         case ID_DBLLOGISTIC5095:     {s=dbllogistic5095(z,params,fsZ);     break;}
         case ID_DBLLOGISTIC50LN95:   {s=dbllogistic50Ln95(z,params,fsZ);   break;}
         case ID_DBLLOGISTICLN50LN95: {s=dbllogisticLn50Ln95(z,params,fsZ); break;}
-        case ID_DBLNORMAL6:          {s=dblnormal6(z,params,fsZ);          break;}
         case ID_ASCLOGISTIC5099:     {s=asclogistic5099(z,params,fsZ);     break;}
         case ID_ASCLOGISTIC95LN50:   {s=asclogistic95Ln50(z,params,fsZ);   break;}
         case ID_ASCNORMAL:           {s=ascnormal(z,params,fsZ);           break;}
         case ID_DBLNORMAL4:          {s=dblnormal4(z,params,fsZ);          break;}
+        case ID_DBLNORMAL6:          {s=dblnormal6(z,params,fsZ);          break;}
+        case ID_NONPARAMETRIC:       {s=nonparametric(z,params,fsZ);       break;}
         default:
         {
             cout<<"Invalid id for SelFcns.calcSelFcn(id,...)";
@@ -743,5 +752,27 @@ dvar_vector SelFcns::dblnormal6(dvector& z, dvar_vector& params, double fsZ){
     RETURN_ARRAYS_DECREMENT();
     return s;
 }
+
+/**
+ * Calculates "nonparametric" selectivity function with smoothness imposed
+ * on the resulting curve by way of penalties in the objective function.
+ * Inputs:
+ * @param z      - dvector of sizes at which to compute function values
+ * @param params - dvar_vector of function parameters, 1 for each size bin
+ * @param idZ    - index at which function = 1 (i.e., fully-selected size) [int]
+ * 
+ * @return - selectivity function values as dvar_vector
+ */
+dvar_vector SelFcns::nonparametric(dvector& z, dvar_vector& params, int idZ){
+    RETURN_ARRAYS_INCREMENT();
+    if (debug) cout<<"Starting SelFcns::nonparametric(...)"<<endl;
+    dvariable n; n.initialize();
+    dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
+    s = 1.0/(1.0+mfexp(-params));//unnormalized
+    if (idZ>0) s *= (1.0+mfexp(-params[idZ]));//normalized to 1
+    if (debug) cout<<"Finished SelFcns::nonparametric(...)"<<endl;
+    RETURN_ARRAYS_DECREMENT();
+    return s;
+}       
 
 

@@ -59,7 +59,20 @@
             const static int ID_ASCNORMAL          =13; const static adstring STR_ASCNORMAL; 
             const static int ID_DBLNORMAL4         =14; const static adstring STR_DBLNORMAL4; 
             const static int ID_DBLNORMAL6         =15; const static adstring STR_DBLNORMAL6; 
+            const static int ID_NONPARAMETRIC      =16; const static adstring STR_NONPARAMETRIC; 
 
+            /**
+             * Calculates "nonparametric" selectivity function with smoothness imposed
+             * on the resulting curve by way of penalties in the objective function.
+             * Inputs:
+             * @param z      - dvector of sizes at which to compute function values
+             * @param params - dvar_vector of function parameters, 1 for each size bin
+             * @param idZ    - index at which function = 1 (i.e., fully-selected size) [int]
+             * 
+             * @return - selectivity function values as dvar_vector
+             */
+            dvar_vector static nonparametric(dvector& z, dvar_vector& params, int idZ);       
+            
             /**
              * Calculates ascending logistic function parameterized by 
              *      params[1]: size at 50% selected (z50)

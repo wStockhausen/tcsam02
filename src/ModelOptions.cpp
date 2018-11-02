@@ -246,7 +246,7 @@ void EffXtrapScenarios::writeToR(std::ostream& os){
 //          ModelOptions
 //--------------------------------------------------------------------------------
 int ModelOptions::debug = 0;
-const adstring ModelOptions::VERSION = "2018.04.05";
+const adstring ModelOptions::VERSION = "2018.10.29";
 
 ModelOptions::ModelOptions(ModelConfiguration& mc){
     ptrMC=&mc;
@@ -282,6 +282,11 @@ ModelOptions::ModelOptions(ModelConfiguration& mc){
     optsPenNonDecPrM2M(1) = "use exponential function on parameters";    
     optsPenNonDecPrM2M(2) = "use posfun function on ogives";
     optsPenNonDecPrM2M(3) = "use exponential function on ogives";    
+    
+    //smoothness penalty options for nonparametric selectivity function parameters/curves
+    optsPenSmthNPSel.allocate(0,1);
+    optsPenSmthNPSel(0) = "evaluate smoothness using selectivity parameters";
+    optsPenSmthNPSel(1) = "evaluate smoothness using selectivity functions";    
     
     //effort extrapolation options
     ptrEffXtrapScenarios = new EffXtrapScenarios(mc);
@@ -349,20 +354,35 @@ void ModelOptions::read(cifstream & is) {
     
     //terminal molt (prM2M) options
     cout<<"##Terminal molt (prM2M) options:"<<endl;
-    int nw; is>>nw;
-    cout<<nw<<tb<<"#number of defined prM2M parameter combinations"<<endl;
-    //--options for smoothness penalties on prM2M in likelihood
-    is>>optPenSmthPrM2M;
-    cout<<optPenSmthPrM2M<<tb<<"#option for calculating smoothness penalties on prM2M"<<endl;
-    wgtPenSmthPrM2M.allocate(1,nw);
-    is>>wgtPenSmthPrM2M;
-    cout<<wgtPenSmthPrM2M<<tb<<"#weights for smoothness penalties on prM2M"<<endl;
-    //--options for non-decreasing penalties on prM2M in likelihood
-    is>>optPenNonDecPrM2M;
-    cout<<optPenNonDecPrM2M<<tb<<"#option for calculating non-decreasing penalties on prM2M"<<endl;
-    wgtPenNonDecPrM2M.allocate(1,nw);
-    is>>wgtPenNonDecPrM2M;
-    cout<<wgtPenNonDecPrM2M<<tb<<"#weights for non-decreasing penalties on prM2M"<<endl;
+    {
+        int nw; is>>nw;
+        cout<<nw<<tb<<"#number of defined prM2M parameter combinations"<<endl;
+        //--options for smoothness penalties on prM2M in likelihood
+        is>>optPenSmthPrM2M;
+        cout<<optPenSmthPrM2M<<tb<<"#option for calculating smoothness penalties on prM2M"<<endl;
+        wgtPenSmthPrM2M.allocate(1,nw);
+        is>>wgtPenSmthPrM2M;
+        cout<<wgtPenSmthPrM2M<<tb<<"#weights for smoothness penalties on prM2M"<<endl;
+        //--options for non-decreasing penalties on prM2M in likelihood
+        is>>optPenNonDecPrM2M;
+        cout<<optPenNonDecPrM2M<<tb<<"#option for calculating non-decreasing penalties on prM2M"<<endl;
+        wgtPenNonDecPrM2M.allocate(1,nw);
+        is>>wgtPenNonDecPrM2M;
+        cout<<wgtPenNonDecPrM2M<<tb<<"#weights for non-decreasing penalties on prM2M"<<endl;
+    }
+    
+    //nonparametric selectivity function (NPSel) options
+    cout<<"##Nonparameteric selectivity function (NPSel) options:"<<endl;
+    {
+        int nw; is>>nw;
+        cout<<nw<<tb<<"#number of defined NPSel parameter combinations"<<endl;
+        //--options for smoothness penalties on prM2M in likelihood
+        is>>optPenSmthNPSel;
+        cout<<optPenSmthNPSel<<tb<<"#option for calculating smoothness penalties on NPSels"<<endl;
+        wgtPenSmthNPSel.allocate(1,nw);
+        is>>wgtPenSmthNPSel;
+        cout<<wgtPenSmthNPSel<<tb<<"#weights for smoothness penalties on NPSels"<<endl;
+    }
     
     //effort extrapolation options
     cout<<"##Effort extrapolation scenarios:"<<endl;
@@ -504,6 +524,18 @@ void ModelOptions::write(ostream & os) {
     os<<wgtPenNonDecPrM2M<<tb<<"#weights for prM2M non-decreasing penalties"<<endl;
     os<<endl;
     
+    //Nonparameteric selectivity function options
+    //--smoothness likelihood options
+    os<<"#----Nonparameteric selectivity function options"<<endl;
+    os<<wgtPenSmthNPSel.size()<<tb<<"#number of parameter combinations"<<endl;
+    os<<"#----Options for smoothness penalties on nonparametric selectivity functions"<<endl;
+    for (int o=optsPenSmthNPSel.indexmin();o<=optsPenSmthNPSel.indexmax();o++) {
+        os<<"#"<<o<<" - "<<optsPenSmthNPSel(o)<<endl;
+    }
+    os<<optPenSmthNPSel<<tb<<"#selected option"<<endl;
+    os<<wgtPenSmthNPSel<<tb<<"#weights for smoothness penalties on nonparametric selectivity functions"<<endl;
+    os<<endl;
+    
     //effort extrapolation options
     os<<"#----Effort Extrapolation Scenarios"<<endl;
     os<<(*ptrEffXtrapScenarios);
@@ -572,8 +604,10 @@ void ModelOptions::writeToR(ostream& os, std::string nm, int indent) {
         for (int n=0;n<indent;n++) os<<tb;
         os<<"initNatZ="<<optInitNatZ<<cc<<"natmort="<<optParamNM<<cc<<"growth="<<optGrowthPDF<<cc<<endl;
         os<<"prM2M=list(";
-            os<<"wgtSmthLgtPrMat="; wts::writeToR(os,wgtPenSmthPrM2M); os<<cc<<endl;
-            os<<"wgtNonDecLgtPrMat="; wts::writeToR(os,wgtPenNonDecPrM2M); os<<")"<<endl;
+            os<<"pen.smoothing="; wts::writeToR(os,wgtPenSmthPrM2M); os<<cc<<endl;
+            os<<"pen.nondecreasing="; wts::writeToR(os,wgtPenNonDecPrM2M); os<<"),"<<endl;
+        os<<"npSel=list(";
+            os<<"pen.smoothing="; wts::writeToR(os,wgtPenSmthNPSel); os<<"),"<<endl;
         os<<"cvFDevsPen="<<cvFDevsPen<<cc<<"phsDecr="<<phsDecrFDevsPen<<cc<<"phsZero="<<phsZeroFDevsPen<<cc
           <<"wgtLastDevPen="<<wgtSqSumDevsPen<<cc<<"phsLastDevsPen="<<phsSqSumDevsPen<<cc;
         os<<"effXtrapScenarios="; ptrEffXtrapScenarios->writeToR(os); os<<"),"<<endl;

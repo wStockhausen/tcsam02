@@ -205,7 +205,7 @@ class EffXtrapScenarios{
         /** selected option for initial n-at-z calculations */
         int optInitNatZ;               
         
-        /** labels for options for penalties on non-decreasing M2M parameters or ogives */
+        /** labels for options for natural mortality parameterization */
         adstring_array optsParamNM;
         /** integer indicating option for natural mortality parameterization */
         int optParamNM;
@@ -241,6 +241,13 @@ class EffXtrapScenarios{
         int optPenNonDecPrM2M;
         /** weight for penalties on maturity non-decreasing M2M parameters or ogives */
         dvector wgtPenNonDecPrM2M;    
+        
+        /** labels for options for smoothing penalties on nonparametric sel functions */
+        adstring_array optsPenSmthNPSel;
+        /** integer indicating option for smoothing penalties on nonparametric sel functionss */
+        int optPenSmthNPSel;
+        /** weight for smoothing penalties on nonparametric sel functions */
+        dvector wgtPenSmthNPSel;      
         
         /** pointer to effort extrapolation scenarios object */
         EffXtrapScenarios* ptrEffXtrapScenarios;

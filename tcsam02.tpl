@@ -452,6 +452,9 @@
 //-2018-09-21:  1. Revising code to accommodate running in an operating mode and an 
 //                  estimation mode to facilitate MSEs which will require feedback
 //                  between the two modes and extension to subsequent years.
+//-2018-10-29:  1. Added pvNPSel parameter vector implementation to be able to estimate
+//                  BSFRF availability. Modified tpl and ModelParametersInfo.
+//              2. Added pMSE_LnC
 //
 // =============================================================================
 // =============================================================================
@@ -862,7 +865,6 @@ DATA_SECTION
     int mnYr;  //min model year
     int mxYr;  //max model year
     int mxYrp1;//max model year + 1
-    int nSel;  //number of selectivity functions
     int nFsh;  //number of fisheries
     int nSrv;  //number of surveys
  LOCAL_CALCS
@@ -1151,7 +1153,7 @@ DATA_SECTION
     //maturity parameters
     int npLgtPrMat; ivector mniLgtPrMat; ivector mxiLgtPrMat; imatrix idxsLgtPrMat;
     vector lbLgtPrMat; vector ubLgtPrMat; ivector phsLgtPrMat;
-    !!tcsam::setParameterInfo(ptrMPI->ptrM2M->pLgtPrM2M,npLgtPrMat,mniLgtPrMat,mxiLgtPrMat,idxsLgtPrMat,lbLgtPrMat,ubLgtPrMat,phsLgtPrMat,rpt::echo);
+    !!tcsam::setParameterInfo(ptrMPI->ptrM2M->pvLgtPrM2M,npLgtPrMat,mniLgtPrMat,mxiLgtPrMat,idxsLgtPrMat,lbLgtPrMat,ubLgtPrMat,phsLgtPrMat,rpt::echo);
  LOCAL_CALCS    
     if (mseOpModMode) {
         phsLgtPrMat = -1;
@@ -1178,7 +1180,6 @@ DATA_SECTION
         
     
     //selectivity parameters
-    !!nSel = ptrMPI->ptrSel->nPCs;//number of selectivity functions defined
     int npS1; ivector phsS1; vector lbS1; vector ubS1;
     !!tcsam::setParameterInfo(ptrMPI->ptrSel->pS1,npS1,lbS1,ubS1,phsS1,rpt::echo);
     int npS2; ivector phsS2; vector lbS2; vector ubS2;
@@ -1210,6 +1211,10 @@ DATA_SECTION
     int npDevsS6; ivector mniDevsS6; ivector mxiDevsS6;  imatrix idxsDevsS6;
     vector lbDevsS6; vector ubDevsS6; ivector phsDevsS6;
     !!tcsam::setParameterInfo(ptrMPI->ptrSel->pDevsS6,npDevsS6,mniDevsS6,mxiDevsS6,idxsDevsS6,lbDevsS6,ubDevsS6,phsDevsS6,rpt::echo);
+    
+    int npNPSel; ivector mniNPSel; ivector mxiNPSel; imatrix idxsNPSel;
+    vector lbNPSel; vector ubNPSel; ivector phsNPSel;
+    !!tcsam::setParameterInfo(ptrMPI->ptrSel->pvNPSel,npNPSel,mniNPSel,mxiNPSel,idxsNPSel,lbNPSel,ubNPSel,phsNPSel,rpt::echo);
  LOCAL_CALCS    
     if (mseOpModMode) {
         phsS1 = -1;
@@ -1224,6 +1229,7 @@ DATA_SECTION
         phsDevsS4 = -1;
         phsDevsS5 = -1;
         phsDevsS6 = -1;
+        phsNPSel  = -1;
     }
  END_CALCS    
         
@@ -1298,7 +1304,7 @@ DATA_SECTION
          
     //MSE-related parameters
     int npMSE_LnC; ivector phsMSE_LnC; vector lbMSE_LnC; vector ubMSE_LnC;
-    !!tcsam::setParameterInfo(ptrMPI->ptrMSE->pMSE_F,npMSE_LnC,lbMSE_LnC,ubMSE_LnC,phsMSE_LnC,rpt::echo);
+    !!tcsam::setParameterInfo(ptrMPI->ptrMSE->pMSE_LnC,npMSE_LnC,lbMSE_LnC,ubMSE_LnC,phsMSE_LnC,rpt::echo);
     !!if (!mseOpModMode) {phsMSE_LnC = -1;}
      
     //other data
@@ -1320,19 +1326,19 @@ DATA_SECTION
     5darray obsEff_nxmsy(1,nCRASs,1,nSXs,1,nMSs,1,nSCs,mnYr,mxYr);         //observed effort for averaging by capture rate averaging scenario
 
     //number of parameter combinations for various processes
-    int npcRec;
+    int npcRec;   //number of recruitment parameter combinations
     !!npcRec = ptrMPI->ptrRec->nPCs;
-    int npcNM;
+    int npcNM;    //number of natural mortality parameter combinations
     !!npcNM = ptrMPI->ptrNM->nPCs;
-    int npcM2M;
+    int npcM2M;   //number of molt-to-maturity parameter combinations
     !!npcM2M = ptrMPI->ptrM2M->nPCs;
-    int npcGrw;
+    int npcGrw;   //number of growth parameter combinations
     !!npcGrw = ptrMPI->ptrGrw->nPCs;
-    int npcSel;
+    int npcSel;   //number of selectivity functions (by parameter combination)
     !!npcSel = ptrMPI->ptrSel->nPCs;
-    int npcFsh;
+    int npcFsh;   //number of fishery parameter combinations
     !!npcFsh = ptrMPI->ptrFsh->nPCs;
-    int npcSrv;
+    int npcSrv;   //number of survey parameter combinations
     !!npcSrv = ptrMPI->ptrSrv->nPCs;
     
     ivector nDevsLnR_c(1,npcRec);              //number of recruit devs by parameter combination
@@ -1426,8 +1432,8 @@ PARAMETER_SECTION
     !!cout<<"got past growth parameters"<<endl;
     
     //maturity parameters
-    init_bounded_vector_vector pLgtPrM2M(1,npLgtPrMat,mniLgtPrMat,mxiLgtPrMat,lbLgtPrMat,ubLgtPrMat,phsLgtPrMat);//logit-scale maturity ogive parameters
-    !!for (int p=1;p<=npLgtPrMat;p++) cout<<"pLgtPrM2M["<<p<<"] = "<<pLgtPrM2M[p]<<endl;
+    init_bounded_vector_vector pvLgtPrM2M(1,npLgtPrMat,mniLgtPrMat,mxiLgtPrMat,lbLgtPrMat,ubLgtPrMat,phsLgtPrMat);//logit-scale maturity ogive parameters
+    !!for (int p=1;p<=npLgtPrMat;p++) cout<<"pvLgtPrM2M["<<p<<"] = "<<pvLgtPrM2M[p]<<endl;
     !!cout<<"got past maturity parameters"<<endl;
     
     //selectivity parameters
@@ -1461,6 +1467,9 @@ PARAMETER_SECTION
     matrix devsS4(1,npDevsS4,mniDevsS4,mxiDevsS4+1);
     matrix devsS5(1,npDevsS5,mniDevsS5,mxiDevsS5+1);
     matrix devsS6(1,npDevsS6,mniDevsS6,mxiDevsS6+1);
+    
+    init_bounded_vector_vector pvNPSel(1,npNPSel,mniNPSel,mxiNPSel,lbNPSel,ubNPSel,phsNPSel);
+    !!for (int p=1;p<=npNPSel;p++) cout<<"pvNPSel["<<p<<"] = "<<pvNPSel[p]<<endl;
     !!cout<<"got past selectivity parameters"<<endl;
     
     //fishing capture rate parameters
@@ -1499,6 +1508,11 @@ PARAMETER_SECTION
     init_bounded_number_vector pDQ4(1,npDQ4,lbDQ4,ubDQ4,phsDQ4);//ln-offset 4 (e.g., female-immature offsets)
     !!cout<<"pDQ4 = "<<pDQ4<<endl;
     !!cout<<"got past survey catchability parameters"<<endl;
+   
+    //MSE-related parameters
+    init_bounded_number_vector pMSE_LnC(1,npMSE_LnC,lbMSE_LnC,ubMSE_LnC,phsMSE_LnC);//
+    !!cout<<"pMSE_LnC = "<<pMSE_LnC<<endl;
+    !!cout<<"got past MSE parameters"<<endl;
    
     //objective function value
     objective_function_value objFun;
@@ -1539,8 +1553,9 @@ PARAMETER_SECTION
     matrix grBeta_xy(1,nSXs,mnYr,mxYr+1); //beta parameters for growth, by sex and year
     
     //Selectivity (and retention) functions
-    matrix sel_cz(1,npcSel,1,nZBs);            //all selectivity functions (fisheries and surveys) by parameter combination (no devs))
-    3darray sel_cyz(1,nSel,mnYr,mxYr+1,1,nZBs);//all selectivity functions (fisheries and surveys) by year
+    matrix npSel_cz(1,npNPSel,1,nZBs);           //nonparametric  selectivity functions (fisheries and surveys) by parameter combination)
+    matrix sel_cz(1,npcSel,1,nZBs);              //all selectivity functions (fisheries and surveys) by parameter combination (no devs))
+    3darray sel_cyz(1,npcSel,mnYr,mxYr+1,1,nZBs);//all selectivity functions (fisheries and surveys) by year
     
     //fishery-related quantities
     4darray avgFc_nxms(1,nCRASs,1,nSXs,1,nMSs,1,nSCs);         //avg capture rates for capture rate averaging scenarios
@@ -1587,6 +1602,8 @@ PARAMETER_SECTION
     
     vector fPenSmoothLgtPrMat(1,npLgtPrMat);//smoothness penalties on pr(mature|z)
     vector fPenNonDecLgtPrMat(1,npLgtPrMat);//non-decreasing penalties on pr(mature|z)
+    
+    vector fPenSmoothNPSel(1,npNPSel);//smoothness penalties on nonparametric selectivities
     
     vector fPenDevsS1(1,npDevsS1);//penalties on S1 devs (selectivity parameters)
     vector fPenDevsS2(1,npDevsS2);//penalties on S2 devs (selectivity parameters)
@@ -2007,7 +2024,7 @@ FUNCTION void setInitVals(int debug, ostream& os)
     setInitVals(ptrMPI->ptrGrw->pGrBeta,pGrBeta,usePin, debug, os);
 
     //maturity parameters
-    setInitVals(ptrMPI->ptrM2M->pLgtPrM2M,pLgtPrM2M,usePin, debug, os);
+    setInitVals(ptrMPI->ptrM2M->pvLgtPrM2M,pvLgtPrM2M,usePin, debug, os);
 
     //selectivity parameters
     setInitVals(ptrMPI->ptrSel->pS1, pS1,usePin, debug, os);
@@ -2022,6 +2039,7 @@ FUNCTION void setInitVals(int debug, ostream& os)
     setInitVals(ptrMPI->ptrSel->pDevsS4, pDevsS4,usePin, debug, os);
     setInitVals(ptrMPI->ptrSel->pDevsS5, pDevsS5,usePin, debug, os);
     setInitVals(ptrMPI->ptrSel->pDevsS6, pDevsS6,usePin, debug, os);
+    setInitVals(ptrMPI->ptrSel->pvNPSel, pvNPSel,usePin, debug, os);
 
     //fully-selected fishing capture rate parameters
     setInitVals(ptrMPI->ptrFsh->pHM,  pHM,  usePin, debug, os);
@@ -2040,6 +2058,9 @@ FUNCTION void setInitVals(int debug, ostream& os)
     setInitVals(ptrMPI->ptrSrv->pDQ2, pDQ2, usePin, debug, os);
     setInitVals(ptrMPI->ptrSrv->pDQ3, pDQ3, usePin, debug, os);
     setInitVals(ptrMPI->ptrSrv->pDQ4, pDQ4, usePin, debug, os);
+
+    //MSE parameters    
+    setInitVals(ptrMPI->ptrMSE->pMSE_LnC, pMSE_LnC, usePin, debug, os);
 
 //*****************************************
 FUNCTION int checkParams(int debug, ostream& os)
@@ -2065,7 +2086,7 @@ FUNCTION int checkParams(int debug, ostream& os)
     res += checkParams(ptrMPI->ptrGrw->pGrBeta,pGrBeta,debug,os);
 
     //maturity parameters
-    res += checkParams(ptrMPI->ptrM2M->pLgtPrM2M,pLgtPrM2M,debug,os);
+    res += checkParams(ptrMPI->ptrM2M->pvLgtPrM2M,pvLgtPrM2M,debug,os);
 
     //selectivity parameters
     res += checkParams(ptrMPI->ptrSel->pS1, pS1,debug,os);
@@ -2080,6 +2101,7 @@ FUNCTION int checkParams(int debug, ostream& os)
     res += checkParams(ptrMPI->ptrSel->pDevsS4, pDevsS4,debug,os);
     res += checkParams(ptrMPI->ptrSel->pDevsS5, pDevsS5,debug,os);
     res += checkParams(ptrMPI->ptrSel->pDevsS6, pDevsS6,debug,os);
+    res += checkParams(ptrMPI->ptrSel->pvNPSel, pvNPSel,debug,os);
 
     //fully-selected fishing capture rate parameters
     res += checkParams(ptrMPI->ptrFsh->pHM,     pHM,     debug,os);
@@ -2098,6 +2120,9 @@ FUNCTION int checkParams(int debug, ostream& os)
     res += checkParams(ptrMPI->ptrSrv->pDQ2, pDQ2, debug,os);
     res += checkParams(ptrMPI->ptrSrv->pDQ3, pDQ3, debug,os);
     res += checkParams(ptrMPI->ptrSrv->pDQ4, pDQ4, debug,os);
+
+    //MSE parameters
+    res += checkParams(ptrMPI->ptrMSE->pMSE_LnC,pMSE_LnC,debug,os);
     
     return res;
 
@@ -2293,7 +2318,7 @@ FUNCTION void writeMCMCtoR(ofstream& mcmc)
         writeMCMCtoR(mcmc,ptrMPI->ptrGrw->pGrBeta); mcmc<<cc<<endl;
 
         //maturity parameters
-        writeMCMCtoR(mcmc,ptrMPI->ptrM2M->pLgtPrM2M); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrM2M->pvLgtPrM2M); mcmc<<cc<<endl;
 
         //selectivity parameters
         writeMCMCtoR(mcmc,ptrMPI->ptrSel->pS1); mcmc<<cc<<endl;
@@ -2308,6 +2333,7 @@ FUNCTION void writeMCMCtoR(ofstream& mcmc)
         writeMCMCtoR(mcmc,ptrMPI->ptrSel->pDevsS4); mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrSel->pDevsS5); mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrSel->pDevsS6); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pvNPSel); mcmc<<cc<<endl;
 
         //fully-selected fishing capture rate parameters
         writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pHM);  mcmc<<cc<<endl;
@@ -3050,7 +3076,7 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
         CatchInfo* pCIM = new CatchInfo(nZBs,nFsh,dtF);//male catch info
         pCIM->setCaptureRates(avgCapF_xfmsz(MALE));
         pCIM->setCaptureRates(avgCapF_xfms(MALE));
-        pCIM->setSelectivityFcns(avgRFcn_xfmsz(MALE));
+        pCIM->setSelectivityFcns(avgSFcn_xfmsz(MALE));//ERROR: Should be avgSFcn_xfmsz(MALE)?!!
         pCIM->setRetentionFcns(avgRFcn_xfmsz(MALE));
         pCIM->setHandlingMortality(avgHM_f);
         double maxCapF = pCIM->findMaxTargetCaptureRate(cout);
@@ -3059,7 +3085,7 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
         CatchInfo* pCIF = new CatchInfo(nZBs,nFsh,dtF);//female catch info
         pCIF->setCaptureRates(avgCapF_xfmsz(FEMALE));
         pCIF->setCaptureRates(avgCapF_xfms(FEMALE));
-        pCIF->setSelectivityFcns(avgRFcn_xfmsz(FEMALE));
+        pCIF->setSelectivityFcns(avgSFcn_xfmsz(FEMALE));//ERROR: Should be avgSFcn_xfmsz(FEMALE)?!!
         pCIF->setRetentionFcns(avgRFcn_xfmsz(FEMALE));
         pCIF->setHandlingMortality(avgHM_f);
         pCIF->maxF = maxCapF;//need to set this for females
@@ -3623,8 +3649,8 @@ FUNCTION void calcPrM2M(int debug, ostream& cout)
     for (int pc=1;pc<=ptrM2MI->nPCs;pc++){
         ivector pids = ptrM2MI->getPCIDs(pc);
         k=ptrM2MI->nIVs+1;//first parameter variable column in ParameterComnbinations
-        BoundedVectorInfo* pBVI = (*ptrM2MI->pLgtPrM2M)[pids[k]];
-        dvar_vector lgtPrM2M = pBVI->calcArithScaleVals(pLgtPrM2M(pids[k++]));
+        BoundedVectorInfo* pBVI = (*ptrM2MI->pvLgtPrM2M)[pids[k]];
+        dvar_vector lgtPrM2M = pBVI->calcArithScaleVals(pvLgtPrM2M(pids[k++]));
         ivector idxf = pBVI->getFwdIndices();//map indices to model size bins
         int imn = idxf.indexmin();
         int imx = idxf.indexmax();
@@ -3944,15 +3970,18 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
 //* Returns:
 //*  void
 //* Alters:
-//*  sel_cyz - selectivity array
+//*  npSel_cz - nonparametric selectivities by size
+//*  sel_cz   - by parameter combination and size
+//*  sel_cyz - selectivity array by year and size
 //******************************************************************************
 FUNCTION void calcSelectivities(int debug, ostream& cout)  
+    debug=1000;
     if(debug>dbgCalcProcs) cout<<"Starting calcSelectivities()"<<endl;
     
     SelectivityInfo* ptrSel = ptrMPI->ptrSel;
 
-    double fsZ;             //fully selected size
-    int idSel;              //selectivity function id
+    double fsZ;    //fully selected size
+    int idSel;     //selectivity function id
     int idxFSZ = 1;//index for fsZ in pXDs vector below
     
     ivector mniSelDevs(1,6);//min indices of devs vectors
@@ -3960,6 +3989,7 @@ FUNCTION void calcSelectivities(int debug, ostream& cout)
     dvar_vector params(1,6);//vector for number_vector params
     dvar_vector paramsp(1,6);//vector for number_vector params + dev offsets
         
+    npSel_cz.initialize();//nonparameteric selectivities
     sel_cz.initialize();//selectivities w/out deviations
     sel_cyz.initialize();//selectivity array
 
@@ -3971,116 +4001,136 @@ FUNCTION void calcSelectivities(int debug, ostream& cout)
     dvar_vector ptS5 = ptrSel->pS5->calcArithScaleVals(pS5);
     dvar_vector ptS6 = ptrSel->pS6->calcArithScaleVals(pS6);
     for (int pc=1;pc<=ptrSel->nPCs;pc++){
-        params.initialize();
         ivector pids = ptrSel->getPCIDs(pc);
         dvector pXDs = ptrSel->getPCXDs(pc);
-        //extract the number parameters
-        int k=ptrSel->nIVs+1;//1st parameter variable column
-        if (pids[k]) {params[1] = ptS1(pids[k]);}   k++;
-        if (pids[k]) {params[2] = ptS2(pids[k]);}   k++;
-        if (pids[k]) {params[3] = ptS3(pids[k]);}   k++;
-        if (pids[k]) {params[4] = ptS4(pids[k]);}   k++;
-        if (pids[k]) {params[5] = ptS5(pids[k]);}   k++;
-        if (pids[k]) {params[6] = ptS6(pids[k]);}   k++;
-        if (debug>dbgCalcProcs) {
-            cout<<"pc: "<<pc<<tb<<"pids = "<<pids<<endl;
-            cout<<tb<<"params:"<<tb<<params<<endl;
-        }
-        
-        int useDevsS1=pids[k++];
-        dvar_vector dvsS1; ivector idxDevsS1;
-        if (useDevsS1){
-            dvsS1 = devsS1(useDevsS1);
-            idxDevsS1 = idxsDevsS1(useDevsS1);
-            if (debug>dbgCalcProcs){
-                cout<<"idx(dvsS1) = "<<idxDevsS1<<endl;
-                cout<<"dvsS1      = "<<dvsS1<<endl;
-            }
-        }
-        int useDevsS2=pids[k++];
-        dvar_vector dvsS2; ivector idxDevsS2;
-        if (useDevsS2){
-            dvsS2 = devsS2(useDevsS2);
-            idxDevsS2 = idxsDevsS2(useDevsS2);
-            if (debug>dbgCalcProcs){
-                cout<<"idx(dvsS2) = "<<idxDevsS2<<endl;
-                cout<<"dvsS2      = "<<dvsS2<<endl;
-            }
-        }
-        int useDevsS3=pids[k++];
-        dvar_vector dvsS3; ivector idxDevsS3;
-        if (useDevsS3){
-            dvsS3 = devsS3(useDevsS3);
-            idxDevsS3 = idxsDevsS3(useDevsS3);
-            if (debug>dbgCalcProcs){
-                cout<<"idx(dvsS3) = "<<idxDevsS3<<endl;
-                cout<<"dvsS3      = "<<dvsS3<<endl;
-            }
-        }
-        int useDevsS4=pids[k++];
-        dvar_vector dvsS4; ivector idxDevsS4;
-        if (useDevsS4){
-            dvsS4 = devsS4(useDevsS4);
-            idxDevsS4 = idxsDevsS4(useDevsS4);
-            if (debug>dbgCalcProcs){
-                cout<<"idx(dvsS4) = "<<idxDevsS4<<endl;
-                cout<<"dvsS4      = "<<dvsS4<<endl;
-            }
-        }
-        int useDevsS5=pids[k++];
-        dvar_vector dvsS5; ivector idxDevsS5;
-        if (useDevsS5){
-            dvsS5 = devsS5(useDevsS5);
-            idxDevsS5 = idxsDevsS5(useDevsS5);
-            if (debug>dbgCalcProcs){
-                cout<<"idx(dvsS5) = "<<idxDevsS5<<endl;
-                cout<<"dvsS5      = "<<dvsS5<<endl;
-            }
-        }
-        int useDevsS6=pids[k++];
-        dvar_vector dvsS6; ivector idxDevsS6;
-        if (useDevsS6){
-            dvsS6 = devsS6(useDevsS6);
-            idxDevsS6 = idxsDevsS6(useDevsS6);
-            if (debug>dbgCalcProcs){
-                cout<<"idx(dvsS6) = "<<idxDevsS6<<endl;
-                cout<<"dvsS6      = "<<dvsS6<<endl;
-            }
-        }
-
-//        fsZ   = pids[idxFSZ];
         fsZ   = pXDs[idxFSZ];
         idSel = pids[ptrSel->nIVs+ptrSel->nPVs+idxFSZ+1];
-        if (debug>dbgCalcProcs) cout<<tb<<"fsZ: "<<fsZ<<tb<<"idSel"<<tb<<idSel<<tb<<SelFcns::getSelFcnID(idSel)<<tb<<params<<endl;
-
-        //calc selectivity function WITHOUT any annual devs
-        sel_cz(pc) = SelFcns::calcSelFcn(idSel, zBs, params, fsZ);
-        if (debug>dbgCalcProcs) cout<<tb<<"pc = "<<pc<<tb<<"sel_cz: "<<sel_cz(pc)<<endl;
-            
-        //loop over model indices as defined in the index blocks
-        imatrix idxs = ptrSel->getModelIndices(pc);
-        for (int idx=idxs.indexmin();idx<=idxs.indexmax();idx++){
-            y = idxs(idx,1);//year
-            if ((mnYr<=y)&&(y<=mxYr+1)){
-                paramsp = params;//set paramsp equal to base params
-                k=ptrSel->nIVs+1+6;//1st devs vector variable column
-                if (useDevsS1){
-                    if (idxDevsS1[y]){
-                        if (debug>dbgCalcProcs) cout<<tb<<idx<<tb<<y<<tb<<useDevsS1<<tb<<idxDevsS1[y]<<tb<<paramsp[1]<<tb<<devsS1(useDevsS1,idxDevsS1[y])<<endl;
-                        paramsp[1] += devsS1(useDevsS1,idxDevsS1[y]);
-                    }
-                }
-                if (useDevsS2) if (idxDevsS2[y]){paramsp[2] += devsS2(useDevsS2,idxDevsS2[y]);}
-                if (useDevsS3) if (idxDevsS3[y]){paramsp[3] += devsS3(useDevsS3,idxDevsS3[y]);}
-                if (useDevsS4) if (idxDevsS4[y]){paramsp[4] += devsS4(useDevsS4,idxDevsS4[y]);}
-                if (useDevsS5) if (idxDevsS5[y]){paramsp[5] += devsS5(useDevsS5,idxDevsS5[y]);}
-                if (useDevsS6) if (idxDevsS6[y]){paramsp[6] += devsS6(useDevsS6,idxDevsS6[y]);}
-                sel_cyz(pc,y) = SelFcns::calcSelFcn(idSel, zBs, paramsp, fsZ);
-                if (debug>dbgCalcProcs) cout<<tb<<"y = "<<y<<tb<<"paramsp: "<<paramsp<<tb<<"sel: "<<sel_cyz(pc,y)<<endl;
-            } else {
-                if (debug>dbgCalcProcs) cout<<tb<<"y = "<<y<<tb<<"y outside model range--skipping year!"<<endl;
+        if (debug) cout<<"pc = "<<pc<<tb<<"idSel = "<<idSel<<tb<<SelFcns::getSelFcnID(idSel)<<endl;
+        if (idSel!=SelFcns::ID_NONPARAMETRIC){
+            //extract the number parameters
+            params.initialize();
+            int k=ptrSel->nIVs+1;//1st parameter variable column
+            if (pids[k]) {params[1] = ptS1(pids[k]);}   k++;
+            if (pids[k]) {params[2] = ptS2(pids[k]);}   k++;
+            if (pids[k]) {params[3] = ptS3(pids[k]);}   k++;
+            if (pids[k]) {params[4] = ptS4(pids[k]);}   k++;
+            if (pids[k]) {params[5] = ptS5(pids[k]);}   k++;
+            if (pids[k]) {params[6] = ptS6(pids[k]);}   k++;
+            if (debug>dbgCalcProcs) {
+                cout<<"pc: "<<pc<<tb<<"pids = "<<pids<<endl;
+                cout<<tb<<"params:"<<tb<<params<<endl;
             }
-        }//idx
+
+            int useDevsS1=pids[k++];
+            dvar_vector dvsS1; ivector idxDevsS1;
+            if (useDevsS1){
+                dvsS1 = devsS1(useDevsS1);
+                idxDevsS1 = idxsDevsS1(useDevsS1);
+                if (debug>dbgCalcProcs){
+                    cout<<"idx(dvsS1) = "<<idxDevsS1<<endl;
+                    cout<<"dvsS1      = "<<dvsS1<<endl;
+                }
+            }
+            int useDevsS2=pids[k++];
+            dvar_vector dvsS2; ivector idxDevsS2;
+            if (useDevsS2){
+                dvsS2 = devsS2(useDevsS2);
+                idxDevsS2 = idxsDevsS2(useDevsS2);
+                if (debug>dbgCalcProcs){
+                    cout<<"idx(dvsS2) = "<<idxDevsS2<<endl;
+                    cout<<"dvsS2      = "<<dvsS2<<endl;
+                }
+            }
+            int useDevsS3=pids[k++];
+            dvar_vector dvsS3; ivector idxDevsS3;
+            if (useDevsS3){
+                dvsS3 = devsS3(useDevsS3);
+                idxDevsS3 = idxsDevsS3(useDevsS3);
+                if (debug>dbgCalcProcs){
+                    cout<<"idx(dvsS3) = "<<idxDevsS3<<endl;
+                    cout<<"dvsS3      = "<<dvsS3<<endl;
+                }
+            }
+            int useDevsS4=pids[k++];
+            dvar_vector dvsS4; ivector idxDevsS4;
+            if (useDevsS4){
+                dvsS4 = devsS4(useDevsS4);
+                idxDevsS4 = idxsDevsS4(useDevsS4);
+                if (debug>dbgCalcProcs){
+                    cout<<"idx(dvsS4) = "<<idxDevsS4<<endl;
+                    cout<<"dvsS4      = "<<dvsS4<<endl;
+                }
+            }
+            int useDevsS5=pids[k++];
+            dvar_vector dvsS5; ivector idxDevsS5;
+            if (useDevsS5){
+                dvsS5 = devsS5(useDevsS5);
+                idxDevsS5 = idxsDevsS5(useDevsS5);
+                if (debug>dbgCalcProcs){
+                    cout<<"idx(dvsS5) = "<<idxDevsS5<<endl;
+                    cout<<"dvsS5      = "<<dvsS5<<endl;
+                }
+            }
+            int useDevsS6=pids[k++];
+            dvar_vector dvsS6; ivector idxDevsS6;
+            if (useDevsS6){
+                dvsS6 = devsS6(useDevsS6);
+                idxDevsS6 = idxsDevsS6(useDevsS6);
+                if (debug>dbgCalcProcs){
+                    cout<<"idx(dvsS6) = "<<idxDevsS6<<endl;
+                    cout<<"dvsS6      = "<<dvsS6<<endl;
+                }
+            }
+
+            if (debug>dbgCalcProcs) cout<<tb<<"fsZ: "<<fsZ<<tb<<"idSel"<<tb<<idSel<<tb<<SelFcns::getSelFcnID(idSel)<<tb<<params<<endl;
+            //calc selectivity function WITHOUT any annual devs
+            sel_cz(pc) = SelFcns::calcSelFcn(idSel, zBs, params, fsZ);
+            if (debug>dbgCalcProcs) cout<<tb<<"pc = "<<pc<<tb<<"sel_cz: "<<sel_cz(pc)<<endl;
+
+            //loop over model indices as defined in the index blocks
+            imatrix idxs = ptrSel->getModelIndices(pc);
+            for (int idx=idxs.indexmin();idx<=idxs.indexmax();idx++){
+                y = idxs(idx,1);//year
+                if ((mnYr<=y)&&(y<=mxYr+1)){
+                    paramsp = params;//set paramsp equal to base params
+                    k=ptrSel->nIVs+1+6;//1st devs vector variable column
+                    if (useDevsS1){
+                        if (idxDevsS1[y]){
+                            if (debug>dbgCalcProcs) cout<<tb<<idx<<tb<<y<<tb<<useDevsS1<<tb<<idxDevsS1[y]<<tb<<paramsp[1]<<tb<<devsS1(useDevsS1,idxDevsS1[y])<<endl;
+                            paramsp[1] += devsS1(useDevsS1,idxDevsS1[y]);
+                        }
+                    }
+                    if (useDevsS2) if (idxDevsS2[y]){paramsp[2] += devsS2(useDevsS2,idxDevsS2[y]);}
+                    if (useDevsS3) if (idxDevsS3[y]){paramsp[3] += devsS3(useDevsS3,idxDevsS3[y]);}
+                    if (useDevsS4) if (idxDevsS4[y]){paramsp[4] += devsS4(useDevsS4,idxDevsS4[y]);}
+                    if (useDevsS5) if (idxDevsS5[y]){paramsp[5] += devsS5(useDevsS5,idxDevsS5[y]);}
+                    if (useDevsS6) if (idxDevsS6[y]){paramsp[6] += devsS6(useDevsS6,idxDevsS6[y]);}
+                    sel_cyz(pc,y) = SelFcns::calcSelFcn(idSel, zBs, paramsp, fsZ);
+                    if (debug>dbgCalcProcs) cout<<tb<<"y = "<<y<<tb<<"paramsp: "<<paramsp<<tb<<"sel: "<<sel_cyz(pc,y)<<endl;
+                } else {
+                    if (debug>dbgCalcProcs) cout<<tb<<"y = "<<y<<tb<<"y outside model range--skipping year!"<<endl;
+                }
+            }//idx
+        } else if (idSel==SelFcns::ID_NONPARAMETRIC){
+            //calculate nonparametric selectivity function
+            int pcNP = pids[ptrSel->nIVs+ptrSel->nPVs];
+            dvar_vector nonParParams = pvNPSel(pcNP);
+            int idZ = (int) fsZ;
+            npSel_cz(pcNP) = SelFcns::calcSelFcn(idSel, zBs, nonParParams, idZ);
+            sel_cz(pc)     = npSel_cz(pcNP);
+            if (debug>dbgCalcProcs) cout<<tb<<"pcNP = "<<pcNP<<tb<<"pc = "<<pc<<tb<<"sel_cz: "<<sel_cz(pc)<<endl;
+            //loop over model indices as defined in the index blocks
+            imatrix idxs = ptrSel->getModelIndices(pc);
+            for (int idx=idxs.indexmin();idx<=idxs.indexmax();idx++){
+                y = idxs(idx,1);//year
+                if ((mnYr<=y)&&(y<=mxYr+1)) {
+                    sel_cyz(pc,y) = npSel_cz(pcNP);
+                    if (debug>dbgCalcProcs) cout<<tb<<"y = "<<y<<endl<<"nonParParams: "<<paramsp<<endl<<"sel: "<<sel_cyz(pc,y)<<endl;
+                } else {
+                    if (debug>dbgCalcProcs) cout<<tb<<"y = "<<y<<tb<<"y outside model range--skipping year!"<<endl;
+                }
+            }
+        }
     }//pc
     if (debug>dbgCalcProcs) cout<<"finished calcSelectivities()"<<endl;
 
@@ -4486,6 +4536,7 @@ FUNCTION void calcSurveyQs(int debug, ostream& cout)
 //-------------------------------------------------------------------------------------
 //Calculate penalties for objective function. TODO: finish
 FUNCTION void calcPenalties(int debug, ostream& cout)
+    debug=1000;
     if (debug>dbgObjFun) cout<<"Started calcPenalties()"<<endl;
     if (debug<0) cout<<"list("<<endl;//start list of penalties by category
 
@@ -4584,14 +4635,14 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
         fPenSmoothLgtPrMat.initialize();
         if (debug<0) cout<<tb<<tb<<"smoothness=list(";//start of smoothness penalties list
         for (int i=1;i<npLgtPrMat;i++){
-            dvar_vector v = 1.0*pLgtPrM2M(i);
+            dvar_vector v = 1.0*pvLgtPrM2M(i);
             fPenSmoothLgtPrMat(i) = 0.5*norm2(calc2ndDiffs(v));
             objFun += penWgtSmthLgtPrMat(i)*fPenSmoothLgtPrMat(i);
             if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrMat(i)<<cc<<"pen="<<fPenSmoothLgtPrMat(i)<<cc<<"objfun="<<penWgtSmthLgtPrMat(i)*fPenSmoothLgtPrMat(i)<<"),"<<endl;
         }
         {
             int i = npLgtPrMat;
-            dvar_vector v = 1.0*pLgtPrM2M(i);
+            dvar_vector v = 1.0*pvLgtPrM2M(i);
             fPenSmoothLgtPrMat(i) = 0.5*norm2(calc2ndDiffs(v));
             objFun += penWgtSmthLgtPrMat(i)*fPenSmoothLgtPrMat(i);
             if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrMat(i)<<cc<<"pen="<<fPenSmoothLgtPrMat(i)<<cc<<"objfun="<<penWgtSmthLgtPrMat(i)*fPenSmoothLgtPrMat(i)<<")"<<endl;
@@ -4626,12 +4677,12 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     for (int i=1;i<np;i++){
         dvar_vector v; 
         if (ptrMOs->optPenNonDecPrM2M==0){
-            v = calc1stDiffs(pLgtPrM2M(i));
+            v = calc1stDiffs(pvLgtPrM2M(i));
             for (int iv=v.indexmin();iv<=v.indexmax();iv++){
                 posfun2(v(iv),1.0E-2,fPenNonDecLgtPrMat(i));
             } 
         } else if (ptrMOs->optPenNonDecPrM2M==1){
-            v = calc1stDiffs(pLgtPrM2M(i));
+            v = calc1stDiffs(pvLgtPrM2M(i));
             fPenNonDecLgtPrMat(i) = sum(mfexp(-10.0*v));
         } else if (ptrMOs->optPenNonDecPrM2M==2){
             v = calc1stDiffs(prM2M_cz(i));
@@ -4649,12 +4700,12 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
         int i = np;
         dvar_vector v; 
         if (ptrMOs->optPenNonDecPrM2M==0){
-            v = calc1stDiffs(pLgtPrM2M(i));
+            v = calc1stDiffs(pvLgtPrM2M(i));
             for (int iv=v.indexmin();iv<=v.indexmax();iv++){
                 posfun2(v(iv),1.0E-2,fPenNonDecLgtPrMat(i));
             }
         } else if (ptrMOs->optPenNonDecPrM2M==1){
-            v = calc1stDiffs(pLgtPrM2M(i));
+            v = calc1stDiffs(pvLgtPrM2M(i));
             fPenNonDecLgtPrMat(i) = sum(mfexp(-10.0*v));
         } else if (ptrMOs->optPenNonDecPrM2M==2){
             v = calc1stDiffs(prM2M_cz(i));
@@ -4670,6 +4721,50 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     }
     if (debug<0) cout<<tb<<tb<<")"<<endl;//end of non-decreasing penalties list    
     if (debug<0) cout<<tb<<"),";//end of maturity penalties list
+    
+    //penalties on nonparametric selectivity functions
+    if (debug<0) cout<<tb<<"nonParSelFcns=list("<<endl;//start of nonparametric selectivity function penalties list
+    //smoothness penalties
+    fPenSmoothNPSel.initialize();
+    if (ptrMPI->ptrSel->pvNPSel->getSize()>0){
+        dvector penWgtSmthNPSel = ptrMOs->wgtPenSmthNPSel;
+        if (ptrMOs->optPenSmthNPSel==0){
+            //smoothness penalties on selectivity PARAMETERS (NOT selectivity functions)
+            if (debug<0) cout<<tb<<tb<<"smoothness=list(";//start of smoothness penalties list
+            for (int i=1;i<npNPSel;i++){
+                dvar_vector v = 1.0*pvNPSel(i);
+                fPenSmoothNPSel(i) = 0.5*norm2(calc2ndDiffs(v));
+                objFun += penWgtSmthNPSel(i)*fPenSmoothNPSel(i);
+                if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthNPSel(i)<<cc<<"pen="<<fPenSmoothNPSel(i)<<cc<<"objfun="<<penWgtSmthNPSel(i)*fPenSmoothNPSel(i)<<"),"<<endl;
+            }
+            {
+                int i = npNPSel;
+                dvar_vector v = 1.0*pvNPSel(i);
+                fPenSmoothNPSel(i) = 0.5*norm2(calc2ndDiffs(v));
+                objFun += penWgtSmthNPSel(i)*fPenSmoothNPSel(i);
+                if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthNPSel(i)<<cc<<"pen="<<fPenSmoothNPSel(i)<<cc<<"objfun="<<penWgtSmthNPSel(i)*fPenSmoothNPSel(i)<<")"<<endl;
+            }
+            if (debug<0) cout<<tb<<tb<<")"<<cc<<endl;//end of smoothness penalties list
+        } else if (ptrMOs->optPenSmthNPSel==1){
+            //smoothness penalties on nonparametric selectivity curves (NOT parameter vectors)
+            fPenSmoothNPSel.initialize();
+            if (debug<0) cout<<tb<<tb<<"smoothness=list(";//start of smoothness penalties list
+            for (int i=ptrMOs->wgtPenSmthNPSel.indexmin();i<ptrMOs->wgtPenSmthNPSel.indexmax();i++){
+                dvar_vector v = 1.0*npSel_cz(i);
+                fPenSmoothNPSel(i) = 0.5*norm2(calc2ndDiffs(v));
+                objFun += penWgtSmthNPSel(i)*fPenSmoothNPSel(i);
+                if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthNPSel(i)<<cc<<"pen="<<fPenSmoothNPSel(i)<<cc<<"objfun="<<penWgtSmthNPSel(i)*fPenSmoothNPSel(i)<<"),"<<endl;
+            }
+            {
+                int i = ptrMOs->wgtPenSmthNPSel.indexmax();
+                dvar_vector v = 1.0*npSel_cz(i);
+                fPenSmoothNPSel(i) = 0.5*norm2(calc2ndDiffs(v));
+                objFun += penWgtSmthNPSel(i)*fPenSmoothNPSel(i);
+                if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthNPSel(i)<<cc<<"pen="<<fPenSmoothNPSel(i)<<cc<<"objfun="<<penWgtSmthNPSel(i)*fPenSmoothNPSel(i)<<")"<<endl;
+            }
+        }
+        if (debug<0) cout<<tb<<tb<<")"<<cc<<endl;//end of smoothness penalties list
+    }
     
     //penalties on sums of dev vectors to enforce sum-to-zero
     double penWgt = 0.0;
@@ -6403,7 +6498,7 @@ FUNCTION void calcAllPriors(int debug, ostream& cout)
     
     //maturity parameters
     if (debug<0) cout<<tb<<"maturity=list("<<endl;
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrM2M->pLgtPrM2M,pLgtPrM2M,debug,cout); if (debug<0){cout<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrM2M->pvLgtPrM2M,pvLgtPrM2M,debug,cout); if (debug<0){cout<<endl;}
     if (debug<0) cout<<tb<<")"<<cc<<endl;
     
     //selectivity parameters
@@ -6681,8 +6776,8 @@ FUNCTION void updateMPI(int debug, ostream& cout)
     ptrMPI->ptrGrw->pGrBeta->setFinalValsFromParamVals(pGrBeta);
     
     //maturity parameters
-    //cout<<"setting final vals for pLgtPrM2M"<<endl;
-    for (int p=1;p<=npLgtPrMat;p++) (*ptrMPI->ptrM2M->pLgtPrM2M)[p]->setFinalValsFromParamVals(pLgtPrM2M(p));
+    //cout<<"setting final vals for pvLgtPrM2M"<<endl;
+    for (int p=1;p<=npLgtPrMat;p++) (*ptrMPI->ptrM2M->pvLgtPrM2M)[p]->setFinalValsFromParamVals(pvLgtPrM2M(p));
     
     //selectivity parameters
     ptrMPI->ptrSel->pS1->setFinalValsFromParamVals(pS1);
@@ -6829,7 +6924,7 @@ FUNCTION void writeParameters(ostream& os,int toR, int willBeActive)
     //maturity parameters
     ctg1="population processes";
     ctg2="maturity";
-    tcsam::writeParameters(os,pLgtPrM2M,ctg1,ctg2,ptrMPI->ptrM2M->pLgtPrM2M,toR,willBeActive);      
+    tcsam::writeParameters(os,pvLgtPrM2M,ctg1,ctg2,ptrMPI->ptrM2M->pvLgtPrM2M,toR,willBeActive);      
     
     //selectivity parameters
     ctg1="selectivity";
