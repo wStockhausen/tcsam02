@@ -28,6 +28,9 @@ PopDyInfo::PopDyInfo(int npZBs){
     Th_sz.allocate(1,nSCs,1,nZBs);
     M_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
     T_szz.allocate(1,nSCs,1,nZBs,1,nZBs);
+    
+    np_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
+    S_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
 }
 
 PopDyInfo& PopDyInfo::operator=(const PopDyInfo& o) {
@@ -36,17 +39,14 @@ PopDyInfo& PopDyInfo::operator=(const PopDyInfo& o) {
     nMSs = tcsam::nMSs;
     nSCs = tcsam::nSCs;
     
-    R_z.allocate(1,nZBs);
-    w_mz.allocate(1,nMSs,1,nZBs);
-    Th_sz.allocate(1,nSCs,1,nZBs);
-    M_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
-    T_szz.allocate(1,nSCs,1,nZBs,1,nZBs);
-    
     R_z = o.R_z;
     w_mz = o.w_mz;
     Th_sz = o.Th_sz;
     M_msz = o.M_msz;
     T_szz = o.T_szz;
+    
+    np_msz = o.np_msz;
+    S_msz  = o.S_msz;
     
     return *this;
 }
@@ -100,7 +100,6 @@ dvariable PopDyInfo::calcTotalBiomass(dvar3_array& n_msz, ostream& cout){
 dvar3_array PopDyInfo::calcSurvival(double dt, ostream& cout){
     if (debug) cout<<"starting PopDyInfo::calcSurvival(dt)"<<endl;
     RETURN_ARRAYS_INCREMENT();
-    dvar3_array S_msz(1,nMSs,1,nSCs,1,nZBs);
     S_msz.initialize();
     for (int s=1;s<=nSCs;s++){
         for (int m=1;m<=nMSs;m++){ 
@@ -123,7 +122,6 @@ dvar3_array PopDyInfo::calcSurvival(double dt, ostream& cout){
 dvar3_array PopDyInfo::applyNM(double dt, dvar3_array& n_msz, ostream& cout){
     if (debug) cout<<"starting PopDyInfo::applyNM(dt,n_msz)"<<endl;
     RETURN_ARRAYS_INCREMENT();
-    dvar3_array np_msz(1,nMSs,1,nSCs,1,nZBs);
     np_msz.initialize();
     for (int s=1;s<=nSCs;s++){
         for (int m=1;m<=nMSs;m++){ 
@@ -144,7 +142,6 @@ dvar3_array PopDyInfo::applyNM(double dt, dvar3_array& n_msz, ostream& cout){
 dvar3_array PopDyInfo::applyMG(dvar3_array& n_msz, ostream& cout){
     if (debug) cout<<"starting PopDyInfo::applyMG(n_msz)"<<endl;
     RETURN_ARRAYS_INCREMENT();
-    dvar3_array np_msz(1,nMSs,1,nSCs,1,nZBs);
     np_msz.initialize();
     np_msz(IMMATURE,NEW_SHELL) = elem_prod(1.0-Th_sz(NEW_SHELL),T_szz(NEW_SHELL)*n_msz(IMMATURE,NEW_SHELL));
 //    np_msz(IMMATURE,OLD_SHELL) = 0.0;
@@ -167,7 +164,7 @@ dvar3_array PopDyInfo::applyMG(dvar3_array& n_msz, ostream& cout){
 dvar3_array PopDyInfo::addRecruitment(dvariable R, dvar3_array& n_msz, ostream& cout){
     if (debug) cout<<"starting PopDyInfo::addRecruitment(R, n_msz)"<<endl;
     RETURN_ARRAYS_INCREMENT();
-    dvar3_array np_msz = 1.0*n_msz;
+    np_msz = 1.0*n_msz;
     np_msz(IMMATURE,NEW_SHELL) += R*R_z;
     if (debug) cout<<"finished PopDyInfo::addRecruitment(R, n_msz)"<<endl;
     RETURN_ARRAYS_DECREMENT();
@@ -218,7 +215,13 @@ CatchInfo::CatchInfo(int npZBs, int npFsh){
     nMSs = tcsam::nMSs;
     nSCs = tcsam::nSCs;
     
-    maxF = 1.0;//default scale
+    maxF = 1.0;//default scale    
+    
+    hm_f.allocate(1,nFsh);
+    cpF_fms.allocate(1,nFsh,1,nMSs,1,nSCs);
+    cpF_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
+    selF_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
+    retF_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
     
     rmF_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
     dmF_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
@@ -227,6 +230,9 @@ CatchInfo::CatchInfo(int npZBs, int npFsh){
     cpN_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
     rmN_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
     dmN_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
+    
+    totFM.allocate(1,nZBs);
+    S_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
 }
 
 CatchInfo& CatchInfo::operator =(const CatchInfo& o){
@@ -238,13 +244,11 @@ CatchInfo& CatchInfo::operator =(const CatchInfo& o){
     
     maxF = o.maxF;//default scale
     
-    rmF_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
-    dmF_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
-    
-    cmN_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
-    cpN_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
-    rmN_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
-    dmN_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
+    hm_f      = o.hm_f;
+    cpF_fms   = o.cpF_fms;
+    cpF_fmsz  = o.cpF_fmsz;
+    selF_fmsz = o.selF_fmsz;
+    retF_fmsz = o.retF_fmsz;
     
     rmF_fmsz = o.rmN_fmsz;
     dmF_fmsz = o.dmN_fmsz;
@@ -253,6 +257,9 @@ CatchInfo& CatchInfo::operator =(const CatchInfo& o){
     cpN_fmsz = o.cpN_fmsz;
     rmN_fmsz = o.rmN_fmsz;
     dmN_fmsz = o.dmN_fmsz;
+    
+    totFM = o.totFM;
+    S_msz = o.S_msz;
     
     return *this;
 }
@@ -296,7 +303,6 @@ dvar3_array CatchInfo::applyFM(dvariable dirF, dvar3_array& n_msz, ostream& cout
     dvariable ratF = 1.0;        //default target fishery (f=1) scaling ratio
     if ((dirF>=0.0)&&(maxF>0.0)) 
         ratF = dirF/maxF;        //target fishery (f=1) scaling ratio, if target fishery is open   (maxF>0)
-    dvar_vector totFM(1,nZBs);
     dvar3_array np_msz(1,nMSs,1,nSCs,1,nZBs);
     np_msz.initialize();//number surviving fisheries
     rmF_fmsz.initialize();//retained catch mortality rates
@@ -359,8 +365,6 @@ dvar3_array CatchInfo::calcSurvival(dvariable dirF, ostream& cout){
     dvariable ratF = 1.0;     //default target fishery scaling ratio
     if ((dirF>=0)&&(maxF>0)) 
         ratF = dirF/maxF;     //target fishery (f=1) scaling ratio
-    dvar_vector totFM(1,nZBs);
-    dvar3_array S_msz(1,nMSs,1,nSCs,1,nZBs);
     S_msz.initialize();
     for (int s=1;s<=nSCs;s++){
         for (int m=1;m<=nMSs;m++){ 
@@ -383,7 +387,6 @@ dvar3_array CatchInfo::calcSurvival(dvariable dirF, ostream& cout){
  * @param capF_fmsz - input capture rates
  */
 void CatchInfo::setCaptureRates(dvar4_array& capFp_fmsz){
-    cpF_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
     cpF_fmsz = capFp_fmsz;
 }
 
@@ -393,7 +396,6 @@ void CatchInfo::setCaptureRates(dvar4_array& capFp_fmsz){
  * @param capF_fmsz - input capture rates
  */
 void CatchInfo::setCaptureRates(dvar3_array& capFp_fms){
-    cpF_fms.allocate(1,nFsh,1,nMSs,1,nSCs);
     cpF_fms = capFp_fms;
 }
 
@@ -403,7 +405,6 @@ void CatchInfo::setCaptureRates(dvar3_array& capFp_fms){
  * @param retF_fmsz - input selectivity functions
  */
 void CatchInfo::setSelectivityFcns(dvar4_array& selFp_fmsz){
-    selF_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
     selF_fmsz = selFp_fmsz;
 }
 
@@ -413,7 +414,6 @@ void CatchInfo::setSelectivityFcns(dvar4_array& selFp_fmsz){
  * @param retF_fmsz - input retention functions
  */
 void CatchInfo::setRetentionFcns(dvar4_array& retFp_fmsz){
-    retF_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
     retF_fmsz = retFp_fmsz;
 }
 
@@ -423,7 +423,6 @@ void CatchInfo::setRetentionFcns(dvar4_array& retFp_fmsz){
  * @param pHM_f - dvector of handling mortality rates
  */
 void CatchInfo::setHandlingMortality(dvar_vector& pHM_f){
-    hm_f.allocate(1,nFsh);
     hm_f = pHM_f;
 }
 
@@ -471,7 +470,13 @@ PopProjector::PopProjector(PopDyInfo* pPIp, CatchInfo* pCIp){
     nMSs = pPI->nMSs;
     nSCs = pPI->nSCs;
     nZBs = pPI->nZBs;
-    nFsh = pCI->nFsh;    
+    nFsh = pCI->nFsh;  
+    
+    n1_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
+    n2_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
+    n3_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
+    n4_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
+    n5_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
 }
 
 /**
@@ -482,10 +487,12 @@ PopProjector::PopProjector(PopDyInfo* pPIp, CatchInfo* pCIp){
  * Also calculates:
  *      matBio - spawning biomass at mating time
  *      pCI elements:
- *          cm_msz - total fishing mortality          (abundance)
- *          cp_fmsz - fishery captures, by fishery    (abundance)
- *          rm_fmsz - retained mortality, by fishery  (abundance)
- *          dm_fmsz - discard mortality, by fishery   (abundance)
+ *          rmF_fmsz - retained mortality rate, by fishery
+ *          dmF_fmsz - discard mortality rate, by fishery 
+ *          cmN_msz - total fishing mortality          (abundance)
+ *          cpN_fmsz - fishery captures, by fishery    (abundance)
+ *          rmN_fmsz - retained mortality, by fishery  (abundance)
+ *          dmN_fmsz - discard mortality, by fishery   (abundance)
  * 
  * @param n_msz - initial numbers-at-maturity state/shell condition/size
  * @param dirF - multiplier on fishing mortality rate in directed fishery
@@ -495,11 +502,11 @@ PopProjector::PopProjector(PopDyInfo* pPIp, CatchInfo* pCIp){
 dvar3_array PopProjector::project(dvariable dirF, dvar3_array& n_msz, ostream& cout){
     if (debug) cout<<"starting PopProjector::project(dirF, n_msz)"<<endl;
     RETURN_ARRAYS_INCREMENT();
-    dvar3_array n1_msz(1,nMSs,1,nSCs,1,nZBs);
-    dvar3_array n2_msz(1,nMSs,1,nSCs,1,nZBs);
-    dvar3_array n3_msz(1,nMSs,1,nSCs,1,nZBs);
-    dvar3_array n4_msz(1,nMSs,1,nSCs,1,nZBs);
-    dvar3_array n5_msz(1,nMSs,1,nSCs,1,nZBs);
+    n1_msz.initialize();
+    n2_msz.initialize();
+    n3_msz.initialize();
+    n4_msz.initialize();
+    n5_msz.initialize();
     //if (debug){PopDyInfo::debug=1; CatchInfo::debug=1;}
     if (dtF<=dtM){ //fisheries occur BEFORE molting/growth/maturity 
         if (debug) cout<<"dtF(<=dtM) = "<<dtF<<endl;
@@ -568,8 +575,9 @@ dvar3_array PopProjector::project(dvariable dirF, dvar3_array& n_msz, ostream& c
     }
     if (debug){PopDyInfo::debug=0; CatchInfo::debug=0;}
     if (debug) cout<<"finished PopProjector::project(dirF, n_msz)"<<endl;   
+    dvar3_array np_msz = 1.0*n5_msz;
     RETURN_ARRAYS_DECREMENT();
-    return n5_msz;
+    return np_msz;
 }
 
 /**
@@ -593,24 +601,28 @@ dvar3_array PopProjector::project(dvariable dirF, dvar3_array& n_msz, ostream& c
 dvar3_array PopProjector::projectUnFished(dvar3_array& n_msz, ostream& cout){
     if (debug) cout<<"starting PopProjector::projectUnFished(dirF, n_msz)"<<endl;
     RETURN_ARRAYS_INCREMENT();
+    n1_msz.initialize();
+    n2_msz.initialize();
+    n3_msz.initialize();
     pCI->cmN_msz.initialize(); //set to 0's
     pCI->cpN_fmsz.initialize();//set to 0's
     pCI->rmN_fmsz.initialize();//set to 0's
     pCI->dmN_fmsz.initialize();//set to 0's
     //d3_array n1_msz(1,nMSs,1,nSCs,1,nZBs);
     //apply natural mortality BEFORE molting/growth/maturity
-    dvar3_array n1_msz = pPI->applyNM(dtM, n_msz,cout);
+    n1_msz = pPI->applyNM(dtM, n_msz,cout);
     //apply molting/growth
-    dvar3_array n2_msz = pPI->applyMG(n1_msz,cout);
+    n2_msz = pPI->applyMG(n1_msz,cout);
     //apply natural mortality AFTER molting/growth
-    dvar3_array n3_msz = pPI->applyNM(1.0-dtM, n2_msz,cout);
+    n3_msz = pPI->applyNM(1.0-dtM, n2_msz,cout);
 
     //calculate mature biomass-at-mating from pre-molting/growth abundance
     matBio = pPI->calcMatureBiomass(n1_msz,cout);
 
     if (debug) cout<<"finished PopProjector::projectUnFished(n_msz)"<<endl;   
+    dvar3_array np_msz = 1.0*n3_msz;
     RETURN_ARRAYS_DECREMENT();
-    return n3_msz;
+    return np_msz;
 }
 
 /**
@@ -625,10 +637,10 @@ dvar3_array PopProjector::projectUnFished(dvar3_array& n_msz, ostream& cout){
 dvar3_array PopProjector::addRecruitment(dvariable R, dvar3_array& n_msz, ostream& cout){
     if (debug) cout<<"starting PopProjector::addRecruitment(R, n_msz)"<<endl;
     RETURN_ARRAYS_INCREMENT();
-    dvar3_array n1_msz = pPI->addRecruitment(R,n_msz,cout);
+    dvar3_array np_msz = pPI->addRecruitment(R,n_msz,cout);
     if (debug) cout<<"finished PopProjector::addRecruitment(R, n_msz)"<<endl;
     RETURN_ARRAYS_DECREMENT();
-    return n1_msz;
+    return np_msz;
 }
 
 /**
@@ -644,11 +656,11 @@ dvariable PopProjector::projectMatureBiomassAtMating(dvariable dirF, dvar3_array
     if (debug) cout<<"starting PopProjector::projectMatureBiomassAtMating(dirF, n_msz)"<<endl;
     RETURN_ARRAYS_INCREMENT();
     if (debug) cout<<"dtF = "<<dtF<<"; dtM = "<<dtM<<endl;
+    n1_msz.initialize();
+    n2_msz.initialize();
+    n3_msz.initialize();
     if (dtF<=dtM){ //fisheries occur BEFORE molting/growth/maturity 
         if (debug) cout<<"dtF<=dtM"<<endl;
-        dvar3_array n1_msz(1,nMSs,1,nSCs,1,nZBs);
-        dvar3_array n2_msz(1,nMSs,1,nSCs,1,nZBs);
-        dvar3_array n3_msz(1,nMSs,1,nSCs,1,nZBs);
         //apply natural mortality BEFORE fisheries
         n1_msz = pPI->applyNM(dtF,n_msz, cout);
         if (debug) {cout<<"n1_msz ="<<endl; wts::print(n1_msz,cout,1);}
@@ -669,7 +681,6 @@ dvariable PopProjector::projectMatureBiomassAtMating(dvariable dirF, dvar3_array
         matBio = pPI->calcMatureBiomass(n3_msz,cout);
     } else { //fisheries occur AFTER molting/growth/maturity 
         if (debug) cout<<"dtF>dtM"<<endl;
-        dvar3_array n1_msz(1,nMSs,1,nSCs,1,nZBs);
         //apply natural mortality BEFORE molting/growth
         n1_msz = pPI->applyNM(dtM,n_msz,cout);
         if (debug) {cout<<"n1_msz ="<<endl; wts::print(n1_msz,cout,1);}

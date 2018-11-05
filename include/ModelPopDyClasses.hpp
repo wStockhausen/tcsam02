@@ -25,6 +25,11 @@ class PopDyInfo {
         dvar_matrix  Th_sz;    //pr(molt to maturity|pre-molt size, molt)
         dvar3_array  T_szz;    //growth matrices (indep. of molt to maturity)
         
+    private:
+        dvar3_array np_msz;
+        dvar3_array S_msz;
+    
+        
     public:
         /**
          * Class constructor.
@@ -148,12 +153,16 @@ class CatchInfo {
         /** total catch mortality (abundance) */
         dvar3_array cmN_msz; 
         /** total captured, by fishery (abundance) */
-        dvar4_array cpN_fmsz; //
+        dvar4_array cpN_fmsz;//
         /** retained mortality, by fishery (abundance) */
         dvar4_array rmN_fmsz;//
         /** discard mortality, by fishery (abundance) */
         dvar4_array dmN_fmsz;//
         
+    private:
+        dvar_vector totFM;//total fishing mortality
+        dvar3_array S_msz;//survival following fisheries
+          
     public:
         /**
          * Class constructor.
@@ -276,6 +285,13 @@ class PopProjector{
     public:
         PopDyInfo* pPI;//pointer to single sex PopDyInfo object
         CatchInfo* pCI;//pointer to single sex CatchInfo object
+        
+    private:
+        dvar3_array n1_msz;
+        dvar3_array n2_msz;
+        dvar3_array n3_msz;
+        dvar3_array n4_msz;
+        dvar3_array n5_msz;
     
     public:
         /**

@@ -7736,7 +7736,7 @@ RUNTIME_SECTION
 // =============================================================================
 // =============================================================================
 TOP_OF_MAIN_SECTION
-  arrmblsize = 2100000000; //must be smaller than 2,147,483,647
+  arrmblsize = 2147000000; //must be smaller than 2,147,483,647
   gradient_structure::set_GRADSTACK_BUFFER_SIZE(40000000); // this may be incorrect in the AUTODIF manual.
   gradient_structure::set_CMPDIF_BUFFER_SIZE(1500000000);
   gradient_structure::set_NUM_DEPENDENT_VARIABLES(7000);
