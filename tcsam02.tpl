@@ -7678,14 +7678,30 @@ FINAL_SECTION
         }
     } else if (mseEstModMode){
         //running in estModMode
+        PRINT2B1("#----Recalculating population dynamics")
+        if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
         //--calculate OFL
         calcOFL(mxYrp1, 0, cout);
         dvariable OFL = ptrOFLResults->OFL;
 
         //--calculate TAC for upcoming year using harvest control rule
+        double TAC = 0.0;
+        if (ptrMOs->HCR==1){
+            dmatrix vspB_yx = value(spB_yx);
+            double MMB = vspB_yx(mxYr,  MALE);
+            double MFB = vspB_yx(mxYr,FEMALE);
+            ivector perm(1,2); perm[1]=2;perm[2]=1;
+            dmatrix vspB_xy = wts::permuteDims(perm,vspB_yx);
+            double aveMFB = mean(vspB_xy(FEMALE)(ptrMOs->HCR1_avgMinYr,ptrMOs->HCR1_avgMaxYr));
+            TAC = HarvestStrategies::HCR1_FemaleRamp(MFB, aveMFB, MMB);
+        }
 
         //--save TAC to file for OpMod to read
-
+        ofstream os; os.open("TAC.txt", ios::trunc);
+        os<<"# HCR      TAC      OFL"<<endl;
+        os<<ptrMOs->HCR<<tb<<TAC<<tb<<OFL<<endl;
+        os.close();
+        
         //--write pin for EstMod for upcoming year based on this year
         //----devs for upcoming year are zero
 

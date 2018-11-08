@@ -246,7 +246,7 @@ void EffXtrapScenarios::writeToR(std::ostream& os){
 //          ModelOptions
 //--------------------------------------------------------------------------------
 int ModelOptions::debug = 0;
-const adstring ModelOptions::VERSION = "2018.10.29";
+const adstring ModelOptions::VERSION = "2018.11.07";
 
 ModelOptions::ModelOptions(ModelConfiguration& mc){
     ptrMC=&mc;
@@ -448,6 +448,25 @@ void ModelOptions::read(cifstream & is) {
     is>>maxIterations;
     cout<<maxIterations<<tb<<"#max iterations"<<endl;
     
+    //MSE-related options
+    cout<<"#MSE-related options"<<endl;
+    is>>HCR;
+    cout<<HCR<<tb<<"#harvest control rule scenario"<<endl;
+    int tst = 1;
+    while (tst){
+        is>>str;
+        if (str=="HCR1"){
+            cout<<"#--options for "<<str<<endl;
+            is>>HCR1_avgMinYr;
+            is>>HCR1_avgMaxYr;
+            cout<<HCR1_avgMinYr<<tb<<HCR1_avgMaxYr<<tb<<"#min, max years for averaging"<<endl;
+            if (HCR1_avgMaxYr==-1) HCR1_avgMaxYr = ptrMC->mxYr;
+        } else if (str=="HCR2"){
+            cout<<"#--options for "<<str<<endl;
+            is>>HCR2_rampID;
+            cout<<HCR2_rampID<<tb<<tb<<"#ramp id"<<endl;
+        } else {tst=0;}
+    }
     
     if (debug) cout<<"end ModelOptions::read(cifstream & is)"<<endl;
     if (debug){
@@ -586,6 +605,8 @@ void ModelOptions::write(ostream & os) {
     os<<endl;
     
     os<<"#---------------------"<<endl<<endl;
+    
+    //MSE-related options
     
     if (debug) cout<<"#end ModelOptions::write(ostream)"<<endl;
 }

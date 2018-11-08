@@ -21,6 +21,7 @@
     #include "SummaryFunctions.hpp"
     #include "ModelPopDyClasses.hpp"
     #include "OFLCalcs.hpp"
+    #include "HarvestStrategies.hpp"
 
 #endif	/* TCSAM_HPP */
 

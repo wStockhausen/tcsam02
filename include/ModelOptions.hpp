@@ -281,7 +281,18 @@ class EffXtrapScenarios{
         int phsIterativeReweighting;
         /** max number of iterations */
         int maxIterations;
-
+        
+        /** options for MSEs*/
+        adstring_array optsMSE;
+        /** harvest control rule to use */
+        int HCR; 
+        /** min year for averaging in HCR 1*/
+        int HCR1_avgMinYr;
+        /** max year for averaging in HCR 1*/
+        int HCR1_avgMaxYr;
+         /** id of ramp to use in HCR 2 */
+        int HCR2_rampID;
+ 
     public:
         /**
          * Class constructor
