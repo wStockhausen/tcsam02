@@ -455,6 +455,14 @@
 //-2018-10-29:  1. Added pvNPSel parameter vector implementation to be able to estimate
 //                  BSFRF availability. Modified tpl and ModelParametersInfo.
 //              2. Added pMSE_LnC
+//-2018-11-06:  1. Added "runAlt" commandline flag to run the alternative pop dy model
+//              2. Implemented runAltPopDyMod based on PopDyInfo, etc. classes converted
+//                  to dvar-type variables.
+//-2018-11-07:  1. Added HarvestStrategies for the MSE; revised ModelOptions
+//                  to incorporate MSE-related options.
+//-2018-11-13:  1.Changes to allow pMSE_LnC to be estimated correctly. Now need to
+//                  figure out how to write output files to step between MSE OpMod 
+//                  and EstMod iterations.
 //
 // =============================================================================
 // =============================================================================
@@ -518,7 +526,7 @@ GLOBALS_SECTION
     //runtime flags (0=false)
     int jitter     = 0;//use jittering for initial parameter values
     int resample   = 0;//use resampling for initial parameter values
-    int opModMode  = 0;//run as operating model, no fitting
+    int mcevalOn   = 0;//flag indicating model is being run in mceval phase
     int mseMode    = 0;//flag indicating model is being run in an MSE
     int mseOpModMode  = 0;//flag indicating model is being run in an MSE in operating model mode
     int mseEstModMode = 0;//flag indicating model is being run in an MSE in estimation model mode 
@@ -643,6 +651,13 @@ DATA_SECTION
         rpt::echo<<"#Initial parameter values from pin file: "<<fnPin<<endl;
         rpt::echo<<"#-------------------------------------------"<<endl;
     }
+    //mceval phase is on
+    if ((option_match(ad_comm::argc,ad_comm::argv,"-mceval")>-1)){
+        mcevalOn = 1;
+        rpt::echo<<"#mceval is ON."<<endl;
+        rpt::echo<<"#-------------------------------------------"<<endl;
+        flg = 1;
+    }
     //parameter input file for running NUTS MCMC 
     if ((on=option_match(ad_comm::argc,ad_comm::argv,"-mcpin"))>-1) {
         usePin = 2;
@@ -657,13 +672,6 @@ DATA_SECTION
         rpt::echo<<"#-------------------------------------------"<<endl;
         flg = 1;
     }
-    //opModMode
-    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-opModMode"))>-1) {
-        opModMode=1;
-        rpt::echo<<"#operating model mode turned ON"<<endl;
-        rpt::echo<<"#-------------------------------------------"<<endl;
-        flg = 1;
-    }
     //mseMode
     if ((on=option_match(ad_comm::argc,ad_comm::argv,"-mseMode"))>-1) {
         mseMode=1;
@@ -671,6 +679,14 @@ DATA_SECTION
         if (type=="mseOpModMode"){
             mseOpModMode = 1;
             rpt::echo<<"#MSE operating model mode turned ON"<<endl;
+            iSeed=(long)start;
+            if ((on=option_match(ad_comm::argc,ad_comm::argv,"-iSeed"))>-1) {
+                if (on+1<argc) {
+                    iSeed=atoi(ad_comm::argv[on+1]);
+                }
+            } 
+            rng.reinitialize(iSeed);
+            rpt::echo<<tb<<iSeed<<"  #iSeed used for random recruitment"<<endl;
         } else if (type=="mseEstModMode"){
             mseEstModMode = 1;
             rpt::echo<<"#MSE estimation model mode turned ON"<<endl;
@@ -1319,6 +1335,7 @@ DATA_SECTION
     int npMSE_LnC; ivector phsMSE_LnC; vector lbMSE_LnC; vector ubMSE_LnC;
     !!tcsam::setParameterInfo(ptrMPI->ptrMSE->pMSE_LnC,npMSE_LnC,lbMSE_LnC,ubMSE_LnC,phsMSE_LnC,rpt::echo);
     !!if (!mseOpModMode) {phsMSE_LnC = -1;}
+    !!if ( mseOpModMode) {phsMSE_LnC =  1;}
      
     //other data
     vector dtF_y(mnYr,mxYr);//timing of midpoint of fishing season (by year)
@@ -1384,15 +1401,18 @@ DATA_SECTION
     !!ctrProcCallsInPhase = 0;
     
     //MSE-related variables
-    vector tac(1,npMSE_LnC); //TAC for upcoming year
+    number prjR;
+    number inpOFL; //OFL for upcoming year
+    number inpTAC; //TAC for upcoming year
  LOCAL_CALCS
-     tac = 0.0;
-     if (mseOpModMode){
+    if (mseOpModMode){
+        prjR = 0.0;
         ad_comm::change_datafile_name("tac.txt");
-        (*ad_comm::global_datafile)>>tac;
-        rpt::echo<<"TAC for year is: "<<tac<<endl;
-        cout<<"TAC for year is: "<<tac<<endl;
-     }
+        (*ad_comm::global_datafile)>>inpTAC;
+        (*ad_comm::global_datafile)>>inpOFL;
+        rpt::echo<<"TAC, OFL is: "<<inpTAC<<tb<<inpOFL<<endl;
+        cout<<"TAC, OFL is: "<<inpTAC<<tb<<inpOFL<<endl;
+    }
  END_CALCS
  
     !!PRINT2B1("#finished DATA_SECTION")
@@ -1609,7 +1629,18 @@ PARAMETER_SECTION
     6darray q_vyxmsz(1,nSrv,mnYr,mxYr+1,1,nSXs,1,nMSs,1,nSCs,1,nZBs);//size-specific catchability in survey v
     6darray n_vyxmsz(1,nSrv,mnYr,mxYr+1,1,nSXs,1,nMSs,1,nSCs,1,nZBs);//catch abundance at size in survey v
     6darray b_vyxmsz(1,nSrv,mnYr,mxYr+1,1,nSXs,1,nMSs,1,nSCs,1,nZBs);//catch biomass at size in survey v
-   
+
+    //MSE-related quantities
+    4darray prj_n_xmsz(1,nSXs,1,nMSs,1,nSCs,1,nZBs);
+    vector prj_spB_x(1,nSXs);
+    5darray prj_cpN_fxmsz(1,nFsh,1,nSXs,1,nMSs,1,nSCs,1,nZBs);
+    5darray prj_rmN_fxmsz(1,nFsh,1,nSXs,1,nMSs,1,nSCs,1,nZBs);
+    5darray prj_dmN_fxmsz(1,nFsh,1,nSXs,1,nMSs,1,nSCs,1,nZBs);
+    5darray prj_dsN_fxmsz(1,nFsh,1,nSXs,1,nMSs,1,nSCs,1,nZBs);
+    matrix prjRetCatchMortBio_fx(1,nFsh,1,nSXs);
+    matrix prjDscCatchMortBio_fx(1,nFsh,1,nSXs);
+    matrix prjTotCatchMortBio_fx(1,nFsh,1,nSXs);
+
     //objective function penalties
     vector fPenRecDevs(1,npDevsLnR);//recruitment devs penalties
     
@@ -1657,6 +1688,15 @@ PRELIMINARY_CALCS_SECTION
     PRINT2B1("#Starting PRELIMINARY_CALCS_SECTION")
     int debug=1;
     
+//---------PRELIMINARY_CALCS: ALL MODEL RUNS------------------------------------    
+    PRINT2B1("PRELIMINARY_CALCS: ALL MODEL RUNS")
+    //create population projection objects
+    PRINT2B1("--Creating population projection objects")
+    pPDI = new PopDyInfo(nZBs);         //  generic population dynamics info
+    pCDI = new CatchInfo(nZBs,nFsh);    //  generic catch info
+    pPPr = new PopProjector(pPDI,pCDI); //  generic population projector
+    PRINT2B1("--Created population projection objects")
+
     //set initial values for all parameters
     if (usePin) {
         PRINT2B1("NOTE: setting initial values for parameters using pin file")
@@ -1664,45 +1704,6 @@ PRELIMINARY_CALCS_SECTION
         PRINT2B1("NOTE: setting initial values for parameters using MPI")
     }
     setInitVals(0,rpt::echo);
-    {PRINT2B1("writing effective MPI after setInitVals")
-        ofstream os; os.open("effectiveMPI.dat", ios::trunc);
-        os.precision(12);
-        ptrMPI->setToWriteVectorInitialValues(true);
-        os<<(*ptrMPI)<<endl;
-        os.close();
-        PRINT2B1("finished writing effective MPI after setInitVals")
-    }
-
-    PRINT2B1("testing setAllDevs()")
-    setAllDevs(tcsam::dbgAll,rpt::echo);
-     PRINT2B1("finished testing setAllDevs()")
-       
-    {PRINT2B1("writing data to R")
-     ofstream os; os.open("ModelData.R", ios::trunc);
-     os.precision(12);
-     ReportToR_Data(os,0,cout);
-     PRINT2B1("finished writing data to R")
-    }
-    
-    {PRINT2B1("writing parameters info to R")
-     ofstream os; os.open("ModelParametersInfo.R", ios::trunc);
-     os.precision(12);
-     ptrMPI->writeToR(os);
-     os.close();
-     PRINT2B1("finished writing parameters info to R")
-     
-     //write initial parameter values to csv
-     PRINT2B1("writing parameters info to csv")
-     ofstream os1("tcsam02.params.all.init.csv", ios::trunc);
-     os1.precision(12);
-     writeParameters(os1,0,0);//all parameters
-     os1.close();
-     ofstream os2("tcsam02.params.active.init.csv", ios::trunc);
-     os2.precision(12);
-     writeParameters(os2,0,1);//only parameters that will be active (i.e., phase>0)
-     os2.close();
-     PRINT2B1("finished writing parameters info to csv")
-    }
     
     //calculate average effort for fisheries over specified time periods and 
     //allocate associated arrays
@@ -1771,175 +1772,230 @@ PRELIMINARY_CALCS_SECTION
     } else {
         PRINT2B1("--NO effort averaging scenarios defined!")
     }
-    
-    //create population projection objects
-    PRINT2B1("Creating population projection objects")
-    pPDI = new PopDyInfo(nZBs);         //  generic population dynamics info
-    pCDI = new CatchInfo(nZBs,nFsh);    //  generic catch info
-    pPPr = new PopProjector(pPDI,pCDI); //  generic population projector
-    PRINT2B1("Created population projection objects")
-        
-    if (option_match(ad_comm::argc,ad_comm::argv,"-mceval")<0) {
-        int dbgLevel = 0; //set at dbgCalcProcs+1 to print to terminal 
-        PRINT2B1("testing calcRecruitment():")
-        calcRecruitment(dbgLevel,rpt::echo);
-        
-        PRINT2B1("testing calcNatMort():")
-        calcNatMort(dbgLevel,rpt::echo);
-        
-        PRINT2B1("testing calcGrowth():")
-        calcGrowth(dbgLevel,rpt::echo);
-        
-        PRINT2B1("testing calcPrM2M():")
-        calcPrM2M(dbgCalcProcs+1,rpt::echo);
 
-        PRINT2B1("testing calcSelectivities():")
-        calcSelectivities(dbgLevel,rpt::echo);
+    if (!mseMode){
+//---------PRELIMINARY_CALCS: NON-MSE MODEL RUNS ONLY---------------------------    
+        PRINT2B1("--PRELIMINARY_CALCS: NON-MSE MODEL RUNS ONLY")
+        {
+            PRINT2B1("writing effective MPI after setInitVals")
+            ofstream os; os.open("effectiveMPI.dat", ios::trunc);
+            os.precision(12);
+            ptrMPI->setToWriteVectorInitialValues(true);
+            os<<(*ptrMPI)<<endl;
+            os.close();
+            PRINT2B1("finished writing effective MPI after setInitVals")
+        }
 
-        PRINT2B1("testing calcFisheryFs():")
-        calcFisheryFs(dbgCalcProcs+1,rpt::echo);
+        PRINT2B1("testing setAllDevs()")
+        setAllDevs(tcsam::dbgAll,rpt::echo);
+        PRINT2B1("finished testing setAllDevs()")
 
-        PRINT2B1("testing calcSurveyQs():")
-        calcSurveyQs(dbgLevel,cout);
+        {
+            PRINT2B1("writing data to R")
+            ofstream os; os.open("ModelData.R", ios::trunc);
+            os.precision(12);
+            ReportToR_Data(os,0,cout);
+            PRINT2B1("finished writing data to R")
+        }
 
-        if (!runAlt){
-            PRINT2B1("testing runPopDyMod():")
-            runPopDyMod(dbgLevel,cout);
-            rpt::echo<<"n_yxm:"<<endl;
-            for (int y=mnYr;y<=(mxYr+1);y++){
-                for (int x=1;x<=nSXs;x++){
-                    for (int m=1;m<=nMSs;m++){
-                       rpt::echo<<y<<cc;
-                       rpt::echo<<tcsam::getSexType(x)<<cc;
-                       rpt::echo<<tcsam::getMaturityType(m)<<cc;
-                       rpt::echo<<sum(n_yxmsz(y,x,m))<<endl;
-                    }
-                }
-            }
-            rpt::echo<<"n_yxmsz:"<<endl;
-            for (int y=mnYr;y<=(mxYr+1);y++){
-                for (int x=1;x<=nSXs;x++){
-                    for (int m=1;m<=nMSs;m++){
-                        for (int s=1;s<=nSCs;s++){
+        {
+            PRINT2B1("writing parameters info to R")
+            ofstream os; os.open("ModelParametersInfo.R", ios::trunc);
+            os.precision(12);
+            ptrMPI->writeToR(os);
+            os.close();
+            PRINT2B1("finished writing parameters info to R")
+
+            //write initial parameter values to csv
+            PRINT2B1("writing parameters info to csv")
+            ofstream os1("tcsam02.params.all.init.csv", ios::trunc);
+            os1.precision(12);
+            writeParameters(os1,0,0);//all parameters
+            os1.close();
+            ofstream os2("tcsam02.params.active.init.csv", ios::trunc);
+            os2.precision(12);
+            writeParameters(os2,0,1);//only parameters that will be active (i.e., phase>0)
+            os2.close();
+            PRINT2B1("finished writing parameters info to csv")
+        }
+
+        if (!mcevalOn) {
+//-----------PRELIMINARY_CALCS: "ORDINARY" MODEL RUNS ONLY---------------------- 
+            //this section runs for an "ordinary" model run
+            int dbgLevel = 0; //set at dbgCalcProcs+1 to print to terminal 
+            PRINT2B1("testing calcRecruitment():")
+            calcRecruitment(dbgLevel,rpt::echo);
+
+            PRINT2B1("testing calcNatMort():")
+            calcNatMort(dbgLevel,rpt::echo);
+
+            PRINT2B1("testing calcGrowth():")
+            calcGrowth(dbgLevel,rpt::echo);
+
+            PRINT2B1("testing calcPrM2M():")
+            calcPrM2M(dbgCalcProcs+1,rpt::echo);
+
+            PRINT2B1("testing calcSelectivities():")
+            calcSelectivities(dbgLevel,rpt::echo);
+
+            PRINT2B1("testing calcFisheryFs():")
+            calcFisheryFs(dbgCalcProcs+1,rpt::echo);
+
+            PRINT2B1("testing calcSurveyQs():")
+            calcSurveyQs(dbgLevel,cout);
+
+            if (!runAlt){
+                PRINT2B1("testing runPopDyMod():")
+                runPopDyMod(dbgLevel,cout);
+                rpt::echo<<"n_yxm:"<<endl;
+                for (int y=mnYr;y<=(mxYr+1);y++){
+                    for (int x=1;x<=nSXs;x++){
+                        for (int m=1;m<=nMSs;m++){
                            rpt::echo<<y<<cc;
                            rpt::echo<<tcsam::getSexType(x)<<cc;
                            rpt::echo<<tcsam::getMaturityType(m)<<cc;
-                           rpt::echo<<tcsam::getShellType(s)<<cc;
-                           rpt::echo<<n_yxmsz(y,x,m,s)<<endl;
+                           rpt::echo<<sum(n_yxmsz(y,x,m))<<endl;
+                        }
+                    }
+                }
+                rpt::echo<<"n_yxmsz:"<<endl;
+                for (int y=mnYr;y<=(mxYr+1);y++){
+                    for (int x=1;x<=nSXs;x++){
+                        for (int m=1;m<=nMSs;m++){
+                            for (int s=1;s<=nSCs;s++){
+                               rpt::echo<<y<<cc;
+                               rpt::echo<<tcsam::getSexType(x)<<cc;
+                               rpt::echo<<tcsam::getMaturityType(m)<<cc;
+                               rpt::echo<<tcsam::getShellType(s)<<cc;
+                               rpt::echo<<n_yxmsz(y,x,m,s)<<endl;
+                            }
+                        }
+                    }
+                }
+            } else {
+                PRINT2B1("testing runAltPopDyMod():")
+                runAltPopDyMod(dbgLevel,cout);
+                rpt::echo<<"n_yxm:"<<endl;
+                for (int y=mnYr;y<=(mxYr+1);y++){
+                    for (int x=1;x<=nSXs;x++){
+                        for (int m=1;m<=nMSs;m++){
+                           rpt::echo<<y<<cc;
+                           rpt::echo<<tcsam::getSexType(x)<<cc;
+                           rpt::echo<<tcsam::getMaturityType(m)<<cc;
+                           rpt::echo<<sum(n_yxmsz(y,x,m))<<endl;
+                        }
+                    }
+                }
+                rpt::echo<<"n_yxmsz:"<<endl;
+                for (int y=mnYr;y<=(mxYr+1);y++){
+                    for (int x=1;x<=nSXs;x++){
+                        for (int m=1;m<=nMSs;m++){
+                            for (int s=1;s<=nSCs;s++){
+                               rpt::echo<<y<<cc;
+                               rpt::echo<<tcsam::getSexType(x)<<cc;
+                               rpt::echo<<tcsam::getMaturityType(m)<<cc;
+                               rpt::echo<<tcsam::getShellType(s)<<cc;
+                               rpt::echo<<n_yxmsz(y,x,m,s)<<endl;
+                            }
                         }
                     }
                 }
             }
-        } else {
-            PRINT2B1("testing runAltPopDyMod():")
-            runAltPopDyMod(dbgLevel,cout);
-            rpt::echo<<"n_yxm:"<<endl;
-            for (int y=mnYr;y<=(mxYr+1);y++){
-                for (int x=1;x<=nSXs;x++){
-                    for (int m=1;m<=nMSs;m++){
-                       rpt::echo<<y<<cc;
-                       rpt::echo<<tcsam::getSexType(x)<<cc;
-                       rpt::echo<<tcsam::getMaturityType(m)<<cc;
-                       rpt::echo<<sum(n_yxmsz(y,x,m))<<endl;
-                    }
-                }
-            }
-            rpt::echo<<"n_yxmsz:"<<endl;
-            for (int y=mnYr;y<=(mxYr+1);y++){
-                for (int x=1;x<=nSXs;x++){
-                    for (int m=1;m<=nMSs;m++){
-                        for (int s=1;s<=nSCs;s++){
-                           rpt::echo<<y<<cc;
-                           rpt::echo<<tcsam::getSexType(x)<<cc;
-                           rpt::echo<<tcsam::getMaturityType(m)<<cc;
-                           rpt::echo<<tcsam::getShellType(s)<<cc;
-                           rpt::echo<<n_yxmsz(y,x,m,s)<<endl;
-                        }
-                    }
-                }
-            }
-        }
-        
-        if (doOFL&&debugOFL){
-            PRINT2B1("Testing OFL calculations")
-            ofstream echoOFL; echoOFL.open("calcOFL.init.txt", ios::trunc);
-            echoOFL.precision(12);
-            echoOFL<<"----Testing calcOFL()"<<endl;
-            calcOFL(mxYr+1,debugOFL,echoOFL);//updates ptrOFLResults
-            ptrOFLResults->writeCSVHeader(echoOFL); echoOFL<<endl;
-            ptrOFLResults->writeToCSV(echoOFL);     echoOFL<<endl;
-            echoOFL<<"----Finished testing calcOFL()!"<<endl;
-            echoOFL.close();
-            PRINT2B1("Finished testing OFL calculations!")
-        }
 
-        if (fitSimData){
-            int dbgLevel = 0;
-            PRINT2B1("creating sim data to fit in model")
-            createSimData(dbgLevel,rpt::echo,iSimDataSeed,ptrMDS);//stochastic if iSimDataSeed<>0
+            if (doOFL&&debugOFL){
+                PRINT2B1("Testing OFL calculations")
+                ofstream echoOFL; echoOFL.open("calcOFL.init.txt", ios::trunc);
+                echoOFL.precision(12);
+                echoOFL<<"----Testing calcOFL()"<<endl;
+                calcOFL(mxYr+1,debugOFL,echoOFL);//updates ptrOFLResults
+                ptrOFLResults->writeCSVHeader(echoOFL); echoOFL<<endl;
+                ptrOFLResults->writeToCSV(echoOFL);     echoOFL<<endl;
+                echoOFL<<"----Finished testing calcOFL()!"<<endl;
+                echoOFL.close();
+                PRINT2B1("Finished testing OFL calculations!")
+            }
+
+            if (fitSimData){
+                int dbgLevel = 0;
+                PRINT2B1("creating sim data to fit in model")
+                createSimData(dbgLevel,rpt::echo,iSimDataSeed,ptrMDS);//stochastic if iSimDataSeed<>0
+                {
+                    PRINT2B1("re-writing data to R")
+                    ofstream echo1; echo1.open("ModelData.R", ios::trunc);
+                    echo1.precision(12);
+                    ReportToR_Data(echo1,0,cout);
+                }
+            }
+
             {
-                PRINT2B1("re-writing data to R")
-                ofstream echo1; echo1.open("ModelData.R", ios::trunc);
-                echo1.precision(12);
-                ReportToR_Data(echo1,0,cout);
+                PRINT2B1("--Testing calcObjFun()")
+                if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
+                calcObjFun(dbgAll,rpt::echo);
+                PRINT2B2("--Finished testing calcObjFun(): ",objFun)
             }
-        }
-        
-        {
-            PRINT2B1("--Testing calcObjFun()")
-//            if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
-//            calcObjFun(-1,rpt::echo);
-//            testNaNs(value(objFun),"testing calcObjFun() in PRELIMINARY_CALCS_SECTION");
-//            PRINT2B2("--objFun = ",objFun)
-//            PRINT2B1("--Testing calcObjFun() again: ")
-            if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
-            calcObjFun(dbgAll,rpt::echo);
-            PRINT2B2("--Finished testing calcObjFun(): ",objFun)
-        }
-        
-        {
-            //write objective function components only
-            PRINT2B1("Writing model fits to R")
-            ofstream os0("tcsam02.ModelFits.init.R", ios::trunc);
-            os0.precision(12);
-            ReportToR_ModelFits(os0,-1.0,0,cout);
-            os0.close();
-            PRINT2B1("Finished writing model fits to R")
-        }
-        
-        {
-            PRINT2B1("writing model sim data to file")
-            int dbgLevel = 0;
-            createSimData(dbgLevel,rpt::echo,0,ptrSimMDS);//deterministic
-            ofstream echo1; echo1.open("tcsam02.SimData.init.dat", ios::trunc);
-            echo1.precision(12);
-            writeSimData(echo1,0,rpt::echo,ptrSimMDS);
-            echo1.close();
-            PRINT2B1("finished writing model sim data to file")
-        }
-        
-        {
-            //must do this last because call to calcDynB0 in ReportToR
-            //sets fishing mortality to 0 across all fleets
-            //and re-runs population model
-            PRINT2B1("writing initial model report to R")
-            ofstream echo1; echo1.open("tcsam02.init.rep", ios::trunc);
-            echo1.precision(12);
-            ReportToR(echo1,-1.0,1,cout);
-            echo1.close();
-            PRINT2B1("finished writing model report to R")
-        }
-        
-//        int tmp = 1;
-//        cout<<"Enter 1 to continue > ";
-//        cin>>tmp;
-//        if (tmp<0) exit(-1);
+
+            {
+                //write objective function components only
+                PRINT2B1("Writing model fits to R")
+                ofstream os0("tcsam02.ModelFits.init.R", ios::trunc);
+                os0.precision(12);
+                ReportToR_ModelFits(os0,-1.0,0,cout);
+                os0.close();
+                PRINT2B1("Finished writing model fits to R")
+            }
+
+            {
+                PRINT2B1("writing model sim data to file")
+                int dbgLevel = 0;
+                createSimData(dbgLevel,rpt::echo,0,ptrSimMDS);//deterministic
+                ofstream echo1; echo1.open("tcsam02.SimData.init.dat", ios::trunc);
+                echo1.precision(12);
+                writeSimData(echo1,0,rpt::echo,ptrSimMDS);
+                echo1.close();
+                PRINT2B1("finished writing model sim data to file")
+            }
+
+            {
+                //must do this last because call to calcDynB0 in ReportToR
+                //sets fishing mortality to 0 across all fleets
+                //and re-runs population model
+                PRINT2B1("writing initial model report to R")
+                ofstream echo1; echo1.open("tcsam02.init.rep", ios::trunc);
+                echo1.precision(12);
+                ReportToR(echo1,-1.0,1,cout);
+                echo1.close();
+                PRINT2B1("finished writing model report to R")
+            }        
+        } else {
+//-----------PRELIMINARY_CALCS: mceval MODEL RUNS ONLY--------------------------   
+            writeMCMCHeader();
+            PRINT2B1("MCEVAL is on")
+        }//if mcevalOn
+        PRINT2B1("")
+        PRINT2B2("obj fun = ",objFun)
     } else {
-        writeMCMCHeader();
-        PRINT2B1("MCEVAL is on")
+//-------PRELIMINARY_CALCS: MSE MODEL RUNS ONLY---------------------------------   
+         if (mseOpModMode){
+//-----------PRELIMINARY_CALCS: MSE OpMod RUNS ONLY-----------------------------
+            PRINT2B1("PRELIMINARY_CALCS: MSE OpModMode")
+            if (!runAlt){runPopDyMod(0,cout);} else {runAltPopDyMod(0,cout);}
+            dvector vLnR_y = value(log(R_y(1982,mxYr)));
+            cout<<"vLnR_y = "<<vLnR_y<<endl;
+            double mn = mean(vLnR_y);
+            double sd = sqrt(wts::variance(vLnR_y));
+            prjR = mfexp(wts::drawSampleNormal(rng, mn, sd));
+            PRINT2B2("mean recruitment: ",mn);
+            PRINT2B2("stdv recruitment: ",sd);
+            PRINT2B2("expected total recruitment: ",mfexp(mn+square(sd)/2.0));
+            PRINT2B2("projected total recruitment: ",prjR);
+            dvariable mseCapF = mfexp(pMSE_LnC[1]);
+            projectPopForTAC(mseCapF,dbgAll,rpt::echo);
+            calcObjFunForTAC(dbgAll,rpt::echo);
+        } else if (mseEstModMode){
+//-----------PRELIMINARY_CALCS: MSE EstMod RUNS ONLY-----------------------------   
+             PRINT2B1("PRELIMINARY_CALCS: MSE EstModMode")
+        }
     }
-    PRINT2B1("")
-    PRINT2B2("obj fun = ",objFun)
     PRINT2B1("#finished PRELIMINARY_CALCS_SECTION")
     PRINT2B1("#----------------------------------")
     
@@ -1947,7 +2003,6 @@ PRELIMINARY_CALCS_SECTION
 // =============================================================================
 PROCEDURE_SECTION
     int dbg = 0; //dbgAll;
-    //if (current_phase()==4) dbg=1;
     
     ctrProcCalls++;       //increment procedure section calls counter
     ctrProcCallsInPhase++;//increment in-phase procedure section calls counter
@@ -2001,11 +2056,17 @@ PROCEDURE_SECTION
         ad_exit(-1);
     }
     
-    if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
-
-    calcObjFun(dbg,rpt::echo);
+    if (mseOpModMode){
+        dvariable mseCapF;
+        mseCapF = mfexp(pMSE_LnC[1]);
+        projectPopForTAC(mseCapF,0,cout);
+        calcObjFunForTAC(1000,cout);
+    } else {
+        if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
+        calcObjFun(dbg,rpt::echo);
+    }
     
-    if (ctrProcCallsInPhase==1){
+    if ((!mseOpModMode)&&(ctrProcCallsInPhase==1)){
         //write objective function components only
         adstring fn = "tcsam02.ModelFits."+itoa(current_phase(),10)+"-"+str(ctrProcCallsInPhase)+"."+"R";
         ofstream os0(fn, ios::trunc);
@@ -2051,731 +2112,6 @@ PROCEDURE_SECTION
 //
     if (dbg>=dbgObjFun) {PRINT2B1("--END PROCEDURE_SECTION----------------")}
             
-//*****************************************
-FUNCTION void setInitVals(int debug, ostream& os)
-    //recruitment parameters
-    setInitVals(ptrMPI->ptrRec->pLnR, pLnR, usePin, debug, os);
-    setInitVals(ptrMPI->ptrRec->pRCV, pRCV, usePin, debug, os);
-    setInitVals(ptrMPI->ptrRec->pRX,  pRX,  usePin, debug, os);
-    setInitVals(ptrMPI->ptrRec->pRa,  pRa,  usePin, debug, os);
-    setInitVals(ptrMPI->ptrRec->pRb,  pRb,  usePin, debug, os);
-    setInitVals(ptrMPI->ptrRec->pDevsLnR,pDevsLnR,usePin, debug, os);
-
-    //natural mortality parameters
-    setInitVals(ptrMPI->ptrNM->pM,   pM,   usePin, debug, os);
-    setInitVals(ptrMPI->ptrNM->pDM1, pDM1, usePin, debug, os);
-    setInitVals(ptrMPI->ptrNM->pDM2, pDM2, usePin, debug, os);
-    setInitVals(ptrMPI->ptrNM->pDM3, pDM3, usePin, debug, os);
-    setInitVals(ptrMPI->ptrNM->pDM4, pDM4, usePin, debug, os);
-
-    //growth parameters
-    setInitVals(ptrMPI->ptrGrw->pGrA,   pGrA,   usePin, debug, os);
-    setInitVals(ptrMPI->ptrGrw->pGrB,   pGrB,   usePin, debug, os);
-    setInitVals(ptrMPI->ptrGrw->pGrBeta,pGrBeta,usePin, debug, os);
-
-    //maturity parameters
-    setInitVals(ptrMPI->ptrM2M->pvLgtPrM2M,pvLgtPrM2M,usePin, debug, os);
-
-    //selectivity parameters
-    setInitVals(ptrMPI->ptrSel->pS1, pS1,usePin, debug, os);
-    setInitVals(ptrMPI->ptrSel->pS2, pS2,usePin, debug, os);
-    setInitVals(ptrMPI->ptrSel->pS3, pS3,usePin, debug, os);
-    setInitVals(ptrMPI->ptrSel->pS4, pS4,usePin, debug, os);
-    setInitVals(ptrMPI->ptrSel->pS5, pS5,usePin, debug, os);
-    setInitVals(ptrMPI->ptrSel->pS6, pS6,usePin, debug, os);
-    setInitVals(ptrMPI->ptrSel->pDevsS1, pDevsS1,usePin, debug, os);
-    setInitVals(ptrMPI->ptrSel->pDevsS2, pDevsS2,usePin, debug, os);
-    setInitVals(ptrMPI->ptrSel->pDevsS3, pDevsS3,usePin, debug, os);
-    setInitVals(ptrMPI->ptrSel->pDevsS4, pDevsS4,usePin, debug, os);
-    setInitVals(ptrMPI->ptrSel->pDevsS5, pDevsS5,usePin, debug, os);
-    setInitVals(ptrMPI->ptrSel->pDevsS6, pDevsS6,usePin, debug, os);
-    setInitVals(ptrMPI->ptrSel->pvNPSel, pvNPSel,usePin, debug, os);
-
-    //fully-selected fishing capture rate parameters
-    setInitVals(ptrMPI->ptrFsh->pHM,  pHM,  usePin, debug, os);
-    setInitVals(ptrMPI->ptrFsh->pLnC, pLnC, usePin, debug, os);
-    setInitVals(ptrMPI->ptrFsh->pDC1, pDC1, usePin, debug, os);
-    setInitVals(ptrMPI->ptrFsh->pDC2, pDC2, usePin, debug, os);
-    setInitVals(ptrMPI->ptrFsh->pDC3, pDC3, usePin, debug, os);
-    setInitVals(ptrMPI->ptrFsh->pDC4, pDC4, usePin, debug, os);
-    setInitVals(ptrMPI->ptrFsh->pDevsLnC,pDevsLnC,usePin, debug, os);
-    setInitVals(ptrMPI->ptrFsh->pLnEffX, pLnEffX, usePin, debug, os);
-    setInitVals(ptrMPI->ptrFsh->pLgtRet, pLgtRet, usePin, debug, os);
-
-    //survey catchability parameters
-    setInitVals(ptrMPI->ptrSrv->pQ,   pQ,   usePin, debug, os);
-    setInitVals(ptrMPI->ptrSrv->pDQ1, pDQ1, usePin, debug, os);
-    setInitVals(ptrMPI->ptrSrv->pDQ2, pDQ2, usePin, debug, os);
-    setInitVals(ptrMPI->ptrSrv->pDQ3, pDQ3, usePin, debug, os);
-    setInitVals(ptrMPI->ptrSrv->pDQ4, pDQ4, usePin, debug, os);
-
-    //MSE parameters    
-    setInitVals(ptrMPI->ptrMSE->pMSE_LnC, pMSE_LnC, usePin, debug, os);
-
-//*****************************************
-FUNCTION int checkParams(int debug, ostream& os)
-    int res = 0;
-    //recruitment parameters
-    res += checkParams(ptrMPI->ptrRec->pLnR, pLnR, debug,os);
-    res += checkParams(ptrMPI->ptrRec->pRCV, pRCV, debug,os);
-    res += checkParams(ptrMPI->ptrRec->pRX,  pRX,  debug,os);
-    res += checkParams(ptrMPI->ptrRec->pRa,  pRa,  debug,os);
-    res += checkParams(ptrMPI->ptrRec->pRb,  pRb,  debug,os);
-    res += checkParams(ptrMPI->ptrRec->pDevsLnR,pDevsLnR,debug,os);
-
-    //natural mortality parameters
-    res += checkParams(ptrMPI->ptrNM->pM, pM, debug,os);
-    res += checkParams(ptrMPI->ptrNM->pDM1, pDM1, debug,os);
-    res += checkParams(ptrMPI->ptrNM->pDM2, pDM2, debug,os);
-    res += checkParams(ptrMPI->ptrNM->pDM3, pDM3, debug,os);
-    res += checkParams(ptrMPI->ptrNM->pDM4, pDM4, debug,os);
-
-    //growth parameters
-    res += checkParams(ptrMPI->ptrGrw->pGrA,   pGrA,   debug,os);
-    res += checkParams(ptrMPI->ptrGrw->pGrB,   pGrB,   debug,os);
-    res += checkParams(ptrMPI->ptrGrw->pGrBeta,pGrBeta,debug,os);
-
-    //maturity parameters
-    res += checkParams(ptrMPI->ptrM2M->pvLgtPrM2M,pvLgtPrM2M,debug,os);
-
-    //selectivity parameters
-    res += checkParams(ptrMPI->ptrSel->pS1, pS1,debug,os);
-    res += checkParams(ptrMPI->ptrSel->pS2, pS2,debug,os);
-    res += checkParams(ptrMPI->ptrSel->pS3, pS3,debug,os);
-    res += checkParams(ptrMPI->ptrSel->pS4, pS4,debug,os);
-    res += checkParams(ptrMPI->ptrSel->pS5, pS5,debug,os);
-    res += checkParams(ptrMPI->ptrSel->pS6, pS6,debug,os);
-    res += checkParams(ptrMPI->ptrSel->pDevsS1, pDevsS1,debug,os);
-    res += checkParams(ptrMPI->ptrSel->pDevsS2, pDevsS2,debug,os);
-    res += checkParams(ptrMPI->ptrSel->pDevsS3, pDevsS3,debug,os);
-    res += checkParams(ptrMPI->ptrSel->pDevsS4, pDevsS4,debug,os);
-    res += checkParams(ptrMPI->ptrSel->pDevsS5, pDevsS5,debug,os);
-    res += checkParams(ptrMPI->ptrSel->pDevsS6, pDevsS6,debug,os);
-    res += checkParams(ptrMPI->ptrSel->pvNPSel, pvNPSel,debug,os);
-
-    //fully-selected fishing capture rate parameters
-    res += checkParams(ptrMPI->ptrFsh->pHM,     pHM,     debug,os);
-    res += checkParams(ptrMPI->ptrFsh->pLnC,    pLnC,    debug,os);
-    res += checkParams(ptrMPI->ptrFsh->pDC1,    pDC1,    debug,os);
-    res += checkParams(ptrMPI->ptrFsh->pDC2,    pDC2,    debug,os);
-    res += checkParams(ptrMPI->ptrFsh->pDC3,    pDC3,    debug,os);
-    res += checkParams(ptrMPI->ptrFsh->pDC4,    pDC4,    debug,os);
-    res += checkParams(ptrMPI->ptrFsh->pDevsLnC,pDevsLnC,debug,os);
-    res += checkParams(ptrMPI->ptrFsh->pLnEffX, pLnEffX, debug,os);
-    res += checkParams(ptrMPI->ptrFsh->pLgtRet, pLgtRet, debug,os);
-
-    //survey catchability parameters
-    res += checkParams(ptrMPI->ptrSrv->pQ,   pQ,   debug,os);
-    res += checkParams(ptrMPI->ptrSrv->pDQ1, pDQ1, debug,os);
-    res += checkParams(ptrMPI->ptrSrv->pDQ2, pDQ2, debug,os);
-    res += checkParams(ptrMPI->ptrSrv->pDQ3, pDQ3, debug,os);
-    res += checkParams(ptrMPI->ptrSrv->pDQ4, pDQ4, debug,os);
-
-    //MSE parameters
-    res += checkParams(ptrMPI->ptrMSE->pMSE_LnC,pMSE_LnC,debug,os);
-    
-    return res;
-
-//******************************************************************************
-//* Function: void checkParams(NumberVectorInfo* pI, param_init_number_vector& p, int debug, ostream& cout)
-//* 
-//* Description: Check values for a parameter vector.
-//*
-//* Inputs:
-//*  pI (NumberVectorInfo*) 
-//*     pointer to NumberVectorInfo object
-//*  p (param_init_number_vector&)
-//*     parameter vector
-//* Returns:
-//*  int - 0 = all good, 1 = nan detected
-//* Alters:
-//*  none
-//******************************************************************************
-FUNCTION int checkParams(NumberVectorInfo* pI, param_init_number_vector& p, int debug, ostream& cout)
-//    debug=dbgAll;
-    if (debug>=dbgAll) std::cout<<"Starting checkParams(NumberVectorInfo* pI, param_init_number_vector& p) for "<<p(1).label()<<endl; 
-    int np = pI->getSize();
-    int r = 0;
-    if (np){
-        for (int i=1;i<=np;i++) {
-            if (isnan(value(p(i)))){
-                r++;
-                if (debug) cout<<"NaN detected in checkParams() for "<<p(1).label()<<"["<<i<<"]"<<endl;
-            }
-        }
-    }
-    
-    if (debug>=dbgAll) {
-        std::cout<<"Finished checkParams(NumberVectorInfo* pI, param_init_number_vector& p) for "<<p(1).label()<<endl; 
-    }
-    return r;
-     
-//******************************************************************************
-//* Function: void checkParams(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p, int debug, ostream& cout)
-//* 
-//* Description: Check values for a parameter vector.
-//*
-//* Inputs:
-//*  pI (BoundedNumberVectorInfo*) 
-//*     pointer to BoundedNumberVectorInfo object
-//*  p (param_init_bounded_number_vector&)
-//*     parameter vector
-//* Returns:
-//*  int - 0 = all good, 1 = nan detected
-//* Alters:
-//*  none
-//******************************************************************************
-FUNCTION int checkParams(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p, int debug, ostream& cout)
-//    debug=dbgAll;
-    if (debug>=dbgAll) std::cout<<"Starting checkParams(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
-    int np = pI->getSize();
-    int r = 0;
-    if (np){
-        for (int i=1;i<=np;i++) {
-            if (isnan(value(p(i)))){
-                r++;
-                if (debug) cout<<"NaN detected in checkParams() for "<<p(1).label()<<"["<<i<<"]"<<endl;
-            }
-        }
-    }
-    
-    if (debug>=dbgAll) {
-        std::cout<<"Finished checkParams(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
-    }
-    return r;
-
-//******************************************************************************
-//* Function: void checkParams(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
-//* 
-//* Description: Checks values for a vector of parameter vectors.
-//*
-//* Inputs:
-//*  pI (BoundedVectorVectorInfo*) 
-//*     pointer to BoundedNumberVectorInfo object
-//*  p (param_init_bounded_vector_vector&)
-//*     parameter vector
-//* Returns:
-//*  int - 0 = all good, 1 = nan detected
-//* Alters:
-//*  none
-//******************************************************************************
-FUNCTION int checkParams(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
-//    debug=dbgAll;
-    if (debug>=dbgAll) std::cout<<"Starting checkParams(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
-    int np = pI->getSize();
-    int r = 0;
-    if (np){
-        for (int i=1;i<=np;i++) {
-            for (int j=p(i).indexmin();j<=p(i).indexmax();j++) {
-                if (isnan(value(p(i,j)))){
-                    r++;
-                    if (debug) cout<<"NaN detected in checkParams() for "<<p(1).label()<<"["<<i<<cc<<j<<"]"<<endl;
-                }
-            }
-        }
-    }
-    
-    if (debug>=dbgAll) {
-        std::cout<<"Finished checkParams(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
-    }
-    return r;
-
-//******************************************************************************
-//* Function: void checkParams(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
-//* 
-//* Description: Checks values for a vector of parameter vectors.
-//*
-//* Inputs:
-//*  pI (DevsVectorVectorInfo*) 
-//*     pointer to BoundedNumberVectorInfo object
-//*  p (param_init_bounded_vector_vector&)
-//*     parameter vector
-//* Returns:
-//*  int - 0 = all good, 1 = nan detected
-//* Alters:
-//*  none
-//******************************************************************************
-FUNCTION int checkParams(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
-//    debug=dbgAll;
-    if (debug>=dbgAll) std::cout<<"Starting checkParams(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
-    int np = pI->getSize();
-    int r = 0;
-    if (np){
-        for (int i=1;i<=np;i++) {
-            for (int j=p(i).indexmin();j<=p(i).indexmax();j++) {
-                if (isnan(value(p(i,j)))){
-                    r++;
-                    if (debug) cout<<"NaN detected in checkParams() for "<<p(1).label()<<"["<<i<<cc<<j<<"]"<<endl;
-                }
-            }
-        }
-    }
-    
-    if (debug>=dbgAll) {
-        std::cout<<"Finished checkParams(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
-    }
-    return r;
-
-//----------------------------------------------------------------------------------
-//write header to MCMC eval file
-FUNCTION writeMCMCHeader
-    mcmc.open((char*)(fnMCMC),ofstream::out|ofstream::trunc);
-    ctrMCMC = 0;
-    mcmc<<"mcmc<-list();"<<endl;
-    mcmc.close();
-    
-//******************************************************************************
-FUNCTION void writeMCMCtoR(ostream& mcmc,NumberVectorInfo* ptr)
-    mcmc<<ptr->name<<"="; ptr->writeFinalValsToR(mcmc);
-    
-//******************************************************************************
-FUNCTION void writeMCMCtoR(ostream& mcmc,BoundedNumberVectorInfo* ptr)
-    mcmc<<ptr->name<<"="; ptr->writeFinalValsToR(mcmc);
-    
-//******************************************************************************
-FUNCTION void writeMCMCtoR(ostream& mcmc,BoundedVectorVectorInfo* ptr)
-    mcmc<<ptr->name<<"="; ptr->writeFinalValsToR(mcmc);
-    
-//******************************************************************************
-FUNCTION void writeMCMCtoR(ostream& mcmc,DevsVectorVectorInfo* ptr)
-    mcmc<<ptr->name<<"="; ptr->writeFinalValsToR(mcmc);
-    
-//******************************************************************************
-FUNCTION void writeMCMCtoR(ofstream& mcmc)
-    mcmc.open((char *) fnMCMC, ofstream::out|ofstream::app);
-    ctrMCMC+=1;
-    std::cout<<"writing mcmc iteration "<<ctrMCMC<<endl;
-    mcmc<<"mcmc[["<<ctrMCMC<<"]]<-list(objFun="<<objFun<<cc<<endl;
-    //write parameter values
-        //recruitment values
-        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pLnR);     mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pRCV);     mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pRX);      mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pRa);      mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pRb);      mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pDevsLnR); mcmc<<cc<<endl;
-
-        //natural mortality parameters
-        writeMCMCtoR(mcmc,ptrMPI->ptrNM->pM);   mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrNM->pDM1); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrNM->pDM2); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrNM->pDM3); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrNM->pDM4); mcmc<<cc<<endl;
-
-        //growth parameters
-        writeMCMCtoR(mcmc,ptrMPI->ptrGrw->pGrA);    mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrGrw->pGrB);    mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrGrw->pGrBeta); mcmc<<cc<<endl;
-
-        //maturity parameters
-        writeMCMCtoR(mcmc,ptrMPI->ptrM2M->pvLgtPrM2M); mcmc<<cc<<endl;
-
-        //selectivity parameters
-        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pS1); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pS2); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pS3); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pS4); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pS5); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pS6); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pDevsS1); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pDevsS2); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pDevsS3); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pDevsS4); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pDevsS5); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pDevsS6); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pvNPSel); mcmc<<cc<<endl;
-
-        //fully-selected fishing capture rate parameters
-        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pHM);  mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pLnC); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pDC1); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pDC2); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pDC3); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pDC4); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pDevsLnC); mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pLnEffX);  mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pLgtRet);  mcmc<<cc<<endl;
-
-        //survey catchability parameters
-        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pQ);    mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ1);  mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ2);  mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ3);  mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ4);  mcmc<<cc<<endl;
-    
-        //write other quantities
-        mcmc<<"R_y="; wts::writeToR(mcmc,value(R_y)); mcmc<<cc<<endl;
-        ivector bnds = wts::getBounds(spB_yx);
-        mcmc<<"MB_xy="; wts::writeToR(mcmc,trans(value(spB_yx)),xDms,yDms); 
-        if (doOFL){
-            mcmc<<cc<<endl;
-            calcOFL(mxYr+1,0,cout);//updates oflresults
-            ptrOFLResults->writeToR(mcmc,ptrMC,"ptrOFLResults",0);//mcm<<cc<<endl;
-        }
-        
-    mcmc<<");"<<endl;
-    mcmc.close();
-    
-//******************************************************************************
-FUNCTION void createSimData(int debug, ostream& cout, int iSimDataSeed, ModelDatasets* ptrSim)
-    if (debug)cout<<"simulating model results as data"<<endl;
-    d6_array vn_vyxmsz = wts::value(n_vyxmsz);
-    d6_array vcN_fyxmsz = wts::value(cpN_fyxmsz);
-    d6_array vrmN_fyxmsz = wts::value(rmN_fyxmsz);
-    for (int f=1;f<=nFsh;f++) {
-        if (debug) cout<<"fishery f: "<<f<<endl;
-        (ptrSim->ppFsh[f-1])->replaceFisheryCatchData(iSimDataSeed,rngSimData,vcN_fyxmsz(f),vrmN_fyxmsz(f),ptrSim->ptrBio->wAtZ_xmz);
-    }
-    for (int v=1;v<=nSrv;v++) {
-        if (debug) cout<<"survey "<<v<<endl;
-        (ptrSim->ppSrv[v-1])->replaceIndexCatchData(iSimDataSeed,rngSimData,vn_vyxmsz(v),ptrSim->ptrBio->wAtZ_xmz);
-    }
-    if (debug) cout<<"finished simulating model results as data"<<endl;
-     
-//******************************************************************************
-FUNCTION void writeSimData(ostream& os, int debug, ostream& cout, ModelDatasets* ptrSim)
-    if (debug)cout<<"writing model results as data"<<endl;
-    for (int v=1;v<=nSrv;v++) {
-        os<<"#------------------------------------------------------------"<<endl;
-        os<<(*(ptrSim->ppSrv[v-1]))<<endl;
-    }
-    //     cout<<4<<endl;
-    for (int f=1;f<=nFsh;f++) {
-        os<<"#------------------------------------------------------------"<<endl;
-        os<<(*(ptrSim->ppFsh[f-1]))<<endl;
-    }
-    if (debug) cout<<"finished writing model results as data"<<endl;
-     
-//******************************************************************************
-//* Function: void setInitVals(NumberVectorInfo* pI, param_init_number_vector& p, int usePin, int debug, ostream& os)
-//* 
-//* Description: Sets initial values for a vector of parameters from the associated NumberInfo object.
-//*
-//* Note: this function MUST be declared/defined as a FUNCTION in the tpl code
-//*     because the parameter assignment is a private method but the model_parameters 
-//*     class has friend access.
-//* 
-//*  @param pI - pointer to a NumberVectorInfo object
-//*  @param p - reference to a param_init_number_vector
-//*  @param usePin - flag to use values 
-//*  @param debug - flag to print debugging info
-//*  @param os - stream for debugging output
-//*
-//*  @alters pI - if usePin=1 or jittering or resampling occurs, then the initial values will be updated 
-//*  @alters p - if usePin=0, the initial values will be updated 
-//******************************************************************************
-FUNCTION void setInitVals(NumberVectorInfo* pI, param_init_number_vector& p, int usePin, int debug, ostream& os)
-//    debug=dbgAll;
-    if (debug>=dbgAll) os<<"Starting setInitVals(NumberVectorInfo* pI, param_init_number_vector& p, usePin, debug, os) for "<<p(1).label()<<endl; 
-    int np = pI->getSize();
-    if (np){
-        //parameters have been defined
-        dvector aovls = 1.0*pI->getInitVals();             //original initial values on arithmetic scales from parameter info
-        dvector povls = 1.0*pI->getInitValsOnParamScales();//original initial values on parameter scales from parameter info
-        dvector afvls = 1.0*pI->getInitVals();             //final initial values on arithmetic scales from parameter info
-        if (usePin) {
-            //use values from pinfile assigned to p as initial values
-            os<<"Using pin file to set initial values for "<<p(1).label()<<endl;
-            pI->setInitValsFromParamVals(p);//update initial values in pI to those from pinfile
-            afvls = 1.0*pI->getInitVals();
-            os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
-            for (int i=1;i<=np;i++) os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
-        } else {
-            //use values from pI as initial values
-            for (int i=1;i<=np;i++) {
-                p(i) = povls(i);  //assign original initial value from parameter info
-                NumberInfo* ptrI = (*pI)[i];
-                if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
-                    //assign final initial value based on resampling prior pdf
-                    os<<"Using resampling to set initial values for "<<p(i).label()<<endl;
-                    afvls(i) = ptrI->drawInitVal(rng,ptrMC->vif); //get resampled initial value on arithmetic scale
-                    p(i) = ptrI->calcParamScaleVal(afvls(i));     //calc initial parameter value
-                    ptrI->setInitVal(afvls(i));                  //update ptrI
-                    os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
-                    os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
-                } else {
-                    os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
-                    os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
-                    os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
-                }
-            }
-        }
-    } else {
-        //parameters have not been defined
-        os<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
-    }
-    
-    if (debug>=dbgAll) {
-        std::cout<<"Enter 1 to continue >>";
-        std::cin>>np;
-        if (np<0) exit(-1);
-        os<<"Finished setInitVals(NumberVectorInfo* pI, param_init_number_vector& p) for "<<p(1).label()<<endl; 
-    }
-     
-//******************************************************************************
-//* Function: void setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p, int usePin, int debug, ostream& os)
-//* 
-//* Sets initial values for a vecotr of bounded parameters fro the associated BoundedNumberVectorInfo object.
-//*
-//* Note: this function MUST be declared/defined as a FUNCTION in the tpl code
-//*     because the parameter assignment is a private method but the model_parameters 
-//*     class has friend access.
-//* 
-//*  @param pI - pointer to a BoundedNumberVectorInfo object
-//*  @param p - reference to a param_init_number_vector
-//*  @param usePin - flag to use values 
-//*  @param debug - flag to print debugging info
-//*  @param os - stream for debugging output
-//*
-//*  @alters pI - if usePin=1 or jittering or resampling occurs, then the initial values will be updated 
-//*  @alters p - if usePin=0, the initial values will be updated 
-//******************************************************************************
-FUNCTION void setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p, int usePin, int debug, ostream& os)
-//    debug=dbgAll;
-    if (debug>=dbgAll) os<<"Starting setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
-    int np = pI->getSize();
-    if (np){
-        //parameters have been defined
-        dvector aovls = 1.0*pI->getInitVals();             //original initial values on arithmetic scales from parameter info
-        dvector povls = 1.0*pI->getInitValsOnParamScales();//original initial values on parameter scales from parameter info
-        dvector afvls = 1.0*pI->getInitVals();             //original initial values on arithmetic scales from parameter info
-        if (usePin) {
-            //use values from pinfile assigned to p as initial values
-            os<<"Using pin file to set initial values for "<<p(1).label()<<endl;
-            pI->setInitValsFromParamVals(p);//update initial values in pI to those from pinfile
-            afvls = 1.0*pI->getInitVals();
-            os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
-            for (int i=1;i<=np;i++) os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
-        } else {
-            //use values from pI as initial values
-            for (int i=1;i<=np;i++) {
-                p(i) = povls(i);  //assign original initial value from parameter info
-                BoundedNumberInfo* ptrI = (*pI)[i];
-                if ((p(i).get_phase_start()>0)&&(ptrMC->jitter)&&(ptrI->jitter)){
-                    //assign final initial value based on jittering
-                    os<<"Using jittering to set initial values for "<<p(i).label()<<endl;
-                    afvls(i) = ptrI->jitterInitVal(rng,ptrMC->jitFrac);//get jittered initial value on arithmetic scale
-                    p(i) = ptrI->calcParamScaleVal(afvls(i));          //calc initial parameter value
-                    ptrI->setInitVal(afvls(i));                       //update ptrI
-                    os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
-                    os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
-                } else 
-                if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
-                    //assign final initial value based on resampling prior pdf
-                    os<<"Using resampling to set initial values for "<<p(i).label()<<endl;
-                    afvls(i) = ptrI->drawInitVal(rng,ptrMC->vif); //get resampled initial value on arithmetic scale
-                    p(i) = ptrI->calcParamScaleVal(afvls(i));     //calc initial parameter value
-                    ptrI->setInitVal(afvls(i));                  //update ptrI
-                    os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
-                    os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
-                } else {
-                    os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
-                    os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
-                    os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
-                }
-            }
-        }
-    } else {
-        os<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
-    }
-    
-    if (debug>=dbgAll) {
-        std::cout<<"Enter 1 to continue >>";
-        std::cin>>np;
-        if (np<0) exit(-1);
-        std::cout<<"Finished setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
-    }
-
-//******************************************************************************
-//* Function: void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int usePin, int debug, ostream& os)
-//* 
-//* Sets initial values for a vector of parameter vectors.
-//*
-//* Note: this function MUST be declared/defined as a FUNCTION in the tpl code
-//*     because the parameter assignment is a private method but the model_parameters 
-//*     class has friend access.
-//* 
-//* Inputs:
-//*  @param pI - pointer to BoundedNumberVectorInfo object
-//*  @param p - reference to a param_init_bounded_vector_vector
-//*  @param usePin - flag to use values 
-//*  @param debug - flag to print debugging info
-//*  @param os - stream for debugging output
-//* 
-//*  @alters pI - if usePin=1 or jittering or resampling occurs, then the initial values will be updated 
-//*  @alters p - if usePin=0, the initial values will be updated 
-//******************************************************************************
-FUNCTION void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int usePin, int debug, ostream& os)
-    //debug=dbgAll;
-    if (debug>=dbgAll) os<<"Starting setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
-    int np = pI->getSize();
-    if (np){
-        if (usePin){
-            //use values from pinfile assigned to p as initial values
-            for (int i=1;i<=np;i++) {
-                os<<"Using pin file to set initial values for "<<p(i).label()<<endl;
-                BoundedVectorInfo* ptrI = (*pI)[i];
-                dvector pnvls = value(p(i));                       //original initial values on parameter scale from pin file
-                dvector aovls = 1.0*ptrI->getInitVals();            //original initial values on arithmetic scale from parameter info
-                dvector povls = 1.0*ptrI->getInitValsOnParamScale();//original initial values on parameter scale from parameter info
-                ptrI->setInitValsFromParamVals(p(i));               //set final initial values on arithmetic scale for parameter info
-                os<<tb<<"pinfile    inits : "<<pnvls<<endl;
-                os<<tb<<"orig arith inits : "<<aovls<<endl;
-                os<<tb<<"orig param inits : "<<povls<<endl;
-                os<<tb<<"final arith inits: "<<ptrI->getInitVals()<<endl;//final initial values on arithmetic scale from parameter info
-                os<<tb<<"final param inits: "<<value(p(i))<<endl;        //final initial values on parameter scale from parameter info
-            }
-        } else {
-            //use values based on pI as initial values for p
-            for (int i=1;i<=np;i++) {
-                os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
-                dvector pnvls = value(p(i));                            //original initial values on parameter scale from pin file
-                if (debug>=dbgAll) os<<"pc "<<i<<" :"<<tb<<p(i).indexmin()<<tb<<p(i).indexmax()<<tb<<pnvls.indexmin()<<tb<<pnvls.indexmax()<<endl;
-                os<<tb<<"pinfile    inits : "<<pnvls<<endl;
-                BoundedVectorInfo* ptrI = static_cast<DevsVectorInfo*>((*pI)[i]);
-                dvector aovls = 1.0*ptrI->getInitVals();            //initial values on arithmetic scale from parameter info
-                os<<tb<<"orig arith inits : "<<aovls<<endl;
-                dvector povls = 1.0*ptrI->getInitValsOnParamScale();//initial values on parameter scales from parameter info
-                os<<tb<<"orig param inits : "<<povls<<endl;
-                p(i)=povls;//set initial values on parameter scales from parameter info
-                if ((p(i).get_phase_start()>0)&&(ptrMC->jitter)&&(ptrI->jitter)){
-                    os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
-                    if (debug>=dbgAll) os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
-                    dvector afvls = ptrI->jitterInitVals(rng,ptrMC->jitFrac);//get jittered values on arithmetic scale
-                    ptrI->setInitVals(afvls);                               //set jittered values as initial values on arithmetic scale
-                    p(i)=ptrI->getInitValsOnParamScale();                   //get jittered values on param scale as initial parameter values
-                } else
-                if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
-                    os<<"Using resampling to set initial values for "<<p(i).label()<<" : "<<endl;
-                    if (debug>=dbgAll) os<<"Using resampling to set initial values for "<<p(i).label()<<" : "<<endl;
-                    dvector afvls = ptrI->drawInitVals(rng,ptrMC->vif);//get resampled values on arithmetic scale
-                    ptrI->setInitVals(afvls);                          //set resampled values as initial values on arithmetic scale
-                    p(i)=ptrI->getInitValsOnParamScale();              //get resampled values on param scale as initial parameter values
-                } else {
-                    os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
-                }
-                os<<tb<<"final arith inits: "<<ptrI->getInitVals()<<endl;//final initial values on arithmetic scale from parameter info
-                os<<tb<<"final param inits: "<<value(p(i))<<endl;        //final initial values on parameter scale from parameter info
-            }
-        }
-    } else {
-        os<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
-    }
-    
-    if (debug>=dbgAll) {
-        std::cout<<"Enter 1 to continue >>";
-        std::cin>>np;
-        if (np<0) exit(-1);
-        os<<"Finished setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
-    }
-
-//******************************************************************************
-//* Function: void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int usePin, int debug, ostream& os)
-//* 
-//* Sets initial values for a vector of devs parameter vectors based on the associated DevsVectorVectorInfo object.
-//*
-//* Note: this function MUST be declared/defined as a FUNCTION in the tpl code
-//*     because the parameter assignment is a private method but the model_parameters 
-//*     class has friend access.
-//* 
-//* Inputs:
-//*  @param pI - pointer to BoundedNumberVectorInfo object
-//*  @param p - reference to parameter_init_bounded_vector_vector acting as devs_vector_vector
-//*  @param usePin - flag to use values 
-//*  @param debug - flag to print debugging info
-//*  @param os - stream for debugging output
-//* 
-//*  @alters pI - if usePin=1 or jittering or resampling occurs, then the initial values will be updated 
-//*  @alters p - if usePin=0, the initial values will be updated 
-//******************************************************************************
-FUNCTION void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int usePin, int debug, ostream& os)
-    //debug=dbgAll;
-    if (debug>=dbgAll) os<<"Starting setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
-    int np = pI->getSize();
-    if (np){
-        if (usePin){
-            //use values from pinfile assigned to p as initial values
-            for (int i=1;i<=np;i++) {
-                os<<"Using pin file to set initial values for "<<p(i).label()<<endl;
-                DevsVectorInfo* ptrI = static_cast<DevsVectorInfo*>((*pI)[i]);
-                dvector pnvls = value(p(i));                       //original initial values on parameter scale from pin file
-                dvector aovls = 1.0*ptrI->getInitVals();            //original initial values on arithmetic scale from parameter info
-                dvector povls = 1.0*ptrI->getInitValsOnParamScale();//original initial values on parameter scale from parameter info
-                ptrI->setInitValsFromParamVals(p(i));               //set final initial values on arithmetic scale for parameter info
-                os<<tb<<"pinfile    inits : "<<pnvls<<endl;
-                os<<tb<<"orig arith inits : "<<aovls<<endl;
-                os<<tb<<"orig param inits : "<<povls<<endl;
-                os<<tb<<"final arith inits: "<<ptrI->getInitVals()<<endl;//final initial values on arithmetic scale from parameter info
-                os<<tb<<"final param inits: "<<value(p(i))<<endl;        //final initial values on parameter scale from parameter info
-            }
-        } else {
-            //use values based on pI as initial values for p
-            for (int i=1;i<=np;i++) {
-                dvector pnvls = value(p(i));                            //original initial values on parameter scale from pin file
-                dvector aovls = 1.0*(*pI)[i]->getInitVals();            //initial values on arithmetic scale from parameter info
-                dvector povls = 1.0*(*pI)[i]->getInitValsOnParamScale();//initial values on parameter scales from parameter info
-                if (debug>=dbgAll) os<<"pc "<<i<<" :"<<tb<<p(i).indexmin()<<tb<<p(i).indexmax()<<tb<<pnvls.indexmin()<<tb<<pnvls.indexmax()<<endl;
-                p(i)=povls;//set initial values on parameter scales from parameter info
-                DevsVectorInfo* ptrI = (*pI)[i];
-                if ((p(i).get_phase_start()>0)&&(ptrMC->jitter)&&(ptrI->jitter)){
-                    os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
-                    if (debug>=dbgAll) os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
-                    dvector afvls = ptrI->jitterInitVals(rng,ptrMC->jitFrac);//get jittered values on arithmetic scale
-                    ptrI->setInitVals(afvls);                               //set jittered values as initial values on arithmetic scale
-                    p(i)=ptrI->getInitValsOnParamScale();                   //get jittered values on param scale as initial parameter values
-                } else
-                if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
-                    os<<"Using resampling to set initial values for "<<p(i).label()<<" : "<<endl;
-                    if (debug>=dbgAll) os<<"Using resampling to set initial values for "<<p(i).label()<<" : "<<endl;
-                    dvector afvls = ptrI->drawInitVals(rng,ptrMC->vif);//get resampled values on arithmetic scale
-                    ptrI->setInitVals(afvls);                          //set resampled values as initial values on arithmetic scale
-                    p(i)=ptrI->getInitValsOnParamScale();              //get resampled values on param scale as initial parameter values
-                } else {
-                    os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
-                }
-                os<<tb<<"pinfile    inits : "<<pnvls<<endl;
-                os<<tb<<"orig arith inits : "<<aovls<<endl;
-                os<<tb<<"orig param inits : "<<povls<<endl;
-                os<<tb<<"final arith inits: "<<ptrI->getInitVals()<<endl;//final initial values on arithmetic scale from parameter info
-                os<<tb<<"final param inits: "<<value(p(i))<<endl;        //final initial values on parameter scale from parameter info
-            }
-        }
-    } else {
-        os<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
-    }
-    
-    if (debug>=dbgAll) {
-        std::cout<<"Enter 1 to continue >>";
-        std::cin>>np;
-        if (np<0) exit(-1);
-        os<<"Finished setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
-    }
-
-//-------------------------------------------------------------------------------------
-FUNCTION void setAllDevs(int debug, ostream& cout)
-    if (debug>=dbgAll) cout<<"starting setAllDevs()"<<endl;
-
-    if (debug>=dbgAll) cout<<"setDevs() for pLnR"<<endl;
-    tcsam::setDevs(devsLnR, pDevsLnR, ptrMPI->ptrRec->pDevsLnR,debug,cout);
-
-    if (debug>=dbgAll) cout<<"setDevs() for pDevsS1"<<endl;
-    tcsam::setDevs(devsS1, pDevsS1, ptrMPI->ptrSel->pDevsS1, debug,cout);
-    if (debug>=dbgAll) cout<<"setDevs() for pDevsS2"<<endl;
-    tcsam::setDevs(devsS2, pDevsS2, ptrMPI->ptrSel->pDevsS2,debug,cout);
-    if (debug>=dbgAll) cout<<"setDevs() for pDevsS3"<<endl;
-    tcsam::setDevs(devsS3, pDevsS3, ptrMPI->ptrSel->pDevsS3,debug,cout);
-    if (debug>=dbgAll) cout<<"setDevs() for pDevsS4"<<endl;
-    tcsam::setDevs(devsS4, pDevsS4, ptrMPI->ptrSel->pDevsS4,debug,cout);
-    if (debug>=dbgAll) cout<<"setDevs() for pDevsS5"<<endl;
-    tcsam::setDevs(devsS5, pDevsS5, ptrMPI->ptrSel->pDevsS5,debug,cout);
-    if (debug>=dbgAll) cout<<"setDevs() for pDevsS6"<<endl;
-    tcsam::setDevs(devsS6, pDevsS6, ptrMPI->ptrSel->pDevsS6,debug,cout);
-    
-    if (debug>=dbgAll) cout<<"setDevs() for pDevsLnC"<<endl;
-    tcsam::setDevs(devsLnC, pDevsLnC, ptrMPI->ptrFsh->pDevsLnC,debug,cout);
-    
-    if (debug>=dbgAll) cout<<"finished setAllDevs()"<<endl;
-
 //-------------------------------------------------------------------------------------
 FUNCTION void runAltPopDyMod(int debug, ostream& cout)
     if (debug>=dbgPopDy) cout<<"starting runAltPopDyMod()"<<endl;
@@ -2895,6 +2231,105 @@ FUNCTION void runAltPopDyModOneYear(int y, int x, int debug, ostream& cout)
     if (debug) cout<<"ran pPPr for sex "<<x<<" in "<<y<<endl;
     
     if (debug>=dbgPopDy) cout<<"finished runAltPopDyModOneYear("<<y<<cc<<x<<")"<<endl;
+    
+///**
+// * MSE OpModMode ONLY:
+// * Project the population from July 1, mxYr to July 1, mxYr+1 based on
+// * directed fishing for males at a rate that will yield the TAC when the
+// * model has converged.
+// * 
+// * This function is directly based on runAltPopDyModForOneYear.
+// * 
+// * All non-directed fishery rates are based on those from mxYr.
+// * 
+// */
+FUNCTION void projectPopForTAC(dvariable& mseCapF, int debug, ostream& cout)
+    if (debug>=dbgPopDy) cout<<"projectPopForTAC()"<<endl;
+
+    int y = mxYr;//set y to mxYr
+    
+    prjRetCatchMortBio_fx.initialize();
+    prjDscCatchMortBio_fx.initialize();
+    prjTotCatchMortBio_fx.initialize();
+    prj_cpN_fxmsz.initialize(); //capture abundance
+    prj_rmN_fxmsz.initialize(); //retained mortality abundance
+    prj_dmN_fxmsz.initialize(); //discard mortality abundance
+    prj_dsN_fxmsz.initialize(); //total discard abundance
+    
+    dvariable maxCapF = 0.0;
+    
+    for (int x=1;x<=nSXs;x++){   
+        //1. Update population rates, based on year and sex
+        pPDI->w_mz  = ptrMDS->ptrBio->wAtZ_xmz(x);//assign weight-at-length
+        pPDI->R_z   = R_yz(y);                    //relative recruitment-at-size
+        pPDI->M_msz = M_yxmsz(y,x);               //rates of natural mortality
+        pPDI->T_szz = prGr_yxszz(y,x);            //growth transition matrices
+        //pr(terminal molt|size)
+        for (int s=1;s<=nSCs;s++) pPDI->Th_sz(s) = prM2M_yxz(y,x);
+        //if (debug) cout<<"updated pPDI for sex "<<x<<" in "<<y<<endl;
+
+        //2. Update fishery conditions based on year and sex
+        dvar_vector hmF_f(1,nFsh);//handling mortality
+        dvar4_array capF_fmsz(1,nFsh,1,nMSs,1,nSCs,1,nZBs);//fishery capture rates
+        dvar4_array retF_fmsz(1,nFsh,1,nMSs,1,nSCs,1,nZBs);//fishery retention functions
+        dvar4_array selF_fmsz(1,nFsh,1,nMSs,1,nSCs,1,nZBs);//fishery selectivity functions
+        hmF_f.initialize();
+        capF_fmsz.initialize();
+        retF_fmsz.initialize();
+        selF_fmsz.initialize();
+        for (int f=1;f<=nFsh;f++){
+            hmF_f(f) = hmF_fy(f,y);
+            for (int m=1;m<=nMSs;m++){
+                capF_fmsz(f,m) = cpF_fyxmsz(f,y,x,m);
+                retF_fmsz(f,m) = ret_fyxmsz(f,y,x,m);
+                selF_fmsz(f,m) = sel_fyxmsz(f,y,x,m);
+            }//m
+        }//f
+
+        //reset capF_fmsz to the proposed directed fishery fishery capture rate that will
+        //result in the TAC being taken.
+        if (x==MALE){maxCapF = wts::max(capF_fmsz(1));}
+        capF_fmsz(1) = mseCapF*(capF_fmsz(1)/maxCapF);
+
+        //update CatchInfo objects
+        pCDI->setCaptureRates(capF_fmsz);
+        pCDI->setRetentionFcns(retF_fmsz);
+        pCDI->setSelectivityFcns(selF_fmsz);
+        pCDI->setHandlingMortality(hmF_f);
+        if (debug) cout<<"updated pCDI for sex "<<x<<endl;
+
+        //3. run PopProjector
+        pPPr->dtF = dtF_y(y); //time at which fishery occurs
+        pPPr->dtM = dtM_y(y); //time at which mating occurs
+        dvariable dirF = -1.0;//don't change scale on directed fishery F's
+        if (debug>=dbgPopDy) PopProjector::debug=1000;   
+        prj_n_xmsz(x)        = pPPr->project(dirF,n_yxmsz(y+1,x),cout);
+        if (debug>=dbgPopDy) PopProjector::debug=0;
+        prj_n_xmsz(x,IMMATURE,NEW_SHELL) += prjR*R_yx(y,x)*R_yz(y);
+        prj_spB_x(x)         = pPPr->getMatureBiomassAtMating();
+        dvar4_array cpN_fmsz = pPPr->getFisheriesCaptureAbundance();
+        dvar4_array rmN_fmsz = pPPr->getRetainedCatchMortality();
+        dvar4_array dmN_fmsz = pPPr->getDiscardCatchMortality();
+        for (int f=1;f<=nFsh;f++){
+            for (int m=1;m<=nMSs;m++){
+                prj_cpN_fxmsz(f,x,m) = cpN_fmsz(f,m); //capture abundance
+                prj_rmN_fxmsz(f,x,m) = rmN_fmsz(f,m); //retained mortality abundance
+                prj_dmN_fxmsz(f,x,m) = dmN_fmsz(f,m); //discard mortality abundance
+                //total discard abundance
+                prj_dsN_fxmsz(f,x,m) = prj_cpN_fxmsz(f,x,m)-prj_rmN_fxmsz(f,x,m);
+                for (int s=1;s<=nSCs;s++){
+                    //retained catch mortality (biomass)
+                    prjRetCatchMortBio_fx(f,x) += prj_rmN_fxmsz(f,x,m,s)*ptrMDS->ptrBio->wAtZ_xmz(x,m);
+                    //discarded catch mortality (biomass)
+                    prjDscCatchMortBio_fx(f,x) += prj_dmN_fxmsz(f,x,m,s)*ptrMDS->ptrBio->wAtZ_xmz(x,m);
+                }//s
+            }//m
+            prjTotCatchMortBio_fx(f,x) = prjRetCatchMortBio_fx(f,x) + prjDscCatchMortBio_fx(f,x);
+        }//f
+        if (debug) cout<<"ran pPPr for sex "<<x<<endl;
+    }//x
+    
+    if (debug>=dbgPopDy) cout<<"finished projectPopForTAC()"<<endl;
     
 //-------------------------------------------------------------------------------------
 FUNCTION void runPopDyMod(int debug, ostream& cout)
@@ -5201,6 +4636,49 @@ FUNCTION void calcNLLs_Recruitment(int debug, ostream& cout)
 
 //-------------------------------------------------------------------------------------
 //Calculate objective function TODO: finish
+FUNCTION void calcObjFunForTAC(int debug, ostream& cout)
+    if ((debug>=dbgObjFun)||(debug<0)) {PRINT2B1("----Starting calcObjFunForTAC()")}
+
+    int k = 0;
+    dvector objFunV(0,20);
+
+    //reset objective function
+    objFun.initialize();                     objFunV[k++] = value(objFun);
+    
+    //Fit OpMod catch to TAC
+    dvariable prdTAC = 0.0;
+    dvariable prdTot = 0.0;
+    for (int f=1;f<=nFsh;f++){
+        prdTAC += sum(prjRetCatchMortBio_fx(f));
+        prdTot += sum(prjTotCatchMortBio_fx(f));
+    }
+    
+    dvariable nllForTAC = square(inpTAC-prdTAC);
+    dvariable nllForOFL = 0.0; 
+    posfun(inpOFL-prdTot,1.0e-2,nllForOFL);
+    nllForOFL *= 100.0;
+    
+    objFun += (nllForTAC + nllForOFL);   objFunV[k++] = value(objFun);
+    
+    if ((debug>=dbgObjFun)||(debug<0)){
+        int k=0;
+        PRINT2B2("proc call          = ",ctrProcCalls)
+        PRINT2B2("proc call in phase = ",ctrProcCallsInPhase)
+        PRINT2B2("pMSE_LnC =",pMSE_LnC[1]);
+        PRINT2B2("mseCapF  =",mfexp(pMSE_LnC[1]));
+        PRINT2B2("after initialization. objFun =",objFunV[k++])
+        PRINT2B2("inpTAC    = ",inpTAC)    
+        PRINT2B2("prdTAC    = ",prdTAC)    
+        PRINT2B2("nllForTAC = ",nllForTAC)    
+        PRINT2B2("inpOFL    = ",inpOFL)    
+        PRINT2B2("prdTot    = ",prdTot)    
+        PRINT2B2("nllForOFL = ",nllForOFL)    
+        PRINT2B2("after MSE OpMod call objFun =",value(objFun))
+        PRINT2B1("----Finished calcObjFunForTAC()")
+    }
+    
+//-------------------------------------------------------------------------------------
+//Calculate objective function TODO: finish
 FUNCTION void calcObjFun(int debug, ostream& cout)
     if ((debug>=dbgObjFun)||(debug<0)) {PRINT2B1("----Starting calcObjFun()")}
 
@@ -6746,6 +6224,731 @@ FUNCTION void calcAllPriors(int debug, ostream& cout)
     if (!debug) testNaNs(value(objFun),"in calcAllPriors()");
     if (debug>=dbgPriors) cout<<"Finished calcAllPriors()"<<endl;
 
+//*****************************************
+FUNCTION void setInitVals(int debug, ostream& os)
+    //recruitment parameters
+    setInitVals(ptrMPI->ptrRec->pLnR, pLnR, usePin, debug, os);
+    setInitVals(ptrMPI->ptrRec->pRCV, pRCV, usePin, debug, os);
+    setInitVals(ptrMPI->ptrRec->pRX,  pRX,  usePin, debug, os);
+    setInitVals(ptrMPI->ptrRec->pRa,  pRa,  usePin, debug, os);
+    setInitVals(ptrMPI->ptrRec->pRb,  pRb,  usePin, debug, os);
+    setInitVals(ptrMPI->ptrRec->pDevsLnR,pDevsLnR,usePin, debug, os);
+
+    //natural mortality parameters
+    setInitVals(ptrMPI->ptrNM->pM,   pM,   usePin, debug, os);
+    setInitVals(ptrMPI->ptrNM->pDM1, pDM1, usePin, debug, os);
+    setInitVals(ptrMPI->ptrNM->pDM2, pDM2, usePin, debug, os);
+    setInitVals(ptrMPI->ptrNM->pDM3, pDM3, usePin, debug, os);
+    setInitVals(ptrMPI->ptrNM->pDM4, pDM4, usePin, debug, os);
+
+    //growth parameters
+    setInitVals(ptrMPI->ptrGrw->pGrA,   pGrA,   usePin, debug, os);
+    setInitVals(ptrMPI->ptrGrw->pGrB,   pGrB,   usePin, debug, os);
+    setInitVals(ptrMPI->ptrGrw->pGrBeta,pGrBeta,usePin, debug, os);
+
+    //maturity parameters
+    setInitVals(ptrMPI->ptrM2M->pvLgtPrM2M,pvLgtPrM2M,usePin, debug, os);
+
+    //selectivity parameters
+    setInitVals(ptrMPI->ptrSel->pS1, pS1,usePin, debug, os);
+    setInitVals(ptrMPI->ptrSel->pS2, pS2,usePin, debug, os);
+    setInitVals(ptrMPI->ptrSel->pS3, pS3,usePin, debug, os);
+    setInitVals(ptrMPI->ptrSel->pS4, pS4,usePin, debug, os);
+    setInitVals(ptrMPI->ptrSel->pS5, pS5,usePin, debug, os);
+    setInitVals(ptrMPI->ptrSel->pS6, pS6,usePin, debug, os);
+    setInitVals(ptrMPI->ptrSel->pDevsS1, pDevsS1,usePin, debug, os);
+    setInitVals(ptrMPI->ptrSel->pDevsS2, pDevsS2,usePin, debug, os);
+    setInitVals(ptrMPI->ptrSel->pDevsS3, pDevsS3,usePin, debug, os);
+    setInitVals(ptrMPI->ptrSel->pDevsS4, pDevsS4,usePin, debug, os);
+    setInitVals(ptrMPI->ptrSel->pDevsS5, pDevsS5,usePin, debug, os);
+    setInitVals(ptrMPI->ptrSel->pDevsS6, pDevsS6,usePin, debug, os);
+    setInitVals(ptrMPI->ptrSel->pvNPSel, pvNPSel,usePin, debug, os);
+
+    //fully-selected fishing capture rate parameters
+    setInitVals(ptrMPI->ptrFsh->pHM,  pHM,  usePin, debug, os);
+    setInitVals(ptrMPI->ptrFsh->pLnC, pLnC, usePin, debug, os);
+    setInitVals(ptrMPI->ptrFsh->pDC1, pDC1, usePin, debug, os);
+    setInitVals(ptrMPI->ptrFsh->pDC2, pDC2, usePin, debug, os);
+    setInitVals(ptrMPI->ptrFsh->pDC3, pDC3, usePin, debug, os);
+    setInitVals(ptrMPI->ptrFsh->pDC4, pDC4, usePin, debug, os);
+    setInitVals(ptrMPI->ptrFsh->pDevsLnC,pDevsLnC,usePin, debug, os);
+    setInitVals(ptrMPI->ptrFsh->pLnEffX, pLnEffX, usePin, debug, os);
+    setInitVals(ptrMPI->ptrFsh->pLgtRet, pLgtRet, usePin, debug, os);
+
+    //survey catchability parameters
+    setInitVals(ptrMPI->ptrSrv->pQ,   pQ,   usePin, debug, os);
+    setInitVals(ptrMPI->ptrSrv->pDQ1, pDQ1, usePin, debug, os);
+    setInitVals(ptrMPI->ptrSrv->pDQ2, pDQ2, usePin, debug, os);
+    setInitVals(ptrMPI->ptrSrv->pDQ3, pDQ3, usePin, debug, os);
+    setInitVals(ptrMPI->ptrSrv->pDQ4, pDQ4, usePin, debug, os);
+
+    //MSE parameters    
+    setInitVals(ptrMPI->ptrMSE->pMSE_LnC, pMSE_LnC, usePin, debug, os);
+
+//*****************************************
+FUNCTION int checkParams(int debug, ostream& os)
+    int res = 0;
+    //recruitment parameters
+    res += checkParams(ptrMPI->ptrRec->pLnR, pLnR, debug,os);
+    res += checkParams(ptrMPI->ptrRec->pRCV, pRCV, debug,os);
+    res += checkParams(ptrMPI->ptrRec->pRX,  pRX,  debug,os);
+    res += checkParams(ptrMPI->ptrRec->pRa,  pRa,  debug,os);
+    res += checkParams(ptrMPI->ptrRec->pRb,  pRb,  debug,os);
+    res += checkParams(ptrMPI->ptrRec->pDevsLnR,pDevsLnR,debug,os);
+
+    //natural mortality parameters
+    res += checkParams(ptrMPI->ptrNM->pM, pM, debug,os);
+    res += checkParams(ptrMPI->ptrNM->pDM1, pDM1, debug,os);
+    res += checkParams(ptrMPI->ptrNM->pDM2, pDM2, debug,os);
+    res += checkParams(ptrMPI->ptrNM->pDM3, pDM3, debug,os);
+    res += checkParams(ptrMPI->ptrNM->pDM4, pDM4, debug,os);
+
+    //growth parameters
+    res += checkParams(ptrMPI->ptrGrw->pGrA,   pGrA,   debug,os);
+    res += checkParams(ptrMPI->ptrGrw->pGrB,   pGrB,   debug,os);
+    res += checkParams(ptrMPI->ptrGrw->pGrBeta,pGrBeta,debug,os);
+
+    //maturity parameters
+    res += checkParams(ptrMPI->ptrM2M->pvLgtPrM2M,pvLgtPrM2M,debug,os);
+
+    //selectivity parameters
+    res += checkParams(ptrMPI->ptrSel->pS1, pS1,debug,os);
+    res += checkParams(ptrMPI->ptrSel->pS2, pS2,debug,os);
+    res += checkParams(ptrMPI->ptrSel->pS3, pS3,debug,os);
+    res += checkParams(ptrMPI->ptrSel->pS4, pS4,debug,os);
+    res += checkParams(ptrMPI->ptrSel->pS5, pS5,debug,os);
+    res += checkParams(ptrMPI->ptrSel->pS6, pS6,debug,os);
+    res += checkParams(ptrMPI->ptrSel->pDevsS1, pDevsS1,debug,os);
+    res += checkParams(ptrMPI->ptrSel->pDevsS2, pDevsS2,debug,os);
+    res += checkParams(ptrMPI->ptrSel->pDevsS3, pDevsS3,debug,os);
+    res += checkParams(ptrMPI->ptrSel->pDevsS4, pDevsS4,debug,os);
+    res += checkParams(ptrMPI->ptrSel->pDevsS5, pDevsS5,debug,os);
+    res += checkParams(ptrMPI->ptrSel->pDevsS6, pDevsS6,debug,os);
+    res += checkParams(ptrMPI->ptrSel->pvNPSel, pvNPSel,debug,os);
+
+    //fully-selected fishing capture rate parameters
+    res += checkParams(ptrMPI->ptrFsh->pHM,     pHM,     debug,os);
+    res += checkParams(ptrMPI->ptrFsh->pLnC,    pLnC,    debug,os);
+    res += checkParams(ptrMPI->ptrFsh->pDC1,    pDC1,    debug,os);
+    res += checkParams(ptrMPI->ptrFsh->pDC2,    pDC2,    debug,os);
+    res += checkParams(ptrMPI->ptrFsh->pDC3,    pDC3,    debug,os);
+    res += checkParams(ptrMPI->ptrFsh->pDC4,    pDC4,    debug,os);
+    res += checkParams(ptrMPI->ptrFsh->pDevsLnC,pDevsLnC,debug,os);
+    res += checkParams(ptrMPI->ptrFsh->pLnEffX, pLnEffX, debug,os);
+    res += checkParams(ptrMPI->ptrFsh->pLgtRet, pLgtRet, debug,os);
+
+    //survey catchability parameters
+    res += checkParams(ptrMPI->ptrSrv->pQ,   pQ,   debug,os);
+    res += checkParams(ptrMPI->ptrSrv->pDQ1, pDQ1, debug,os);
+    res += checkParams(ptrMPI->ptrSrv->pDQ2, pDQ2, debug,os);
+    res += checkParams(ptrMPI->ptrSrv->pDQ3, pDQ3, debug,os);
+    res += checkParams(ptrMPI->ptrSrv->pDQ4, pDQ4, debug,os);
+
+    //MSE parameters
+    res += checkParams(ptrMPI->ptrMSE->pMSE_LnC,pMSE_LnC,debug,os);
+    
+    return res;
+
+//******************************************************************************
+//* Function: void checkParams(NumberVectorInfo* pI, param_init_number_vector& p, int debug, ostream& cout)
+//* 
+//* Description: Check values for a parameter vector.
+//*
+//* Inputs:
+//*  pI (NumberVectorInfo*) 
+//*     pointer to NumberVectorInfo object
+//*  p (param_init_number_vector&)
+//*     parameter vector
+//* Returns:
+//*  int - 0 = all good, 1 = nan detected
+//* Alters:
+//*  none
+//******************************************************************************
+FUNCTION int checkParams(NumberVectorInfo* pI, param_init_number_vector& p, int debug, ostream& cout)
+//    debug=dbgAll;
+    if (debug>=dbgAll) std::cout<<"Starting checkParams(NumberVectorInfo* pI, param_init_number_vector& p) for "<<p(1).label()<<endl; 
+    int np = pI->getSize();
+    int r = 0;
+    if (np){
+        for (int i=1;i<=np;i++) {
+            if (isnan(value(p(i)))){
+                r++;
+                if (debug) cout<<"NaN detected in checkParams() for "<<p(1).label()<<"["<<i<<"]"<<endl;
+            }
+        }
+    }
+    
+    if (debug>=dbgAll) {
+        std::cout<<"Finished checkParams(NumberVectorInfo* pI, param_init_number_vector& p) for "<<p(1).label()<<endl; 
+    }
+    return r;
+     
+//******************************************************************************
+//* Function: void checkParams(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p, int debug, ostream& cout)
+//* 
+//* Description: Check values for a parameter vector.
+//*
+//* Inputs:
+//*  pI (BoundedNumberVectorInfo*) 
+//*     pointer to BoundedNumberVectorInfo object
+//*  p (param_init_bounded_number_vector&)
+//*     parameter vector
+//* Returns:
+//*  int - 0 = all good, 1 = nan detected
+//* Alters:
+//*  none
+//******************************************************************************
+FUNCTION int checkParams(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p, int debug, ostream& cout)
+//    debug=dbgAll;
+    if (debug>=dbgAll) std::cout<<"Starting checkParams(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
+    int np = pI->getSize();
+    int r = 0;
+    if (np){
+        for (int i=1;i<=np;i++) {
+            if (isnan(value(p(i)))){
+                r++;
+                if (debug) cout<<"NaN detected in checkParams() for "<<p(1).label()<<"["<<i<<"]"<<endl;
+            }
+        }
+    }
+    
+    if (debug>=dbgAll) {
+        std::cout<<"Finished checkParams(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
+    }
+    return r;
+
+//******************************************************************************
+//* Function: void checkParams(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
+//* 
+//* Description: Checks values for a vector of parameter vectors.
+//*
+//* Inputs:
+//*  pI (BoundedVectorVectorInfo*) 
+//*     pointer to BoundedNumberVectorInfo object
+//*  p (param_init_bounded_vector_vector&)
+//*     parameter vector
+//* Returns:
+//*  int - 0 = all good, 1 = nan detected
+//* Alters:
+//*  none
+//******************************************************************************
+FUNCTION int checkParams(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
+//    debug=dbgAll;
+    if (debug>=dbgAll) std::cout<<"Starting checkParams(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
+    int np = pI->getSize();
+    int r = 0;
+    if (np){
+        for (int i=1;i<=np;i++) {
+            for (int j=p(i).indexmin();j<=p(i).indexmax();j++) {
+                if (isnan(value(p(i,j)))){
+                    r++;
+                    if (debug) cout<<"NaN detected in checkParams() for "<<p(1).label()<<"["<<i<<cc<<j<<"]"<<endl;
+                }
+            }
+        }
+    }
+    
+    if (debug>=dbgAll) {
+        std::cout<<"Finished checkParams(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
+    }
+    return r;
+
+//******************************************************************************
+//* Function: void checkParams(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
+//* 
+//* Description: Checks values for a vector of parameter vectors.
+//*
+//* Inputs:
+//*  pI (DevsVectorVectorInfo*) 
+//*     pointer to BoundedNumberVectorInfo object
+//*  p (param_init_bounded_vector_vector&)
+//*     parameter vector
+//* Returns:
+//*  int - 0 = all good, 1 = nan detected
+//* Alters:
+//*  none
+//******************************************************************************
+FUNCTION int checkParams(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
+//    debug=dbgAll;
+    if (debug>=dbgAll) std::cout<<"Starting checkParams(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
+    int np = pI->getSize();
+    int r = 0;
+    if (np){
+        for (int i=1;i<=np;i++) {
+            for (int j=p(i).indexmin();j<=p(i).indexmax();j++) {
+                if (isnan(value(p(i,j)))){
+                    r++;
+                    if (debug) cout<<"NaN detected in checkParams() for "<<p(1).label()<<"["<<i<<cc<<j<<"]"<<endl;
+                }
+            }
+        }
+    }
+    
+    if (debug>=dbgAll) {
+        std::cout<<"Finished checkParams(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
+    }
+    return r;
+
+//----------------------------------------------------------------------------------
+//write header to MCMC eval file
+FUNCTION writeMCMCHeader
+    mcmc.open((char*)(fnMCMC),ofstream::out|ofstream::trunc);
+    ctrMCMC = 0;
+    mcmc<<"mcmc<-list();"<<endl;
+    mcmc.close();
+    
+//******************************************************************************
+FUNCTION void writeMCMCtoR(ostream& mcmc,NumberVectorInfo* ptr)
+    mcmc<<ptr->name<<"="; ptr->writeFinalValsToR(mcmc);
+    
+//******************************************************************************
+FUNCTION void writeMCMCtoR(ostream& mcmc,BoundedNumberVectorInfo* ptr)
+    mcmc<<ptr->name<<"="; ptr->writeFinalValsToR(mcmc);
+    
+//******************************************************************************
+FUNCTION void writeMCMCtoR(ostream& mcmc,BoundedVectorVectorInfo* ptr)
+    mcmc<<ptr->name<<"="; ptr->writeFinalValsToR(mcmc);
+    
+//******************************************************************************
+FUNCTION void writeMCMCtoR(ostream& mcmc,DevsVectorVectorInfo* ptr)
+    mcmc<<ptr->name<<"="; ptr->writeFinalValsToR(mcmc);
+    
+//******************************************************************************
+FUNCTION void writeMCMCtoR(ofstream& mcmc)
+    mcmc.open((char *) fnMCMC, ofstream::out|ofstream::app);
+    ctrMCMC+=1;
+    std::cout<<"writing mcmc iteration "<<ctrMCMC<<endl;
+    mcmc<<"mcmc[["<<ctrMCMC<<"]]<-list(objFun="<<objFun<<cc<<endl;
+    //write parameter values
+        //recruitment values
+        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pLnR);     mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pRCV);     mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pRX);      mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pRa);      mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pRb);      mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrRec->pDevsLnR); mcmc<<cc<<endl;
+
+        //natural mortality parameters
+        writeMCMCtoR(mcmc,ptrMPI->ptrNM->pM);   mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrNM->pDM1); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrNM->pDM2); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrNM->pDM3); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrNM->pDM4); mcmc<<cc<<endl;
+
+        //growth parameters
+        writeMCMCtoR(mcmc,ptrMPI->ptrGrw->pGrA);    mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrGrw->pGrB);    mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrGrw->pGrBeta); mcmc<<cc<<endl;
+
+        //maturity parameters
+        writeMCMCtoR(mcmc,ptrMPI->ptrM2M->pvLgtPrM2M); mcmc<<cc<<endl;
+
+        //selectivity parameters
+        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pS1); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pS2); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pS3); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pS4); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pS5); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pS6); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pDevsS1); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pDevsS2); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pDevsS3); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pDevsS4); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pDevsS5); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pDevsS6); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSel->pvNPSel); mcmc<<cc<<endl;
+
+        //fully-selected fishing capture rate parameters
+        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pHM);  mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pLnC); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pDC1); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pDC2); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pDC3); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pDC4); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pDevsLnC); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pLnEffX);  mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pLgtRet);  mcmc<<cc<<endl;
+
+        //survey catchability parameters
+        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pQ);    mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ1);  mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ2);  mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ3);  mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ4);  mcmc<<cc<<endl;
+    
+        //write other quantities
+        mcmc<<"R_y="; wts::writeToR(mcmc,value(R_y)); mcmc<<cc<<endl;
+        ivector bnds = wts::getBounds(spB_yx);
+        mcmc<<"MB_xy="; wts::writeToR(mcmc,trans(value(spB_yx)),xDms,yDms); 
+        if (doOFL){
+            mcmc<<cc<<endl;
+            calcOFL(mxYr+1,0,cout);//updates oflresults
+            ptrOFLResults->writeToR(mcmc,ptrMC,"ptrOFLResults",0);//mcm<<cc<<endl;
+        }
+        
+    mcmc<<");"<<endl;
+    mcmc.close();
+    
+//******************************************************************************
+FUNCTION void createSimData(int debug, ostream& cout, int iSimDataSeed, ModelDatasets* ptrSim)
+    if (debug)cout<<"simulating model results as data"<<endl;
+    d6_array vn_vyxmsz = wts::value(n_vyxmsz);
+    d6_array vcN_fyxmsz = wts::value(cpN_fyxmsz);
+    d6_array vrmN_fyxmsz = wts::value(rmN_fyxmsz);
+    for (int f=1;f<=nFsh;f++) {
+        if (debug) cout<<"fishery f: "<<f<<endl;
+        (ptrSim->ppFsh[f-1])->replaceFisheryCatchData(iSimDataSeed,rngSimData,vcN_fyxmsz(f),vrmN_fyxmsz(f),ptrSim->ptrBio->wAtZ_xmz);
+    }
+    for (int v=1;v<=nSrv;v++) {
+        if (debug) cout<<"survey "<<v<<endl;
+        (ptrSim->ppSrv[v-1])->replaceIndexCatchData(iSimDataSeed,rngSimData,vn_vyxmsz(v),ptrSim->ptrBio->wAtZ_xmz);
+    }
+    if (debug) cout<<"finished simulating model results as data"<<endl;
+     
+//******************************************************************************
+FUNCTION void writeSimData(ostream& os, int debug, ostream& cout, ModelDatasets* ptrSim)
+    if (debug)cout<<"writing model results as data"<<endl;
+    for (int v=1;v<=nSrv;v++) {
+        os<<"#------------------------------------------------------------"<<endl;
+        os<<(*(ptrSim->ppSrv[v-1]))<<endl;
+    }
+    //     cout<<4<<endl;
+    for (int f=1;f<=nFsh;f++) {
+        os<<"#------------------------------------------------------------"<<endl;
+        os<<(*(ptrSim->ppFsh[f-1]))<<endl;
+    }
+    if (debug) cout<<"finished writing model results as data"<<endl;
+     
+//******************************************************************************
+//* Function: void setInitVals(NumberVectorInfo* pI, param_init_number_vector& p, int usePin, int debug, ostream& os)
+//* 
+//* Description: Sets initial values for a vector of parameters from the associated NumberInfo object.
+//*
+//* Note: this function MUST be declared/defined as a FUNCTION in the tpl code
+//*     because the parameter assignment is a private method but the model_parameters 
+//*     class has friend access.
+//* 
+//*  @param pI - pointer to a NumberVectorInfo object
+//*  @param p - reference to a param_init_number_vector
+//*  @param usePin - flag to use values 
+//*  @param debug - flag to print debugging info
+//*  @param os - stream for debugging output
+//*
+//*  @alters pI - if usePin=1 or jittering or resampling occurs, then the initial values will be updated 
+//*  @alters p - if usePin=0, the initial values will be updated 
+//******************************************************************************
+FUNCTION void setInitVals(NumberVectorInfo* pI, param_init_number_vector& p, int usePin, int debug, ostream& os)
+//    debug=dbgAll;
+    if (debug>=dbgAll) os<<"Starting setInitVals(NumberVectorInfo* pI, param_init_number_vector& p, usePin, debug, os) for "<<p(1).label()<<endl; 
+    int np = pI->getSize();
+    if (np){
+        //parameters have been defined
+        dvector aovls = 1.0*pI->getInitVals();             //original initial values on arithmetic scales from parameter info
+        dvector povls = 1.0*pI->getInitValsOnParamScales();//original initial values on parameter scales from parameter info
+        dvector afvls = 1.0*pI->getInitVals();             //final initial values on arithmetic scales from parameter info
+        if (usePin) {
+            //use values from pinfile assigned to p as initial values
+            os<<"Using pin file to set initial values for "<<p(1).label()<<endl;
+            pI->setInitValsFromParamVals(p);//update initial values in pI to those from pinfile
+            afvls = 1.0*pI->getInitVals();
+            os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
+            for (int i=1;i<=np;i++) os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
+        } else {
+            //use values from pI as initial values
+            for (int i=1;i<=np;i++) {
+                p(i) = povls(i);  //assign original initial value from parameter info
+                NumberInfo* ptrI = (*pI)[i];
+                if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
+                    //assign final initial value based on resampling prior pdf
+                    os<<"Using resampling to set initial values for "<<p(i).label()<<endl;
+                    afvls(i) = ptrI->drawInitVal(rng,ptrMC->vif); //get resampled initial value on arithmetic scale
+                    p(i) = ptrI->calcParamScaleVal(afvls(i));     //calc initial parameter value
+                    ptrI->setInitVal(afvls(i));                  //update ptrI
+                    os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
+                    os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
+                } else {
+                    os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
+                    os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
+                    os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
+                }
+            }
+        }
+    } else {
+        //parameters have not been defined
+        os<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
+    }
+    
+    if (debug>=dbgAll) {
+        std::cout<<"Enter 1 to continue >>";
+        std::cin>>np;
+        if (np<0) exit(-1);
+        os<<"Finished setInitVals(NumberVectorInfo* pI, param_init_number_vector& p) for "<<p(1).label()<<endl; 
+    }
+     
+//******************************************************************************
+//* Function: void setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p, int usePin, int debug, ostream& os)
+//* 
+//* Sets initial values for a vecotr of bounded parameters fro the associated BoundedNumberVectorInfo object.
+//*
+//* Note: this function MUST be declared/defined as a FUNCTION in the tpl code
+//*     because the parameter assignment is a private method but the model_parameters 
+//*     class has friend access.
+//* 
+//*  @param pI - pointer to a BoundedNumberVectorInfo object
+//*  @param p - reference to a param_init_number_vector
+//*  @param usePin - flag to use values 
+//*  @param debug - flag to print debugging info
+//*  @param os - stream for debugging output
+//*
+//*  @alters pI - if usePin=1 or jittering or resampling occurs, then the initial values will be updated 
+//*  @alters p - if usePin=0, the initial values will be updated 
+//******************************************************************************
+FUNCTION void setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p, int usePin, int debug, ostream& os)
+//    debug=dbgAll;
+    if (debug>=dbgAll) os<<"Starting setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
+    int np = pI->getSize();
+    if (np){
+        //parameters have been defined
+        dvector aovls = 1.0*pI->getInitVals();             //original initial values on arithmetic scales from parameter info
+        dvector povls = 1.0*pI->getInitValsOnParamScales();//original initial values on parameter scales from parameter info
+        dvector afvls = 1.0*pI->getInitVals();             //original initial values on arithmetic scales from parameter info
+        if (usePin) {
+            //use values from pinfile assigned to p as initial values
+            os<<"Using pin file to set initial values for "<<p(1).label()<<endl;
+            pI->setInitValsFromParamVals(p);//update initial values in pI to those from pinfile
+            afvls = 1.0*pI->getInitVals();
+            os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
+            for (int i=1;i<=np;i++) os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
+        } else {
+            //use values from pI as initial values
+            for (int i=1;i<=np;i++) {
+                p(i) = povls(i);  //assign original initial value from parameter info
+                BoundedNumberInfo* ptrI = (*pI)[i];
+                if ((p(i).get_phase_start()>0)&&(ptrMC->jitter)&&(ptrI->jitter)){
+                    //assign final initial value based on jittering
+                    os<<"Using jittering to set initial values for "<<p(i).label()<<endl;
+                    afvls(i) = ptrI->jitterInitVal(rng,ptrMC->jitFrac);//get jittered initial value on arithmetic scale
+                    p(i) = ptrI->calcParamScaleVal(afvls(i));          //calc initial parameter value
+                    ptrI->setInitVal(afvls(i));                       //update ptrI
+                    os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
+                    os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
+                } else 
+                if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
+                    //assign final initial value based on resampling prior pdf
+                    os<<"Using resampling to set initial values for "<<p(i).label()<<endl;
+                    afvls(i) = ptrI->drawInitVal(rng,ptrMC->vif); //get resampled initial value on arithmetic scale
+                    p(i) = ptrI->calcParamScaleVal(afvls(i));     //calc initial parameter value
+                    ptrI->setInitVal(afvls(i));                  //update ptrI
+                    os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
+                    os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
+                } else {
+                    os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
+                    os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
+                    os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
+                }
+            }
+        }
+    } else {
+        os<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
+    }
+    
+    if (debug>=dbgAll) {
+        std::cout<<"Enter 1 to continue >>";
+        std::cin>>np;
+        if (np<0) exit(-1);
+        std::cout<<"Finished setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
+    }
+
+//******************************************************************************
+//* Function: void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int usePin, int debug, ostream& os)
+//* 
+//* Sets initial values for a vector of parameter vectors.
+//*
+//* Note: this function MUST be declared/defined as a FUNCTION in the tpl code
+//*     because the parameter assignment is a private method but the model_parameters 
+//*     class has friend access.
+//* 
+//* Inputs:
+//*  @param pI - pointer to BoundedNumberVectorInfo object
+//*  @param p - reference to a param_init_bounded_vector_vector
+//*  @param usePin - flag to use values 
+//*  @param debug - flag to print debugging info
+//*  @param os - stream for debugging output
+//* 
+//*  @alters pI - if usePin=1 or jittering or resampling occurs, then the initial values will be updated 
+//*  @alters p - if usePin=0, the initial values will be updated 
+//******************************************************************************
+FUNCTION void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int usePin, int debug, ostream& os)
+    //debug=dbgAll;
+    if (debug>=dbgAll) os<<"Starting setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
+    int np = pI->getSize();
+    if (np){
+        if (usePin){
+            //use values from pinfile assigned to p as initial values
+            for (int i=1;i<=np;i++) {
+                os<<"Using pin file to set initial values for "<<p(i).label()<<endl;
+                BoundedVectorInfo* ptrI = (*pI)[i];
+                dvector pnvls = value(p(i));                       //original initial values on parameter scale from pin file
+                dvector aovls = 1.0*ptrI->getInitVals();            //original initial values on arithmetic scale from parameter info
+                dvector povls = 1.0*ptrI->getInitValsOnParamScale();//original initial values on parameter scale from parameter info
+                ptrI->setInitValsFromParamVals(p(i));               //set final initial values on arithmetic scale for parameter info
+                os<<tb<<"pinfile    inits : "<<pnvls<<endl;
+                os<<tb<<"orig arith inits : "<<aovls<<endl;
+                os<<tb<<"orig param inits : "<<povls<<endl;
+                os<<tb<<"final arith inits: "<<ptrI->getInitVals()<<endl;//final initial values on arithmetic scale from parameter info
+                os<<tb<<"final param inits: "<<value(p(i))<<endl;        //final initial values on parameter scale from parameter info
+            }
+        } else {
+            //use values based on pI as initial values for p
+            for (int i=1;i<=np;i++) {
+                os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
+                dvector pnvls = value(p(i));                            //original initial values on parameter scale from pin file
+                if (debug>=dbgAll) os<<"pc "<<i<<" :"<<tb<<p(i).indexmin()<<tb<<p(i).indexmax()<<tb<<pnvls.indexmin()<<tb<<pnvls.indexmax()<<endl;
+                os<<tb<<"pinfile    inits : "<<pnvls<<endl;
+                BoundedVectorInfo* ptrI = static_cast<DevsVectorInfo*>((*pI)[i]);
+                dvector aovls = 1.0*ptrI->getInitVals();            //initial values on arithmetic scale from parameter info
+                os<<tb<<"orig arith inits : "<<aovls<<endl;
+                dvector povls = 1.0*ptrI->getInitValsOnParamScale();//initial values on parameter scales from parameter info
+                os<<tb<<"orig param inits : "<<povls<<endl;
+                p(i)=povls;//set initial values on parameter scales from parameter info
+                if ((p(i).get_phase_start()>0)&&(ptrMC->jitter)&&(ptrI->jitter)){
+                    os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
+                    if (debug>=dbgAll) os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
+                    dvector afvls = ptrI->jitterInitVals(rng,ptrMC->jitFrac);//get jittered values on arithmetic scale
+                    ptrI->setInitVals(afvls);                               //set jittered values as initial values on arithmetic scale
+                    p(i)=ptrI->getInitValsOnParamScale();                   //get jittered values on param scale as initial parameter values
+                } else
+                if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
+                    os<<"Using resampling to set initial values for "<<p(i).label()<<" : "<<endl;
+                    if (debug>=dbgAll) os<<"Using resampling to set initial values for "<<p(i).label()<<" : "<<endl;
+                    dvector afvls = ptrI->drawInitVals(rng,ptrMC->vif);//get resampled values on arithmetic scale
+                    ptrI->setInitVals(afvls);                          //set resampled values as initial values on arithmetic scale
+                    p(i)=ptrI->getInitValsOnParamScale();              //get resampled values on param scale as initial parameter values
+                } else {
+                    os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
+                }
+                os<<tb<<"final arith inits: "<<ptrI->getInitVals()<<endl;//final initial values on arithmetic scale from parameter info
+                os<<tb<<"final param inits: "<<value(p(i))<<endl;        //final initial values on parameter scale from parameter info
+            }
+        }
+    } else {
+        os<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
+    }
+    
+    if (debug>=dbgAll) {
+        std::cout<<"Enter 1 to continue >>";
+        std::cin>>np;
+        if (np<0) exit(-1);
+        os<<"Finished setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
+    }
+
+//******************************************************************************
+//* Function: void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int usePin, int debug, ostream& os)
+//* 
+//* Sets initial values for a vector of devs parameter vectors based on the associated DevsVectorVectorInfo object.
+//*
+//* Note: this function MUST be declared/defined as a FUNCTION in the tpl code
+//*     because the parameter assignment is a private method but the model_parameters 
+//*     class has friend access.
+//* 
+//* Inputs:
+//*  @param pI - pointer to BoundedNumberVectorInfo object
+//*  @param p - reference to parameter_init_bounded_vector_vector acting as devs_vector_vector
+//*  @param usePin - flag to use values 
+//*  @param debug - flag to print debugging info
+//*  @param os - stream for debugging output
+//* 
+//*  @alters pI - if usePin=1 or jittering or resampling occurs, then the initial values will be updated 
+//*  @alters p - if usePin=0, the initial values will be updated 
+//******************************************************************************
+FUNCTION void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int usePin, int debug, ostream& os)
+    //debug=dbgAll;
+    if (debug>=dbgAll) os<<"Starting setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
+    int np = pI->getSize();
+    if (np){
+        if (usePin){
+            //use values from pinfile assigned to p as initial values
+            for (int i=1;i<=np;i++) {
+                os<<"Using pin file to set initial values for "<<p(i).label()<<endl;
+                DevsVectorInfo* ptrI = static_cast<DevsVectorInfo*>((*pI)[i]);
+                dvector pnvls = value(p(i));                       //original initial values on parameter scale from pin file
+                dvector aovls = 1.0*ptrI->getInitVals();            //original initial values on arithmetic scale from parameter info
+                dvector povls = 1.0*ptrI->getInitValsOnParamScale();//original initial values on parameter scale from parameter info
+                ptrI->setInitValsFromParamVals(p(i));               //set final initial values on arithmetic scale for parameter info
+                os<<tb<<"pinfile    inits : "<<pnvls<<endl;
+                os<<tb<<"orig arith inits : "<<aovls<<endl;
+                os<<tb<<"orig param inits : "<<povls<<endl;
+                os<<tb<<"final arith inits: "<<ptrI->getInitVals()<<endl;//final initial values on arithmetic scale from parameter info
+                os<<tb<<"final param inits: "<<value(p(i))<<endl;        //final initial values on parameter scale from parameter info
+            }
+        } else {
+            //use values based on pI as initial values for p
+            for (int i=1;i<=np;i++) {
+                dvector pnvls = value(p(i));                            //original initial values on parameter scale from pin file
+                dvector aovls = 1.0*(*pI)[i]->getInitVals();            //initial values on arithmetic scale from parameter info
+                dvector povls = 1.0*(*pI)[i]->getInitValsOnParamScale();//initial values on parameter scales from parameter info
+                if (debug>=dbgAll) os<<"pc "<<i<<" :"<<tb<<p(i).indexmin()<<tb<<p(i).indexmax()<<tb<<pnvls.indexmin()<<tb<<pnvls.indexmax()<<endl;
+                p(i)=povls;//set initial values on parameter scales from parameter info
+                DevsVectorInfo* ptrI = (*pI)[i];
+                if ((p(i).get_phase_start()>0)&&(ptrMC->jitter)&&(ptrI->jitter)){
+                    os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
+                    if (debug>=dbgAll) os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
+                    dvector afvls = ptrI->jitterInitVals(rng,ptrMC->jitFrac);//get jittered values on arithmetic scale
+                    ptrI->setInitVals(afvls);                               //set jittered values as initial values on arithmetic scale
+                    p(i)=ptrI->getInitValsOnParamScale();                   //get jittered values on param scale as initial parameter values
+                } else
+                if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
+                    os<<"Using resampling to set initial values for "<<p(i).label()<<" : "<<endl;
+                    if (debug>=dbgAll) os<<"Using resampling to set initial values for "<<p(i).label()<<" : "<<endl;
+                    dvector afvls = ptrI->drawInitVals(rng,ptrMC->vif);//get resampled values on arithmetic scale
+                    ptrI->setInitVals(afvls);                          //set resampled values as initial values on arithmetic scale
+                    p(i)=ptrI->getInitValsOnParamScale();              //get resampled values on param scale as initial parameter values
+                } else {
+                    os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
+                }
+                os<<tb<<"pinfile    inits : "<<pnvls<<endl;
+                os<<tb<<"orig arith inits : "<<aovls<<endl;
+                os<<tb<<"orig param inits : "<<povls<<endl;
+                os<<tb<<"final arith inits: "<<ptrI->getInitVals()<<endl;//final initial values on arithmetic scale from parameter info
+                os<<tb<<"final param inits: "<<value(p(i))<<endl;        //final initial values on parameter scale from parameter info
+            }
+        }
+    } else {
+        os<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
+    }
+    
+    if (debug>=dbgAll) {
+        std::cout<<"Enter 1 to continue >>";
+        std::cin>>np;
+        if (np<0) exit(-1);
+        os<<"Finished setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
+    }
+
+//-------------------------------------------------------------------------------------
+FUNCTION void setAllDevs(int debug, ostream& cout)
+    if (debug>=dbgAll) cout<<"starting setAllDevs()"<<endl;
+
+    if (debug>=dbgAll) cout<<"setDevs() for pLnR"<<endl;
+    tcsam::setDevs(devsLnR, pDevsLnR, ptrMPI->ptrRec->pDevsLnR,debug,cout);
+
+    if (debug>=dbgAll) cout<<"setDevs() for pDevsS1"<<endl;
+    tcsam::setDevs(devsS1, pDevsS1, ptrMPI->ptrSel->pDevsS1, debug,cout);
+    if (debug>=dbgAll) cout<<"setDevs() for pDevsS2"<<endl;
+    tcsam::setDevs(devsS2, pDevsS2, ptrMPI->ptrSel->pDevsS2,debug,cout);
+    if (debug>=dbgAll) cout<<"setDevs() for pDevsS3"<<endl;
+    tcsam::setDevs(devsS3, pDevsS3, ptrMPI->ptrSel->pDevsS3,debug,cout);
+    if (debug>=dbgAll) cout<<"setDevs() for pDevsS4"<<endl;
+    tcsam::setDevs(devsS4, pDevsS4, ptrMPI->ptrSel->pDevsS4,debug,cout);
+    if (debug>=dbgAll) cout<<"setDevs() for pDevsS5"<<endl;
+    tcsam::setDevs(devsS5, pDevsS5, ptrMPI->ptrSel->pDevsS5,debug,cout);
+    if (debug>=dbgAll) cout<<"setDevs() for pDevsS6"<<endl;
+    tcsam::setDevs(devsS6, pDevsS6, ptrMPI->ptrSel->pDevsS6,debug,cout);
+    
+    if (debug>=dbgAll) cout<<"setDevs() for pDevsLnC"<<endl;
+    tcsam::setDevs(devsLnC, pDevsLnC, ptrMPI->ptrFsh->pDevsLnC,debug,cout);
+    
+    if (debug>=dbgAll) cout<<"finished setAllDevs()"<<endl;
+
 //-------------------------------------------------------------------------------------
 //Write data to file as R list
 FUNCTION void ReportToR_Data(ostream& os, int debug, ostream& cout)
@@ -7146,6 +7349,7 @@ FUNCTION void writeParameters(ostream& os,int toR, int willBeActive)
     tcsam::writeParameters(os,pDevsS4,ctg1,ctg2,ptrMPI->ptrSel->pDevsS4,toR,willBeActive);      
     tcsam::writeParameters(os,pDevsS5,ctg1,ctg2,ptrMPI->ptrSel->pDevsS5,toR,willBeActive);      
     tcsam::writeParameters(os,pDevsS6,ctg1,ctg2,ptrMPI->ptrSel->pDevsS6,toR,willBeActive);      
+    tcsam::writeParameters(os,pvNPSel,ctg1,ctg2,ptrMPI->ptrSel->pvNPSel,toR,willBeActive);      
     
     //fishery parameters
     ctg1="fisheries";
@@ -7167,7 +7371,14 @@ FUNCTION void writeParameters(ostream& os,int toR, int willBeActive)
     tcsam::writeParameters(os,pDQ1,ctg1,ctg2,ptrMPI->ptrSrv->pDQ1,toR,willBeActive);      
     tcsam::writeParameters(os,pDQ2,ctg1,ctg2,ptrMPI->ptrSrv->pDQ2,toR,willBeActive);      
     tcsam::writeParameters(os,pDQ3,ctg1,ctg2,ptrMPI->ptrSrv->pDQ3,toR,willBeActive);      
-    tcsam::writeParameters(os,pDQ4,ctg1,ctg2,ptrMPI->ptrSrv->pDQ4,toR,willBeActive);      
+    tcsam::writeParameters(os,pDQ4,ctg1,ctg2,ptrMPI->ptrSrv->pDQ4,toR,willBeActive);
+    
+    //MSE directed fishery
+    if (mseOpModMode){
+        ctg1="MSE-related";
+        ctg2="ln-scale directed fishery capture rate";
+        tcsam::writeParameters(os,pMSE_LnC,ctg1,ctg2,ptrMPI->ptrMSE->pMSE_LnC,toR,willBeActive);
+    }
     
 // =============================================================================
 // =============================================================================
@@ -7198,31 +7409,35 @@ REPORT_SECTION
     if (last_phase()) {
         PRINT2B1("--ReportToR: last phase ")
         PRINT2B2("----last phase objFun =",value(objFun))
-        //write report as R file
-        report.precision(12);
-        ReportToR(report,maxGrad,1,rpt::echo);
-        //write parameter values to csv
-        ofstream os1("tcsam02.params.all.final.csv", ios::trunc);
-        os1.precision(12);
-        writeParameters(os1,0,0);
-        os1.close();
-        //write parameter values to csv
-        ofstream os2("tcsam02.params.active.final.csv", ios::trunc);
-        os2.precision(12);
-        writeParameters(os2,0,1);
-        os2.close();
+        if (!mseOpModMode){
+            //write report as R file
+            report.precision(12);
+            ReportToR(report,maxGrad,1,rpt::echo);
+            //write parameter values to csv
+            ofstream os1("tcsam02.params.all.final.csv", ios::trunc);
+            os1.precision(12);
+            writeParameters(os1,0,0);
+            os1.close();
+            //write parameter values to csv
+            ofstream os2("tcsam02.params.active.final.csv", ios::trunc);
+            os2.precision(12);
+            writeParameters(os2,0,1);
+            os2.close();
 
-        if (option_match(ad_comm::argc,ad_comm::argv,"-jitter")>-1) {
-            ofstream fs("jitterInfo.csv");
-            fs.precision(20);
-            fs<<"seed"<<cc<<"objfun"<<cc<<"maxGrad"<<cc<<"MMB";
-            if (doOFL) fs<<cc<<"B0"<<cc<<"Bmsy"<<cc<<"Fmsy"<<cc<<"OFL"<<cc<<"curB";
-            fs<<endl;
-            fs<<iSeed<<cc<<value(objFun)<<cc<<maxGrad<<cc<<spB_yx(mxYr,MALE);
-            if (doOFL) fs<<cc<<ptrOFLResults->B0<<cc<<ptrOFLResults->Bmsy<<cc<<ptrOFLResults->Fmsy<<cc<<ptrOFLResults->OFL<<cc<<ptrOFLResults->curB;
-            fs<<endl;
-            fs.close();
-        }
+            if (option_match(ad_comm::argc,ad_comm::argv,"-jitter")>-1) {
+                ofstream fs("jitterInfo.csv");
+                fs.precision(20);
+                fs<<"seed"<<cc<<"objfun"<<cc<<"maxGrad"<<cc<<"MMB";
+                if (doOFL) fs<<cc<<"B0"<<cc<<"Bmsy"<<cc<<"Fmsy"<<cc<<"OFL"<<cc<<"curB";
+                fs<<endl;
+                fs<<iSeed<<cc<<value(objFun)<<cc<<maxGrad<<cc<<spB_yx(mxYr,MALE);
+                if (doOFL) fs<<cc<<ptrOFLResults->B0<<cc<<ptrOFLResults->Bmsy<<cc<<ptrOFLResults->Fmsy<<cc<<ptrOFLResults->OFL<<cc<<ptrOFLResults->curB;
+                fs<<endl;
+                fs.close();
+            }
+        } else if (mseOpModMode){
+            PRINT2B1("TODO: CREATE A REPORT FILE FOR OpModMode")
+        } 
     }
     PRINT2B1("--FINISHED REPORT_SECTION---------")
 
@@ -7233,39 +7448,45 @@ BETWEEN_PHASES_SECTION
     PRINT2B1("#--BETWEEN_PHASES_SECTION---------------------")
     adstring msg = "#----Starting phase "+str(current_phase())+" of "+str(initial_params::max_number_phases);
     PRINT2B1(msg)
-    calcObjFun(dbgObjFun,cout);
+    if (mseOpModMode){
+        dvariable mseCapF = mfexp(pMSE_LnC[1]);
+        projectPopForTAC(mseCapF,0,cout);
+    } else {
+        if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
+        calcObjFun(dbgObjFun,cout);
+        for (int n=1;n<=npLnEffX;n++){
+            rpt::echo<<"#----is pLnEffX["<<n<<"] active? "<<active(pLnEffX[n])<<endl;
+        }
+        if ((current_phase()>=phsItsRewgt)){
+            PRINT2B1("#--Calculating effective weights for size compositions")
+            //note that the following modifies the objective function value
+            ofstream os; 
+            if ((current_phase()==phsItsRewgt)){
+                os.open("effectiveWeights.R", ios::trunc);
+                os<<"effWgts=list("<<endl;
+            } else {
+                os.open("effectiveWeights.R", ios::app);
+            }
+            os<<"#--BETWEEN_PHASES_SECTION: Calculating effective weights for size compositions at start of "<<str(current_phase())<<endl;
+            os<<"effWgts."<<current_phase()-phsItsRewgt+1<<"=list("<<endl;
+            os<<"surveys="  <<endl; calcWeightsForSurveySizeComps( -1,os); os<<","<<endl;
+            os<<"fisheries="<<endl; calcWeightsForFisherySizeComps(-1,os); os<<endl;
+            os<<"),"<<endl;
+            os<<"#--BETWEEN_PHASES_SECTION: Finished calculating effective weights for size compositions"<<endl<<endl;
+            if ((ptrMOs->optIterativeReweighting)&&(numItsRewgt<maxItsRewgt)){
+                PRINT2B1("#--Re-weighting size compositions using reWeightXXXSizeComps")
+                os<<"#--BETWEEN_PHASES_SECTION: Re-weighting size compositions using reWeightXXXSizeComps"<<endl;
+                //reWeightSurveySizeComps(-1,os);
+                reWeightFisherySizeComps(-1,os);
+                os<<"#--BETWEEN_PHASES_SECTION: Finished r-weighting size compositions using reWeightXXXSizeComps"<<endl<<endl;
+                PRINT2B1("#--Finished re-weighting size compositions using reWeightXXXSizeComps")
+                numItsRewgt++;
+                calcObjFun(dbgObjFun,cout);
+            }
+            os.close();
+        }
+    }
     ctrProcCallsInPhase=0;//reset in-phase counter
-    for (int n=1;n<=npLnEffX;n++){
-        rpt::echo<<"#----is pLnEffX["<<n<<"] active? "<<active(pLnEffX[n])<<endl;
-    }
-    if ((current_phase()>=phsItsRewgt)){
-        PRINT2B1("#--Calculating effective weights for size compositions")
-        //note that the following modifies the objective function value
-        ofstream os; 
-        if ((current_phase()==phsItsRewgt)){
-            os.open("effectiveWeights.R", ios::trunc);
-            os<<"effWgts=list("<<endl;
-        } else {
-            os.open("effectiveWeights.R", ios::app);
-        }
-        os<<"#--BETWEEN_PHASES_SECTION: Calculating effective weights for size compositions at start of "<<str(current_phase())<<endl;
-        os<<"effWgts."<<current_phase()-phsItsRewgt+1<<"=list("<<endl;
-        os<<"surveys="  <<endl; calcWeightsForSurveySizeComps( -1,os); os<<","<<endl;
-        os<<"fisheries="<<endl; calcWeightsForFisherySizeComps(-1,os); os<<endl;
-        os<<"),"<<endl;
-        os<<"#--BETWEEN_PHASES_SECTION: Finished calculating effective weights for size compositions"<<endl<<endl;
-        if ((ptrMOs->optIterativeReweighting)&&(numItsRewgt<maxItsRewgt)){
-            PRINT2B1("#--Re-weighting size compositions using reWeightXXXSizeComps")
-            os<<"#--BETWEEN_PHASES_SECTION: Re-weighting size compositions using reWeightXXXSizeComps"<<endl;
-            //reWeightSurveySizeComps(-1,os);
-            reWeightFisherySizeComps(-1,os);
-            os<<"#--BETWEEN_PHASES_SECTION: Finished r-weighting size compositions using reWeightXXXSizeComps"<<endl<<endl;
-            PRINT2B1("#--Finished re-weighting size compositions using reWeightXXXSizeComps")
-            numItsRewgt++;
-            calcObjFun(dbgObjFun,cout);
-        }
-        os.close();
-    }
         
     PRINT2B1("#---END BETWEEN_PHASES_SECTION")
 
@@ -7624,8 +7845,7 @@ FINAL_SECTION
     PRINT2B1("#--Starting FINAL_SECTION")
         
     if (!mseMode){
-        int mceval_on = option_match(ad_comm::argc,ad_comm::argv,"-mceval");
-        if (mceval_on>-1) {
+        if (mcevalOn) {
             PRINT2B1("#----Closing mcmc file")
             mcmc.open((char*)(fnMCMC),ios::app);
             mcmc.precision(12);
@@ -7634,7 +7854,7 @@ FINAL_SECTION
             PRINT2B1(" ")
         }
 
-        if (mceval_on<0){
+        if (!mcevalOn){
             PRINT2B2("obj fun = ",objFun)
             PRINT2B1(" ")
             {
@@ -7678,7 +7898,7 @@ FINAL_SECTION
         }
     } else if (mseEstModMode){
         //running in estModMode
-        PRINT2B1("#----Recalculating population dynamics")
+        PRINT2B1("#----MSE EstModMode: Recalculating population dynamics")
         if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
         //--calculate OFL
         calcOFL(mxYrp1, 0, cout);
@@ -7696,10 +7916,11 @@ FINAL_SECTION
             TAC = HarvestStrategies::HCR1_FemaleRamp(MFB, aveMFB, MMB);
         }
 
-        //--save TAC to file for OpMod to read
+        //--save TAC and OFL to file for OpMod to read
         ofstream os; os.open("TAC.txt", ios::trunc);
-        os<<"# HCR      TAC      OFL"<<endl;
-        os<<ptrMOs->HCR<<tb<<TAC<<tb<<OFL<<endl;
+        os<<"#---TAC, OFL for MSE OpMod"<<endl;
+        os<<"# TAC      OFL"<<endl;
+        os<<TAC<<tb<<OFL<<endl;
         os.close();
         
         //--write pin for EstMod for upcoming year based on this year
@@ -7710,7 +7931,14 @@ FINAL_SECTION
 
 
     } else if (mseOpModMode){
-        //running in opModMode
+        //running in mseOpModMode
+        PRINT2B1("#----MSE OpModMode: Recalculating population dynamics")
+        if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
+        dvariable mseCapF = mfexp(pMSE_LnC[1]);
+        projectPopForTAC(mseCapF,0,cout);
+        calcObjFunForTAC(dbgObjFun,cout);
+        PRINT2B2("#--Final obj fun = ",objFun)
+
         //--generate year-end recruitment here or previously??
         //--will need mean ln-scale rec., recruitment CV, and random draw
 
@@ -7722,7 +7950,7 @@ FINAL_SECTION
 
         //--write pin file for OpMod for subsequent year
 
-    }//opModMode
+    }//mseOpModMode
     
     int hour,minute,second;
     double elapsed_time;
