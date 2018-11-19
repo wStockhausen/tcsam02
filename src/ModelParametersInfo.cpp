@@ -665,6 +665,15 @@ void RecruitmentInfo::write(std::ostream & os){
     os<<(*pDevsLnR)<<endl;
 }
 
+void RecruitmentInfo::writeToPin(std::ostream & os, int projected, int closed){
+    pLnR->writeToPin(os);
+    pRCV->writeToPin(os);
+    pRX->writeToPin(os);
+    pRa->writeToPin(os);
+    pRb->writeToPin(os);
+    pDevsLnR->writeToPin(os);
+}
+
 /**
  * Write RecruitmentInfo to output stream in R format
  * 
@@ -820,6 +829,14 @@ void NaturalMortalityInfo::write(std::ostream & os){
     os<<(*pDM4)<<endl;
  }
 
+void NaturalMortalityInfo::writeToPin(std::ostream & os, int projected, int closed){
+    pM->writeToPin(os);
+    pDM1->writeToPin(os);
+    pDM2->writeToPin(os);
+    pDM3->writeToPin(os);
+    pDM4->writeToPin(os);
+ }
+
 void NaturalMortalityInfo::writeToR(std::ostream & os){
     int indent=0;
     os<<"nm=list("<<endl;
@@ -938,6 +955,12 @@ void GrowthInfo::write(std::ostream & os){
     os<<(*pGrBeta)<<endl;
  }
 
+void GrowthInfo::writeToPin(std::ostream & os, int projected, int closed){
+    pGrA->writeToPin(os);
+    pGrB->writeToPin(os);
+    pGrBeta->writeToPin(os);
+ }
+
 void GrowthInfo::writeToR(std::ostream & os){
     int indent=0;
     os<<"grw=list("<<endl;
@@ -1038,6 +1061,10 @@ void Molt2MaturityInfo::write(std::ostream & os){
     int k=1;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
     os<<(*pvLgtPrM2M)<<endl;
+}
+
+void Molt2MaturityInfo::writeToPin(std::ostream & os, int projected, int closed){
+    pvLgtPrM2M->writeToPin(os);
 }
 
 void Molt2MaturityInfo::writeToR(std::ostream & os){
@@ -1252,8 +1279,27 @@ void SelectivityInfo::write(std::ostream & os){
     os<<(*pDevsS5)<<endl;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
     os<<(*pDevsS6)<<endl;
+    
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
     os<<(*pvNPSel)<<endl;
+ }
+
+void SelectivityInfo::writeToPin(std::ostream & os, int projected, int closed){
+    pS1->writeToPin(os);
+    pS2->writeToPin(os);
+    pS3->writeToPin(os);
+    pS4->writeToPin(os);
+    pS5->writeToPin(os);
+    pS6->writeToPin(os);
+    
+    pDevsS1->writeToPin(os);
+    pDevsS2->writeToPin(os);
+    pDevsS3->writeToPin(os);
+    pDevsS4->writeToPin(os);
+    pDevsS5->writeToPin(os);
+    pDevsS6->writeToPin(os);
+    
+    pvNPSel->writeToPin(os);
  }
 
 void SelectivityInfo::writeToR(std::ostream & os){
@@ -1442,6 +1488,7 @@ void FisheriesInfo::setToWriteVectorInitialValues(bool flag){
         }
     }
 }
+
 void FisheriesInfo::write(std::ostream & os){
     os<<NAME<<tb<<"#process name"<<endl;
     ParameterGroupInfo::write(os);
@@ -1468,6 +1515,20 @@ void FisheriesInfo::write(std::ostream & os){
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
     os<<(*pLgtRet)<<endl;
  }
+
+void FisheriesInfo::writeToPin(std::ostream & os, int projected, int closed){
+    pHM->writeToPin(os);
+    pLnC->writeToPin(os);
+    pDC1->writeToPin(os);
+    pDC2->writeToPin(os);
+    pDC3->writeToPin(os);
+    pDC4->writeToPin(os);
+    
+    pDevsLnC->writeToPin(os);
+    
+    pLnEffX->writeToPin(os);
+    pLgtRet->writeToPin(os);
+}
 
 void FisheriesInfo::writeToR(std::ostream & os){
     int indent=0;
@@ -1622,6 +1683,14 @@ void SurveysInfo::write(std::ostream & os){
     os<<(*pDQ4)<<endl;
  }
 
+void SurveysInfo::writeToPin(std::ostream & os,int projected, int closed){
+    pQ->writeToPin(os);
+    pDQ1->writeToPin(os);
+    pDQ2->writeToPin(os);
+    pDQ3->writeToPin(os);
+    pDQ4->writeToPin(os);
+ }
+
 void SurveysInfo::writeToR(std::ostream & os){
     int indent=0;
     os<<"srv=list("<<endl;
@@ -1749,6 +1818,10 @@ void MSE_Info::write(std::ostream & os){
     int k=1;
     os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
     os<<(*pMSE_LnC)<<endl;
+ }
+
+void MSE_Info::writeToPin(std::ostream & os, int projected, int closed){
+    pMSE_LnC->writeToPin(os);
  }
 
 void MSE_Info::writeToR(std::ostream & os){
@@ -1912,6 +1985,48 @@ void ModelParametersInfo::write(std::ostream & os){
     os<<"# MSE-related parameters  "<<endl;
     os<<"#-------------------------------"<<endl;
     os<<(*ptrMSE)<<endl;
+}
+
+void ModelParametersInfo::writePin(std::ostream & os, int projected, int closed){
+    os<<"#-------------------------------"<<endl;
+    os<<"# Recruitment parameters  "<<endl;
+    os<<"#-------------------------------"<<endl;
+    ptrRec->writeToPin(os,projected,closed); os<<endl;
+    
+    os<<"#-------------------------------"<<endl;
+    os<<"# Natural mortality parameters  "<<endl;
+    os<<"#-------------------------------"<<endl;
+    ptrNM->writeToPin(os,projected,closed); os<<endl;
+    
+    os<<"#-------------------------------"<<endl;
+    os<<"# Growth parameters  "<<endl;
+    os<<"#-------------------------------"<<endl;
+    ptrGrw->writeToPin(os,projected,closed); os<<endl;
+    
+    os<<"#-------------------------------"<<endl;
+    os<<"# Molt-to-maturity parameters  "<<endl;
+    os<<"#-------------------------------"<<endl;
+    ptrM2M->writeToPin(os,projected,closed); os<<endl;
+    
+    os<<"#-------------------------------"<<endl;
+    os<<"# Selectivity parameters  "<<endl;
+    os<<"#-------------------------------"<<endl;
+    ptrSel->writeToPin(os,projected,closed); os<<endl;
+    
+    os<<"#-------------------------------"<<endl;
+    os<<"# Fisheries parameters  "<<endl;
+    os<<"#-------------------------------"<<endl;
+    ptrFsh->writeToPin(os,projected,closed); os<<endl;
+    
+    os<<"#-------------------------------"<<endl;
+    os<<"# Surveys parameters  "<<endl;
+    os<<"#-------------------------------"<<endl;
+    ptrSrv->writeToPin(os,projected,closed); os<<endl;
+    
+    os<<"#-------------------------------"<<endl;
+    os<<"# MSE-related parameters  "<<endl;
+    os<<"#-------------------------------"<<endl;
+    ptrMSE->writeToPin(os,projected,closed); os<<endl;
 }
 
 void ModelParametersInfo::writeToR(std::ostream & os){

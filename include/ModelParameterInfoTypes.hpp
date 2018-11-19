@@ -1325,9 +1325,36 @@ class NumberVectorInfo {
         virtual dvector drawInitVals(random_number_generator& rng, double vif);
         virtual void setInitValsFromParamVals(const dvar_vector& x);
         virtual void setFinalValsFromParamVals(const dvar_vector& x);
+        /**
+         * Read values from stream in TCSAM02 format
+         * 
+         * @param is - input stream
+         */
         virtual void read(cifstream & is);
+        /**
+         * Write values to stream in TCSAM02 format
+         * 
+         * @param os - output stream
+         */
         virtual void write(std::ostream & os);
+        /**
+         * Write values to output stream in ADMB pin-file format
+         * @param os
+         */
+        virtual void writeToPin(std::ostream & os);
+        /**
+         * Write values to output stream in R format.
+         * 
+         * @param os
+         * @param nm - name to assign 
+         * @param indent - number of tabs to indent
+         */
         virtual void writeToR(std::ostream& os, adstring nm, int indent=0);
+        /**
+         * Write final values to output stream in R format.
+         * 
+         * @param os
+         */
         virtual void writeFinalValsToR(std::ostream& os);
         friend cifstream& operator >>(cifstream & is, NumberVectorInfo & obj){obj.read(is);return is;}
         friend std::ostream& operator <<(std::ostream & os, NumberVectorInfo & obj){obj.write(os);return os;}
@@ -1483,6 +1510,7 @@ class VectorVectorInfo {
 
         virtual void read(cifstream & is);
         virtual void write(std::ostream & os);
+        virtual void writeToPin(std::ostream& os);
         virtual void writeToR(std::ostream& os, adstring nm, int indent=0);
         virtual void writeFinalValsToR(std::ostream& os);
         friend cifstream& operator >>(cifstream & is, VectorVectorInfo & obj){obj.read(is);return is;}

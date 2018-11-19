@@ -132,9 +132,20 @@ class ParameterGroupInfo{
          * Writes default info in ADMB format for the parameter group to an output stream.
          * Subclasses should override this function as appropriate.
          * 
-         * @param os - the output stream
+         * @param os - output stream
+         * @param projected - flag to write for "next" year
+         * @param closed - flag that directed fishery will be closed "next" year 
          */
         virtual void write(std::ostream & os);
+        /**
+         * Writes parameter values to an output stream in ADMB pin-file format.
+         * Subclasses should override this function as appropriate.
+         * 
+         * @param os - output stream
+         * @param projected - flag to write for "next" year
+         * @param closed - flag that directed fishery will be closed "next" year 
+         */
+        virtual void writeToPin(std::ostream & os, int projected=0, int closed=0)=0;
         /**
          * Writes default info in R format for the parameter group to an output stream.
          * Subclasses should override this function as appropriate.
@@ -222,11 +233,21 @@ class RecruitmentInfo: public ParameterGroupInfo {
          */
         void read(cifstream & is);
         /**
-         * Writes the ParameterGroupInfo for recruitment to an output stream in ADMB format.
+         * Writes to an output stream in ADMB format.
          * 
-         * @param is - the output stream
+         * @param os - output stream
+         * @param projected - flag to write for "next" year
+         * @param closed - flag that directed fishery will be closed "next" year 
          */
         void write(std::ostream & os);
+        /**
+         * Writes parameter values to an output stream in ADMB pin-file format.
+         * 
+         * @param os - output stream
+         * @param projected - flag to write for "next" year
+         * @param closed - flag that directed fishery will be closed "next" year 
+         */
+        void writeToPin(std::ostream & os, int projected=0, int closed=0);
         /**
          * Writes the ParameterGroupInfo for recruitment to an output stream in R format.
          * 
@@ -308,8 +329,18 @@ class NaturalMortalityInfo : public ParameterGroupInfo {
          * Writes to an output stream in ADMB format.
          * 
          * @param os - output stream
+         * @param projected - flag to write for "next" year
+         * @param closed - flag that directed fishery will be closed "next" year 
          */
         void write(std::ostream & os);
+        /**
+         * Writes parameter values to an output stream in ADMB pin-file format.
+         * 
+         * @param os - output stream
+         * @param projected - flag to write for "next" year
+         * @param closed - flag that directed fishery will be closed "next" year 
+         */
+        void writeToPin(std::ostream & os, int projected=0, int closed=0);
         /**
          * Writes component info to an output stream as an
          * R-format list.
@@ -378,8 +409,18 @@ class GrowthInfo : public ParameterGroupInfo {
          * Writes to an output stream in ADMB format.
          * 
          * @param os - output stream
+         * @param projected - flag to write for "next" year
+         * @param closed - flag that directed fishery will be closed "next" year 
          */
         void write(std::ostream & os);
+        /**
+         * Writes parameter values to an output stream in ADMB pin-file format.
+         * 
+         * @param os - output stream
+         * @param projected - flag to write for "next" year
+         * @param closed - flag that directed fishery will be closed "next" year 
+         */
+        void writeToPin(std::ostream & os, int projected=0, int closed=0);
         /**
          * Writes to an output stream in R format.
          * 
@@ -439,8 +480,18 @@ class Molt2MaturityInfo: public ParameterGroupInfo {
          * Writes to an output stream in ADMB format.
          * 
          * @param os - output stream
+         * @param projected - flag to write for "next" year
+         * @param closed - flag that directed fishery will be closed "next" year 
          */
         void write(std::ostream & os);
+        /**
+         * Writes parameter values to an output stream in ADMB pin-file format.
+         * 
+         * @param os - output stream
+         * @param projected - flag to write for "next" year
+         * @param closed - flag that directed fishery will be closed "next" year 
+         */
+        void writeToPin(std::ostream & os, int projected=0, int closed=0);
         /**
          * Writes to an output stream in R format.
          * 
@@ -510,8 +561,18 @@ class SelectivityInfo : public ParameterGroupInfo {
          * Writes to an output stream in ADMB format.
          * 
          * @param os - output stream
+         * @param projected - flag to write for "next" year
+         * @param closed - flag that directed fishery will be closed "next" year 
          */
         void write(std::ostream & os);
+        /**
+         * Writes parameter values to an output stream in ADMB pin-file format.
+         * 
+         * @param os - output stream
+         * @param projected - flag to write for "next" year
+         * @param closed - flag that directed fishery will be closed "next" year 
+         */
+        void writeToPin(std::ostream & os, int projected=0, int closed=0);
         /**
          * Writes to an output stream in R format.
          * 
@@ -589,11 +650,21 @@ class FisheriesInfo : public ParameterGroupInfo {
          */
         void setToWriteVectorInitialValues(bool flag);
         /**
-         * Writes to an output stream in ADMB format.
+         * Writes to an output stream in TCSAM02 format.
          * 
          * @param os - output stream
+         * @param projected - flag to write for "next" year
+         * @param closed - flag that directed fishery will be closed "next" year 
          */
         void write(std::ostream & os);
+        /**
+         * Writes parameter values to an output stream in ADMB pin-file format.
+         * 
+         * @param os - output stream
+         * @param projected - flag to write for "next" year
+         * @param closed - flag that directed fishery will be closed "next" year 
+         */
+        void writeToPin(std::ostream & os, int projected=0, int closed=0);
         /**
          * Writes to an output stream in R format.
          * 
@@ -655,8 +726,18 @@ class SurveysInfo : public ParameterGroupInfo {
          * Writes to an output stream in ADMB format.
          * 
          * @param os - output stream
+         * @param projected - flag to write for "next" year
+         * @param closed - flag that directed fishery will be closed "next" year 
          */
         void write(std::ostream & os);
+        /**
+         * Writes parameter values to an output stream in ADMB pin-file format.
+         * 
+         * @param os - output stream
+         * @param projected - flag to write for "next" year
+         * @param closed - flag that directed fishery will be closed "next" year 
+         */
+        void writeToPin(std::ostream & os, int projected=0, int closed=0);
         /**
          * Writes to an output stream in R format.
          * 
@@ -704,8 +785,18 @@ class MSE_Info : public ParameterGroupInfo {
          * Writes to an output stream in ADMB format.
          * 
          * @param os - output stream
+         * @param projected - flag to write for "next" year
+         * @param closed - flag that directed fishery will be closed "next" year 
          */
         void write(std::ostream & os);
+        /**
+         * Writes parameter values to an output stream in ADMB pin-file format.
+         * 
+         * @param os - output stream
+         * @param projected - flag to write for "next" year
+         * @param closed - flag that directed fishery will be closed "next" year 
+         */
+        void writeToPin(std::ostream & os, int projected=0, int closed=0);
         /**
          * Writes to an output stream in R format.
          * 
@@ -781,8 +872,18 @@ class ModelParametersInfo{
          * Writes to an output stream in ADMB format.
          * 
          * @param os - output stream
+         * @param projected - flag to write for "next" year
+         * @param closed - flag that directed fishery will be closed "next" year 
          */
         void write(std::ostream & os);
+        /**
+         * Writes pin file to an output stream.
+         * 
+         * @param os - output stream
+         * @param projected - flag to write for "next" year
+         * @param closed - flag that directed fishery will be closed "next" year 
+         */
+        void writePin(std::ostream & os, int projected=0, int closed=0);
         /**
          * Writes to an output stream in R format.
          * 

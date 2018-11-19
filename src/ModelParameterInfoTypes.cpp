@@ -1635,9 +1635,11 @@ dvar_vector NumberVectorInfo::calcLogPriors(dvar_vector & pv){
     return lps;
 }
 
-/***************************************************************
-*   Read from stream.                                          *
-***************************************************************/
+/**
+ * Read from input stream in TCSAM02 format.
+ * 
+ * @param is
+ */
 void NumberVectorInfo::read(cifstream & is){
     if (debug) rpt::echo<<"starting NumberVectorInfo::read(cifstream & is) "<<this<<endl;
     is>>nNIs;
@@ -1658,9 +1660,11 @@ void NumberVectorInfo::read(cifstream & is){
     if (debug) rpt::echo<<"finished NumberVectorInfo::read(cifstream & is) "<<this<<endl;
 }
 
-/***************************************************************
-*   Write to stream.                                           *
-***************************************************************/
+/**
+ * Write to output stream in TCSAM02 format.
+ * 
+ * @param os
+ */
 void NumberVectorInfo::write(ostream & os){
     os<<tb<<nNIs<<"  #number of parameters"<<endl;
     os<<"#     param initial       resample  prior   prior  prior   prior"<<endl;
@@ -1671,9 +1675,29 @@ void NumberVectorInfo::write(ostream & os){
     }
 }
 
-/***************************************************************
-*   Write parameters info to stream in R format.               *
-***************************************************************/
+/**
+ * Write to output stream in ADMB pin-file format.
+ * 
+ * @param os
+ */
+void NumberVectorInfo::writeToPin(ostream & os){
+    if (nNIs){
+        for (int p=0;p<nNIs;p++) {
+            os<<"#"<<name<<"["<<p+1<<"]:"<<endl;
+            os<<ppNIs[p]->getFinalVal()<<endl;
+        }
+    } else {
+        os<<"#"<<name<<"[0]:"<<endl<<0.00<<endl;
+    }
+}
+
+/**
+ *   Write parameters info to stream in R format. 
+ * 
+ * @param os
+ * @param nm
+ * @param indent
+ */
 void NumberVectorInfo::writeToR(ostream& os, adstring nm, int indent){
     if (nNIs){
         os<<nm<<"=list("<<endl;
@@ -2013,6 +2037,22 @@ void VectorVectorInfo::write(ostream & os){
         for (int p=0;p<nVIs;p++) {
             if ((ppVIs[p])->readVals) os<<endl<<(ppVIs[p])->getInitVals();
         }
+    }
+}
+
+/**
+ * Write to output stream in ADMB pin-file format.
+ * 
+ * @param os
+ */
+void VectorVectorInfo::writeToPin(ostream & os){
+    if (nVIs){
+        for (int p=0;p<nVIs;p++) {
+            os<<"#"<<name<<"["<<p+1<<"]:"<<endl;
+            os<<ppVIs[p]->getFinalVals()<<endl;
+        }
+    } else {
+        os<<"#"<<name<<"[0]:"<<endl<<0.00<<endl;
     }
 }
 

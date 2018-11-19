@@ -13,9 +13,12 @@ using namespace tcsam;
 //      CatchData
 //      FleetData
 //**********************************************************************
-int EffortData::debug  = 0;
-int CatchData::debug   = 0;
-int FleetData::debug = 0;
+int EffortData::debug = 0;
+int CatchData::debug  = 0;
+int FleetData::debug  = 0;
+ostream& EffortData::os = std::cout;
+ostream& CatchData::os  = std::cout;
+ostream& FleetData::os  = std::cout;
 //----------------------------------------------------------------------
 //          EffortData
 //----------------------------------------------------------------------
@@ -176,6 +179,93 @@ void CatchData::replaceCatchData(int iSeed,random_number_generator& rng,d5_array
         if (debug) cout<<"replaced n-at-size data"<<endl;
     }
 }
+
+/**
+ * Adds catch data based on dvar4_arrray newNatZ_xmsz.
+ * 
+ * @param y - year to add
+ * @param newNatZ_xmsz - dvar4_array of catch numbers-at-size by sex/maturity/shell condition
+ * @param wAtZ_xmz - weight-at-size by sex/maturity
+ * @param cv - cv for aggregated catch sampling error
+ * @param ss - sample size for size frequency sampling error
+ * @param rng - random number generator
+ * 
+ * @return void
+ */
+void CatchData::addCatchData(int y, 
+                            dvar4_array& newNatZ_xmsz, 
+                            d3_array& wAtZ_xmz, 
+                            double cv, 
+                            double ss,
+                            random_number_generator& rng){
+    if (debug) cout<<"***starting CatchData::addCatchData("<<y<<",dvar4_array)"<<endl;
+    //convert newNatZ_xmsz to d4_array and process using associated method.
+    d4_array vNatZ_xmsz = wts::value(newNatZ_xmsz);
+    addCatchData(y,vNatZ_xmsz,wAtZ_xmz,cv,ss,rng);
+    if (debug) cout<<"***finished CatchData::addCatchData("<<y<<",dvar4_array)"<<endl;
+}
+
+/**
+ * Adds catch data based on d4_arrray newNatZ_xmsz.
+ * 
+ * @param y - year to add
+ * @param newNatZ_xmsz - d4_array of catch numbers-at-size by sex/maturity/shell condition
+ * @param wAtZ_xmz - weight-at-size by sex/maturity
+ * @param cv - cv for aggregated catch sampling error
+ * @param ss - sample size for size frequency sampling error
+ * @param rng - random number generator
+ * 
+ * @return void
+ */
+void CatchData::addCatchData(int y, 
+                            d4_array& newNatZ_xmsz, 
+                            d3_array& wAtZ_xmz, 
+                            double cv, 
+                            double ss,
+                            random_number_generator& rng){
+    if (debug) cout<<"***starting CatchData::addCatchData("<<y<<",d4_array)"<<endl;
+    if (debug) {
+        AggregateCatchData::debug=1;
+        SizeFrequencyData::debug=1;
+    }
+    if (hasN) {
+        if (debug) cout<<"adding abundance data"<<endl;
+        d3_array newN_xms(1,nSXs,1,nMSs,1,nSCs); newN_xms.initialize();
+        for (int x=1;x<=nSXs;x++) {
+            for (int m=1;m<=nMSs;m++) {
+                for (int s=1;s<=nSCs;s++) {
+                    if (debug) cout<<"x,m,s = "<<x<<cc<<m<<cc<<s<<endl;
+                    newN_xms(x,m,s) = sum(newNatZ_xmsz(x,m,s));
+                }
+            }
+        }                
+        ptrN->addCatchData(y,newN_xms);
+        if (debug) cout<<"added abundance data"<<endl;
+    }
+    if (hasB){
+        if (debug) cout<<"adding biomass data"<<endl;
+        d3_array newB_xms(1,nSXs,1,nMSs,1,nSCs); newB_xms.initialize();
+        for (int x=1;x<=nSXs;x++){
+            for (int m=1;m<=nMSs;m++){
+                for (int s=1;s<=nSCs;s++) 
+                    newB_xms(x,m,s) += newNatZ_xmsz(x,m,s)*wAtZ_xmz(x,m);
+            }
+        }
+        ptrB->addCatchData(y,newB_xms);
+        if (debug) cout<<"added biomass data"<<endl;
+    }
+    if (hasZFD){
+        if (debug) cout<<"adding n-at-size data"<<endl;
+        ptrZFD->addSizeFrequencyData(y,newNatZ_xmsz);
+        if (debug) cout<<"added n-at-size data"<<endl;
+    }
+    if (debug) {
+        AggregateCatchData::debug=0;
+        SizeFrequencyData::debug=0;
+    }
+    if (debug) cout<<"***finished CatchData::addCatchData("<<y<<",d4_array)"<<endl;
+}
+
 /***************************************************************
 *   read.                                                      *
 ***************************************************************/
@@ -280,97 +370,6 @@ void CatchData::writeToR(ostream& os, std::string nm, int indent) {
     if (debug) cout<<"CatchData::done writing to R"<<endl;
 }
 /////////////////////////////////end CatchData/////////////////////////
-////----------------------------------------------------------------------
-////          SurveyData
-////----------------------------------------------------------------------
-//const adstring SurveyData::KW_SURVEY_DATA = "SURVEY_DATA";
-///**
-// * Constructor.
-// */
-//SurveyData::SurveyData(){
-//    hasICD = 0; ptrICD = 0;
-//}
-///**
-// * Destructor.
-// */
-//SurveyData::~SurveyData(){
-//    if (ptrICD) delete ptrICD; ptrICD = 0;
-//}
-//
-///***************************************************************
-//*   read.                                                      *
-//***************************************************************/
-//void SurveyData::read(cifstream & is){
-//    if (debug) {
-//        cout<<"start SurveyData::read(...) for "<<type<<endl;
-//        cout<<"#------------------------------------------"<<endl;
-//        cout<<"#file name is "<<is.get_file_name()<<endl;
-//        cout<<"#------------------------------------------"<<endl;
-//    }
-//    if (!is) {
-//        cout<<"Apparent error reading SurveyData for "<<type<<endl;
-//        cout<<"#file name is "<<is.get_file_name()<<endl;
-//        cout<<"File stream is 'bad'--file may not exist!"<<endl;
-//        cout<<"Terminating!!"<<endl;
-//        exit(-1);
-//    }
-//    adstring str;
-//    is>>str;
-//    rpt::echo<<str<<tb<<"#Required keyword"<<endl;
-//    if (!(str==KW_SURVEY_DATA)){
-//        cout<<"#Error reading survey data from "<<is.get_file_name()<<endl;
-//        cout<<"Expected keyword '"<<KW_SURVEY_DATA<<"' but got '"<<str<<"'"<<endl;
-//        cout<<"Aborting..."<<endl;
-//        exit(-1);
-//    }
-//    
-//    is>>name;//survey name
-//    is>>str; hasICD = wts::getBooleanType(str);//has index catch data?
-//    
-//    rpt::echo<<name<<tb<<"#survey source name"<<endl;
-//    rpt::echo<<wts::getBooleanType(hasICD)<<tb<<"#has observed index catch data?"<<endl;
-//    
-//    //-----------Index Catch Data--------------------------
-//    if (hasICD){
-//        ptrICD = new CatchData();
-//        rpt::echo<<"#---Reading index catch data for "<<name<<endl;
-//        is>>(*ptrICD);
-//        rpt::echo<<"#---Read index catch data"<<endl;
-//    }
-//    
-//    if (debug) cout<<"end SurveyData::read(...) "<<this<<endl;
-//}
-///***************************************************************
-//*   write.                                                     *
-//***************************************************************/
-//void SurveyData::write(ostream & os){
-//    if (debug) cout<<"start SurveyData::write(...) "<<this<<endl;
-//    os<<KW_SURVEY_DATA<<tb<<"#required keyword"<<endl;
-//    os<<name<<tb<<"#survey name"<<endl;
-//    CatchData::write(os);//use parent class to write remainder
-//    if (debug) cout<<"end SurveyData::write(...) "<<this<<endl;
-//}
-///***************************************************************
-//*   Function to write object to R list.                        *
-//***************************************************************/
-//void SurveyData::writeToR(ostream& os, std::string nm, int indent) {
-//    if (debug) cout<<"SurveyData::writing to R"<<endl;
-//    for (int n=0;n<indent;n++) os<<tb;
-//    os<<nm<<"=list(name="<<qt<<wts::replace('_',' ',name)<<qt<<cc<<endl;
-//    indent++;
-//        //abundance
-//        if (hasN) {ptrN->writeToR(os,"abundance",indent); os<<cc<<endl;}
-//        
-//        //biomass
-//        if (hasB) {ptrB->writeToR(os,"biomass",indent); os<<cc<<endl;}
-//        
-//        //NatZ
-//        if (hasZFD) {ptrZFD->writeToR(os,"nAtZ",indent++); os<<cc<<endl;}
-//    indent--;
-//    os<<"dummy=0)";
-//    if (debug) cout<<"SurveyData::done writing to R"<<endl;
-//}
-/////////////////////////////////end SurveyData/////////////////////////
 //----------------------------------------------------------------------
 //          FleetData
 //----------------------------------------------------------------------
@@ -405,7 +404,10 @@ FleetData::~FleetData(){
  * @param newNatZ_yxmsz - index catch data array
  * @param wAtZ_xmz - weight-at-size array
  */
-void FleetData::replaceIndexCatchData(int iSeed,random_number_generator& rng,d5_array& newNatZ_yxmsz, d3_array& wAtZ_xmz){
+void FleetData::replaceIndexCatchData(int iSeed,
+                                      random_number_generator& rng,
+                                      d5_array& newNatZ_yxmsz, 
+                                      d3_array& wAtZ_xmz){
     if (hasICD) {
         if (debug) cout<<"replacing index catch data"<<endl;
         ptrICD->replaceCatchData(iSeed,rng,newNatZ_yxmsz,wAtZ_xmz);
@@ -421,7 +423,11 @@ void FleetData::replaceIndexCatchData(int iSeed,random_number_generator& rng,d5_
  * @param newRatZ_yxmsz - retained catch data array
  * @param wAtZ_xmz      - weight-at-size array
  */
-void FleetData::replaceFisheryCatchData(int iSeed,random_number_generator& rng,d5_array& newCatZ_yxmsz,d5_array& newRatZ_yxmsz,d3_array& wAtZ_xmz){
+void FleetData::replaceFisheryCatchData(int iSeed,
+                                        random_number_generator& rng,
+                                        d5_array& newCatZ_yxmsz,
+                                        d5_array& newRatZ_yxmsz,
+                                        d3_array& wAtZ_xmz){
     if (hasTCD) {
         if (debug) cout<<"replacing total catch data"<<endl;
         ptrTCD->replaceCatchData(iSeed,rng,newCatZ_yxmsz,wAtZ_xmz);
@@ -455,6 +461,84 @@ void FleetData::replaceFisheryCatchData(int iSeed,random_number_generator& rng,d
         ptrDCD->replaceCatchData(iSeed,rng,newDatZ_yxmsz,wAtZ_xmz);
         if (debug) cout<<"replaced discard catch data"<<endl;
     }
+}
+/**
+ * Add new year of index (survey) catch data to existing data.
+ * 
+ * @param y - year
+ * @param newNatZ_xmsz - dvar4_array with index catch data
+ * @param wAtZ_xmz - weight-at-size array
+ * @param cv - cv for aggregated catch sampling error
+ * @param ss - sample size for size frequency sampling error
+ * @param rng - random number generator
+ * 
+ * @return void
+ */
+void FleetData::addIndexCatchData(int y, 
+                                  dvar4_array& newNatZ_xmsz, 
+                                  d3_array& wAtZ_xmz, 
+                                  double cv, 
+                                  double ss,
+                                  random_number_generator& rng){
+    if (debug) cout<<"starting FleetData::updateIndexCatchData("<<y<<",...)"<<endl;
+    if (debug) CatchData::debug = 1;
+    if (hasICD) {
+        if (debug) cout<<"updating index catch data for year "<<y<<endl;
+        ptrICD->addCatchData(y, newNatZ_xmsz, wAtZ_xmz, cv, ss, rng);
+        if (debug) cout<<"updated index catch data"<<endl;
+    }
+    if (debug) CatchData::debug = 0;
+    if (debug) cout<<"finished FleetData::updateIndexCatchData("<<y<<",...)"<<endl;
+}
+/**
+ * Add a new year of fishery catch (retained, discarded, total) data to existing data.
+ * 
+ * @param y - year
+ * @param newCatZ_xmsz - total catch data array
+ * @param newRatZ_xmsz - retained catch data array
+ * @param wAtZ_xmz      - weight-at-size array
+ * @param cv - cv for aggregated catch sampling error
+ * @param ss - sample size for size frequency sampling error
+ * @param rng - random number generator
+ * 
+ * @return void
+ */
+void FleetData::addFisheryCatchData(int y, 
+                                    dvar4_array& newCatZ_xmsz, 
+                                    dvar4_array& newRatZ_xmsz,
+                                    d3_array& wAtZ_xmz, 
+                                    double cv,
+                                    double ss,
+                                    random_number_generator& rng){
+    if (debug) cout<<"starting FleetData::addFisheryCatchData("<<y<<",...)"<<endl;
+    if (debug) CatchData::debug = 1;
+    if (hasTCD) {
+        if (debug) cout<<"adding total catch data"<<endl;
+        ptrTCD->addCatchData(y, newCatZ_xmsz, wAtZ_xmz, cv, ss, rng);
+        if (debug) cout<<"added total catch data"<<endl;
+    }
+    if (hasRCD) {
+        if (debug) cout<<"adding retained catch data"<<endl;
+        ptrRCD->addCatchData(y, newRatZ_xmsz, wAtZ_xmz, cv, ss, rng);
+        if (debug) cout<<"added retained catch data"<<endl;
+    }
+    if (hasDCD) {
+        if (debug) cout<<"adding discard catch data"<<endl;
+        ivector bnds = wts::getBounds(newCatZ_xmsz);
+        d4_array newDatZ_xmsz(bnds(1),bnds(2),bnds(3),bnds(4),bnds(5),bnds(6),bnds(7),bnds(8)); 
+        newDatZ_xmsz.initialize();
+        for (int x=1;x<=nSXs;x++){
+            for (int m=1;m<=nMSs;m++){
+                for (int s=1;s<=nSCs;s++) {
+                    newDatZ_xmsz(x,m,s) = value(newCatZ_xmsz(x,m,s)-newRatZ_xmsz(x,m,s));
+                }
+            }
+        }
+        ptrDCD->addCatchData(y, newDatZ_xmsz, wAtZ_xmz, cv, ss, rng);
+        if (debug) cout<<"added discard catch data"<<endl;
+    }
+    if (debug) CatchData::debug = 0;
+    if (debug) cout<<"finished FleetData::addFisheryCatchData("<<y<<",...)"<<endl;
 }
 
 /***************************************************************

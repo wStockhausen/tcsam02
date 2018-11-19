@@ -196,15 +196,40 @@ namespace tcsam {
     d6_array rearrangeIYXMSZtoIXMSYZ(d6_array& n_iyxmsz);
     
     /**
-     * Extract (possibly summary) vector from 5d array w/ indices
-     * x,m,s,y,z.
+     * Extract (possibly summary) value from 3d array w/ indices
+     * x,m,s.
      * 
-    * @param x
-    * @param m
-    * @param s
-    * @param y
-    * @param n_xmsyz
-     * @return extracted vector (indices consistent with z)
+     * @param x - sex index             (tcsam::ALL_SXs yields sum over sex)
+     * @param m - maturity index        (tcsam::ALL_MSs yields sum over maturity state)
+     * @param s - shell condition index (tcsam::ALL_SCs yields sum over shell condition)
+     * @param n_xms - d3_array from which to extract value
+     * 
+     * @return extracted double value
+     */
+    double extractFromXMS(int x, int m, int s, d3_array& n_xms);
+    
+    /**
+     * Extract (possibly summary) vector from 4d array.
+     * 
+     * @param x - sex index             (tcsam::ALL_SXs yields sum over sex)
+     * @param m - maturity index        (tcsam::ALL_MSs yields sum over maturity state)
+     * @param s - shell condition index (tcsam::ALL_SCs yields sum over shell condition)
+     * @param n_xmsz - d4_array from which to extract vector at z's
+     * 
+     * @return extracted vector (indices consistent with z's)
+     */
+    dvector extractFromXMSZ(int x, int m, int s, d4_array& n_yxmsz);
+    
+    /**
+     * Extract (possibly summary) vector from 5d array.
+     * 
+     * @param x - sex index             (tcsam::ALL_SXs yields sum over sex)
+     * @param m - maturity index        (tcsam::ALL_MSs yields sum over maturity state)
+     * @param s - shell condition index (tcsam::ALL_SCs yields sum over shell condition)
+     * @param y - year index
+     * @param n_xmsyz - d5_array from which to extract vector at z's
+     * 
+     * @return extracted vector (indices consistent with z's)
      */
     dvector extractFromXMSYZ(int x, int m, int s, int y, d5_array& n_xmsyz);
     
@@ -212,12 +237,13 @@ namespace tcsam {
      * Extract (possibly summary) value from 4d array w/ indices
      * y,x,m,s.
      * 
-    * @param y
-    * @param x
-    * @param m
-    * @param s
-    * @param n_yxms
-     * @return extracted value
+     * @param y - year index
+     * @param x - sex index             (tcsam::ALL_SXs yields sum over sex)
+     * @param m - maturity index        (tcsam::ALL_MSs yields sum over maturity state)
+     * @param s - shell condition index (tcsam::ALL_SCs yields sum over shell condition)
+     * @param n_yxms - d4_array from which to extract value
+     * 
+     * @return extracted double value
      */
     double extractFromYXMS(int y, int x, int m, int s, d4_array& n_yxms);
     
@@ -225,12 +251,13 @@ namespace tcsam {
      * Extract (possibly summary) vector from 5d array w/ indices
      * y,x,m,s,z.
      * 
-    * @param y
-    * @param x
-    * @param m
-    * @param s
-    * @param n_yxmsz
-     * @return extracted vector (indices consistent with z)
+     * @param y - year index
+     * @param x - sex index             (tcsam::ALL_SXs yields sum over sex)
+     * @param m - maturity index        (tcsam::ALL_MSs yields sum over maturity state)
+     * @param s - shell condition index (tcsam::ALL_SCs yields sum over shell condition)
+     * @param n_yxmsz - d5_array from which to extract vector at z's
+     * 
+     * @return extracted vector (indices consistent with z's)
      */
     dvector extractFromYXMSZ(int y, int x, int m, int s, d5_array& n_yxmsz);
 }

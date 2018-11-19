@@ -485,6 +485,70 @@ d6_array tcsam::rearrangeIYXMSZtoIXMSYZ(d6_array& n_iyxmsz){
 }
 
 /**
+ * Extract (possibly summary) value from 3d array w/ indices
+ * x,m,s.
+ * 
+ * @param x - sex index             (tcsam::ALL_SXs yields sum over sex)
+ * @param m - maturity index        (tcsam::ALL_MSs yields sum over maturity state)
+ * @param s - shell condition index (tcsam::ALL_SCs yields sum over shell condition)
+ * @param n_xms - d3_array from which to extract value
+ * 
+ * @return extracted double value
+ */
+double tcsam::extractFromXMS(int x, int m, int s, d3_array& n_xms){
+    int xmn, xmx;
+    xmn = xmx = x; if (x==tcsam::ALL_SXs) {xmn = 1; xmx = tcsam::nSXs;}
+    int mmn, mmx;
+    mmn = mmx = m; if (m==tcsam::ALL_MSs) {mmn = 1; mmx = tcsam::nMSs;}
+    int smn, smx;
+    smn = smx = s; if (s==tcsam::ALL_SCs) {smn = 1; smx = tcsam::nSCs;}
+    double v = 0.0;
+    for (int xp=xmn;xp<=xmx;xp++){
+        for (int mp=mmn;mp<=mmx;mp++){
+            for (int sp=smn;sp<=smx;sp++){
+                v += n_xms(xp,mp,sp);
+            }
+        }
+    }
+    return(v);
+}
+
+/**
+ * Extract (possibly summary) vector from 4d array.
+ * 
+ * @param x - sex index             (tcsam::ALL_SXs yields sum over sex)
+ * @param m - maturity index        (tcsam::ALL_MSs yields sum over maturity state)
+ * @param s - shell condition index (tcsam::ALL_SCs yields sum over shell condition)
+ * @param n_xmsz - d4_array from which to extract vector at z's
+ * 
+ * @return extracted vector (indices consistent with z's)
+ */
+dvector tcsam::extractFromXMSZ(int x, int m, int s, d4_array& n_xmsz){
+    ivector bnds = wts::getBounds(n_xmsz);
+//    cout<<"in tcsam::extractFromXMSZ. bnds = "<<bnds<<endl;
+    dvector n_z(bnds(7),bnds(8));//dimension for z index
+//    cout<<"in tcsam::extractFromXMSZ. bnds(7,8) = "<<bnds(7,8)<<endl;
+//    cout<<"in tcsam::extractFromXMSZ. bnds(n_z) = "<<n_z.indexmin()<<tb<<n_z.indexmax()<<endl;
+    int xmn, xmx;
+    xmn = xmx = x; if (x==tcsam::ALL_SXs) {xmn = 1; xmx = tcsam::nSXs;}
+    int mmn, mmx;
+    mmn = mmx = m; if (m==tcsam::ALL_MSs) {mmn = 1; mmx = tcsam::nMSs;}
+    int smn, smx;
+    smn = smx = s; if (s==tcsam::ALL_SCs) {smn = 1; smx = tcsam::nSCs;}
+    n_z.initialize();
+    for (int xp=xmn;xp<=xmx;xp++){
+        for (int mp=mmn;mp<=mmx;mp++){
+            for (int sp=smn;sp<=smx;sp++){
+//                cout<<"xp,mp,sp = "<<xp<<cc<<mp<<cc<<sp<<endl;
+//                cout<<"bnds(n_xmsz) = "<<n_xmsz(xp,mp,sp).indexmin()<<tb<<n_xmsz(xp,mp,sp).indexmax()<<endl;
+                n_z += n_xmsz(xp,mp,sp);
+            }
+        }
+    }
+    return(n_z);
+}
+
+/**
  * Extract (possibly summary) vector from 5d array.
  * 
  * @param x - sex index             (tcsam::ALL_SXs yields sum over sex)

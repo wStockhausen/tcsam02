@@ -47,7 +47,10 @@ class IndexBlock;
      */
     class AggregateCatchData {
     public:
+        /** flag to print debugging info */
         static int debug;
+        /** stream to write debugging info */
+        static ostream& os;
         /* keyword indicating abundance (numbers) data */
         const static adstring KW_ABUNDANCE_DATA;
         /* keyword indicating biomass (weight) data */
@@ -86,6 +89,14 @@ class IndexBlock;
          * @param newC_xmsy - d4_array with new catch data
          */
         void replaceCatchData(int iSeed,random_number_generator& rng,d4_array& newC_xmsy);
+        /**
+         * Update catch data C_xmsy with data for new year 
+         * Also modifies inpC_xmsyc to reflect new data.
+         * 
+         * @param y - year to add
+         * @param newC_xms - d3_array with new catch data
+         */
+        void addCatchData(int y ,d3_array& newC_xms);
         void read(cifstream & is);//read file in ADMB format
         void write(std::ostream & os); //write object to file in ADMB format
         void writeToR(std::ostream& os, std::string nm, int indent=0);//write object to R file as list
@@ -108,8 +119,10 @@ class IndexBlock;
      */
     class EffortData {
     public:
-        /* flag to print debugging info */
+        /** flag to print debugging info */
         static int debug;
+        /** stream to write debugging info */
+        static ostream& os;
         /* keyword indicating effort data */
         const static adstring KW_EFFORT_DATA;
     public:
@@ -174,7 +187,10 @@ class IndexBlock;
      */
     class SizeFrequencyData {
     public:
+        /** flag to print debugging info */
         static int debug;
+        /** stream to write debugging info */
+        static std::ostream& os;
         /* keyword indicating size frequency data */
         const static adstring KW_SIZEFREQUENCY_DATA;
     private:
@@ -236,6 +252,14 @@ class IndexBlock;
          */
         void replaceSizeFrequencyData(int iSeed,random_number_generator& rng,d5_array& newNatZ_xmsyz);
         /**
+         * Update catch-at-size data NatZ_xmsyz with new data for year y. 
+         * Also modifies inpNatZ_xmsyc to reflect new data.
+         * 
+         * @param y - year
+         * @param newNatZ_xmsz - d4_array with new numbers-at-size data
+         */
+        void addSizeFrequencyData(int y, d4_array& newNatZ_xmsz);
+        /**
          * Save the negative log-likelihoods from a model fit (values only).
          * 
          * @param nlls
@@ -293,7 +317,10 @@ class IndexBlock;
      */
     class BioData {
     public:
+        /** flag to print debugging info */
         static int debug;
+        /** stream to write debugging info */
+        static std::ostream& os;
         const static adstring KW_BIO_DATA;
     public:
         int nZBins;           //number of size bin cut pts
@@ -328,7 +355,10 @@ class IndexBlock;
      */
     class CatchData {
     public:
+        /** flag to print debugging info */
         static int debug;
+        /** stream to write debugging info */
+        static std::ostream& os;
         const static adstring KW_CATCH_DATA;
     protected:
         dmatrix inpN_yc;       //input catch abundance data (year,female abundance,female cv,male abundance, male cv, total abundance, cv_total)
@@ -360,11 +390,66 @@ class IndexBlock;
          * @param iSeed - flag (!=0) to add random noise
          * @param rng - random number generator
          * @param newNatZ_yxmsz - d5_array of catch-at-size by sex/maturity/shell condition/year
-         * @param wAtZ_xmz - d3_arrray of weight-at-size by sex/maturity
+         * @param wAtZ_xmz - d3_array of weight-at-size by sex/maturity
          */
         virtual void replaceCatchData(int iSeed,random_number_generator& rng,d5_array& newNatZ_yxmsz, d3_array& wAtZ_xmz);
+        /**
+         * Adds a new year of catch data based on dvar4_array newNatZ_xmsz to existing data.
+         * 
+         * @param y - year to add
+         * @param newNatZ_xmsz - dvar4_array of catch numbers-at-size by sex/maturity/shell condition
+         * @param wAtZ_xmz - weight-at-size by sex/maturity
+         * @param cv - cv for aggregated catch sampling error
+         * @param ss - sample size for size frequency sampling error
+         * @param rng - random number generator
+         * 
+         * @return void
+         */
+        virtual void addCatchData(int y, 
+                                  dvar4_array& newNatZ_xmsz, 
+                                  d3_array& wAtZ_xmz, 
+                                  double cv, 
+                                  double ss,
+                                  random_number_generator& rng);
+        /**
+         * Adds a new year of catch data based on d4_array newNatZ_xmsz to existing data.
+         * 
+         * @param y - year to add
+         * @param newNatZ_xmsz - d4_array of catch numbers-at-size by sex/maturity/shell condition
+         * @param wAtZ_xmz - weight-at-size by sex/maturity
+         * @param cv - cv for aggregated catch sampling error
+         * @param ss - sample size for size frequency sampling error
+         * @param rng - random number generator
+         * 
+         * @return void
+         */
+        virtual void addCatchData(int y, 
+                                  d4_array& newNatZ_xmsz, 
+                                  d3_array& wAtZ_xmz, 
+                                  double cv, 
+                                  double ss,
+                                  random_number_generator& rng);
+        /**
+         * Read a data file in ADMB format.
+         * 
+         * @param is - input filestream to read from
+         */
         virtual void read(cifstream & is);//read file in ADMB format
+        /**
+         * Write a data file in ADMB format.
+         * 
+         * @param os
+         * @param nm
+         * @param indent
+         */
         virtual void write(std::ostream & os); //write object to file in ADMB format
+        /**
+         * Write a data file in R format.
+         * 
+         * @param os
+         * @param nm
+         * @param indent
+         */
         virtual void writeToR(std::ostream& os, std::string nm, int indent=0);//write object to R file as list
         /**
          * Operator to read ADMB-formatted data from an input stream into a CatchData object.
@@ -381,6 +466,8 @@ class IndexBlock;
     public:
         /** flag to print debugging info */
         static int debug;
+        /** stream to write debugging info */
+        static ostream& os;
         /** key word indicating fishery data */
         const static adstring KW_FISHERY;
         /** key word indicating survey data */
@@ -420,7 +507,7 @@ class IndexBlock;
          */
         ~FleetData();
         /**
-         * Replace existing catch data with new values.
+         * Replace existing index catch data with new values.
          * 
          * @param iSeed - flag (!=0) to add random noise
          * @param rng - random number generator
@@ -438,6 +525,44 @@ class IndexBlock;
          * @param wAtZ_xmz      - weight-at-size array
          */
         void replaceFisheryCatchData(int iSeed,random_number_generator& rng,d5_array& newCatZ_yxmsz,d5_array& newRatZ_yxmsz,d3_array& wAtZ_xmz);
+        /**
+         * Add a new year of index catch data to existing data.
+         * 
+         * @param y - year to add
+         * @param newNatZ_xmsz - dvar4_array of catch data
+         * @param wAtZ_xmz - weight-at-size array
+         * @param cv - cv for aggregated catch sampling error
+         * @param ss - sample size for size frequency sampling error
+         * @param rng - random number generator
+         * 
+         * @return void
+         */
+        void addIndexCatchData(int y, 
+                                dvar4_array& newNatZ_xmsz, 
+                                d3_array& wAtZ_xmz, 
+                                double cv, 
+                                double ss,
+                                random_number_generator& rng);
+        /**
+         * Add a new year of fishery catch (retained, discarded, total) data to existing.
+         * 
+         * @param y - year to add
+         * @param newCatZ_xmsz - dvar4_array of total catch data
+         * @param newRatZ_xmsz - dvar4_array of retained catch data
+         * @param wAtZ_xmz - weight-at-size array
+         * @param cv - cv for aggregated catch sampling error
+         * @param ss - sample size for size frequency sampling error
+         * @param rng - random number generator
+         * 
+         * @return void
+         */
+        void addFisheryCatchData(int y, 
+                                dvar4_array& newCatZ_xmsz, 
+                                dvar4_array& newRatZ_xmsz, 
+                                d3_array& wAtZ_xmz,
+                                double cv, 
+                                double ss,
+                                random_number_generator& rng);
         /**
          * Read input file in ADMB format from input stream.
          * 
@@ -468,6 +593,8 @@ class IndexBlock;
     public:
         /** flag to print debugging info */
         static int debug;
+        /** stream to write debugging info */
+        static ostream& os;
         /** keyword indicating effort data */
         const static adstring KW_GROWTH_DATA;
     public:
@@ -529,6 +656,8 @@ class IndexBlock;
     public:
         /** flag to print debugging info */
         static int debug;
+        /** stream to write debugging info */
+        static ostream& os;
         /** keyword indicating effort data */
         const static adstring KW_CHELAHEIGHT_DATA;
     public:
@@ -607,6 +736,8 @@ class IndexBlock;
     public:
         /** flag to print debugging info */
         static int debug;
+        /** stream to write debugging info */
+        static ostream& os;
     public:
         /** pointer to ModelConfiguration object */
         ModelConfiguration* pMC;
@@ -645,8 +776,31 @@ class IndexBlock;
     public:
         ModelDatasets(ModelConfiguration* ptrMC);
         ~ModelDatasets();
+        /**
+         * Read from ModelDatasets file in ADMB format.
+         * 
+         * @param is - input filestream to read from
+         */
         void read(cifstream & is);//read file in ADMB format
+        /**
+         * Write to ModelDatasets file in ADMB format.
+         * 
+         * @param fn - file name
+         */
+        void write(adstring fn); 
+        /**
+         * Write to ModelDatasets file in ADMB format.
+         * 
+         * @param os - output stream
+         */
         void write(std::ostream & os); //write object to file in ADMB format
+        /**
+         * Write to MosdelDatasets file in R format.
+         * 
+         * @param os - output stream
+         * @param nm - name of object to write
+         * @param indent - number of tabs to indent by
+         */
         void writeToR(std::ostream& os, std::string nm, int indent=0);//write object to R file as list
         /**
          * Operator to read ADMB-formatted data from an input stream into a ModelDatasets object.

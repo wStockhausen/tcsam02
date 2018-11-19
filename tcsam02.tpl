@@ -463,6 +463,9 @@
 //-2018-11-13:  1.Changes to allow pMSE_LnC to be estimated correctly. Now need to
 //                  figure out how to write output files to step between MSE OpMod 
 //                  and EstMod iterations.
+//-2018-11-18: 1. Lots of changes to tcsam02, ModelParametersInfo, ModelParameterInfoTypes,
+//                  ModelData, CatchData, and SummartFunctions to incorporate
+//                  necessary MSE OpMod gyrations (not completed yet, but getting there).
 //
 // =============================================================================
 // =============================================================================
@@ -634,7 +637,12 @@ DATA_SECTION
     if ((on=option_match(ad_comm::argc,ad_comm::argv,"-pin"))>-1) {
         usePin = 1;
         fnPin = ad_comm::argv[on+1];
-        rpt::echo<<"#Initial parameter values from pin file: "<<fnPin<<endl;
+        if (std::fstream(fnPin)){
+            ad_comm::change_pinfile_name(fnPin);
+            rpt::echo<<"#Initial parameter values from pin file: "<<fnPin<<endl;
+        } else {
+            rpt::echo<<"#Initial parameter values from pin file: tcsam02.pin"<<endl;
+        }
         rpt::echo<<"#-------------------------------------------"<<endl;
     }
     //parameter input file
@@ -1637,9 +1645,10 @@ PARAMETER_SECTION
     5darray prj_rmN_fxmsz(1,nFsh,1,nSXs,1,nMSs,1,nSCs,1,nZBs);
     5darray prj_dmN_fxmsz(1,nFsh,1,nSXs,1,nMSs,1,nSCs,1,nZBs);
     5darray prj_dsN_fxmsz(1,nFsh,1,nSXs,1,nMSs,1,nSCs,1,nZBs);
-    matrix prjRetCatchMortBio_fx(1,nFsh,1,nSXs);
-    matrix prjDscCatchMortBio_fx(1,nFsh,1,nSXs);
-    matrix prjTotCatchMortBio_fx(1,nFsh,1,nSXs);
+    matrix prjRetCatchMortBio_fx(1,nFsh,1,nSXs);              //projected retained catch mortality (biomass))
+    matrix prjDscCatchMortBio_fx(1,nFsh,1,nSXs);              //projected discard catch mortality (biomass)
+    matrix prjTotCatchMortBio_fx(1,nFsh,1,nSXs);              //projected total catch mortality (biomass))
+    5darray prj_n_vxmsz(1,nSrv,1,nSXs,1,nMSs,1,nSCs,1,nZBs);  //projected surveys abundance
 
     //objective function penalties
     vector fPenRecDevs(1,npDevsLnR);//recruitment devs penalties
@@ -7226,6 +7235,9 @@ FUNCTION void updateMPI(int debug, ostream& cout)
     ptrMPI->ptrSrv->pDQ3->setFinalValsFromParamVals(pDQ3);
     ptrMPI->ptrSrv->pDQ4->setFinalValsFromParamVals(pDQ4);
     
+    //MSE-related parameters
+    ptrMPI->ptrMSE->pMSE_LnC->setFinalValsFromParamVals(pMSE_LnC);
+    
     if (debug) cout<<"Finished updateMPI(...)"<<endl;
 
 //-------------------------------------------------------------------------------------
@@ -7938,17 +7950,122 @@ FINAL_SECTION
         projectPopForTAC(mseCapF,0,cout);
         calcObjFunForTAC(dbgObjFun,cout);
         PRINT2B2("#--Final obj fun = ",objFun)
-
-        //--generate year-end recruitment here or previously??
-        //--will need mean ln-scale rec., recruitment CV, and random draw
-
-        //--write fisheries data files 
-        //----only need to update just-finished year
-
-        //--write surveys data files
-        //----only need to update just-starting year            
+                
+        //--define parent folder for subsequent files
+        ptrMC->mxYr   = mxYr+1;
+        ptrMC->asYr   = ptrMC->asYr+1;
+        adstring parent = "../EstMod"+str(ptrMC->asYr);
+                
+        //--write model configuration file for estimation model in mxYr+1
+        ptrMC->fnMDS  = "ModelDatasets.dat";
+        ptrMC->fnMOs  = "ModelOptions.dat";
+        ptrMC->fnMPI  = "ModelParametersInfo.dat";
+        adstring nwMC = wts::concatenateFilePaths(parent,
+                                                  "ConfigurationFile.dat");
+        rpt::echo<<"writing MC to '"<<nwMC<<"'"<<endl;
+        ptrMC->write(nwMC);
+        
+        //--write model datasets file and dataset files for estimation model in mxYr+1
+        //--bio data
+        {
+            ptrMDS->fnBioData = "Data.BioInfo.dat";
+            adstring nwF = wts::concatenateFilePaths(parent,ptrMDS->fnBioData);
+            ofstream ofs; ofs.open(nwF,ios::trunc);
+            ptrMDS->ptrBio->write(ofs);
+            ofs.close();
+        }
+        //--fishery data
+        for (int i=1;i<=ptrMDS->nFsh;i++){
+            adstring name  = ptrMDS->ppFsh[i-1]->name;
+            ptrMDS->fnsFisheryData[i] = "Data.Fishery."+name+".dat";
+            //update fishery data for year mxYr+1
+            FleetData::debug=0;
+            ptrMDS->ppFsh[i-1]->addFisheryCatchData(ptrMC->mxYr,
+                                                    prj_cpN_fxmsz(i),
+                                                    prj_rmN_fxmsz(i),
+                                                    ptrMDS->ptrBio->wAtZ_xmz,
+                                                    0.0,
+                                                    0.0,
+                                                    rng);
+            //write new fishery data
+            adstring nwF = wts::concatenateFilePaths(parent,ptrMDS->fnsFisheryData[i]);
+            ofstream ofs; ofs.open(nwF,ios::trunc);
+            ptrMDS->ppFsh[i-1]->write(ofs);
+            ofs.close();
+            FleetData::debug=0;
+        }
+        //--survey data
+        //----calculate survey data for year mxYr+1
+        cout<<"Calculating survey data for for year "<<ptrMC->mxYr+1<<endl;
+        prj_n_vxmsz.initialize();
+        for (int v=1;v<=nSrv;v++){
+            for (int x=1;x<=nSXs;x++){
+                for (int m=1;m<=nMSs;m++){
+                    for (int s=1;s<=nSCs;s++){
+                        //NOTE: using survey characteristics from final year of "real" data
+                        prj_n_vxmsz(v,x,m,s) = elem_prod(q_vyxmsz(v,ptrMC->mxYr,x,m,s),prj_n_xmsz(x,m,s));
+                    }
+                }
+            }
+        }
+        cout<<"Calculated survey data for for year "<<ptrMC->mxYr+1<<endl;
+        //----write survey data files
+        for (int i=1;i<=ptrMDS->nSrv;i++){
+            adstring name  = ptrMDS->ppSrv[i-1]->name;
+            ptrMDS->fnsSurveyData[i] = "Data.Survey."+name+".dat";
+            //update survey data for year mxYr+1
+            FleetData::debug=1;
+            ptrMDS->ppSrv[i-1]->addIndexCatchData(ptrMC->mxYr+1,
+                                                  prj_n_vxmsz(i),
+                                                  ptrMDS->ptrBio->wAtZ_xmz,
+                                                  0.0,
+                                                  0.0,
+                                                  rng);
+            
+            //write new survey data
+            adstring nwF = wts::concatenateFilePaths(parent,ptrMDS->fnsSurveyData[i]);
+            ofstream ofs; ofs.open(nwF,ios::trunc);
+            ptrMDS->ppSrv[i-1]->write(ofs);
+            ofs.close();
+            FleetData::debug=0;
+        }
+        //--growth data
+        for (int i=1;i<=ptrMDS->nGrw;i++){
+            adstring name  = ptrMDS->ppGrw[i-1]->name;
+            ptrMDS->fnsGrowthData[i] = "Data.Growth."+name+".dat";
+            //update growth data for year mxYr+1
+            
+            //write new survey data
+            adstring nwF = wts::concatenateFilePaths(parent,ptrMDS->fnsGrowthData[i]);
+            ofstream ofs; ofs.open(nwF,ios::trunc);
+            ptrMDS->ppGrw[i-1]->write(ofs);
+            ofs.close();
+        }
+        //--chela height data
+        for (int i=1;i<=ptrMDS->nCHD;i++){
+            adstring name  = ptrMDS->ppCHD[i-1]->name;
+            ptrMDS->fnsChelaHeightData[i] = "Data.CHD."+name+".dat";
+            //update chela height data for year mxYr+1
+            
+            //write new chela height data
+            adstring nwF = wts::concatenateFilePaths(parent,ptrMDS->fnsChelaHeightData[i]);
+            ofstream ofs; ofs.open(nwF,ios::trunc);
+            ptrMDS->ppCHD[i-1]->write(ofs);
+            ofs.close();
+        }
+        adstring nwMDS = wts::concatenateFilePaths(parent,
+                                                   ptrMC->fnMDS);
+        rpt::echo<<"writing MDS to '"<<nwMDS<<"'"<<endl;
+        ptrMDS->write(nwMDS);
+        
+        //--write ModelOptions for OpMod
+        
+        //--write MPI for OpMod
+        updateMPI(0,cout);
 
         //--write pin file for OpMod for subsequent year
+        rpt::echo<<"#####---Projected Pin File"<<endl;
+        ptrMPI->writePin(rpt::echo,1,0);
 
     }//mseOpModMode
     

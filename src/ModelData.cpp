@@ -16,6 +16,10 @@ int AggregateCatchData::debug = 0;
 int SizeFrequencyData::debug  = 0;
 int BioData::debug            = 0;
 int ModelDatasets::debug      = 0;
+ostream& AggregateCatchData::os = std::cout;
+ostream& SizeFrequencyData::os  = std::cout;
+ostream& BioData::os            = std::cout;
+ostream& ModelDatasets::os      = std::cout;
 //----------------------------------------------------------------------
 //          AggregateCatchData
 //----------------------------------------------------------------------
@@ -27,7 +31,7 @@ const adstring AggregateCatchData::KW_BIOMASS_DATA   = "AGGREGATE_BIOMASS";
  * fitting in the objective function.
  */
 void AggregateCatchData::aggregateData(void){
-    if (debug) rpt::echo<<"starting AggregateCatchData::aggregateData()"<<endl;
+    if (debug) os<<"starting AggregateCatchData::aggregateData()"<<endl;
     //get conversion factor to millions (abundance) or thousands mt (biomass)
     double convFac = 1.0;
     if (type==KW_ABUNDANCE_DATA){
@@ -80,7 +84,7 @@ void AggregateCatchData::aggregateData(void){
                 smn = smx = s; if (s==tcsam::ALL_SCs) {smn = 1; smx = tcsam::ALL_SCs;}
                 if ((x==tcsam::ALL_SXs)||(m==tcsam::ALL_MSs)||(s==tcsam::ALL_SCs)){
                     //check to see if aggregated factor combination has been read in 
-                    if (debug) rpt::echo<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(s)<<endl;
+                    if (debug) os<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(s)<<endl;
                     int fmn = factors.indexmin(); int fmx = factors.indexmax();
                     int qf = 0;
                     for (int f=fmn;f<=fmx;f++){
@@ -90,18 +94,18 @@ void AggregateCatchData::aggregateData(void){
                         if ((x==xf)&&(m==mf)&&(s==sf)) qf++;
                     }
                     if (qf){
-                        if (debug) rpt::echo<<"Skipping aggregation calculation"<<endl;
+                        if (debug) os<<"Skipping aggregation calculation"<<endl;
                     } else {
                         //calculate aggregate quantities
-                        if (debug) rpt::echo<<"Aggregating data"<<endl;
+                        if (debug) os<<"Aggregating data"<<endl;
                         for (int y=1;y<=ny;y++){
-                            if (debug) rpt::echo<<y<<endl;
+                            if (debug) os<<y<<endl;
                             tC = 0.0;
                             vC = 0.0;
                             for (int xp=xmn;xp<=xmx;xp++){
                                 for (int mp=mmn;mp<=mmx;mp++){
                                     for (int sp=smn;sp<=smx;sp++){
-                                        if (debug) rpt::echo<<xp<<" "<<mp<<" "<<sp<<" "<<convFac*inpC_xmsyc(xp,mp,sp,y,2)<<" "<<inpC_xmsyc(xp,mp,sp,y,3)<<endl;
+                                        if (debug) os<<xp<<" "<<mp<<" "<<sp<<" "<<convFac*inpC_xmsyc(xp,mp,sp,y,2)<<" "<<inpC_xmsyc(xp,mp,sp,y,3)<<endl;
                                         tC += convFac*inpC_xmsyc(xp,mp,sp,y,2);//mean
                                         vC += square(convFac*inpC_xmsyc(xp,mp,sp,y,2)*inpC_xmsyc(xp,mp,sp,y,3));//variance = (mean*cv)^2
                                     }//sp
@@ -127,7 +131,7 @@ void AggregateCatchData::aggregateData(void){
             }//s
         }//m
     }//x
-    if (debug) rpt::echo<<"finished AggregateCatchData::aggregateData()"<<endl;
+    if (debug) os<<"finished AggregateCatchData::aggregateData()"<<endl;
 }
 
 /****************************************************************
@@ -141,7 +145,7 @@ void AggregateCatchData::aggregateData(void){
  * @param newC_yxms - d4_array of new catch data
  */
 void AggregateCatchData::replaceCatchData(int iSeed,random_number_generator& rng,d4_array& newC_yxms){
-    if (debug) rpt::echo<<"starting AggregateCatchData::replaceCatchData(d4_array& newC_yxms)"<<std::endl;
+    if (debug) os<<"starting AggregateCatchData::replaceCatchData(d4_array& newC_yxms)"<<std::endl;
     //get conversion factor to millions (abundance) or thousands mt (biomass)
     double convFac = 1.0;
     if (type==KW_ABUNDANCE_DATA){
@@ -169,14 +173,14 @@ void AggregateCatchData::replaceCatchData(int iSeed,random_number_generator& rng
             }
         }
     }
-    if (debug) rpt::echo<<"Copied old variables"<<endl;
+    if (debug) os<<"Copied old variables"<<endl;
     
     ny = 0;//new ny [need to recalculate in case of retrospective runs]
     for (int y=1;y<=oldNY;y++){//year index for old data
         int yr = oldYrs(y);
         if ((mnY<=yr)&&(yr<=mxY)) ny++;
     }
-    if (debug) rpt::echo<<"Calculated new ny"<<endl;
+    if (debug) os<<"Calculated new ny"<<endl;
     
     //reallocate yrs for new number of years
     yrs.deallocate(); yrs.allocate(1,ny); yrs.initialize();
@@ -196,7 +200,7 @@ void AggregateCatchData::replaceCatchData(int iSeed,random_number_generator& rng
                 int x = tcsam::getSexType(factors(i,1));
                 int m = tcsam::getMaturityType(factors(i,2));
                 int s = tcsam::getShellType(factors(i,3));
-                double v = tcsam::extractFromYXMS(yr,x,m,s,newC_yxms);
+                double v = tcsam::extractFromYXMS(yr,x,m,s,newC_yxms);//aggregate as necessary
                 if (iSeed) {
                     double sd = oldSD_xmsy(x,m,s,y);
                     if (llType==tcsam::LL_LOGNORMAL){
@@ -211,7 +215,7 @@ void AggregateCatchData::replaceCatchData(int iSeed,random_number_generator& rng
             }//i loop
         }//if ((mnY<=yr)&&(yr<=mxY))
     }//y loop
-    if (debug) rpt::echo<<"Created new inpC_xmsyc"<<endl;
+    if (debug) os<<"Created new inpC_xmsyc"<<endl;
     
     //re-constitute other arrays
     C_xmsy.allocate( 1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);  C_xmsy.initialize();
@@ -239,7 +243,107 @@ void AggregateCatchData::replaceCatchData(int iSeed,random_number_generator& rng
     
     aggregateData();
     
-    if (debug) rpt::echo<<"finished AggregateCatchData::replaceCatchData(d4_array& newC_yxms)"<<std::endl;
+    if (debug) os<<"finished AggregateCatchData::replaceCatchData(d4_array& newC_yxms)"<<std::endl;
+}
+
+/**
+ * Update catch data C_xmsy with data for new year "y". 
+ * Units are MILLIONS for abundance data and 1000's mt for biomass data.
+ * Also modifies inpC_xmsyc to reflect new data, but keeps original units.
+ * 
+ * @param y - year to add
+ * @param newC_xms - d3_array of new catch data
+ */
+void AggregateCatchData::addCatchData(int y, d3_array& newC_xms){
+    if (debug) os<<"starting AggregateCatchData::addCatchData(d3_array& newC_xms)"<<std::endl;
+    //get conversion factor to millions (abundance) or thousands mt (biomass)
+    double convFac = 1.0;
+    if (type==KW_ABUNDANCE_DATA){
+        convFac = tcsam::getConversionMultiplier(units,tcsam::UNITS_MILLIONS);
+ //        os<<"#conversion factor from "<<units<<" to MILLIONS is "<<convFac<<std::endl;
+    } else {
+        convFac = tcsam::getConversionMultiplier(units,tcsam::UNITS_KMT);
+//        os<<"#conversion factor from "<<units<<" to 1000's MT is "<<convFac<<std::endl;
+    }
+         
+    //copy old values to temporary values
+    int oldNY = ny;
+    ivector oldYrs(1,oldNY); oldYrs = yrs;
+    d5_array oldInpC_xmsyc(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,oldNY,1,3);
+    for (int x=1;x<=tcsam::ALL_SXs;x++){
+        for (int m=1;m<=tcsam::ALL_MSs;m++){
+            for (int s=1;s<=tcsam::ALL_SCs;s++) {
+                for (int iy=1;iy<=oldNY;iy++) {
+                    oldInpC_xmsyc(x,m,s,iy) = inpC_xmsyc(x,m,s,iy);
+                }
+            }
+        }
+    }
+    if (debug) os<<"Copied old data from old arrays"<<endl;
+    
+    //reallocate yrs for new number of years
+    ny = ny+1;
+    yrs.deallocate(); yrs.allocate(1,ny); yrs.initialize();
+    yrs(1,oldNY) = oldYrs; yrs(ny) = y;
+    
+    //reallocate inpC_xmsyc for new number of years
+    inpC_xmsyc.deallocate(); 
+    inpC_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,3);
+    inpC_xmsyc.initialize();
+
+    //copy old data from appropriate years & factor combinations
+    for (int x=1;x<=tcsam::ALL_SXs;x++){
+        for (int m=1;m<=tcsam::ALL_MSs;m++){
+            for (int s=1;s<=tcsam::ALL_SCs;s++) {
+                for (int iy=1;iy<=oldNY;iy++) {
+                    inpC_xmsyc(x,m,s,iy) = oldInpC_xmsyc(x,m,s,iy);
+                }
+            }
+        }
+    }
+    if (debug) os<<"Copied old data to updated arrays"<<endl;
+    
+    //copy new data 
+    if (debug) os<<"Adding new year to updated arrays"<<endl;
+    for (int i=1;i<=factors.indexmax();i++){
+        int x = tcsam::getSexType(factors(i,1));
+        int m = tcsam::getMaturityType(factors(i,2));
+        int s = tcsam::getShellType(factors(i,3));
+        if (debug) os<<"x,m,s = "<<x<<cc<<m<<cc<<s<<endl;
+        double v = tcsam::extractFromXMS(x,m,s,newC_xms);//aggregate as necessary
+        inpC_xmsyc(x,m,s,ny,1) = y;//new year
+        inpC_xmsyc(x,m,s,ny,2) = v/convFac;//new value
+        inpC_xmsyc(x,m,s,ny,3) = oldInpC_xmsyc(x,m,s,oldNY,3);//set new cv = old cv
+    }//i loop
+    if (debug) os<<"Created new inpC_xmsyc"<<endl;
+    
+    //re-constitute other arrays
+    C_xmsy.allocate( 1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);  C_xmsy.initialize();
+    cv_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny); cv_xmsy.initialize();
+    sd_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny); sd_xmsy.initialize();    
+    int nc = factors.indexmax();
+    for (int i=1;i<=nc;i++){
+        int x = tcsam::getSexType(factors(i,1));
+        int m = tcsam::getMaturityType(factors(i,2));
+        int s = tcsam::getShellType(factors(i,3));
+        C_xmsy(x,m,s)  = convFac*column(inpC_xmsyc(x,m,s),2);
+        cv_xmsy(x,m,s) = column(inpC_xmsyc(x,m,s),3);
+        if (llType==tcsam::LL_LOGNORMAL){
+            sd_xmsy(x,m,s) = sqrt(log(1.0+elem_prod(cv_xmsy(x,m,s),cv_xmsy(x,m,s))));
+        } else {
+            sd_xmsy(x,m,s) = elem_prod(cv_xmsy(x,m,s),C_xmsy(x,m,s));
+        }
+        if (debug) {
+            os<<factors(i,1)<<tb<<factors(i,2)<<tb<<factors(i,3)<<tb<<"#factors"<<std::endl;
+            os<<"C_xmsy  = "<< C_xmsy(x,m,s)<<endl;
+            os<<"cv_xmsy = "<<cv_xmsy(x,m,s)<<endl;
+            os<<"sd_xmsy = "<<sd_xmsy(x,m,s)<<endl;
+        }
+    }
+    
+    aggregateData();
+    
+    if (debug) os<<"finished AggregateCatchData::addCatchData(d3_array& newC_xms)"<<std::endl;
 }
 
 /***************************************************************
@@ -481,6 +585,7 @@ void SizeFrequencyData::applyReWeightingFactors(){
  * Normalize the size frequency data to sum to 1 over x,m,s,z.
  */
 void SizeFrequencyData::normalize(void){
+    if (debug) os<<"Starting SizeFrequencyData::normalize()"<<endl;
     dvector nT(1,ny); nT.initialize();
     for (int y=1;y<=ny;y++){
         //calculate total numbers
@@ -496,6 +601,7 @@ void SizeFrequencyData::normalize(void){
             }
         }
     }
+    if (debug) os<<"Finished SizeFrequencyData::normalize()"<<endl;
 }
 
 /**
@@ -505,7 +611,7 @@ void SizeFrequencyData::normalize(void){
  * 
  * @param iSeed - flag to add noise to data (if !=0)
  * @param rng - random number generator
- * @param newNatZ_yxmsz - d5_array of numbers-at-size by yxms
+ * @param newNatZ_yxmsz - d5_array of numbers-at-size by yxmsz
  */
 void SizeFrequencyData::replaceSizeFrequencyData(int iSeed,random_number_generator& rng,d5_array& newNatZ_yxmsz){
     if (debug) std::cout<<"starting SizeFrequencyData::replaceSizeFrequencyData(...) "<<this<<std::endl;
@@ -603,6 +709,107 @@ void SizeFrequencyData::replaceSizeFrequencyData(int iSeed,random_number_generat
     }
     normalize();
     if (debug) std::cout<<"end SizeFrequencyData::replaceSizeFrequencyData(...) "<<this<<std::endl;
+}
+
+/**
+ * Update catch-at-size data NatZ_xmsyz with new data for year y. 
+ * Also modifies inpNatZ_xmsyc to reflect new data.
+ * 
+ * @param y - year to add
+ * @param newNatZ_xmsz - d4_array of numbers-at-size by xmsz
+ */
+void SizeFrequencyData::addSizeFrequencyData(int y, d4_array& newNatZ_xmsz){
+    if (debug) os<<"starting SizeFrequencyData::addSizeFrequencyData(...) "<<this<<std::endl;
+    
+    //copy old values to temporary variables
+    if (debug) os<<"Copying old values to temporary storage"<<endl;
+    int oldNY = ny;
+    ivector oldYrs(1,oldNY); oldYrs = yrs;
+    d5_array oldInpNatZ_xmsyc(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,oldNY,1,2+(nZCs-1));
+    for (int x=1;x<=tcsam::ALL_SXs;x++){
+        for (int m=1;m<=tcsam::ALL_MSs;m++){
+            for (int s=1;s<=tcsam::ALL_SCs;s++) {
+                oldInpNatZ_xmsyc(x,m,s) = inpNatZ_xmsyc(x,m,s);
+            }
+        }
+    }
+    if (debug) os<<"Copied old values to temporary storage"<<endl;
+        
+    //reallocate yrs for new number of years
+    if (debug) os<<"Reallocating for new number of years"<<endl;
+    ny = ny+1;
+    yrs.deallocate(); yrs.allocate(1,ny); yrs.initialize();
+    yrs(1,oldNY) = oldYrs; yrs(ny) = y;
+    
+    //reallocate inpNatZ_xmsyc for new number of years
+    inpNatZ_xmsyc.deallocate(); 
+    inpNatZ_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,2+(nZCs-1));
+    inpNatZ_xmsyc.initialize();
+    if (debug) os<<"Done reallocating for new number of years"<<endl;
+
+    //copy old data
+    if (debug) os<<"Copying old data to new arrays"<<endl;
+    for (int iy=1;iy<=oldNY;iy++){//year index for old data
+        for (int x=1;x<=tcsam::ALL_SXs;x++){
+            for (int m=1;m<=tcsam::ALL_MSs;m++){
+                for (int s=1;s<=tcsam::ALL_SCs;s++) {
+                    inpNatZ_xmsyc(x,m,s,iy) = oldInpNatZ_xmsyc(x,m,s,iy);//old year, ss, size frequency
+                }//-s
+            }//-m
+        }//-x
+    }//-iy
+    if (debug) os<<"Done copying old data to new arrays"<<endl;
+    
+    //copy new data
+    if (debug) os<<"Copying new data to new arrays"<<endl;
+    for (int x=1;x<=tcsam::ALL_SXs;x++){
+        for (int m=1;m<=tcsam::ALL_MSs;m++){
+            for (int s=1;s<=tcsam::ALL_SCs;s++) {
+                if (debug) os<<"x,m,s = "<<x<<cc<<m<<cc<<s<<endl;
+                dvector n_z = tcsam::extractFromXMSZ(x,m,s,newNatZ_xmsz);
+                if (debug) os<<"n_z = "<<n_z<<endl;
+                inpNatZ_xmsyc(x,m,s,ny)(1) = y;                               //new year
+                inpNatZ_xmsyc(x,m,s,ny)(2) = oldInpNatZ_xmsyc(x,m,s,oldNY)(2);//new ss = last year's ss
+                inpNatZ_xmsyc(x,m,s,ny)(3,2+nZCs-1).shift(1) = n_z;           //new size frequency
+            }//-s
+        }//-m
+    }//-x
+    if (debug) os<<"Done copying new data to new arrays"<<endl;
+    
+    //re-constitute other arrays
+    if (debug) os<<"Reconstituting other arrays"<<endl;
+    inpSS_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
+    NatZ_xmsyz.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,nZCs-1);
+    PatZ_xmsyz.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,nZCs-1);
+    
+    inpSS_xmsy.initialize();
+    NatZ_xmsyz.initialize();
+    PatZ_xmsyz.initialize();
+    
+    ss_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
+    ss_xmsy.initialize();
+    
+    //reset re-weighting multipliers
+    cumF_xms.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs);
+    cumF_xms.initialize();
+    cumF_xms = 1.0;
+    itrF_xms.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs);
+    itrF_xms.initialize();
+    
+    int nc = factors.indexmax();
+    for (int i=0;i<nc;i++){
+        int x = tcsam::getSexType(factors(i+1,1));
+        int m = tcsam::getMaturityType(factors(i+1,2));
+        int s = tcsam::getShellType(factors(i+1,3));
+            inpSS_xmsy(x,m,s) = column(inpNatZ_xmsyc(x,m,s),2);
+            ss_xmsy(x,m,s) = inpSS_xmsy(x,m,s);
+            for (int iy=1;iy<=ny;iy++){
+                NatZ_xmsyz(x,m,s,iy)  = (inpNatZ_xmsyc(x,m,s,iy)(3,2+(nZCs-1))).shift(1);
+            }
+    }
+    normalize();
+    if (debug) os<<"Done reconstituting other arrays"<<endl;
+    if (debug) std::cout<<"end SizeFrequencyData::addSizeFrequencyData(...) "<<this<<std::endl;
 }
 
 /*******************************************************\n
@@ -1118,48 +1325,58 @@ void ModelDatasets::read(cifstream & is){
     }
 }
 /**
+ * Write ModelDatasets info to output text file in ADMB format.
+ * 
+ * @param ofn - the output file name
+ */
+void ModelDatasets::write(adstring fn){
+    ofstream os; os.open(fn, ios::trunc);
+    write(os);
+    os.close();
+}
+/**
  * Write ModelDatasets info to output stream in ADMB format.
  * 
  * @param os - the output stream
  */
-void ModelDatasets::write(ostream & os){
+void ModelDatasets::write(ostream & os){    
     if (debug) std::cout<<"start ModelDatasets::write(...) "<<this<<std::endl;
     os<<fnBioData<<tb<<"#tanner crab biological data file"<<std::endl;
     os<<"#-------fishery data files---------"<<std::endl;
     os<<nFsh<<tb<<"#number of fishery data files"<<std::endl;
-    for (int i=1;i<+nFsh;i++) os<<fnsFisheryData[i]<<tb<<"#fishery dataset "<<i<<std::endl;
+    for (int i=1;i<=nFsh;i++) os<<fnsFisheryData[i]<<tb<<"#fishery dataset "<<i<<std::endl;
     os<<"#-------survey data files---------"<<std::endl;
     os<<nSrv<<tb<<"#number of survey data files"<<std::endl;
-    for (int i=1;i<+nSrv;i++) os<<fnsSurveyData[i]<<tb<<"#survey dataset "<<i<<std::endl;
+    for (int i=1;i<=nSrv;i++) os<<fnsSurveyData[i]<<tb<<"#survey dataset "<<i<<std::endl;
     os<<"#-------growth data files---------"<<std::endl;
     os<<nGrw<<tb<<"#number of growth data files"<<std::endl;
-    for (int i=1;i<+nGrw;i++) os<<fnsGrowthData[i]<<tb<<"#growth dataset "<<i<<std::endl;
+    for (int i=1;i<=nGrw;i++) os<<fnsGrowthData[i]<<tb<<"#growth dataset "<<i<<std::endl;
     os<<"#-------chela height data files---------"<<std::endl;
     os<<nCHD<<tb<<"#number of chela height data files"<<std::endl;
-    for (int i=1;i<+nCHD;i++) os<<fnsChelaHeightData[i]<<tb<<"#chela height dataset "<<i<<std::endl;
-    
-    os<<"#-----biological data---------"<<std::endl;
-    os<<(*ptrBio)<<std::endl;
-    os<<"#-------fishery data ---------"<<std::endl;
-    if (nFsh){
-        for (int i=1;i<nFsh;i++) os<<"#----fishery dataset "<<i<<std::endl<<(*ppFsh[i-1])<<std::endl;
-        os<<"#----fishery dataset "<<nFsh<<std::endl<<(*ppFsh[nFsh-1])<<std::endl;
-    }
-    os<<"#-------survey data ---------"<<std::endl;
-    if (nSrv){
-        for (int i=1;i<nSrv;i++) os<<"#----survey dataset "<<i<<std::endl<<(*ppSrv[i-1])<<std::endl;
-        os<<"#----survey dataset "<<nSrv<<std::endl<<(*ppSrv[nSrv-1]);
-    }
-    os<<"#-------growth data ---------"<<std::endl;
-    if (nGrw){
-        for (int i=1;i<nGrw;i++) os<<"#----growth dataset "<<i<<std::endl<<(*ppGrw[i-1])<<std::endl;
-        os<<"#----growth dataset "<<nGrw<<std::endl<<(*ppGrw[nGrw-1]);
-    }
-    os<<"#-------chela height data ---------"<<std::endl;
-    if (nCHD){
-        for (int i=1;i<nCHD;i++) os<<"#----chela height dataset "<<i<<std::endl<<(*ppCHD[i-1])<<std::endl;
-        os<<"#----chela height dataset "<<nCHD<<std::endl<<(*ppCHD[nCHD-1]);
-    }
+    for (int i=1;i<=nCHD;i++) os<<fnsChelaHeightData[i]<<tb<<"#chela height dataset "<<i<<std::endl;
+//    
+//    os<<"#-----biological data---------"<<std::endl;
+//    os<<(*ptrBio)<<std::endl;
+//    os<<"#-------fishery data ---------"<<std::endl;
+//    if (nFsh){
+//        for (int i=1;i<nFsh;i++) os<<"#----fishery dataset "<<i<<std::endl<<(*ppFsh[i-1])<<std::endl;
+//        os<<"#----fishery dataset "<<nFsh<<std::endl<<(*ppFsh[nFsh-1])<<std::endl;
+//    }
+//    os<<"#-------survey data ---------"<<std::endl;
+//    if (nSrv){
+//        for (int i=1;i<nSrv;i++) os<<"#----survey dataset "<<i<<std::endl<<(*ppSrv[i-1])<<std::endl;
+//        os<<"#----survey dataset "<<nSrv<<std::endl<<(*ppSrv[nSrv-1]);
+//    }
+//    os<<"#-------growth data ---------"<<std::endl;
+//    if (nGrw){
+//        for (int i=1;i<nGrw;i++) os<<"#----growth dataset "<<i<<std::endl<<(*ppGrw[i-1])<<std::endl;
+//        os<<"#----growth dataset "<<nGrw<<std::endl<<(*ppGrw[nGrw-1]);
+//    }
+//    os<<"#-------chela height data ---------"<<std::endl;
+//    if (nCHD){
+//        for (int i=1;i<nCHD;i++) os<<"#----chela height dataset "<<i<<std::endl<<(*ppCHD[i-1])<<std::endl;
+//        os<<"#----chela height dataset "<<nCHD<<std::endl<<(*ppCHD[nCHD-1]);
+//    }
    if (debug) std::cout<<"end ModelDatasets::write(...) "<<this<<std::endl;
 }
 /**
