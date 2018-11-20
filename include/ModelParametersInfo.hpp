@@ -145,7 +145,7 @@ class ParameterGroupInfo{
          * @param projected - flag to write for "next" year
          * @param closed - flag that directed fishery will be closed "next" year 
          */
-        virtual void writeToPin(std::ostream & os, int projected=0, int closed=0)=0;
+        virtual void writeToPin(std::ostream & os)=0;
         /**
          * Writes default info in R format for the parameter group to an output stream.
          * Subclasses should override this function as appropriate.
@@ -247,7 +247,7 @@ class RecruitmentInfo: public ParameterGroupInfo {
          * @param projected - flag to write for "next" year
          * @param closed - flag that directed fishery will be closed "next" year 
          */
-        void writeToPin(std::ostream & os, int projected=0, int closed=0);
+        void writeToPin(std::ostream & os);
         /**
          * Writes the ParameterGroupInfo for recruitment to an output stream in R format.
          * 
@@ -340,7 +340,7 @@ class NaturalMortalityInfo : public ParameterGroupInfo {
          * @param projected - flag to write for "next" year
          * @param closed - flag that directed fishery will be closed "next" year 
          */
-        void writeToPin(std::ostream & os, int projected=0, int closed=0);
+        void writeToPin(std::ostream & os);
         /**
          * Writes component info to an output stream as an
          * R-format list.
@@ -420,7 +420,7 @@ class GrowthInfo : public ParameterGroupInfo {
          * @param projected - flag to write for "next" year
          * @param closed - flag that directed fishery will be closed "next" year 
          */
-        void writeToPin(std::ostream & os, int projected=0, int closed=0);
+        void writeToPin(std::ostream & os);
         /**
          * Writes to an output stream in R format.
          * 
@@ -491,7 +491,7 @@ class Molt2MaturityInfo: public ParameterGroupInfo {
          * @param projected - flag to write for "next" year
          * @param closed - flag that directed fishery will be closed "next" year 
          */
-        void writeToPin(std::ostream & os, int projected=0, int closed=0);
+        void writeToPin(std::ostream & os);
         /**
          * Writes to an output stream in R format.
          * 
@@ -572,7 +572,7 @@ class SelectivityInfo : public ParameterGroupInfo {
          * @param projected - flag to write for "next" year
          * @param closed - flag that directed fishery will be closed "next" year 
          */
-        void writeToPin(std::ostream & os, int projected=0, int closed=0);
+        void writeToPin(std::ostream & os);
         /**
          * Writes to an output stream in R format.
          * 
@@ -664,7 +664,7 @@ class FisheriesInfo : public ParameterGroupInfo {
          * @param projected - flag to write for "next" year
          * @param closed - flag that directed fishery will be closed "next" year 
          */
-        void writeToPin(std::ostream & os, int projected=0, int closed=0);
+        void writeToPin(std::ostream & os);
         /**
          * Writes to an output stream in R format.
          * 
@@ -737,7 +737,7 @@ class SurveysInfo : public ParameterGroupInfo {
          * @param projected - flag to write for "next" year
          * @param closed - flag that directed fishery will be closed "next" year 
          */
-        void writeToPin(std::ostream & os, int projected=0, int closed=0);
+        void writeToPin(std::ostream & os);
         /**
          * Writes to an output stream in R format.
          * 
@@ -793,10 +793,8 @@ class MSE_Info : public ParameterGroupInfo {
          * Writes parameter values to an output stream in ADMB pin-file format.
          * 
          * @param os - output stream
-         * @param projected - flag to write for "next" year
-         * @param closed - flag that directed fishery will be closed "next" year 
          */
-        void writeToPin(std::ostream & os, int projected=0, int closed=0);
+        void writeToPin(std::ostream & os);
         /**
          * Writes to an output stream in R format.
          * 
@@ -880,10 +878,8 @@ class ModelParametersInfo{
          * Writes pin file to an output stream.
          * 
          * @param os - output stream
-         * @param projected - flag to write for "next" year
-         * @param closed - flag that directed fishery will be closed "next" year 
          */
-        void writePin(std::ostream & os, int projected=0, int closed=0);
+        void writePin(std::ostream & os);
         /**
          * Writes to an output stream in R format.
          * 

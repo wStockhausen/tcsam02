@@ -464,9 +464,46 @@
 //                  figure out how to write output files to step between MSE OpMod 
 //                  and EstMod iterations.
 //-2018-11-18: 1. Lots of changes to tcsam02, ModelParametersInfo, ModelParameterInfoTypes,
-//                  ModelData, CatchData, and SummartFunctions to incorporate
+//                  ModelData, CatchData, and SummaryFunctions to incorporate
 //                  necessary MSE OpMod gyrations (not completed yet, but getting there).
+//-2018-11-20: 1. Revised OpModMode so it reads in "state" from a file and only
+//                  calculates the projected year. Also created MSE_OpModInfo class.
 //
+// =============================================================================
+// =============================================================================
+//--Commandline Options
+//  -configFile  fnConfigFile      default model config filename="tcsam02.ModelConfig.dat"
+//  -pin fnPin                     use ascii  pin file fnPin to set parameter values. if fnPin not given, fnPin = "tcsam02.pin"
+//  -binp fnPin                    use binary pin file fnPin to set parameter values
+//  -ainp fnPin                    use ascii  pin file fnPin to set parameter values
+//  -mceval                        flag that mceval is ON (i.e., mcevalOn=1)
+//  -mcpin fnPin                   pin file to run NUTS MCMC (i.e., usePin=2)
+//  -runAlt                        flag to run alternative pop dy equations
+//  -calcOFL                       flag to turn on OFL calculations
+//  -calcDynB0                     flag to turn on dynamic B0 calculations
+//  -doRetro  yRetro               flag to turn on retrospective calculations, dropping yRetro years
+//  -jitter                        flag to turn on parameter jittering
+//  -resample                      flag to turn on parameter resampling
+//  -iSeed  val                    use val as random number generator (RNG) seed
+//  -fitSimData iSimDataSeed       flag to fit simulated data using RNG seed iSimDataSeed
+//  -mseMode type                  flag to use mseMode (type = "mseOpModMode" or "mseEstModMode")
+///////----flags to print debugging info-----
+//  -debugModelConfig
+//  -debugModelParams
+//  -ctrDebugParams ctr            flag to turn on debugParams when PROCEDURE counter reaches ctr
+//  -debugDATA_SECTION
+//  -debugPARAMS_SECTION
+//  -debugPRELIM_CALCS
+//  -debugPROC_SECTION
+//  -debugREPORT_SECTION
+//  -debugOFL
+//  -debugModelDatasets
+//  -debugModelParamsInfo
+//  -debugModelOptions
+//  -debugRunModel
+//  -debugObjFun
+//  -debugMCMC
+//  -showActiveParams
 // =============================================================================
 // =============================================================================
 GLOBALS_SECTION
@@ -498,11 +535,14 @@ GLOBALS_SECTION
     ModelDatasets*       ptrSimMDS;//ptr to simulated model datasets object
     OFLResults*          ptrOFLResults;//ptr to OFL results object for MCMC calculations
     
+    //MSE objects
+    MSE_OpModInfo* ptrOMI=0; //ptr to MSE OpModInfo object
+    
     //population dynamics objects
     int runAlt = 0;
-    PopDyInfo*    pPDI;//  population dynamics info
-    CatchInfo*    pCDI;//  catch info
-    PopProjector* pPPr;//  population projector
+    PopDyInfo*    pPDI=0;//  population dynamics info
+    CatchInfo*    pCDI=0;//  catch info
+    PopProjector* pPPr=0;//  population projector
           
     //dimensions for R output
     adstring yDms;
@@ -523,7 +563,6 @@ GLOBALS_SECTION
     //filenames
     adstring fnMCMC = "tcsam02.MCMC.R";
     adstring fnConfigFile;//configuration file
-    adstring fnResultFile;//results file name 
     adstring fnPin;       //pin file
     
     //runtime flags (0=false)
@@ -536,18 +575,14 @@ GLOBALS_SECTION
     int usePin     = 0;//flag to initialize parameter values using a pin file
     int doRetro    = 0;//flag to facilitate a retrospective model run
     int fitSimData = 0;//flag to fit model to simulated data calculated in the PRELIMINARY_CALCs section
+    int doOFL      = 0;///<flag (0/1) to do OFL calculations
     int doDynB0    = 0;//flag to run dynamic B0 calculations after final phase
-    
-    
-    int ctrDebugParams = 0;//PROCEDURE_SECTION call counter value to start debugging output
-    
+        
     int yRetro = 0; //number of years to decrement for retrospective model run
     int iSeed = -1; //default random number generator seed
     random_number_generator rng(iSeed);//random number generator
     int iSimDataSeed = 0;
     random_number_generator rngSimData(-1);//random number generator for data simulation
-    
-    int doOFL = 0;///<flag (0/1) to do OFL calculations
     
     //debug flags
     int debugModelConfig     = 0;
@@ -562,16 +597,13 @@ GLOBALS_SECTION
     int debugPROC_SECTION    = 0;
     int debugREPORT_SECTION  = 0;
     
+    int ctrDebugParams = 0;//PROCEDURE_SECTION call counter value to start debugging output
+    
     int showActiveParams = 0;    
     int debugRunModel    = 0;    
     int debugObjFun      = 0;
     int debugOFL         = 0;
-    
-    int debugMCMC = 0;
-    
-    int phsItsRewgt  = 1000;//min phase to calculate effective weights for size comps
-    int maxItsRewgt = 0;    //maximum number of terations for re-weighting
-    int numItsRewgt = 0;    //number of re-weighting iterations completed
+    int debugMCMC        = 0;
     
     //note: consider using std::bitset to implement debug functionality
     int dbgCalcProcs = 10;
@@ -583,6 +615,10 @@ GLOBALS_SECTION
     int dbgDevs   = 90;
     int dbgAll    = tcsam::dbgAll;
     
+    int phsItsRewgt  = 1000;//min phase to calculate effective weights for size comps
+    int maxItsRewgt = 0;    //maximum number of terations for re-weighting
+    int numItsRewgt = 0;    //number of re-weighting iterations completed
+        
     int nSXs    = tcsam::nSXs;
     int MALE    = tcsam::MALE;
     int FEMALE  = tcsam::FEMALE;
@@ -622,14 +658,6 @@ DATA_SECTION
     if ((on=option_match(ad_comm::argc,ad_comm::argv,"-configFile"))>-1) {
         fnConfigFile = ad_comm::argv[on+1];
         rpt::echo<<"#config file changed to '"<<fnConfigFile<<"'"<<endl;
-        rpt::echo<<"#-------------------------------------------"<<endl;
-        flg=1;
-    }
-    //resultsFile
-    fnResultFile = "tcsam02.ResultFile";//default results file name
-    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-resultsFile"))>-1) {
-        fnResultFile = ad_comm::argv[on+1];
-        rpt::echo<<"#results file changed to '"<<fnResultFile<<"'"<<endl;
         rpt::echo<<"#-------------------------------------------"<<endl;
         flg=1;
     }
@@ -1414,6 +1442,12 @@ DATA_SECTION
     number inpTAC; //TAC for upcoming year
  LOCAL_CALCS
     if (mseOpModMode){
+        PRINT2B1("Creating ptrOMI")
+        ptrOMI = new MSE_OpModInfo(ptrMC);
+        ad_comm::change_datafile_name("mseOpModInfo.txt");
+        PRINT2B1("Reading mseOpModInfo.txt")
+        (*ad_comm::global_datafile)>>(*ptrOMI);
+        PRINT2B1("Finished reading mseOpModInfo.txt")
         prjR = 0.0;
         ad_comm::change_datafile_name("tac.txt");
         (*ad_comm::global_datafile)>>inpTAC;
@@ -1639,12 +1673,16 @@ PARAMETER_SECTION
     6darray b_vyxmsz(1,nSrv,mnYr,mxYr+1,1,nSXs,1,nMSs,1,nSCs,1,nZBs);//catch biomass at size in survey v
 
     //MSE-related quantities
-    4darray prj_n_xmsz(1,nSXs,1,nMSs,1,nSCs,1,nZBs);
-    vector prj_spB_x(1,nSXs);
-    5darray prj_cpN_fxmsz(1,nFsh,1,nSXs,1,nMSs,1,nSCs,1,nZBs);
-    5darray prj_rmN_fxmsz(1,nFsh,1,nSXs,1,nMSs,1,nSCs,1,nZBs);
-    5darray prj_dmN_fxmsz(1,nFsh,1,nSXs,1,nMSs,1,nSCs,1,nZBs);
-    5darray prj_dsN_fxmsz(1,nFsh,1,nSXs,1,nMSs,1,nSCs,1,nZBs);
+    vector prj_hmF_f(1,nFsh);                         //projected handling mortality
+    4darray prj_capF_fmsz(1,nFsh,1,nMSs,1,nSCs,1,nZBs);//projected fishery capture rates
+    4darray prj_retF_fmsz(1,nFsh,1,nMSs,1,nSCs,1,nZBs);//projected fishery retention functions
+    4darray prj_selF_fmsz(1,nFsh,1,nMSs,1,nSCs,1,nZBs);//projected fishery selectivity functions
+    vector prj_spB_x(1,nSXs);                                 //projected spawning biomass
+    4darray prj_n_xmsz(1,nSXs,1,nMSs,1,nSCs,1,nZBs);          //projected population size at beginning of new year
+    5darray prj_cpN_fxmsz(1,nFsh,1,nSXs,1,nMSs,1,nSCs,1,nZBs);//projected capture abundance
+    5darray prj_rmN_fxmsz(1,nFsh,1,nSXs,1,nMSs,1,nSCs,1,nZBs);//projected retained mortality (abundance)
+    5darray prj_dmN_fxmsz(1,nFsh,1,nSXs,1,nMSs,1,nSCs,1,nZBs);//projected discards mortality (abundance)
+    5darray prj_dsN_fxmsz(1,nFsh,1,nSXs,1,nMSs,1,nSCs,1,nZBs);//projected discards (abundance)
     matrix prjRetCatchMortBio_fx(1,nFsh,1,nSXs);              //projected retained catch mortality (biomass))
     matrix prjDscCatchMortBio_fx(1,nFsh,1,nSXs);              //projected discard catch mortality (biomass)
     matrix prjTotCatchMortBio_fx(1,nFsh,1,nSXs);              //projected total catch mortality (biomass))
@@ -1987,8 +2025,9 @@ PRELIMINARY_CALCS_SECTION
          if (mseOpModMode){
 //-----------PRELIMINARY_CALCS: MSE OpMod RUNS ONLY-----------------------------
             PRINT2B1("PRELIMINARY_CALCS: MSE OpModMode")
-            if (!runAlt){runPopDyMod(0,cout);} else {runAltPopDyMod(0,cout);}
-            dvector vLnR_y = value(log(R_y(1982,mxYr)));
+            //if (!runAlt){runPopDyMod(0,cout);} else {runAltPopDyMod(0,cout);}
+            //dvector vLnR_y = value(log(R_y(1982,mxYr)));
+            dvector vLnR_y = log(ptrOMI->R_y(1982,mxYr));
             cout<<"vLnR_y = "<<vLnR_y<<endl;
             double mn = mean(vLnR_y);
             double sd = sqrt(wts::variance(vLnR_y));
@@ -2066,8 +2105,7 @@ PROCEDURE_SECTION
     }
     
     if (mseOpModMode){
-        dvariable mseCapF;
-        mseCapF = mfexp(pMSE_LnC[1]);
+        dvariable mseCapF = mfexp(pMSE_LnC[1]);//multiplier on capture rate in directed fishery
         projectPopForTAC(mseCapF,0,cout);
         calcObjFunForTAC(1000,cout);
     } else {
@@ -2243,20 +2281,16 @@ FUNCTION void runAltPopDyModOneYear(int y, int x, int debug, ostream& cout)
     
 ///**
 // * MSE OpModMode ONLY:
-// * Project the population from July 1, mxYr to July 1, mxYr+1 based on
+// * Project the population from July 1, year to July 1, year+1 based on
 // * directed fishing for males at a rate that will yield the TAC when the
 // * model has converged.
 // * 
 // * This function is directly based on runAltPopDyModForOneYear.
 // * 
-// * All non-directed fishery rates are based on those from mxYr.
-// * 
 // */
 FUNCTION void projectPopForTAC(dvariable& mseCapF, int debug, ostream& cout)
     if (debug>=dbgPopDy) cout<<"projectPopForTAC()"<<endl;
 
-    int y = mxYr;//set y to mxYr
-    
     prjRetCatchMortBio_fx.initialize();
     prjDscCatchMortBio_fx.initialize();
     prjTotCatchMortBio_fx.initialize();
@@ -2269,52 +2303,48 @@ FUNCTION void projectPopForTAC(dvariable& mseCapF, int debug, ostream& cout)
     
     for (int x=1;x<=nSXs;x++){   
         //1. Update population rates, based on year and sex
-        pPDI->w_mz  = ptrMDS->ptrBio->wAtZ_xmz(x);//assign weight-at-length
-        pPDI->R_z   = R_yz(y);                    //relative recruitment-at-size
-        pPDI->M_msz = M_yxmsz(y,x);               //rates of natural mortality
-        pPDI->T_szz = prGr_yxszz(y,x);            //growth transition matrices
+        pPDI->w_mz  = ptrOMI->wAtZ_xmz(x);//assign weight-at-length
+        pPDI->R_z   = ptrOMI->R_z;                    //relative recruitment-at-size
+        pPDI->M_msz = ptrOMI->M_xmsz(x);               //rates of natural mortality
+        pPDI->T_szz = ptrOMI->prGr_xszz(x);            //growth transition matrices
         //pr(terminal molt|size)
-        for (int s=1;s<=nSCs;s++) pPDI->Th_sz(s) = prM2M_yxz(y,x);
+        for (int s=1;s<=nSCs;s++) pPDI->Th_sz(s) = ptrOMI->prM2M_xz(x);
         //if (debug) cout<<"updated pPDI for sex "<<x<<" in "<<y<<endl;
 
         //2. Update fishery conditions based on year and sex
-        dvar_vector hmF_f(1,nFsh);//handling mortality
-        dvar4_array capF_fmsz(1,nFsh,1,nMSs,1,nSCs,1,nZBs);//fishery capture rates
-        dvar4_array retF_fmsz(1,nFsh,1,nMSs,1,nSCs,1,nZBs);//fishery retention functions
-        dvar4_array selF_fmsz(1,nFsh,1,nMSs,1,nSCs,1,nZBs);//fishery selectivity functions
-        hmF_f.initialize();
-        capF_fmsz.initialize();
-        retF_fmsz.initialize();
-        selF_fmsz.initialize();
+        prj_hmF_f = ptrOMI->hmF_f;
+        prj_capF_fmsz.initialize();
+        prj_retF_fmsz.initialize();
+        prj_selF_fmsz.initialize();
         for (int f=1;f<=nFsh;f++){
-            hmF_f(f) = hmF_fy(f,y);
             for (int m=1;m<=nMSs;m++){
-                capF_fmsz(f,m) = cpF_fyxmsz(f,y,x,m);
-                retF_fmsz(f,m) = ret_fyxmsz(f,y,x,m);
-                selF_fmsz(f,m) = sel_fyxmsz(f,y,x,m);
+                prj_capF_fmsz(f,m) = ptrOMI->cpF_fxmsz(f,x,m);
+                prj_retF_fmsz(f,m) = ptrOMI->ret_fxmsz(f,x,m);
+                prj_selF_fmsz(f,m) = ptrOMI->sel_fxmsz(f,x,m);
             }//m
         }//f
 
-        //reset capF_fmsz to the proposed directed fishery fishery capture rate that will
-        //result in the TAC being taken.
-        if (x==MALE){maxCapF = wts::max(capF_fmsz(1));}
-        capF_fmsz(1) = mseCapF*(capF_fmsz(1)/maxCapF);
+        
+        //determine proposed rates for directed fishery that will
+        //result in TAC being taken
+        prj_capF_fmsz(1) = mseCapF*prj_selF_fmsz(1);
 
         //update CatchInfo objects
-        pCDI->setCaptureRates(capF_fmsz);
-        pCDI->setRetentionFcns(retF_fmsz);
-        pCDI->setSelectivityFcns(selF_fmsz);
-        pCDI->setHandlingMortality(hmF_f);
+        pCDI->setHandlingMortality(prj_hmF_f);
+        pCDI->setCaptureRates(prj_capF_fmsz);
+        pCDI->setRetentionFcns(prj_retF_fmsz);
+        pCDI->setSelectivityFcns(prj_selF_fmsz);
         if (debug) cout<<"updated pCDI for sex "<<x<<endl;
 
         //3. run PopProjector
-        pPPr->dtF = dtF_y(y); //time at which fishery occurs
-        pPPr->dtM = dtM_y(y); //time at which mating occurs
+        pPPr->dtF = ptrOMI->dtF; //time at which fishery occurs
+        pPPr->dtM = ptrOMI->dtM; //time at which mating occurs
         dvariable dirF = -1.0;//don't change scale on directed fishery F's
-        if (debug>=dbgPopDy) PopProjector::debug=1000;   
-        prj_n_xmsz(x)        = pPPr->project(dirF,n_yxmsz(y+1,x),cout);
+        if (debug>=dbgPopDy) PopProjector::debug=1000;
+        dvar3_array n_msz   = ptrOMI->n_xmsz(x);//sex "x" population abundance at start of year
+        prj_n_xmsz(x)       = pPPr->project(dirF,n_msz,cout);
         if (debug>=dbgPopDy) PopProjector::debug=0;
-        prj_n_xmsz(x,IMMATURE,NEW_SHELL) += prjR*R_yx(y,x)*R_yz(y);
+        prj_n_xmsz(x,IMMATURE,NEW_SHELL) += prjR*ptrOMI->R_x(x)*ptrOMI->R_z;
         prj_spB_x(x)         = pPPr->getMatureBiomassAtMating();
         dvar4_array cpN_fmsz = pPPr->getFisheriesCaptureAbundance();
         dvar4_array rmN_fmsz = pPPr->getRetainedCatchMortality();
@@ -2328,9 +2358,9 @@ FUNCTION void projectPopForTAC(dvariable& mseCapF, int debug, ostream& cout)
                 prj_dsN_fxmsz(f,x,m) = prj_cpN_fxmsz(f,x,m)-prj_rmN_fxmsz(f,x,m);
                 for (int s=1;s<=nSCs;s++){
                     //retained catch mortality (biomass)
-                    prjRetCatchMortBio_fx(f,x) += prj_rmN_fxmsz(f,x,m,s)*ptrMDS->ptrBio->wAtZ_xmz(x,m);
+                    prjRetCatchMortBio_fx(f,x) += prj_rmN_fxmsz(f,x,m,s)*ptrOMI->wAtZ_xmz(x,m);
                     //discarded catch mortality (biomass)
-                    prjDscCatchMortBio_fx(f,x) += prj_dmN_fxmsz(f,x,m,s)*ptrMDS->ptrBio->wAtZ_xmz(x,m);
+                    prjDscCatchMortBio_fx(f,x) += prj_dmN_fxmsz(f,x,m,s)*ptrOMI->wAtZ_xmz(x,m);
                 }//s
             }//m
             prjTotCatchMortBio_fx(f,x) = prjRetCatchMortBio_fx(f,x) + prjDscCatchMortBio_fx(f,x);
@@ -7167,76 +7197,100 @@ FUNCTION void ReportToR_ModelFits(ostream& os, double maxGrad, int debug, ostrea
 //Update MPI for current parameter values (mainly for export))
 FUNCTION void updateMPI(int debug, ostream& cout)
     if (debug) cout<<"Starting updateMPI(...)"<<endl;
-//    NumberVectorInfo::debug=1;
-//    BoundedVectorInfo::debug=1;
-//    DevsVectorInfo::debug=1;
-//    DevsVectorVectorInfo::debug=1;
+
     //recruitment parameters
+    if (debug) cout<<"starting recruitment parameters"<<endl;
     ptrMPI->ptrRec->pLnR->setFinalValsFromParamVals(pLnR);
     ptrMPI->ptrRec->pRCV->setFinalValsFromParamVals(pRCV);
     ptrMPI->ptrRec->pRX->setFinalValsFromParamVals(pRX);
     ptrMPI->ptrRec->pRa->setFinalValsFromParamVals(pRa);
     ptrMPI->ptrRec->pRb->setFinalValsFromParamVals(pRb);
-    //cout<<"setting final vals for pDevsLnR"<<endl;
-    for (int p=1;p<=ptrMPI->ptrRec->pDevsLnR->getSize();p++) (*ptrMPI->ptrRec->pDevsLnR)[p]->setFinalValsFromParamVals(pDevsLnR(p));
+    if (debug) cout<<"setting final vals for pDevsLnR"<<endl;
+    for (int p=1;p<=ptrMPI->ptrRec->pDevsLnR->getSize();p++) 
+        (*ptrMPI->ptrRec->pDevsLnR)[p]->setFinalValsFromParamVals(pDevsLnR(p));
+    if (debug) cout<<"finished recruitment parameters"<<endl;
      
     //natural mortality parameters
+    if (debug) cout<<"fstarting natural mortality parameters"<<endl;
     ptrMPI->ptrNM->pM->setFinalValsFromParamVals(pM);
     ptrMPI->ptrNM->pDM1->setFinalValsFromParamVals(pDM1);
     ptrMPI->ptrNM->pDM2->setFinalValsFromParamVals(pDM2);
     ptrMPI->ptrNM->pDM3->setFinalValsFromParamVals(pDM3);
     ptrMPI->ptrNM->pDM4->setFinalValsFromParamVals(pDM4);
+    if (debug) cout<<"finished natural mortality parameters"<<endl;
     
     //growth parameters
+    if (debug) cout<<"starting growth parameters"<<endl;
     ptrMPI->ptrGrw->pGrA->setFinalValsFromParamVals(pGrA);
     ptrMPI->ptrGrw->pGrB->setFinalValsFromParamVals(pGrB);
     ptrMPI->ptrGrw->pGrBeta->setFinalValsFromParamVals(pGrBeta);
+    if (debug) cout<<"finished growth parameters"<<endl;
     
     //maturity parameters
     //cout<<"setting final vals for pvLgtPrM2M"<<endl;
-    for (int p=1;p<=npLgtPrMat;p++) (*ptrMPI->ptrM2M->pvLgtPrM2M)[p]->setFinalValsFromParamVals(pvLgtPrM2M(p));
+    if (debug) cout<<"starting prM2M parameters"<<endl;
+    for (int p=1;p<=ptrMPI->ptrRec->pDevsLnR->getSize();p++) 
+        (*ptrMPI->ptrM2M->pvLgtPrM2M)[p]->setFinalValsFromParamVals(pvLgtPrM2M(p));
+    if (debug) cout<<"finished prM2M parameters"<<endl;
     
     //selectivity parameters
+    if (debug) cout<<"starting selectivities"<<endl;
     ptrMPI->ptrSel->pS1->setFinalValsFromParamVals(pS1);
     ptrMPI->ptrSel->pS2->setFinalValsFromParamVals(pS2);
     ptrMPI->ptrSel->pS3->setFinalValsFromParamVals(pS3);
     ptrMPI->ptrSel->pS4->setFinalValsFromParamVals(pS4);
     ptrMPI->ptrSel->pS5->setFinalValsFromParamVals(pS5);
     ptrMPI->ptrSel->pS6->setFinalValsFromParamVals(pS6);
-    //cout<<"setting final vals for pDevsS1"<<endl;
-    for (int p=1;p<=ptrMPI->ptrSel->pDevsS1->getSize();p++) (*ptrMPI->ptrSel->pDevsS1)[p]->setFinalValsFromParamVals(pDevsS1(p));
-    //cout<<"setting final vals for pDevsS2"<<endl;
-    for (int p=1;p<=ptrMPI->ptrSel->pDevsS2->getSize();p++) (*ptrMPI->ptrSel->pDevsS2)[p]->setFinalValsFromParamVals(pDevsS2(p));
-    //cout<<"setting final vals for pDevsS3"<<endl;
-    for (int p=1;p<=ptrMPI->ptrSel->pDevsS3->getSize();p++) (*ptrMPI->ptrSel->pDevsS3)[p]->setFinalValsFromParamVals(pDevsS3(p));
-    //cout<<"setting final vals for pDevsS4"<<endl;
-    for (int p=1;p<=ptrMPI->ptrSel->pDevsS4->getSize();p++) (*ptrMPI->ptrSel->pDevsS4)[p]->setFinalValsFromParamVals(pDevsS4(p));
-    //cout<<"setting final vals for pDevsS5"<<endl;
-    for (int p=1;p<=ptrMPI->ptrSel->pDevsS5->getSize();p++) (*ptrMPI->ptrSel->pDevsS5)[p]->setFinalValsFromParamVals(pDevsS5(p));
-    //cout<<"setting final vals for pDevsS6"<<endl;
-    for (int p=1;p<=ptrMPI->ptrSel->pDevsS6->getSize();p++) (*ptrMPI->ptrSel->pDevsS6)[p]->setFinalValsFromParamVals(pDevsS6(p));
+    if (debug) cout<<"setting final vals for pDevsS1"<<endl;
+    for (int p=1;p<=ptrMPI->ptrSel->pDevsS1->getSize();p++) 
+        (*ptrMPI->ptrSel->pDevsS1)[p]->setFinalValsFromParamVals(pDevsS1(p));
+    if (debug) cout<<"setting final vals for pDevsS2"<<endl;
+    for (int p=1;p<=ptrMPI->ptrSel->pDevsS2->getSize();p++) 
+        (*ptrMPI->ptrSel->pDevsS2)[p]->setFinalValsFromParamVals(pDevsS2(p));
+    if (debug) cout<<"setting final vals for pDevsS3"<<endl;
+    for (int p=1;p<=ptrMPI->ptrSel->pDevsS3->getSize();p++) 
+        (*ptrMPI->ptrSel->pDevsS3)[p]->setFinalValsFromParamVals(pDevsS3(p));
+    if (debug) cout<<"setting final vals for pDevsS4"<<endl;
+    for (int p=1;p<=ptrMPI->ptrSel->pDevsS4->getSize();p++) 
+        (*ptrMPI->ptrSel->pDevsS4)[p]->setFinalValsFromParamVals(pDevsS4(p));
+    if (debug) cout<<"setting final vals for pDevsS5"<<endl;
+    for (int p=1;p<=ptrMPI->ptrSel->pDevsS5->getSize();p++) 
+        (*ptrMPI->ptrSel->pDevsS5)[p]->setFinalValsFromParamVals(pDevsS5(p));
+    if (debug) cout<<"setting final vals for pDevsS6"<<endl;
+    for (int p=1;p<=ptrMPI->ptrSel->pDevsS6->getSize();p++) 
+        (*ptrMPI->ptrSel->pDevsS6)[p]->setFinalValsFromParamVals(pDevsS6(p));
+    if (debug) cout<<"setting final vals for pvNPSel"<<endl;
+    for (int p=1;p<=ptrMPI->ptrSel->pvNPSel->getSize();p++) 
+        (*ptrMPI->ptrSel->pvNPSel)[p]->setFinalValsFromParamVals(pvNPSel(p));
+    if (debug) cout<<"finished selectivities"<<endl;
      
     //fully-selected fishing capture rate parameters
+    if (debug) cout<<"starting fisheries parameters"<<endl;
     ptrMPI->ptrFsh->pHM->setFinalValsFromParamVals(pHM);
     ptrMPI->ptrFsh->pLnC->setFinalValsFromParamVals(pLnC);
     ptrMPI->ptrFsh->pDC1->setFinalValsFromParamVals(pDC1);
     ptrMPI->ptrFsh->pDC2->setFinalValsFromParamVals(pDC2);
     ptrMPI->ptrFsh->pDC3->setFinalValsFromParamVals(pDC3);
     ptrMPI->ptrFsh->pDC4->setFinalValsFromParamVals(pDC4);
-    //cout<<"setting final vals for pDevsLnC"<<endl;
-    for (int p=1;p<=ptrMPI->ptrFsh->pDevsLnC->getSize();p++) (*ptrMPI->ptrFsh->pDevsLnC)[p]->setFinalValsFromParamVals(pDevsLnC(p));
+    if (debug) cout<<"setting final vals for pDevsLnC"<<endl;
+    for (int p=1;p<=ptrMPI->ptrFsh->pDevsLnC->getSize();p++) 
+        (*ptrMPI->ptrFsh->pDevsLnC)[p]->setFinalValsFromParamVals(pDevsLnC(p));
     ptrMPI->ptrFsh->pLnEffX->setFinalValsFromParamVals(pLnEffX);
     ptrMPI->ptrFsh->pLgtRet->setFinalValsFromParamVals(pLgtRet);
+    if (debug) cout<<"finished fisheries parameters"<<endl;
     
     //survey catchability parameters
+    if (debug) cout<<"starting surveys parameters"<<endl;
     ptrMPI->ptrSrv->pQ->setFinalValsFromParamVals(pQ);
     ptrMPI->ptrSrv->pDQ1->setFinalValsFromParamVals(pDQ1);
     ptrMPI->ptrSrv->pDQ2->setFinalValsFromParamVals(pDQ2);
     ptrMPI->ptrSrv->pDQ3->setFinalValsFromParamVals(pDQ3);
     ptrMPI->ptrSrv->pDQ4->setFinalValsFromParamVals(pDQ4);
+    if (debug) cout<<"finished surveys parameters"<<endl;
     
     //MSE-related parameters
     ptrMPI->ptrMSE->pMSE_LnC->setFinalValsFromParamVals(pMSE_LnC);
+    if (debug) cout<<"finished MSE parameters"<<endl;
     
     if (debug) cout<<"Finished updateMPI(...)"<<endl;
 
@@ -7411,7 +7465,7 @@ REPORT_SECTION
         }
         os0.close();
     }
-    {
+    if (!mseOpModMode) {
         //write objective function components only
         ofstream os0("tcsam02.ModelFits."+itoa(current_phase(),10)+".R", ios::trunc);
         os0.precision(12);
@@ -7850,6 +7904,139 @@ FUNCTION void calcDynB0(int debug, ostream& cout)
     os.close();
     
     if (debug>0) cout<<"finished calcDynB0()"<<endl;
+    
+//-----------------------------------    
+FUNCTION void writeStateForOpMod(int y,ostream& os)
+    if (!mseOpModMode){
+        os<<"#--OpMod state for projecting year "<<y+1<<"--"<<endl;
+        os<<mnYr    <<tb<<"#start year for recruitment"  <<endl;
+        os<<y+1     <<tb<<"#year for projection"<<endl;
+        os<<dtF_y(y)<<tb<<"#dtF"<<endl;
+        os<<dtM_y(y)<<tb<<"#dtM"<<endl;
+        os<<"#wAtZ_xmz:"<<endl; wts::print(ptrMDS->ptrBio->wAtZ_xmz,os,1); os<<endl;
+        os<<"#R_y:"<<endl<<R_y(mnYr,y)<<endl;
+        os<<"#R_x:"<<endl<<R_yx(y)<<endl;
+        os<<"#R_z:"<<endl<<R_yz(y)<<endl;
+        os<<"#M_xmsz:"   <<endl; wts::print(M_yxmsz(y),os,1);    os<<endl;
+        os<<"#prGr_xszz:"<<endl; wts::print(prGr_yxszz(y),os,1); os<<endl;
+        os<<"#prM2M_xz:" <<endl; wts::print(prM2M_yxz(y),os,1);  os<<endl;
+        os<<"#hmF_f:"<<endl<<column(hmF_fy,y)<<endl;
+        os<<"#cpF_fxmsz:"<<endl;
+        for (int f=1;f<=nFsh;f++) {os<<"  #"<<f<<endl; wts::print(cpF_fyxmsz(f,y),os,1); os<<endl;}
+        os<<"#ret_fxmsz:"<<endl;
+        for (int f=1;f<=nFsh;f++) {os<<"  #"<<f<<endl; wts::print(ret_fyxmsz(f,y),os,1); os<<endl;}
+        os<<"#sel_fxmsz:"<<endl;
+        for (int f=1;f<=nFsh;f++) {os<<"  #"<<f<<endl; wts::print(sel_fyxmsz(f,y),os,1); os<<endl;}
+        os<<"#q_vxmsz:"<<endl;
+        for (int v=1;v<=nSrv;v++) {os<<"  #"<<v<<endl; wts::print(q_vyxmsz(v,y),os,1); os<<endl;}
+        os<<"#n_xmsz (pop state at start of year to be projected):"<<endl; wts::print(n_yxmsz(y+1),os,1); os<<endl;
+    } else {
+        os<<"#--OpMod state for projecting year "<<ptrOMI->mxYr+1<<"--"<<endl;
+        os<<ptrOMI->mnYr  <<tb<<"#start year for recruitment"<<endl;
+        os<<ptrOMI->mxYr+1<<tb<<"#year for projection"       <<endl;
+        os<<ptrOMI->dtF<<tb<<"#dtF"<<endl;
+        os<<ptrOMI->dtM<<tb<<"#dtM"<<endl;
+        os<<"#wAtZ_xmz:"<<endl; wts::print(ptrOMI->wAtZ_xmz,os,1); os<<endl; 
+        os<<"#R_y:"<<endl<<ptrOMI->R_y(mnYr,mxYr)<<tb<<prjR<<endl;
+        os<<"#R_x:"<<endl<<ptrOMI->R_x<<endl;
+        os<<"#R_z:"<<endl<<ptrOMI->R_z<<endl;
+        os<<"#M_xmsz:"   <<endl; wts::print(ptrOMI->M_xmsz,   os,1); os<<endl;
+        os<<"#prGr_xszz:"<<endl; wts::print(ptrOMI->prGr_xszz,os,1); os<<endl;
+        os<<"#prM2M_xz:" <<endl; wts::print(ptrOMI->prM2M_xz, os,1); os<<endl;
+        os<<"#hmF_f:"    <<endl<<ptrOMI->hmF_f<<endl;
+        os<<"#cpF_fxmsz:"<<endl; wts::print(ptrOMI->cpF_fxmsz,os,1); os<<endl;
+        os<<"#ret_fxmsz:"<<endl; wts::print(ptrOMI->ret_fxmsz,os,1); os<<endl;
+        os<<"#sel_fxmsz:"<<endl; wts::print(ptrOMI->sel_fxmsz,os,1); os<<endl;
+        os<<"#q_vxmsz:"  <<endl; wts::print(ptrOMI->q_vxmsz,  os,1); os<<endl;
+        os<<"#n_xmsz (pop state at start of year to be projected):"<<endl; 
+          wts::print(prj_n_xmsz,os,1); os<<endl;
+    }
+    
+//-----------------------------------    
+FUNCTION void writeOpModPinFile(ostream& os)
+    //NOTE: need to call updateMPI() at some point before calling this function
+    //to write current parameter values to the pin file
+    os<<"#####---OpMod Pin File"<<endl;
+    
+    os<<"#-------------------------------"<<endl;
+    os<<"# Recruitment parameters  "<<endl;
+    os<<"#-------------------------------"<<endl;
+    ptrMPI->ptrRec->pLnR->writeToPin(os);
+    ptrMPI->ptrRec->pRCV->writeToPin(os);
+    ptrMPI->ptrRec->pRX->writeToPin(os);
+    ptrMPI->ptrRec->pRa->writeToPin(os);
+    ptrMPI->ptrRec->pRb->writeToPin(os);
+    ptrMPI->ptrRec->pDevsLnR->writeToPin(os);
+    
+    os<<"#-------------------------------"<<endl;
+    os<<"# Natural mortality parameters  "<<endl;
+    os<<"#-------------------------------"<<endl;
+    ptrMPI->ptrNM->pM->writeToPin(os);
+    ptrMPI->ptrNM->pDM1->writeToPin(os);
+    ptrMPI->ptrNM->pDM2->writeToPin(os);
+    ptrMPI->ptrNM->pDM3->writeToPin(os);
+    ptrMPI->ptrNM->pDM4->writeToPin(os);
+    
+    os<<"#-------------------------------"<<endl;
+    os<<"# Growth parameters  "<<endl;
+    os<<"#-------------------------------"<<endl;
+    ptrMPI->ptrGrw->pGrA->writeToPin(os);
+    ptrMPI->ptrGrw->pGrB->writeToPin(os);
+    ptrMPI->ptrGrw->pGrBeta->writeToPin(os);
+    
+    os<<"#-------------------------------"<<endl;
+    os<<"# Molt-to-maturity parameters  "<<endl;
+    os<<"#-------------------------------"<<endl;
+    ptrMPI->ptrM2M->pvLgtPrM2M->writeToPin(os);
+    
+    os<<"#-------------------------------"<<endl;
+    os<<"# Selectivity parameters  "<<endl;
+    os<<"#-------------------------------"<<endl;
+    ptrMPI->ptrSel->pS1->writeToPin(os);
+    ptrMPI->ptrSel->pS2->writeToPin(os);
+    ptrMPI->ptrSel->pS3->writeToPin(os);
+    ptrMPI->ptrSel->pS4->writeToPin(os);
+    ptrMPI->ptrSel->pS5->writeToPin(os);
+    ptrMPI->ptrSel->pS6->writeToPin(os);
+    
+    ptrMPI->ptrSel->pDevsS1->writeToPin(os);
+    ptrMPI->ptrSel->pDevsS2->writeToPin(os);
+    ptrMPI->ptrSel->pDevsS3->writeToPin(os);
+    ptrMPI->ptrSel->pDevsS4->writeToPin(os);
+    ptrMPI->ptrSel->pDevsS5->writeToPin(os);
+    ptrMPI->ptrSel->pDevsS6->writeToPin(os);
+    
+    ptrMPI->ptrSel->pvNPSel->writeToPin(os);
+    
+    os<<"#-------------------------------"<<endl;
+    os<<"# Fisheries parameters  "<<endl;
+    os<<"#-------------------------------"<<endl;
+    ptrMPI->ptrFsh->pHM->writeToPin(os);
+    ptrMPI->ptrFsh->pLnC->writeToPin(os);
+    ptrMPI->ptrFsh->pDC1->writeToPin(os);
+    ptrMPI->ptrFsh->pDC2->writeToPin(os);
+    ptrMPI->ptrFsh->pDC3->writeToPin(os);
+    ptrMPI->ptrFsh->pDC4->writeToPin(os);
+    
+    ptrMPI->ptrFsh->pDevsLnC->writeToPin(os);
+    
+    ptrMPI->ptrFsh->pLnEffX->writeToPin(os);
+    ptrMPI->ptrFsh->pLgtRet->writeToPin(os);
+    
+    os<<"#-------------------------------"<<endl;
+    os<<"# Surveys parameters  "<<endl;
+    os<<"#-------------------------------"<<endl;
+    ptrMPI->ptrSrv->pQ->writeToPin(os);
+    ptrMPI->ptrSrv->pDQ1->writeToPin(os);
+    ptrMPI->ptrSrv->pDQ2->writeToPin(os);
+    ptrMPI->ptrSrv->pDQ3->writeToPin(os);
+    ptrMPI->ptrSrv->pDQ4->writeToPin(os);
+    
+    os<<"#-------------------------------"<<endl;
+    os<<"# MSE-related parameters  "<<endl;
+    os<<"#-------------------------------"<<endl;
+    ptrMPI->ptrMSE->pMSE_LnC->writeToPin(os);
+    
 // =============================================================================
 // =============================================================================
 FINAL_SECTION
@@ -7907,6 +8094,16 @@ FINAL_SECTION
             if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
             calcObjFun(dbgObjFun,cout);
             PRINT2B2("#--Final obj fun = ",objFun)
+                    
+            {
+            PRINT2B1("#----Writing OpMod state file")
+            adstring nwF = "OpModStateFile_"+str(mxYr+1)+".txt";
+            //nwF = wts::concatenateFilePaths(parent,nwF);
+            ofstream ofs; ofs.open(nwF,ios::trunc);
+            writeStateForOpMod(mxYr,ofs);
+            ofs.close();
+            PRINT2B1("#----Finished writing OpModInfo file")
+            }
         }
     } else if (mseEstModMode){
         //running in estModMode
@@ -7945,7 +8142,7 @@ FINAL_SECTION
     } else if (mseOpModMode){
         //running in mseOpModMode
         PRINT2B1("#----MSE OpModMode: Recalculating population dynamics")
-        if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
+        //if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
         dvariable mseCapF = mfexp(pMSE_LnC[1]);
         projectPopForTAC(mseCapF,0,cout);
         calcObjFunForTAC(dbgObjFun,cout);
@@ -8003,7 +8200,7 @@ FINAL_SECTION
                 for (int m=1;m<=nMSs;m++){
                     for (int s=1;s<=nSCs;s++){
                         //NOTE: using survey characteristics from final year of "real" data
-                        prj_n_vxmsz(v,x,m,s) = elem_prod(q_vyxmsz(v,ptrMC->mxYr,x,m,s),prj_n_xmsz(x,m,s));
+                        prj_n_vxmsz(v,x,m,s) = elem_prod(ptrOMI->q_vxmsz(v,x,m,s),prj_n_xmsz(x,m,s));
                     }
                 }
             }
@@ -8014,7 +8211,7 @@ FINAL_SECTION
             adstring name  = ptrMDS->ppSrv[i-1]->name;
             ptrMDS->fnsSurveyData[i] = "Data.Survey."+name+".dat";
             //update survey data for year mxYr+1
-            FleetData::debug=1;
+            FleetData::debug=0;
             ptrMDS->ppSrv[i-1]->addIndexCatchData(ptrMC->mxYr+1,
                                                   prj_n_vxmsz(i),
                                                   ptrMDS->ptrBio->wAtZ_xmz,
@@ -8060,12 +8257,29 @@ FINAL_SECTION
         
         //--write ModelOptions for OpMod
         
-        //--write MPI for OpMod
-        updateMPI(0,cout);
-
         //--write pin file for OpMod for subsequent year
-        rpt::echo<<"#####---Projected Pin File"<<endl;
-        ptrMPI->writePin(rpt::echo,1,0);
+        {
+        rpt::echo<<"updating MPI for OpMod"<<endl;
+        updateMPI(0,cout);
+        rpt::echo<<"updated MPI for OpMod"<<endl;
+        rpt::echo<<"writing OpMod pin file for next year"<<endl;
+        adstring nwF = wts::concatenateFilePaths(parent,
+                                                 "OpModPinFile.pin");
+        ofstream ofs; ofs.open(nwF,ios::trunc);
+        //writeOpModPinFile(ofs);
+        ptrMPI->writePin(ofs);
+        ofs.close();
+        rpt::echo<<"finished writing OpMod pin file for next year"<<endl;
+        }
+        
+        //write OpMod "state" to file
+        {
+        adstring nwF = "OpModStateFile_"+str(ptrOMI->mxYr+1)+".txt";
+        //nwF = wts::concatenateFilePaths(parent,nwF);
+        ofstream ofs; ofs.open(nwF,ios::trunc);
+        writeStateForOpMod(0,ofs);
+        ofs.close();
+        }
 
     }//mseOpModMode
     
