@@ -209,7 +209,7 @@ void NumberInfo::read(cifstream & is){
     adstring str;
     is>>initVal;
     is>>str; scaleType=tcsam::getScaleType(str);
-    std::cout<<name<<tb<<str<<tb<<scaleType<<tb<<tcsam::getScaleType(scaleType)<<endl;
+    if (debug) rpt::echo<<name<<tb<<str<<tb<<scaleType<<tb<<tcsam::getScaleType(scaleType)<<endl;
     is>>phase;
     is>>str; resample=wts::getOnOffType(str);
     is>>priorWgt;
@@ -711,6 +711,7 @@ dvector VectorInfo::calcParamScaleVals(dvector& x){
     if (debug) rpt::echo<<"finished VectorInfo::calcParamScaleVal(dvector&) "<<this<<endl;
     return z;
 }
+
 /**
  * Sets the vector of initial values to the input dvector element-by-element.
  * 
@@ -775,6 +776,50 @@ dvar_vector VectorInfo::calcLogPrior(dvar_vector & pv){
     RETURN_ARRAYS_DECREMENT();
     return lps;
 }
+        
+/**
+ * Add a value to the end of the init and final vectors.
+ * 
+ * @param val - value to add
+ * @param ibVal - corresponding IndexBlock value to add
+ */
+void VectorInfo::addValueOnArithmeticScale(double val, int ibVal){
+    if (debug) cout<<"starting VectorInfo::addValueOnArithmeticScale("<<val<<cc<<ibVal<<")"<<endl;
+    ptrIB->addElement(ibVal);
+    dvector tmp = 1.0*initVals;
+    N++;
+    initVals.deallocate(); initVals.allocate(1,N);
+    initVals(1,N-1) = tmp;
+    initVals(N) = val;
+    if (debug){
+        cout<<"initVals orig: "<<tmp<<endl;
+        cout<<"initVals updt: "<<initVals<<endl;
+    }
+    if (finlVals.allocated()){
+        dvector tmp = 1.0*finlVals;
+        finlVals.deallocate(); finlVals.allocate(1,N);
+        finlVals(1,N-1) = tmp;
+        finlVals(N) = val;
+        if (debug){
+            cout<<"finlVals orig: "<<tmp<<endl;
+            cout<<"finlVals updt: "<<finlVals<<endl;
+        }
+    }
+    if (debug) cout<<"finished VectorInfo::addValueOnArithmeticScale("<<val<<cc<<ibVal<<")"<<endl;
+}
+
+/**
+ * Add a value to the end of the init and final vectors.
+ * 
+ * @param val - value (on parameter scale) to add
+ * @param ibVal - corresponding IndexBlock value to add
+ */
+void VectorInfo::addValueOnParameterScale(double val, int ibVal){
+    if (debug) cout<<"starting VectorInfo::addValueOnParameterScale("<<val<<cc<<ibVal<<")"<<endl;
+    double aval = calcArithScaleVals(val);
+    addValueOnArithmeticScale(aval,ibVal);
+    if (debug) cout<<"finished VectorInfo::addValueOnParameterScale("<<val<<cc<<ibVal<<")"<<endl;
+}
 
 /**
  * Reads the parameter info from an input filestream.
@@ -792,6 +837,7 @@ void VectorInfo::read(cifstream & is){
     if (debug) rpt::echo<<"Starting VectorInfo::read(cifstream & is) for "<<name<<endl;
     readPart1(is);
     readPart2(is);
+    if (debug) rpt::echo<<"Finished VectorInfo::read(cifstream & is) for "<<name<<endl;
 }
 
 /**
@@ -1684,7 +1730,8 @@ void NumberVectorInfo::writeToPin(ostream & os){
     if (nNIs){
         for (int p=0;p<nNIs;p++) {
             os<<"#"<<name<<"["<<p+1<<"]:"<<endl;
-            os<<ppNIs[p]->getFinalVal()<<endl;
+            double tmp = ppNIs[p]->getFinalVal();
+            os<<ppNIs[p]->calcParamScaleVal(tmp)<<endl;
         }
     } else {
         os<<"#"<<name<<"[0]:"<<endl<<0.00<<endl;
@@ -2049,7 +2096,8 @@ void VectorVectorInfo::writeToPin(ostream & os){
     if (nVIs){
         for (int p=0;p<nVIs;p++) {
             os<<"#"<<name<<"["<<p+1<<"]:"<<endl;
-            os<<ppVIs[p]->getFinalVals()<<endl;
+            dvector tmp = ppVIs[p]->getFinalVals();
+            os<<ppVIs[p]->calcParamScaleVals(tmp)<<endl;
         }
     } else {
         os<<"#"<<name<<"[0]:"<<endl<<0.00<<endl;

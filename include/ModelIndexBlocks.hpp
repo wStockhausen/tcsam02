@@ -116,6 +116,14 @@ class IndexBlock{
          * @return the max index
          */
         int getMax(void);
+        
+        /**
+         * Add an element to the end of the block.
+         * 
+         * @param e - value of element to add
+         */
+        void addElement(int e);
+        
         /** 
          * Returns an ivector that maps block indices (1:nIDs) to model indices.\n
          * Thus, if iv is the ivector result of the function, iv(i) is the model\n
@@ -208,7 +216,14 @@ class IndexBlockSet{
         void allocate(int n);
         
         /**
-         * Gets the ith IndexBlock in this set
+         * Get the number of IndexBlocks in this set.
+         * 
+         * @return the number of IndexBlocks.
+         */
+        int getSize(void){return nIBs;}
+        
+        /**
+         * Gets the ith IndexBlock in this set.
          * @param i - index in interval 1:nIBs 
          * @return 
          */

@@ -772,7 +772,7 @@ void setParameterInfo(VectorVectorInfo* pVVI,
         mns = pVVI->getMinIndices();
         mxs = pVVI->getMaxIndices();
         scales = pVVI->getScaleTypes();
-        os<<"parameter vector"<<pVVI->name<<":"<<endl;
+        os<<"parameter vector "<<pVVI->name<<":"<<endl;
         os<<"#mnIdx  mxIdx  phase  scale"<<endl;
         for (int n=1;n<=np;n++) os<<n<<tb<<mns(n)<<tb<<mxs(n)<<tb<<phs(n)<<tb<<scales(n)<<endl;
     } else {
@@ -870,6 +870,7 @@ void setParameterInfo(DevsVectorVectorInfo* pDVVI,
                              dvector& lb, dvector& ub, 
                              ivector& phs, 
                              ostream& os){
+    os<<"tcsam::setParameterInfo(DevsVectorVectorInfo*,...):"<<endl;
     int np = pDVVI->getSize();
     if (np){npT = np;} else {npT = 1;}
     mns.allocate(1,npT);
@@ -885,7 +886,7 @@ void setParameterInfo(DevsVectorVectorInfo* pDVVI,
         lb  = pDVVI->getLowerBoundsOnParamScales();
         ub  = pDVVI->getUpperBoundsOnParamScales();
         scales = pDVVI->getScaleTypes();
-        os<<"parameter vector"<<pDVVI->name<<":"<<endl;
+        os<<"parameter vector "<<pDVVI->name<<":"<<endl;
         os<<"#mnIdx  mxIdx  lower  upper  phase  scale"<<endl;
         for (int n=1;n<=np;n++) os<<n<<tb<<mns(n)<<tb<<mxs(n)<<tb<<lb(n)<<tb<<ub(n)<<tb<<phs(n)<<tb<<scales(n)<<endl;
         idxs.allocate(1,np);

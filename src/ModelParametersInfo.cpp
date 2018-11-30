@@ -99,10 +99,72 @@ ParameterGroupInfo::~ParameterGroupInfo(){
         ppIdxs=0;
     }
 }
+
+/**
+ * Finds the pc indices that corresponds to a given year.
+ * 
+ * @param y - the year to find the PCs for
+ * @return - ivector of the corresponding PCs (or unallocated, if no corresponding PC found)
+ */
+ivector ParameterGroupInfo::getPCsForYear(int y){
+    if (debug) cout<<"starting ParameterGroupInfo::getPCforYear("<<y<<") for "<<name<<endl;
+    IndexBlockSet* pIBS = getIndexBlockSet("YEAR_BLOCK");
+    int pcy = 0;
+    int nPCs = pIBS->getSize();
+    if (debug) cout<<"nPCs = "<<nPCs<<endl;
+    //count pc's that include year
+    int k = 0;
+    for (int pc=1;pc<=nPCs;pc++){
+        ivector iv = pIBS->getFwdIndexVector(pc);
+        if (debug) cout<<pc<<": "<<iv<<endl;
+        for (int i=iv.indexmin();i<=iv.indexmax();i++) 
+            if (iv(i)==y) k++;
+    }
+    ivector pcs; 
+    if (debug) cout<<"Found "<<k<<" PCs that include "<<y<<endl;
+    if (k) {
+        //now collect the pc's
+        pcs.allocate(1,k);
+        k = 1;//reset counter
+        for (int pc=1;pc<=nPCs;pc++){
+            ivector iv = pIBS->getFwdIndexVector(pc);
+            if (debug) cout<<pc<<": "<<iv<<endl;
+            for (int i=iv.indexmin();i<=iv.indexmax();i++) 
+                if (iv(i)==y) pcs(k++) = pc;
+        }
+    }
+    if (debug) {
+        if (pcs.allocated()) 
+            cout<<"pcs corresponding to "<<y<<" are "<<pcs<<" for "<<name<<endl; 
+        else
+            cout<<"No pcs corresponding to "<<y<<" were found for "<<name<<endl; 
+        cout<<"finished ParameterGroupInfo::getPCforYear("<<y<<") for "<<name<<endl;
+    }
+    return(pcs);
+}
+
+/**
+ * Add a year to a parameter combination.
+ * 
+ * @param pc - parameter combination index to add year to
+ * @param y - year to add
+ */
+void ParameterGroupInfo::addYearToPC(int pc, int y){
+    if (debug) cout<<"starting ParameterGroupInfo::addYearToPC("<<pc<<cc<<y<<") for "<<name<<endl;
+    IndexBlockSet* pIBS = getIndexBlockSet("YEAR_BLOCK");
+    IndexBlock* pIB  = pIBS->getIndexBlock(pc);
+    if (debug) IndexBlock::debug=1;
+    pIB->addElement(y);
+    if (debug) IndexBlock::debug=0;
+    createIndices();
+    if (debug) cout<<"finished ParameterGroupInfo::addYearToPC("<<pc<<cc<<y<<") for "<<name<<endl;
+}
+
 /**
  * Gets indices for parameter combination pc.
  * @param pc - id for desired parameter combination
- * @return 
+ * 
+ * @return - ivector with corresponding parameter indices
  */
 ivector ParameterGroupInfo::getPCIDs(int pc){
     if (debug) cout<<"starting ParameterGroupInfo::getPCIDs(int pc)"<<endl;
@@ -118,8 +180,10 @@ ivector ParameterGroupInfo::getPCIDs(int pc){
 
 /**
  * Gets "extra" values for parameter combination pc.
+ * 
  * @param pc - id for desired parameter combination
- * @return 
+ * 
+ * @return - dvector of corresponding values
  */
 dvector ParameterGroupInfo::getPCXDs(int pc){
     if (debug) cout<<"starting ParameterGroupInfo::getPCXDs(int pc)"<<endl;
@@ -138,6 +202,7 @@ dvector ParameterGroupInfo::getPCXDs(int pc){
  * to the given parameter combination pc.
  * 
  * @param pc
+ * 
  * @return - imatrix of model indices
  */
 imatrix ParameterGroupInfo::getModelIndices(int pc){
@@ -167,6 +232,7 @@ imatrix ParameterGroupInfo::getModelIndices(int pc){
  */
 void ParameterGroupInfo::createIndexBlockSets(){
     if (debug) cout<<"starting ParameterGroupInfo::createIndexBlockSets() "<<nIBSs<<endl;
+    if(ppIBSs) delete(ppIBSs);
     if (nIBSs){
         ppIBSs = new IndexBlockSet*[nIBSs];
         for (int i=1;i<=nIBSs;i++){
@@ -202,6 +268,7 @@ IndexBlockSet* ParameterGroupInfo::getIndexBlockSet(adstring type){
  */
 void ParameterGroupInfo::createIndices(void){
     if (debug) cout<<"starting void ParameterGroupInfo::createIndices(void)"<<endl;
+    if (ppIdxs) delete(ppIdxs);
     if (nPCs>0){
         //create pointer array
         ppIdxs = new imatrix*[nPCs];
@@ -378,15 +445,15 @@ void ParameterGroupInfo::read(cifstream& is){
     if (str=="PARAMETER_COMBINATIONS"){
         is>>nPCs;
         if (debug) cout<<nPCs<<tb<<"#number of parameter combinations"<<endl;
-        if (debug) cout<<"#id  "; 
         rpt::echo<<nPCs<<tb<<"#number of parameter combinations"<<endl;
         if (nPCs>0){
-            rpt::echo<<"#id  "; 
             if (debug){
+                cout<<"#id  ";
                 for (int i=1;i<=nIVs;i++) cout<<lblIVs(i)<<tb; 
                 for (int i=1;i<=nPVs;i++) cout<<lblPVs(i)<<tb; 
                 for (int i=1;i<=nXIs;i++) cout<<lblXIs(i)<<tb; 
             }
+            rpt::echo<<"#id  "; 
             for (int i=1;i<=nIVs;i++) rpt::echo<<lblIVs(i)<<tb; 
             for (int i=1;i<=nPVs;i++) rpt::echo<<lblPVs(i)<<tb; 
             for (int i=1;i<=nXIs;i++) rpt::echo<<lblXIs(i)<<tb; 
@@ -589,6 +656,49 @@ RecruitmentInfo::~RecruitmentInfo(){
     if (pDevsLnR) delete pDevsLnR; pDevsLnR = 0;
 }
 
+/**
+ * update RecruitmentInfo for a 1-year projected scenario.
+ * 
+ * @param closed - flag indicating whether directed fishery is closed
+ */
+void RecruitmentInfo::addNextYearToInfo(int closed){
+    if (debug) cout<<"starting void RecruitmentInfo::project("<<closed<<")"<<endl;
+    int idxDevsLnR = nIVs+6;
+    //find pcs corresponding to mxYr
+    int mxYr = ModelConfiguration::mxYr;
+    ivector pcs = ParameterGroupInfo::getPCsForYear(mxYr);
+    if (debug) {
+        if (pcs.size()) cout<<"PCs "<<pcs<<" apply to "<<mxYr<<endl;
+        else cout<<"No PCs apply to <<"<<mxYr<<endl;
+    }
+    //define ivector to track which vectors in pDevsLnR have been modified
+    ivector idsDevsLnR(pcs.indexmin(),pcs.indexmax());
+    idsDevsLnR = 0;
+    for (int i=pcs.indexmin();i<=pcs.indexmax();i++){
+        ParameterGroupInfo::addYearToPC(pcs[i],mxYr+1);
+
+        ivector ids = ParameterGroupInfo::getPCIDs(pcs[i]);
+        if (debug) cout<<"PC IDs for pc "<<pcs[i]<<" = "<<ids<<endl;
+        if (pDevsLnR->getSize()){
+            if (debug) cout<<"extending pDevsLnR["<<ids[idxDevsLnR]<<"]"<<endl<<(*pDevsLnR)[ids[idxDevsLnR]]->getInitVals()<<endl;
+            //Need to make sure not to addValue multiple times to same devs vector.
+            int sumdsp = 0;//if sumdsp>0, then already added value to indexed devs vector
+            for (int j=pcs.indexmin();j<=pcs.indexmax();j++) sumdsp += (idsDevsLnR[j]==ids[idxDevsLnR]);
+            if (!sumdsp){
+                if (debug) cout<<"Adding value to pDevsLnR["<<ids[idxDevsLnR]<<"]"<<endl;
+                idsDevsLnR[i] = ids[idxDevsLnR];
+                DevsVectorInfo* pDVI = (*pDevsLnR)[ids[idxDevsLnR]];
+                if (debug) DevsVectorInfo::debug=1;
+                pDVI->addValueOnParameterScale(0.0,mxYr+1);
+                if (debug) DevsVectorInfo::debug=0;
+            } else {
+                if (debug) cout<<"Already added value to pDevsLnR["<<ids[idxDevsLnR]<<"]"<<endl;
+            }
+        }
+    }
+    if (debug) cout<<"finished void RecruitmentInfo::project("<<closed<<")"<<endl; 
+}
+
 void RecruitmentInfo::read(cifstream & is){
     if (debug) cout<<"starting void RecruitmentInfo::read(cifstream & is)"<<endl;    
     
@@ -771,6 +881,21 @@ NaturalMortalityInfo::~NaturalMortalityInfo(){
     if (pDM4) delete pDM4;  pDM4 =0;
 }
 
+void NaturalMortalityInfo::addNextYearToInfo(int closed){
+    if (debug) cout<<"starting void NaturalMortalityInfo::project("<<closed<<")"<<endl;
+    //find pcs corresponding to mxYr
+    int mxYr = ModelConfiguration::mxYr;
+    ivector pcs = ParameterGroupInfo::getPCsForYear(mxYr);
+    if (debug) {
+        if (pcs.size()) cout<<"PCs "<<pcs<<" apply to "<<mxYr<<endl;
+        else cout<<"No PCs apply to <<"<<mxYr<<endl;
+    }
+    for (int i=1;i<=pcs.size();i++){
+        ParameterGroupInfo::addYearToPC(pcs[i],mxYr+1);
+    }
+    if (debug) cout<<"finished void NaturalMortalityInfo::project("<<closed<<")"<<endl;
+}
+
 void NaturalMortalityInfo::read(cifstream & is){
     if (debug) cout<<"starting NaturalMortalityInfo::read(cifstream & is)"<<endl;
     
@@ -919,6 +1044,21 @@ GrowthInfo::~GrowthInfo(){
     if (pGrBeta) delete pGrBeta; pGrBeta =0;
 }
 
+void GrowthInfo::addNextYearToInfo(int closed){
+    if (debug) cout<<"starting void GrowthInfo::project("<<closed<<")"<<endl;
+    //find pcs corresponding to mxYr
+    int mxYr = ModelConfiguration::mxYr;
+    ivector pcs = ParameterGroupInfo::getPCsForYear(mxYr);
+    if (debug) {
+        if (pcs.size()) cout<<"PCs "<<pcs<<" apply to "<<mxYr<<endl;
+        else cout<<"No PCs apply to <<"<<mxYr<<endl;
+    }
+    for (int i=1;i<=pcs.size();i++){
+        ParameterGroupInfo::addYearToPC(pcs[i],mxYr+1);
+    }
+    if (debug) cout<<"finished void GrowthInfo::project("<<closed<<")"<<endl;
+}
+
 void GrowthInfo::read(cifstream & is){
     if (debug) cout<<"starting GrowthInfo::read(cifstream & is)"<<endl;
     
@@ -1036,6 +1176,21 @@ Molt2MaturityInfo::~Molt2MaturityInfo(){
     if (pvLgtPrM2M) delete pvLgtPrM2M; pvLgtPrM2M = 0;
 }
 
+void Molt2MaturityInfo::addNextYearToInfo(int closed){
+    if (debug) cout<<"starting void Molt2MaturityInfo::project("<<closed<<")"<<endl;
+    //find pcs corresponding to mxYr
+    int mxYr = ModelConfiguration::mxYr;
+    ivector pcs = ParameterGroupInfo::getPCsForYear(mxYr);
+    if (debug) {
+        if (pcs.size()) cout<<"PCs "<<pcs<<" apply to "<<mxYr<<endl;
+        else cout<<"No PCs apply to <<"<<mxYr<<endl;
+    }
+    for (int i=1;i<=pcs.size();i++){
+        ParameterGroupInfo::addYearToPC(pcs[i],mxYr+1);
+    }
+    if (debug) cout<<"finished void Molt2MaturityInfo::project("<<closed<<")"<<endl;
+}
+
 void Molt2MaturityInfo::read(cifstream & is){
     if (debug) cout<<"starting void MaturityInfo::read(cifstream & is)"<<endl;    
     
@@ -1121,11 +1276,20 @@ void Molt2MaturityInfo::writeToR(std::ostream & os){
  * SelectivityInfo
  -----------------------------------------------------------------------------*/
 adstring SelectivityInfo::NAME = "selectivities";
+const int SelectivityInfo::nIVs =  1;
+const int SelectivityInfo::nPVs = 13;
+const int SelectivityInfo::nXIs =  2;
+const int SelectivityInfo::idxDevsS1=SelectivityInfo::nIVs+ 7;//parameter combinations index for pDevsS1
+const int SelectivityInfo::idxDevsS2=SelectivityInfo::nIVs+ 8;//parameter combinations index for pDevsS2
+const int SelectivityInfo::idxDevsS3=SelectivityInfo::nIVs+ 9;//parameter combinations index for pDevsS3
+const int SelectivityInfo::idxDevsS4=SelectivityInfo::nIVs+10;//parameter combinations index for pDevsS4
+const int SelectivityInfo::idxDevsS5=SelectivityInfo::nIVs+11;//parameter combinations index for pDevsS5
+const int SelectivityInfo::idxDevsS6=SelectivityInfo::nIVs+12;//parameter combinations index for pDevsS6
 SelectivityInfo::SelectivityInfo(){
     name = NAME;//assign static NAME to ParameterGroupInfo::name
     
     int k;
-    nIVs = 1;
+    ParameterGroupInfo::nIVs = SelectivityInfo::nIVs;
     lblIVs.allocate(1,nIVs);
     lblIVs(1) = "YEAR_BLOCK";
     nIBSs = 1;
@@ -1134,7 +1298,7 @@ SelectivityInfo::SelectivityInfo(){
     ParameterGroupInfo::createIndexBlockSets();
     for (int i=1;i<=nIBSs;i++) ppIBSs[i-1]->setType(lblIVs(ibsIdxs(i)));
     
-    nPVs=13;
+    ParameterGroupInfo::nPVs=SelectivityInfo::nPVs;
     lblPVs.allocate(1,nPVs); dscPVs.allocate(1,nPVs);
     k=1;
     lblPVs(k) = "pS1"; dscPVs(k++) = "1st input to selectivity function";
@@ -1166,7 +1330,7 @@ SelectivityInfo::SelectivityInfo(){
     pDevsS6 = new DevsVectorVectorInfo(lblPVs(k++));
     pvNPSel = new BoundedVectorVectorInfo(lblPVs(k++));
     
-    nXIs=2;
+    ParameterGroupInfo::nXIs=SelectivityInfo::nXIs;
     lblXIs.allocate(1,nXIs);
     k=1;
     lblXIs(k++) = "fsZ";
@@ -1188,6 +1352,158 @@ SelectivityInfo::~SelectivityInfo(){
     if (pDevsS5) delete pDevsS5; pDevsS5=0;
     if (pDevsS6) delete pDevsS6; pDevsS6=0;
     if (pvNPSel) delete pvNPSel; pvNPSel=0;
+}
+
+void SelectivityInfo::addNextYear1(adstring flt_type, int y, imatrix& fltpcs){
+    debug=1;
+    if (debug) cout<<endl<<"starting SelectivityInfo::addNextYear1('"<<flt_type<<"',"<<y<<")"<<endl;
+    
+    //define vector for selectivity function pcs that have been updated already
+    ivector updated(1,nPCs); int selpc; int fltpc;
+    //define ivector to track which vectors in pDevsS1-pDevsS6 have been modified
+    ivector idsDevsS1(1,nPCs);
+    ivector idsDevsS2(1,nPCs);
+    ivector idsDevsS3(1,nPCs);
+    ivector idsDevsS4(1,nPCs);
+    ivector idsDevsS5(1,nPCs);
+    ivector idsDevsS6(1,nPCs);
+    idsDevsS1 = 0;
+    idsDevsS2 = 0;
+    idsDevsS3 = 0;
+    idsDevsS4 = 0;
+    idsDevsS5 = 0;
+    idsDevsS6 = 0;
+    int k = 0;//index into "updated" vector
+    updated = -1;//set all elements to -1 (i.e., not updated)
+    for (int idxS=3;idxS<=4;idxS++){//loop over indices for selectivity/retention or availability/selectivity
+        for (int i=fltpcs.indexmin();i<=fltpcs.indexmax();i++){//loop over rows of input imatrix
+            fltpc = fltpcs(i,1);   //fleet pc
+            selpc = fltpcs(i,idxS);//pc for idxS-type function for ith fleet pc
+            if (selpc){
+                //check 
+                int sumu = 0;
+                for (int j=1;j<=nPCs;j++) sumu += (updated(j)==fltpcs(i,idxS));
+                if (!sumu){
+                    //selectivity function identified by selpc has not been updated yet
+                    ivector ids = getPCIDs(selpc);
+                    if (debug) {
+                        cout<<"will update function pc "<<selpc<<" for function type "<<idxS<<" for fleet pc "<<fltpc<<endl;
+                        cout<<"ids for function parameters: "<<ids<<endl;
+                    }
+                    //add year to YEAR_BLOCK for this function pc
+                    addYearToPC(selpc,y);
+                    //deal with devs vectors
+                    if (pDevsS1->getSize()&&ids[idxDevsS1]){
+                        if (debug) cout<<"extending pDevsS1["<<ids[idxDevsS1]<<"]"<<endl<<(*pDevsS1)[ids[idxDevsS1]]->getInitVals()<<endl;
+                        //Need to make sure not to addValue multiple times to same devs vector.
+                        int sumdsp = 0;//if sumdsp>0, then already added value to indexed devs vector
+                        for (int j=1;j<=nPCs;j++) sumdsp += (idsDevsS1[j]==ids[idxDevsS1]);
+                        if (!sumdsp){
+                            if (debug) cout<<"Adding value to pDevsS1["<<ids[idxDevsS1]<<"]"<<endl;
+                            idsDevsS1[i] = ids[idxDevsS1];
+                            DevsVectorInfo* pDVI = (*pDevsS1)[ids[idxDevsS1]];
+                            if (debug) DevsVectorInfo::debug=1;
+                            pDVI->addValueOnParameterScale(0.0,y);
+                            if (debug) DevsVectorInfo::debug=0;
+                        } else {
+                            if (debug) cout<<"Already added value to pDevsS1["<<ids[idxDevsS1]<<"]"<<endl;
+                        }
+                    }
+                    if (pDevsS2->getSize()&&ids[idxDevsS2]){
+                        if (debug) cout<<"extending pDevsS2["<<ids[idxDevsS2]<<"]"<<endl<<(*pDevsS2)[ids[idxDevsS2]]->getInitVals()<<endl;
+                        //Need to make sure not to addValue multiple times to same devs vector.
+                        int sumdsp = 0;//if sumdsp>0, then already added value to indexed devs vector
+                        for (int j=1;j<=nPCs;j++) sumdsp += (idsDevsS2[j]==ids[idxDevsS2]);
+                        if (!sumdsp){
+                            if (debug) cout<<"Adding value to pDevsS2["<<ids[idxDevsS2]<<"]"<<endl;
+                            idsDevsS2[i] = ids[idxDevsS2];
+                            DevsVectorInfo* pDVI = (*pDevsS2)[ids[idxDevsS2]];
+                            if (debug) DevsVectorInfo::debug=1;
+                            pDVI->addValueOnParameterScale(0.0,y);
+                            if (debug) DevsVectorInfo::debug=0;
+                        } else {
+                            if (debug) cout<<"Already added value to pDevsS2["<<ids[idxDevsS2]<<"]"<<endl;
+                        }
+                    }
+                    if (pDevsS3->getSize()&&ids[idxDevsS3]){
+                        if (debug) cout<<"extending pDevsS3["<<ids[idxDevsS3]<<"]"<<endl<<(*pDevsS3)[ids[idxDevsS3]]->getInitVals()<<endl;
+                        //Need to make sure not to addValue multiple times to same devs vector.
+                        int sumdsp = 0;//if sumdsp>0, then already added value to indexed devs vector
+                        for (int j=1;j<=nPCs;j++) sumdsp += (idsDevsS3[j]==ids[idxDevsS3]);
+                        if (!sumdsp){
+                            if (debug) cout<<"Adding value to pDevsS3["<<ids[idxDevsS3]<<"]"<<endl;
+                            idsDevsS3[i] = ids[idxDevsS3];
+                            DevsVectorInfo* pDVI = (*pDevsS3)[ids[idxDevsS3]];
+                            if (debug) DevsVectorInfo::debug=1;
+                            pDVI->addValueOnParameterScale(0.0,y);
+                            if (debug) DevsVectorInfo::debug=0;
+                        } else {
+                            if (debug) cout<<"Already added value to pDevsS3["<<ids[idxDevsS3]<<"]"<<endl;
+                        }
+                    }
+                    if (pDevsS4->getSize()&&ids[idxDevsS4]){
+                        if (debug) cout<<"extending pDevsS4["<<ids[idxDevsS4]<<"]"<<endl<<(*pDevsS4)[ids[idxDevsS4]]->getInitVals()<<endl;
+                        //Need to make sure not to addValue multiple times to same devs vector.
+                        int sumdsp = 0;//if sumdsp>0, then already added value to indexed devs vector
+                        for (int j=1;j<=nPCs;j++) sumdsp += (idsDevsS4[j]==ids[idxDevsS4]);
+                        if (!sumdsp){
+                            if (debug) cout<<"Adding value to pDevsS4["<<ids[idxDevsS4]<<"]"<<endl;
+                            idsDevsS4[i] = ids[idxDevsS4];
+                            DevsVectorInfo* pDVI = (*pDevsS4)[ids[idxDevsS4]];
+                            if (debug) DevsVectorInfo::debug=1;
+                            pDVI->addValueOnParameterScale(0.0,y);
+                            if (debug) DevsVectorInfo::debug=0;
+                        } else {
+                            if (debug) cout<<"Already added value to pDevsS4["<<ids[idxDevsS4]<<"]"<<endl;
+                        }
+                    }
+                    if (pDevsS5->getSize()&&ids[idxDevsS5]){
+                        if (debug) cout<<"extending pDevsS5["<<ids[idxDevsS5]<<"]"<<endl<<(*pDevsS5)[ids[idxDevsS5]]->getInitVals()<<endl;
+                        //Need to make sure not to addValue multiple times to same devs vector.
+                        int sumdsp = 0;//if sumdsp>0, then already added value to indexed devs vector
+                        for (int j=1;j<=nPCs;j++) sumdsp += (idsDevsS5[j]==ids[idxDevsS5]);
+                        if (!sumdsp){
+                            if (debug) cout<<"Adding value to pDevsS5["<<ids[idxDevsS5]<<"]"<<endl;
+                            idsDevsS5[i] = ids[idxDevsS5];
+                            DevsVectorInfo* pDVI = (*pDevsS5)[ids[idxDevsS5]];
+                            if (debug) DevsVectorInfo::debug=1;
+                            pDVI->addValueOnParameterScale(0.0,y);
+                            if (debug) DevsVectorInfo::debug=0;
+                        } else {
+                            if (debug) cout<<"Already added value to pDevsS5["<<ids[idxDevsS5]<<"]"<<endl;
+                        }
+                    }
+                    if (pDevsS6->getSize()&&ids[idxDevsS6]){
+                        if (debug) cout<<"extending pDevsS6["<<ids[idxDevsS6]<<"]"<<endl<<(*pDevsS6)[ids[idxDevsS6]]->getInitVals()<<endl;
+                        //Need to make sure not to addValue multiple times to same devs vector.
+                        int sumdsp = 0;//if sumdsp>0, then already added value to indexed devs vector
+                        for (int j=1;j<=nPCs;j++) sumdsp += (idsDevsS6[j]==ids[idxDevsS6]);
+                        if (!sumdsp){
+                            if (debug) cout<<"Adding value to pDevsS6["<<ids[idxDevsS6]<<"]"<<endl;
+                            idsDevsS6[i] = ids[idxDevsS6];
+                            DevsVectorInfo* pDVI = (*pDevsS6)[ids[idxDevsS6]];
+                            if (debug) DevsVectorInfo::debug=1;
+                            pDVI->addValueOnParameterScale(0.0,y);
+                            if (debug) DevsVectorInfo::debug=0;
+                        } else {
+                            if (debug) cout<<"Already added value to pDevsS6["<<ids[idxDevsS6]<<"]"<<endl;
+                        }
+                    }
+                    //add selpc to list of updated functions
+                    updated(++k) = selpc;
+                } else {
+                    //already been updated
+                    if (debug) cout<<"Function pc "<<selpc<<"for fleet pc "<<fltpc<<" has already been updated "<<endl;
+                }
+            } else {
+                //function of idxS-type not defined for ith fleet pc
+                if (debug) cout<<"Function type "<<idxS<<" was not defined for fleet pc "<<fltpc<<endl;
+            }
+        }//--i
+        if (debug) cout<<endl;
+    }//--idxS
+    if (debug) cout<<"updated SelectivityInfo pcs:"<<endl<<tb<<updated<<endl;
+    if (debug) cout<<"finished SelectivityInfo::addNextYear1('"<<flt_type<<"',"<<y<<")"<<endl<<endl;
 }
 
 void SelectivityInfo::read(cifstream & is){
@@ -1390,19 +1706,22 @@ void SelectivityInfo::writeToR(std::ostream & os){
 /*------------------------------------------------------------------------------
  * FisheriesInfo
  -----------------------------------------------------------------------------*/
-adstring FisheriesInfo::NAME = "fisheries";
-int FisheriesInfo::idxHM     = 5+1;//column in parameter combinations matrix with parameter index for column in parameter combinations matrix indicating handling mortality parameters
-int FisheriesInfo::idxLnC    = 5+2;//column in parameter combinations matrix with parameter index for ln-scale base mean capture rate (mature males)
-int FisheriesInfo::idxDC1    = 5+3;//column in parameter combinations matrix with parameter index for main year_block ln-scale offsets
-int FisheriesInfo::idxDC2    = 5+4;//column in parameter combinations matrix with parameter index for ln-scale female offsets
-int FisheriesInfo::idxDC3    = 5+5;//column in parameter combinations matrix with parameter index for ln-scale immature offsets
-int FisheriesInfo::idxDC4    = 5+6;//column in parameter combinations matrix with parameter index for ln-scale female-immature offsets 
-int FisheriesInfo::idxLnDevs = 5+7;//column in parameter combinations matrix with parameter index for annual ln-scale devs w/in year_blocks
-int FisheriesInfo::idxLnEffX = 5+8;//column in parameter combinations matrix with parameter index for ln-scale effort extrapolation 
-int FisheriesInfo::idxLgtRet = 5+9;//column in parameter combinations matrix with parameter index for logit-scale retained fraction (for old shell crab)
-int FisheriesInfo::idxSelFcn = 5+9+1;//column in parameter combinations matrix indicating selectivity function index
-int FisheriesInfo::idxRetFcn = 5+9+2;//column in parameter combinations matrix indicating retention function index
-int FisheriesInfo::idxUseEX  = 5+9+3;//column in parameter combinations matrix indicating effort extrapolation use
+const adstring FisheriesInfo::NAME = "fisheries";
+const int FisheriesInfo::nIVs=5;//number of index variables
+const int FisheriesInfo::nPVs=9;//number of parameter variables
+const int FisheriesInfo::nXIs=3;//number of "extra" variables
+const int FisheriesInfo::idxHM     = FisheriesInfo::nIVs+1;//column in parameter combinations matrix with parameter index for column in parameter combinations matrix indicating handling mortality parameters
+const int FisheriesInfo::idxLnC    = FisheriesInfo::nIVs+2;//column in parameter combinations matrix with parameter index for ln-scale base mean capture rate (mature males)
+const int FisheriesInfo::idxDC1    = FisheriesInfo::nIVs+3;//column in parameter combinations matrix with parameter index for main year_block ln-scale offsets
+const int FisheriesInfo::idxDC2    = FisheriesInfo::nIVs+4;//column in parameter combinations matrix with parameter index for ln-scale female offsets
+const int FisheriesInfo::idxDC3    = FisheriesInfo::nIVs+5;//column in parameter combinations matrix with parameter index for ln-scale immature offsets
+const int FisheriesInfo::idxDC4    = FisheriesInfo::nIVs+6;//column in parameter combinations matrix with parameter index for ln-scale female-immature offsets 
+const int FisheriesInfo::idxDevsLnC = FisheriesInfo::nIVs+7;//column in parameter combinations matrix with parameter index for annual ln-scale devs w/in year_blocks
+const int FisheriesInfo::idxLnEffX = FisheriesInfo::nIVs+8;//column in parameter combinations matrix with parameter index for ln-scale effort extrapolation 
+const int FisheriesInfo::idxLgtRet = FisheriesInfo::nIVs+9;//column in parameter combinations matrix with parameter index for logit-scale retained fraction (for old shell crab)
+const int FisheriesInfo::idxSelFcn = FisheriesInfo::nIVs+FisheriesInfo::nPVs+1;//column in parameter combinations matrix indicating selectivity function index
+const int FisheriesInfo::idxRetFcn = FisheriesInfo::nIVs+FisheriesInfo::nPVs+2;//column in parameter combinations matrix indicating retention function index
+const int FisheriesInfo::idxUseEX  = FisheriesInfo::nIVs+FisheriesInfo::nPVs+3;//column in parameter combinations matrix indicating effort extrapolation use
 /*------------------------------------------------------------------------------
  * FisheriesInfo\n
  * Encapsulates the following fishery-related parameters:\n
@@ -1427,7 +1746,7 @@ FisheriesInfo::FisheriesInfo(){
     
     int k;
     //create "independent variables" for parameter group assignment
-    nIVs = 5;//number of independent variables
+    ParameterGroupInfo::nIVs = FisheriesInfo::nIVs;//number of independent variables
     lblIVs.allocate(1,nIVs);
     k=1;
     lblIVs(k++) = tcsam::STR_FISHERY;
@@ -1442,7 +1761,7 @@ FisheriesInfo::FisheriesInfo(){
     ParameterGroupInfo::createIndexBlockSets();
     for (int i=1;i<=nIBSs;i++) ppIBSs[i-1]->setType(lblIVs(ibsIdxs(i)));
     
-    nPVs=9;
+    ParameterGroupInfo::nPVs=FisheriesInfo::nPVs;
     lblPVs.allocate(1,nPVs); dscPVs.allocate(1,nPVs);
     k=1;
     lblPVs(k) = "pHM";      dscPVs(k++) = "handling mortality (0-1)";
@@ -1456,22 +1775,22 @@ FisheriesInfo::FisheriesInfo(){
     lblPVs(k) = "pLgtRet";  dscPVs(k++) = "logit-scale retained fraction parameters";
     k=1;
     pHM   = new BoundedNumberVectorInfo(lblPVs(k++));
-    pLnC  = new BoundedNumberVectorInfo(lblPVs(k++));
-    pDC1  = new BoundedNumberVectorInfo(lblPVs(k++));
-    pDC2  = new BoundedNumberVectorInfo(lblPVs(k++));
-    pDC3  = new BoundedNumberVectorInfo(lblPVs(k++));
-    pDC4  = new BoundedNumberVectorInfo(lblPVs(k++));
-    pDevsLnC = new DevsVectorVectorInfo(lblPVs(k++));
-    pLnEffX  = new BoundedNumberVectorInfo(lblPVs(k++));
-    pLgtRet  = new BoundedNumberVectorInfo(lblPVs(k++));
+    pLnC  = new BoundedNumberVectorInfo(lblPVs(k++));    
+    pDC1  = new BoundedNumberVectorInfo(lblPVs(k++));    
+    pDC2  = new BoundedNumberVectorInfo(lblPVs(k++));    
+    pDC3  = new BoundedNumberVectorInfo(lblPVs(k++));    
+    pDC4  = new BoundedNumberVectorInfo(lblPVs(k++));    
+    pDevsLnC = new DevsVectorVectorInfo(lblPVs(k++));    
+    pLnEffX  = new BoundedNumberVectorInfo(lblPVs(k++)); 
+    pLgtRet  = new BoundedNumberVectorInfo(lblPVs(k++)); 
     
     //create "extra indices"
-    nXIs=3;
+    ParameterGroupInfo::nXIs=FisheriesInfo::nXIs;
     lblXIs.allocate(1,nXIs);
     k=1;
     lblXIs(k++) = "idx.SelFcn";
     lblXIs(k++) = "idx.RetFcn";
-    lblXIs(k++) = "useEffX";
+    lblXIs(k++) = "useEffX";   
     
     if (debug) cout<<"finished FisheriesInfo::FisheriesInfo()"<<endl;
 }
@@ -1487,6 +1806,67 @@ FisheriesInfo::~FisheriesInfo(){
     if (pDevsLnC) delete pDevsLnC; pDevsLnC=0;
     if (pLnEffX)  delete pLnEffX;  pLnEffX=0;
     if (pLgtRet)  delete pLgtRet;  pLgtRet=0;
+}
+
+imatrix FisheriesInfo::addNextYear1(int closed){
+    //debug=1;
+    if (debug) cout<<"starting void FisheriesInfo::addNextYear1(closed="<<closed<<")"<<endl;
+    //find pcs corresponding to mxYr
+    int mxYr = ModelConfiguration::mxYr;
+    ivector pcs = ParameterGroupInfo::getPCsForYear(mxYr);
+    if (debug) {
+        if (pcs.size()) cout<<pcs.size()<<" PCs ("<<pcs<<") apply to "<<mxYr<<endl;
+        else cout<<"No PCs apply to <<"<<mxYr<<endl;
+    }
+    //define ivector to track which vectors in pDevsLnC have been modified
+    ivector idsDevsLnC(pcs.indexmin(),pcs.indexmax());
+    idsDevsLnC = 0;
+    //define imatrix to track associated selectivity and retention functions
+    imatrix selpcs(pcs.indexmin(),pcs.indexmax(),1,4); selpcs.initialize();
+    for (int i=pcs.indexmin();i<=pcs.indexmax();i++){
+        ivector ids = ParameterGroupInfo::getPCIDs(pcs[i]);
+        if ((!closed)||(ids[1]!=1)){
+            //directed fishery is not closed, or this pc does not pertain to directed fishery
+            ParameterGroupInfo::addYearToPC(pcs[i],mxYr+1);
+            if (debug) {
+                cout<<endl;
+                cout<<"Extending PC "<<pcs[i]<<", which pertains to fishery = "<<ids[1]<<endl;
+                cout<<"PC IDs for pc "<<pcs[i]<<" = "<<ids<<endl;
+                cout<<"will extend pDevsLnC["<<ids[idxDevsLnC]<<"]"<<endl<<(*pDevsLnC)[ids[idxDevsLnC]]->getInitVals()<<endl;
+            }
+            if (pDevsLnC->getSize()){
+                //Need to make sure not to addValue multiple times to same devs vector.
+                int sumdsp = 0;//if sumdsp>0, then already added value to indexed devs vector
+                for (int j=1;j<=pcs.size();j++) sumdsp += (idsDevsLnC[j]==ids[idxDevsLnC]);
+                if (!sumdsp){
+                    if (debug) cout<<"Adding value to pDevsLnC["<<ids[idxDevsLnC]<<"]"<<endl;
+                    idsDevsLnC[i] = ids[idxDevsLnC];
+                    DevsVectorInfo* pDVI = (*pDevsLnC)[ids[idxDevsLnC]];
+                    if (debug) DevsVectorInfo::debug=1;
+                    pDVI->addValueOnParameterScale(0.0,mxYr+1);
+                    if (debug) DevsVectorInfo::debug=0;
+                } else {
+                    if (debug) cout<<"Already added value to pDevsLnC["<<ids[idxDevsLnC]<<"]"<<endl;
+                }
+            }
+            //add selectivity/retention info to selpcs
+            selpcs(i,1) = pcs[i];//fishery pc
+            selpcs(i,2) = ids[1];//fishery id
+            selpcs(i,3) = ids[idxSelFcn];//pc identifying selectivity function
+            selpcs(i,4) = ids[idxRetFcn];//pc identifying retention function
+        } else {
+            if (debug) {
+                cout<<endl;
+                cout<<"Not extending PC "<<pcs[i]<<", which pertains to fishery = "<<ids[1]<<endl;
+                cout<<"PC IDs for pc "<<pcs[i]<<" = "<<ids<<endl;
+                cout<<"This is the directed fishery"<<endl;
+                cout<<"Not adding additional year for this pc or pDevsLnC["<<ids[idxDevsLnC]<<"]."<<endl;
+            }
+        }
+    }
+    if (1) cout<<endl<<"selpcs: "<<endl<<selpcs<<endl<<endl;
+    if (debug) cout<<"finished void FisheriesInfo::addNextYear1(closed="<<closed<<")"<<endl;
+    return(selpcs);
 }
 
 void FisheriesInfo::read(cifstream & is){
@@ -1635,12 +2015,17 @@ void FisheriesInfo::writeToR(std::ostream & os){
  *      d. MATURITY
  *      e. SHELL
 *----------------------------------------------------------------------------*/
-adstring SurveysInfo::NAME = "surveys";
+const adstring SurveysInfo::NAME = "surveys";
+const int SurveysInfo::nIVs=5;//number of index variables
+const int SurveysInfo::nPVs=5;//number of parameter variables
+const int SurveysInfo::nXIs=2;//number of "extra" variables
+const int SurveysInfo::idxAvlFcn = SurveysInfo::nIVs+SurveysInfo::nPVs+1;
+const int SurveysInfo::idxSelFcn = SurveysInfo::nIVs+SurveysInfo::nPVs+2;
 SurveysInfo::SurveysInfo(){
     name = NAME;//assign static NAME to ParameterGroupInfo::name
     
     int k;
-    nIVs = 5;
+    ParameterGroupInfo::nIVs = SurveysInfo::nIVs;
     lblIVs.allocate(1,nIVs);
     k=1;
     lblIVs(k++) = tcsam::STR_SURVEY;
@@ -1655,7 +2040,7 @@ SurveysInfo::SurveysInfo(){
     ParameterGroupInfo::createIndexBlockSets();
     for (int i=1;i<=nIBSs;i++) ppIBSs[i-1]->setType(lblIVs(ibsIdxs(i)));
     
-    nPVs=5;
+    ParameterGroupInfo::nPVs=SurveysInfo::nPVs;
     lblPVs.allocate(1,nPVs); dscPVs.allocate(1,nPVs);
     k=1;
     lblPVs(k) = "pQ";   dscPVs(k++) = "base catchability (e.g. mature male crab)";
@@ -1670,7 +2055,7 @@ SurveysInfo::SurveysInfo(){
     pDQ3 = new BoundedNumberVectorInfo(lblPVs(k++));
     pDQ4 = new BoundedNumberVectorInfo(lblPVs(k++));
     
-    nXIs=2;
+    ParameterGroupInfo::nXIs=SurveysInfo::nXIs;
     lblXIs.allocate(1,nXIs);
     k=1;
     lblXIs(k++) = "idx.AvlFcn";
@@ -1684,6 +2069,37 @@ SurveysInfo::~SurveysInfo(){
     if (pDQ2) delete pDQ2; pDQ2 =0;
     if (pDQ3) delete pDQ3; pDQ3 =0;
     if (pDQ4) delete pDQ4; pDQ4 =0;
+}
+
+imatrix SurveysInfo::addNextYear1(int closed){
+    //debug=1;
+    if (debug) cout<<"starting void SurveysInfo::addNextYear1("<<closed<<")"<<endl;
+    //find pcs corresponding to mxYr
+    int mxYr = ModelConfiguration::mxYr+1;
+    ivector pcs = ParameterGroupInfo::getPCsForYear(mxYr);
+    if (debug) {
+        if (pcs.size()) cout<<"PCs "<<pcs<<" apply to "<<mxYr<<endl;
+        else cout<<"No PCs apply to <<"<<mxYr<<endl;
+    }
+    //define imatrix to track associated selectivity and retention functions
+    imatrix selpcs(pcs.indexmin(),pcs.indexmax(),1,4); selpcs.initialize();
+    for (int i=pcs.indexmin();i<=pcs.indexmax();i++){
+        ivector ids = ParameterGroupInfo::getPCIDs(pcs[i]);
+        ParameterGroupInfo::addYearToPC(pcs[i],mxYr+1);
+        if (debug) {
+            cout<<endl;
+            cout<<"Extending PC "<<pcs[i]<<", which pertains to survey = "<<ids[1]<<endl;
+            cout<<"PC IDs for pc "<<pcs[i]<<" = "<<ids<<endl;
+        }
+        //add selectivity/retention info to selpcs
+        selpcs(i,1) = pcs[i];//survey pc
+        selpcs(i,2) = ids[1];//survey id
+        selpcs(i,3) = ids[idxAvlFcn];//pc identifying associated availability function
+        selpcs(i,4) = ids[idxSelFcn];//pc identifying associated selectivity function
+    }
+    if (debug) cout<<endl<<"selpcs: "<<endl<<selpcs<<endl<<endl;
+    if (debug) cout<<"finished void SurveysInfo::addNextYear1("<<closed<<")"<<endl;
+    return(selpcs);
 }
 
 void SurveysInfo::read(cifstream & is){
@@ -1829,6 +2245,10 @@ MSE_Info::MSE_Info(){
 
 MSE_Info::~MSE_Info(){
     if (pMSE_LnC) delete pMSE_LnC;  pMSE_LnC=0;
+}
+
+void MSE_Info::addNextYearToInfo(int closed){
+    //no year block to project from
 }
 
 void MSE_Info::read(cifstream & is){
@@ -2109,6 +2529,33 @@ void ModelParametersInfo::writePin(std::ostream & os){
     os<<"# MSE-related parameters  "<<endl;
     os<<"#-------------------------------"<<endl;
     ptrMSE->writeToPin(os); os<<endl;
+}
+
+void ModelParametersInfo::addNextYearToInfo(int closed){
+    //recruitment info
+    ptrRec->addNextYearToInfo(closed);
+    
+    //natural mortality info
+    ptrNM->addNextYearToInfo(closed);
+    
+    //growth info
+    ptrGrw->addNextYearToInfo(closed);
+    
+    //molt-to-maturity info
+    ptrM2M->addNextYearToInfo(closed);
+    
+    //fisheries info
+    imatrix fshpcs = ptrFsh->addNextYear1(closed);
+    //selectivity info for fisheries
+    ptrSel->addNextYear1("fisheries",ModelConfiguration::mxYr+1,fshpcs);
+    
+    //surveys info
+    imatrix srvpcs = ptrSrv->addNextYear1(closed);    
+    //selectivity info for surveys
+    ptrSel->addNextYear1("surveys",ModelConfiguration::mxYr+2,srvpcs);
+    
+    //MSE info
+    ptrMSE->addNextYearToInfo(closed);
 }
 
 void ModelParametersInfo::writeToR(std::ostream & os){

@@ -98,16 +98,16 @@ void GrowthData::read(cifstream & is){
 void GrowthData::write(ostream & os){
     if (debug) cout<<"start GrowthData::write(...) "<<this<<std::endl;
     os<<KW_GROWTH_DATA<<tb<<"#required keyword"<<std::endl;
-    os<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood function type"<<std::endl;
     os<<name<<tb<<"#dataset name"<<std::endl;
+    os<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood function type"<<std::endl;
     os<<llWgt<<tb<<"#likelihood weight (multiplier)"<<std::endl;
     os<<nSXs<<tb<<"#number of sex categories"<<std::endl;
     for (int x=1;x<=tcsam::nSXs;x++){
         if (nObs_x(x)>0){
             os<<tcsam::getSexType(x)<<tb<<"#sex"<<std::endl;
             os<<nObs_x(x)<<tb<<"#number of observations"<<std::endl;
-            rpt::echo<<"#year"<<tb<<"pre-molt size"<<tb<<"post-molt size"<<std::endl;
-            rpt::echo<<trans(inpData_xcn(x))<<std::endl;
+            os<<"#year"<<tb<<"pre-molt size"<<tb<<"post-molt size"<<std::endl;
+            os<<trans(inpData_xcn(x))<<std::endl;
         }
     }
     if (debug) cout<<"end GrowthData::write(...) "<<this<<std::endl;
@@ -240,7 +240,8 @@ void ChelaHeightData::write(ostream & os){
     os<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood function type"<<std::endl;
     os<<llWgt<<tb<<"#likelihood weight (multiplier)"<<std::endl;
     os<<nObs<<tb<<"#number of observations"<<std::endl;
-    os<<"#year    size    nIndivs     fraction mature"<<std::endl<<inpData_nc<<std::endl;
+    os<<"#year    size    nIndivs     fraction mature"<<std::endl;
+    os<<inpData_nc<<std::endl;
     if (debug) cout<<"end ChelaHeightData::write(...) "<<this<<std::endl;
 }
 /**

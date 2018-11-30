@@ -29,9 +29,16 @@
  * This is the abstract base class for all concrete ..ParametersInfo classes,
  * except ModelParametersInfo.
  *----------------------------------------------------------------------------*/
+/**
+ * @class ParameterGroupInfo
+ * 
+ * This is the abstract base class for all concrete ..Info classes,
+ * except ModelParametersInfo.
+ * 
+ */
 class ParameterGroupInfo{
     public:
-        /** flag to print debugginh info */
+        /** flag to print debugging info */
         static int debug;
     public:
         /** name of the ParameterGroup */
@@ -47,7 +54,7 @@ class ParameterGroupInfo{
         /** descriptions for the parameter variables */
         adstring_array dscPVs;
         /** number of "extra" indices or values */
-        int nXIs;             //number of extra indices/values
+        int nXIs; 
         /** names (labels) for the extra indices/variables */
         adstring_array lblXIs;
         
@@ -86,6 +93,23 @@ class ParameterGroupInfo{
          * @return pointer to the identified IndexBlockSet
          */
         IndexBlockSet* getIndexBlockSet(adstring type);
+        
+        /**
+         * Finds the pc indices that corresponds to a given year.
+         * 
+         * @param y - the year to find the PC for
+         * 
+         * @return - ivector the corresponding PCs (or unallocated, if no corresponding PC found)
+         */
+        ivector getPCsForYear(int y);
+        
+        /**
+         * Add a year to a parameter combination.
+         * 
+         * @param pc - parameter combination index to add year to
+         * @param y - year to add
+         */
+        void addYearToPC(int pc, int y);
         
         /**
          * Gets the indices for the parameter combination.
@@ -146,6 +170,13 @@ class ParameterGroupInfo{
          * @param closed - flag that directed fishery will be closed "next" year 
          */
         virtual void writeToPin(std::ostream & os)=0;
+        /**
+         * Update PGI for a 1-year projected scenario.
+         * Subclasses should implement this function.
+         * 
+         * @param closed - flag indicating whether directed fishery is closed
+         */
+        virtual void addNextYearToInfo(int closed)=0; 
         /**
          * Writes default info in R format for the parameter group to an output stream.
          * Subclasses should override this function as appropriate.
@@ -249,6 +280,12 @@ class RecruitmentInfo: public ParameterGroupInfo {
          */
         void writeToPin(std::ostream & os);
         /**
+         * update RecruitmentInfo for a 1-year projected scenario.
+         * 
+         * @param closed - flag indicating whether directed fishery is closed
+         */
+        void addNextYearToInfo(int closed); 
+        /**
          * Writes the ParameterGroupInfo for recruitment to an output stream in R format.
          * 
          * @param is - the output stream
@@ -342,6 +379,12 @@ class NaturalMortalityInfo : public ParameterGroupInfo {
          */
         void writeToPin(std::ostream & os);
         /**
+         * update NaturalMortalityInfo for a 1-year projected scenario.
+         * 
+         * @param closed - flag indicating whether directed fishery is closed
+         */
+        void addNextYearToInfo(int closed); 
+        /**
          * Writes component info to an output stream as an
          * R-format list.
          * 
@@ -422,6 +465,12 @@ class GrowthInfo : public ParameterGroupInfo {
          */
         void writeToPin(std::ostream & os);
         /**
+         * update GrowthInfo for a 1-year projected scenario.
+         * 
+         * @param closed - flag indicating whether directed fishery is closed
+         */
+        void addNextYearToInfo(int closed); 
+        /**
          * Writes to an output stream in R format.
          * 
          * @param os - output stream
@@ -430,7 +479,7 @@ class GrowthInfo : public ParameterGroupInfo {
 };
 
 /**
- * @class MaturityInfo:ParameterGroupInfo
+ * @class Molt2MaturityInfo:ParameterGroupInfo
  * 
  * This class encapsulates the following molt-to-maturity-related parameters:
  * <ul>
@@ -493,6 +542,12 @@ class Molt2MaturityInfo: public ParameterGroupInfo {
          */
         void writeToPin(std::ostream & os);
         /**
+         * update Molt2MaturityInfo for a 1-year projected scenario.
+         * 
+         * @param closed - flag indicating whether directed fishery is closed
+         */
+        void addNextYearToInfo(int closed); 
+        /**
          * Writes to an output stream in R format.
          * 
          * @param os - output stream
@@ -523,7 +578,16 @@ class Molt2MaturityInfo: public ParameterGroupInfo {
 *----------------------------------------------------------------------------*/
 class SelectivityInfo : public ParameterGroupInfo {
     public:
-        static int debug;
+        static int debug;//flag to print debugging info
+        const static int nIVs; //number of index variables
+        const static int nPVs; //number of parameter variables
+        const static int nXIs; //number of "extra" variables
+        const static int idxDevsS1;//parameter combinations index for pDevsS1
+        const static int idxDevsS2;//parameter combinations index for pDevsS2
+        const static int idxDevsS3;//parameter combinations index for pDevsS3
+        const static int idxDevsS4;//parameter combinations index for pDevsS4
+        const static int idxDevsS5;//parameter combinations index for pDevsS5
+        const static int idxDevsS6;//parameter combinations index for pDevsS6
     protected:
         static adstring NAME;//"selectivities"
     public:
@@ -574,6 +638,22 @@ class SelectivityInfo : public ParameterGroupInfo {
          */
         void writeToPin(std::ostream & os);
         /**
+         * update SelectivityInfo for a 1-year projected scenario.
+         * NOTE: this function does NOTHING. Use addNextYear1(...) instead.
+         * 
+         * @param closed - flag indicating whether directed fishery is closed
+         */
+        void addNextYearToInfo(int closed){}
+        /**
+         * add "next" year to SelectivityInfo for selected parameter combinations
+         * based on updates to a FisheryInfo or SurveyInfo object
+         *  
+         * @param flt_type - string identifying fleet type ("fisheries" or "surveys")
+         * @param y - year to add
+         * @param fltpcs - imatrix identifying pcs for selectivity functions to update
+         */
+        void addNextYear1(adstring flt_type, int y, imatrix& fltpcs);
+        /**
          * Writes to an output stream in R format.
          * 
          * @param os - output stream
@@ -606,21 +686,25 @@ class SelectivityInfo : public ParameterGroupInfo {
 *----------------------------------------------------------------------------*/
 class FisheriesInfo : public ParameterGroupInfo {
     public:
+        /** flag to print debugging info */
         static int debug;
-        static int idxHM;  //column in parameter combinations matrix with parameter index for column in parameter combinations matrix indicating handling mortality parameters
-        static int idxLnC; //column in parameter combinations matrix with parameter index for ln-scale base mean capture rate (mature males)
-        static int idxDC1; //column in parameter combinations matrix with parameter index for ln-scale offsets pDC1
-        static int idxDC2; //column in parameter combinations matrix with parameter index for ln-scale offsets pDC2
-        static int idxDC3; //column in parameter combinations matrix with parameter index for ln-scale offsets pDC3
-        static int idxDC4; //column in parameter combinations matrix with parameter index for ln-scale offsets pDC4
-        static int idxLnDevs;//column in parameter combinations matrix with parameter index for annual ln-scale devs w/in year_blocks
-        static int idxLnEffX;//column in parameter combinations matrix with parameter index for ln-scale effort extrapolation 
-        static int idxLgtRet;//column in parameter combinations matrix with parameter index for logit-scale retained fraction (for old shell crab)
-        static int idxSelFcn;//column in parameter combinations matrix indicating selectivity function index
-        static int idxRetFcn;//column in parameter combinations matrix indicating retention function index
-        static int idxUseEX; //column in parameter combinations matrix indicating effort extrapolation use
+        const static int nIVs; //number of index variables
+        const static int nPVs; //number of parameter variables
+        const static int nXIs; //number of "extra" variables
+        const static int idxHM;    //column in parameter combinations matrix with parameter index for column in parameter combinations matrix indicating handling mortality parameters
+        const static int idxLnC;   //column in parameter combinations matrix with parameter index for ln-scale base mean capture rate (mature males)
+        const static int idxDC1;   //column in parameter combinations matrix with parameter index for ln-scale offsets pDC1
+        const static int idxDC2;   //column in parameter combinations matrix with parameter index for ln-scale offsets pDC2
+        const static int idxDC3;   //column in parameter combinations matrix with parameter index for ln-scale offsets pDC3
+        const static int idxDC4;   //column in parameter combinations matrix with parameter index for ln-scale offsets pDC4
+        const static int idxDevsLnC;//column in parameter combinations matrix with parameter index for annual ln-scale devs w/in year_blocks
+        const static int idxLnEffX;//column in parameter combinations matrix with parameter index for ln-scale effort extrapolation 
+        const static int idxLgtRet;//column in parameter combinations matrix with parameter index for logit-scale retained fraction (for old shell crab)
+        const static int idxSelFcn;//column in parameter combinations matrix indicating selectivity function index
+        const static int idxRetFcn;//column in parameter combinations matrix indicating retention function index
+        const static int idxUseEX; //column in parameter combinations matrix indicating effort extrapolation use
     protected:
-        static adstring NAME;//"fisheries"
+        const static adstring NAME;//"fisheries"
     public:
         BoundedNumberVectorInfo* pHM;  //handling mortality (0-1)
         BoundedNumberVectorInfo* pLnC; //ln-scale base mean capture rate (mature males)
@@ -666,6 +750,29 @@ class FisheriesInfo : public ParameterGroupInfo {
          */
         void writeToPin(std::ostream & os);
         /**
+         * update FisheriesInfo for a 1-year projected scenario.
+         * 
+         * @param closed - flag indicating whether directed fishery is closed
+         */
+        void addNextYearToInfo(int closed){}
+        
+        /**
+         * update FisheriesInfo for a 1-year projected scenario.
+         * 
+         * @param closed - flag indicating whether directed fishery is closed
+         * 
+         * @return - an imatrix (see @details) 
+         * 
+         * @details returned value is an imatrix with a row for each fishery pc 
+         * to which a year was added. Values for the row elements are
+         *      1. FisheryInfo pc (or 0)
+         *      2. fishery id     (or 0)
+         *      3. pc for selectivity function (or 0)
+         *      4. pc for retention function (or 0)
+         */
+        imatrix addNextYear1(int closed); 
+        
+        /**
          * Writes to an output stream in R format.
          * 
          * @param os - output stream
@@ -691,9 +798,14 @@ class FisheriesInfo : public ParameterGroupInfo {
 *----------------------------------------------------------------------------*/
 class SurveysInfo : public ParameterGroupInfo {
     public:
-        static int debug;
+        static int debug;     //flag to print debugging info
+        const static int nIVs;//number of index variables
+        const static int nPVs;//number of parameter variables
+        const static int nXIs;//number of "extra" variables
+        const static int idxAvlFcn; //index into pc id vector identifying availability function
+        const static int idxSelFcn; //index into pc id vector identifying selectivity function
     protected:
-        static adstring NAME;//"surveys"
+        const static adstring NAME;//name used for this object
     public:
         /** base Q */
         BoundedNumberVectorInfo* pQ;
@@ -738,6 +850,28 @@ class SurveysInfo : public ParameterGroupInfo {
          * @param closed - flag that directed fishery will be closed "next" year 
          */
         void writeToPin(std::ostream & os);
+        /**
+         * update SurveysInfo for a 1-year projected scenario.
+         * 
+         * @param closed - flag indicating whether directed fishery is closed
+         */
+        void addNextYearToInfo(int closed){} 
+        
+        /**
+         * update FisheriesInfo for a 1-year projected scenario.
+         * 
+         * @param closed - flag indicating whether directed fishery is closed
+         * 
+         * @return - an imatrix (see @details) 
+         * 
+         * @details returned value is an imatrix with a row for each survey pc 
+         * to which a year was added. Values for the row elements are
+         *      1. SurveyInfo pc (or 0)
+         *      2. survey id     (or 0)
+         *      3. pc for selectivity function (or 0)
+         */
+        imatrix addNextYear1(int closed); 
+        
         /**
          * Writes to an output stream in R format.
          * 
@@ -795,6 +929,12 @@ class MSE_Info : public ParameterGroupInfo {
          * @param os - output stream
          */
         void writeToPin(std::ostream & os);
+        /**
+         * Update MSE_Info for a 1-year projected scenario.
+         * 
+         * @param closed - flag indicating whether directed fishery is closed
+         */
+        void addNextYearToInfo(int closed); 
         /**
          * Writes to an output stream in R format.
          * 
@@ -880,6 +1020,12 @@ class ModelParametersInfo{
          * @param os - output stream
          */
         void writePin(std::ostream & os);
+        /**
+         * update MPI for a 1-year projected scenario.
+         * 
+         * @param closed - flag indicating whether directed fishery is closed
+         */
+        void addNextYearToInfo(int closed); 
         /**
          * Writes to an output stream in R format.
          * 

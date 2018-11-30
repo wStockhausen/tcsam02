@@ -468,6 +468,17 @@
 //                  necessary MSE OpMod gyrations (not completed yet, but getting there).
 //-2018-11-20: 1. Revised OpModMode so it reads in "state" from a file and only
 //                  calculates the projected year. Also created MSE_OpModInfo class.
+//-2018-11-28: 1. Revised a number of classes to be able to update an input MPI file
+//                  for "next" year and write it and an associated pin file for use
+//                  in an MSE.
+//-2018-11-30: 1. Added check in the PRELIMIINARY_CALCS for input TAC=0 (directed fishery closed) 
+//                  when running the operating model (mseOpModMode==1) so that pMSE_LnC is not estimated.
+//             2. Added function projectPopForZeroTAC to project population when TAC=0
+//                  (directed fishery is closed).
+//             3. Moved opModMode calculations in FINAL_SECTION to "finishOpModMode" function
+//                  so that these could be called from PRELIMINARY_CALCS when TAC=0. 
+//             4. Modified opModMode output of data files to handle closed
+//                  directed fishery correctly.
 //
 // =============================================================================
 // =============================================================================
@@ -480,6 +491,7 @@
 //  -mcpin fnPin                   pin file to run NUTS MCMC (i.e., usePin=2)
 //  -runAlt                        flag to run alternative pop dy equations
 //  -calcOFL                       flag to turn on OFL calculations
+//  -calcTAC hcr                   flag to calculate TAC using the indicated harvest control rule (hcr)
 //  -calcDynB0                     flag to turn on dynamic B0 calculations
 //  -doRetro  yRetro               flag to turn on retrospective calculations, dropping yRetro years
 //  -jitter                        flag to turn on parameter jittering
@@ -576,6 +588,7 @@ GLOBALS_SECTION
     int doRetro    = 0;//flag to facilitate a retrospective model run
     int fitSimData = 0;//flag to fit model to simulated data calculated in the PRELIMINARY_CALCs section
     int doOFL      = 0;///<flag (0/1) to do OFL calculations
+    int doTAC      = 0;///<calculate TAC using harvest control rule indicated by value of doTAC
     int doDynB0    = 0;//flag to run dynamic B0 calculations after final phase
         
     int yRetro = 0; //number of years to decrement for retrospective model run
@@ -708,32 +721,19 @@ DATA_SECTION
         rpt::echo<<"#-------------------------------------------"<<endl;
         flg = 1;
     }
-    //mseMode
-    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-mseMode"))>-1) {
-        mseMode=1;
-        adstring type = ad_comm::argv[on+1];
-        if (type=="mseOpModMode"){
-            mseOpModMode = 1;
-            rpt::echo<<"#MSE operating model mode turned ON"<<endl;
-            iSeed=(long)start;
-            if ((on=option_match(ad_comm::argc,ad_comm::argv,"-iSeed"))>-1) {
-                if (on+1<argc) {
-                    iSeed=atoi(ad_comm::argv[on+1]);
-                }
-            } 
-            rng.reinitialize(iSeed);
-            rpt::echo<<tb<<iSeed<<"  #iSeed used for random recruitment"<<endl;
-        } else if (type=="mseEstModMode"){
-            mseEstModMode = 1;
-            rpt::echo<<"#MSE estimation model mode turned ON"<<endl;
-        }
-        rpt::echo<<"#-------------------------------------------"<<endl;
-        flg = 1;
-    }
     //calcOFL
     if ((on=option_match(ad_comm::argc,ad_comm::argv,"-calcOFL"))>-1) {
         doOFL=1;
         rpt::echo<<"#OFL calculations turned ON"<<endl;
+        rpt::echo<<"#-------------------------------------------"<<endl;
+        flg = 1;
+    }
+    //calcTAC
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-calcTAC"))>-1) {
+        doTAC = atoi(ad_comm::argv[on+1]);
+        doOFL = 1;
+        rpt::echo<<"#Calculating TAC using harvest control rule "<<doTAC<<endl;
+        rpt::echo<<"#OFL calculations also turned ON "<<endl;
         rpt::echo<<"#-------------------------------------------"<<endl;
         flg = 1;
     }
@@ -800,6 +800,28 @@ DATA_SECTION
     if ((on=option_match(ad_comm::argc,ad_comm::argv,"-resample"))>-1) {
         resample=1;
         rpt::echo<<"#Resampling for initial parameter values turned ON "<<endl;
+        rpt::echo<<"#-------------------------------------------"<<endl;
+        flg = 1;
+    }
+    //mseMode
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-mseMode"))>-1) {
+        mseMode=1;
+        adstring type = ad_comm::argv[on+1];
+        if (type=="mseOpModMode"){
+            mseOpModMode = 1;
+            rpt::echo<<"#MSE operating model mode turned ON"<<endl;
+            iSeed=(long)start;
+            if ((on=option_match(ad_comm::argc,ad_comm::argv,"-iSeed"))>-1) {
+                if (on+1<argc) {
+                    iSeed=atoi(ad_comm::argv[on+1]);
+                }
+            } 
+            rng.reinitialize(iSeed);
+            rpt::echo<<tb<<iSeed<<"  #iSeed used for random recruitment"<<endl;
+        } else if (type=="mseEstModMode"){
+            mseEstModMode = 1;
+            rpt::echo<<"#MSE estimation model mode turned ON"<<endl;
+        }
         rpt::echo<<"#-------------------------------------------"<<endl;
         flg = 1;
     }
@@ -910,18 +932,12 @@ DATA_SECTION
         flg = 1;
     }
     if (mseOpModMode&&mseEstModMode){
-        cout<<endl;
-        cout<<"--------ERROR!-----------"<<endl;
-        cout<<"mseOpModMode and mseEstModMode cannot both be 'on'."<<endl;
-        cout<<"Terminating model run!!"<<endl;
-        cout<<"--------ERROR!-----------"<<endl;
-        cout<<endl;
-        rpt::echo<<endl;
-        rpt::echo<<"--------ERROR!-----------"<<endl;
-        rpt::echo<<"mseOpModMode and mseEstModMode cannot both be 'on'."<<endl;
-        rpt::echo<<"Terminating model run!!"<<endl;
-        rpt::echo<<"--------ERROR!-----------"<<endl;
-        rpt::echo<<endl;
+        PRINT2B1("");
+        PRINT2B1("--------ERROR!-----------")
+        PRINT2B1("mseOpModMode and mseEstModMode cannot both be 'on'.")
+        PRINT2B1("Terminating model run!!")
+        PRINT2B1("--------ERROR!-----------")
+        PRINT2B1("")
         exit(1);
     }
  END_CALCS
@@ -933,17 +949,18 @@ DATA_SECTION
     int nFsh;  //number of fisheries
     int nSrv;  //number of surveys
  LOCAL_CALCS
-    rpt::echo<<"#-----------------------------------"<<endl;
-    rpt::echo<<"#-----------------------------------"<<endl;
-    rpt::echo<<"#Reading configuration file '"<<fnConfigFile<<"'"<<endl;
+    PRINT2B1("#-----------------------------------")
+    PRINT2B1("#-----------------------------------")
+    PRINT2B2("#--Reading configuration file ",fnConfigFile)
     ad_comm::change_datafile_name(fnConfigFile);
     ptrMC = new ModelConfiguration();
     ptrMC->read(*(ad_comm::global_datafile));
+    PRINT2B1("#--Finished reading configuration file")
     
     mnYr   = ptrMC->mnYr;
     mxYr   = ptrMC->mxYr;
     if (doRetro){mxYr = mxYr-yRetro; ptrMC->setMaxModelYear(mxYr);}
-    if (jitter)   {ptrMC->jitter=1;}
+    if (jitter)   {ptrMC->jitter   = 1;}
     if (resample) {ptrMC->resample = 1;}
     
     rpt::echo<<"#------------------ModelConfiguration-----------------"<<endl;
@@ -972,8 +989,8 @@ DATA_SECTION
     
     //read model parameters info
  LOCAL_CALCS
-    rpt::echo<<"#-----------------------------------"<<endl;
-    rpt::echo<<"#Reading parameters info file '"<<ptrMC->fnMPI<<"'"<<endl;
+    PRINT2B1("#-----------------------------------")
+    PRINT2B2("#Reading parameters info file ",ptrMC->fnMPI)
     if (debugModelParamsInfo) ModelParametersInfo::debug=1;
     ptrMPI = new ModelParametersInfo(*ptrMC);
     ad_comm::change_datafile_name(ptrMC->fnMPI);
@@ -984,24 +1001,30 @@ DATA_SECTION
         if (debugModelParamsInfo<0) exit(1);
         ModelParametersInfo::debug=debugModelParamsInfo;
     }
-    rpt::echo<<"#----finished reading model parameters info---"<<endl;
-    rpt::echo<<"#-----------ModelParametersInfo---------------"<<endl;
-    rpt::echo<<(*ptrMPI)<<endl;
-    rpt::echo<<"#----finished ModelParametersInfo---"<<endl;
-    if (debugDATA_SECTION){
-        cout<<"#------------------ModelParametersInfo-----------------"<<endl;
-        cout<<(*ptrMPI);
-        cout<<"#----finished model parameters info---"<<endl;
-        cout<<"enter 1 to continue : ";
-        cin>>debugDATA_SECTION;
-        if (debugDATA_SECTION<0) exit(1);
-    }
+    PRINT2B1("#----finished reading model parameters info---")
+//    rpt::echo<<"#-----------ModelParametersInfo---------------"<<endl;
+//    rpt::echo<<(*ptrMPI)<<endl;
+//    rpt::echo<<"#----finished ModelParametersInfo---"<<endl;
+//    if (debugDATA_SECTION){
+//        cout<<"#------------------ModelParametersInfo-----------------"<<endl;
+//        cout<<(*ptrMPI);
+//        cout<<"#----finished model parameters info---"<<endl;
+//        cout<<"enter 1 to continue : ";
+//        cin>>debugDATA_SECTION;
+//        if (debugDATA_SECTION<0) exit(1);
+//    }
+//    ptrMPI->project(0);//TODO:testing only!
+//    ofstream ofs; ofs.open("projectedMPI.txt");
+//    ptrMPI->write(ofs);
+//    ofs.close();
+//    cout<<"wrote out ptojectedMPI!"<<endl;
+//    exit(1);
  END_CALCS
         
     //read model data
  LOCAL_CALCS
-    rpt::echo<<"#-----------------------------------"<<endl;
-    rpt::echo<<"#Reading datasets file '"<<ptrMC->fnMDS<<"'"<<endl;
+    PRINT2B1("#-----------------------------------")
+    PRINT2B2("#--Reading datasets file ",ptrMC->fnMDS);
     if (debugModelDatasets) {
         BioData::debug=1;
         FleetData::debug=1;
@@ -1017,7 +1040,7 @@ DATA_SECTION
         BioData::debug=debugModelDatasets;
         FleetData::debug=debugModelDatasets;
     }
-    rpt::echo<<"#----finished model datasets---"<<endl;
+    PRINT2B1("#----finished model datasets---")
     if (debugDATA_SECTION){
         cout<<"#------------------ModelDatasets-----------------"<<endl;
         cout<<(*ptrMDS);
@@ -1042,8 +1065,8 @@ DATA_SECTION
     
     //read model options
  LOCAL_CALCS
-    rpt::echo<<"#-----------------------------------"<<endl;
-    rpt::echo<<"#Reading model options file '"<<ptrMC->fnMOs<<"'"<<endl;
+    PRINT2B1("#-----------------------------------")
+    PRINT2B2("#--Reading model options file ",ptrMC->fnMOs)
     if (debugModelOptions) ModelOptions::debug=1;
     ptrMOs = new ModelOptions(*ptrMC);
     ad_comm::change_datafile_name(ptrMC->fnMOs);
@@ -1054,6 +1077,7 @@ DATA_SECTION
         if (debugModelOptions<0) exit(1);
         ModelOptions::debug=debugModelOptions;
     }
+    PRINT2B1("#--finished reading model options file---")
     rpt::echo<<"#------------------ModelOptions-----------------"<<endl;
     rpt::echo<<(*ptrMOs);
     rpt::echo<<"#----finished model options---"<<endl;
@@ -1104,8 +1128,7 @@ DATA_SECTION
          mapD2MFsh(f)   = idx;//map from fishery data object f to model fishery idx
          mapM2DFsh(idx) = f;  //map from model fishery idx to fishery data object f
      }
-     rpt::echo<<"model fisheries map to fishery data objects: "<<mapM2DFsh<<endl;
-     cout<<"model fisheries map to fishery data objects: "<<mapM2DFsh<<endl;
+     PRINT2B2("model fisheries map to fishery data objects: ",mapM2DFsh)
     }
  END_CALCS
         
@@ -1127,8 +1150,7 @@ DATA_SECTION
          mapD2MSrv(v)   = idx;//map from survey data object v to model survey idx
          mapM2DSrv(idx) = v;  //map from model survey idx to survey data object v
      }
-     rpt::echo<<"model surveys map to survey data objects: "<<mapM2DSrv<<endl;
-     cout<<"model surveys map to survey data objects: "<<mapM2DSrv<<endl;
+     PRINT2B2("model surveys map to survey data objects: ",mapM2DSrv)
     }
  END_CALCS
  
@@ -1150,8 +1172,7 @@ DATA_SECTION
          mapD2MChd(v)   = idx;//map from chela height dataset object v to model survey index
          ptrMDS->ppCHD[v-1]->calcSizeBinIndices(ptrMC->zCutPts);
      }
-     rpt::echo<<"chela height datasets map to model surveys: "<<mapD2MChd<<endl;
-     cout<<"chela height datasets map to model surveys: "<<mapD2MChd<<endl;
+     PRINT2B2("chela height datasets map to model surveys: ",mapD2MChd)
     }
  END_CALCS
  
@@ -1442,16 +1463,18 @@ DATA_SECTION
     number inpTAC; //TAC for upcoming year
  LOCAL_CALCS
     if (mseOpModMode){
-        PRINT2B1("Creating ptrOMI")
+        PRINT2B1("#--Creating ptrOMI")
         ptrOMI = new MSE_OpModInfo(ptrMC);
-        ad_comm::change_datafile_name("mseOpModInfo.txt");
-        PRINT2B1("Reading mseOpModInfo.txt")
+        ad_comm::change_datafile_name("OpModStateFile.txt");
+        PRINT2B1("#--Reading OpModStateFile.txt")
         (*ad_comm::global_datafile)>>(*ptrOMI);
-        PRINT2B1("Finished reading mseOpModInfo.txt")
+        PRINT2B1("#--Finished reading OpModStateFile.txt")
         prjR = 0.0;
-        ad_comm::change_datafile_name("tac.txt");
+        PRINT2B1("#--Reading TAC.txt")
+        ad_comm::change_datafile_name("TAC.txt");
         (*ad_comm::global_datafile)>>inpTAC;
         (*ad_comm::global_datafile)>>inpOFL;
+        PRINT2B1("#--Finished reading TAC.txt")
         rpt::echo<<"TAC, OFL is: "<<inpTAC<<tb<<inpOFL<<endl;
         cout<<"TAC, OFL is: "<<inpTAC<<tb<<inpOFL<<endl;
     }
@@ -2025,8 +2048,6 @@ PRELIMINARY_CALCS_SECTION
          if (mseOpModMode){
 //-----------PRELIMINARY_CALCS: MSE OpMod RUNS ONLY-----------------------------
             PRINT2B1("PRELIMINARY_CALCS: MSE OpModMode")
-            //if (!runAlt){runPopDyMod(0,cout);} else {runAltPopDyMod(0,cout);}
-            //dvector vLnR_y = value(log(R_y(1982,mxYr)));
             dvector vLnR_y = log(ptrOMI->R_y(1982,mxYr));
             cout<<"vLnR_y = "<<vLnR_y<<endl;
             double mn = mean(vLnR_y);
@@ -2036,9 +2057,17 @@ PRELIMINARY_CALCS_SECTION
             PRINT2B2("stdv recruitment: ",sd);
             PRINT2B2("expected total recruitment: ",mfexp(mn+square(sd)/2.0));
             PRINT2B2("projected total recruitment: ",prjR);
-            dvariable mseCapF = mfexp(pMSE_LnC[1]);
-            projectPopForTAC(mseCapF,dbgAll,rpt::echo);
-            calcObjFunForTAC(dbgAll,rpt::echo);
+            if (inpTAC>0.0){
+                dvariable mseCapF = mfexp(pMSE_LnC[1]);
+                projectPopForTAC(mseCapF,dbgAll,rpt::echo);
+                calcObjFunForTAC(dbgAll,rpt::echo);
+            } else {
+                PRINT2B1("#--TAC is 0: directed fishery is closed!!");
+                PRINT2B1("#--RUNNING OpMod without fitting for TAC.")
+                finishOpModMode();
+                PRINT2B1("#--Exiting model without fitting for TAC.")
+                exit(0);
+            }
         } else if (mseEstModMode){
 //-----------PRELIMINARY_CALCS: MSE EstMod RUNS ONLY-----------------------------   
              PRINT2B1("PRELIMINARY_CALCS: MSE EstModMode")
@@ -2188,6 +2217,7 @@ FUNCTION void initAltPopDyMod(int debug, ostream& cout)
     n_yxmsz.initialize();  //annual population abundance
     nmN_yxmsz.initialize();//number of crab killed by natural mortality
     tmN_yxmsz.initialize();//total number of crab killed 
+    tmF_yxmsz.initialize();//total fishing mortality rate 
        
     setAllDevs(debug,cout);//set devs vectors
     
@@ -2229,6 +2259,7 @@ FUNCTION void runAltPopDyModOneYear(int y, int x, int debug, ostream& cout)
     //if (debug) cout<<"updated pPDI for sex "<<x<<" in "<<y<<endl;
     
     //2. Update fishery conditions based on year and sex
+    //TODO: move declarations to PARAMETER_SECTION
     dvar_vector hmF_f(1,nFsh);//handling mortality
     dvar4_array capF_fmsz(1,nFsh,1,nMSs,1,nSCs,1,nZBs);//fishery capture rates
     dvar4_array retF_fmsz(1,nFsh,1,nMSs,1,nSCs,1,nZBs);//fishery retention functions
@@ -2370,6 +2401,95 @@ FUNCTION void projectPopForTAC(dvariable& mseCapF, int debug, ostream& cout)
     
     if (debug>=dbgPopDy) cout<<"finished projectPopForTAC()"<<endl;
     
+///**
+// * MSE OpModMode ONLY:
+// * Project the population from July 1, year to July 1, year+1 given that
+// * the TAC is 0 and the directed fishery is closed.
+// * 
+// * This function is directly based on projectPopForTAC.
+// * 
+// */
+FUNCTION void projectPopForZeroTAC(int debug, ostream& cout)
+    if (debug>=dbgPopDy) cout<<"projectPopForZeroTAC()"<<endl;
+
+    prjRetCatchMortBio_fx.initialize();
+    prjDscCatchMortBio_fx.initialize();
+    prjTotCatchMortBio_fx.initialize();
+    prj_cpN_fxmsz.initialize(); //capture abundance
+    prj_rmN_fxmsz.initialize(); //retained mortality abundance
+    prj_dmN_fxmsz.initialize(); //discard mortality abundance
+    prj_dsN_fxmsz.initialize(); //total discard abundance
+    
+    dvariable maxCapF = 0.0;
+    
+    for (int x=1;x<=nSXs;x++){   
+        //1. Update population rates, based on year and sex
+        pPDI->w_mz  = ptrOMI->wAtZ_xmz(x);   //assign weight-at-length
+        pPDI->R_z   = ptrOMI->R_z;           //relative recruitment-at-size
+        pPDI->M_msz = ptrOMI->M_xmsz(x);     //rates of natural mortality
+        pPDI->T_szz = ptrOMI->prGr_xszz(x);  //growth transition matrices
+        //pr(terminal molt|size)
+        for (int s=1;s<=nSCs;s++) pPDI->Th_sz(s) = ptrOMI->prM2M_xz(x);
+        //if (debug) cout<<"updated pPDI for sex "<<x<<" in "<<y<<endl;
+
+        //2. Update fishery conditions based on year and sex
+        prj_hmF_f = ptrOMI->hmF_f;
+        prj_capF_fmsz.initialize();
+        prj_retF_fmsz.initialize();
+        prj_selF_fmsz.initialize();
+        for (int f=1;f<=nFsh;f++){
+            for (int m=1;m<=nMSs;m++){
+                prj_capF_fmsz(f,m) = ptrOMI->cpF_fxmsz(f,x,m);
+                prj_retF_fmsz(f,m) = ptrOMI->ret_fxmsz(f,x,m);
+                prj_selF_fmsz(f,m) = ptrOMI->sel_fxmsz(f,x,m);
+            }//m
+        }//f
+
+        
+        //directed fishery is closed,so set capture rates to 0
+        prj_capF_fmsz(1) = 0.0*prj_selF_fmsz(1);
+
+        //update CatchInfo objects
+        pCDI->setHandlingMortality(prj_hmF_f);
+        pCDI->setCaptureRates(prj_capF_fmsz);
+        pCDI->setRetentionFcns(prj_retF_fmsz);
+        pCDI->setSelectivityFcns(prj_selF_fmsz);
+        if (debug) cout<<"updated pCDI for sex "<<x<<endl;
+
+        //3. run PopProjector
+        pPPr->dtF = ptrOMI->dtF; //time at which fishery occurs
+        pPPr->dtM = ptrOMI->dtM; //time at which mating occurs
+        dvariable dirF = -1.0;//don't change scale on directed fishery F's
+        if (debug>=dbgPopDy) PopProjector::debug=1000;
+        dvar3_array n_msz   = ptrOMI->n_xmsz(x);//sex "x" population abundance at start of year
+        prj_n_xmsz(x)       = pPPr->project(dirF,n_msz,cout);
+        if (debug>=dbgPopDy) PopProjector::debug=0;
+        prj_n_xmsz(x,IMMATURE,NEW_SHELL) += prjR*ptrOMI->R_x(x)*ptrOMI->R_z;
+        prj_spB_x(x)         = pPPr->getMatureBiomassAtMating();
+        dvar4_array cpN_fmsz = pPPr->getFisheriesCaptureAbundance();
+        dvar4_array rmN_fmsz = pPPr->getRetainedCatchMortality();
+        dvar4_array dmN_fmsz = pPPr->getDiscardCatchMortality();
+        for (int f=1;f<=nFsh;f++){
+            for (int m=1;m<=nMSs;m++){
+                prj_cpN_fxmsz(f,x,m) = cpN_fmsz(f,m); //capture abundance
+                prj_rmN_fxmsz(f,x,m) = rmN_fmsz(f,m); //retained mortality abundance
+                prj_dmN_fxmsz(f,x,m) = dmN_fmsz(f,m); //discard mortality abundance
+                //total discard abundance
+                prj_dsN_fxmsz(f,x,m) = prj_cpN_fxmsz(f,x,m)-prj_rmN_fxmsz(f,x,m);
+                for (int s=1;s<=nSCs;s++){
+                    //retained catch mortality (biomass)
+                    prjRetCatchMortBio_fx(f,x) += prj_rmN_fxmsz(f,x,m,s)*ptrOMI->wAtZ_xmz(x,m);
+                    //discarded catch mortality (biomass)
+                    prjDscCatchMortBio_fx(f,x) += prj_dmN_fxmsz(f,x,m,s)*ptrOMI->wAtZ_xmz(x,m);
+                }//s
+            }//m
+            prjTotCatchMortBio_fx(f,x) = prjRetCatchMortBio_fx(f,x) + prjDscCatchMortBio_fx(f,x);
+        }//f
+        if (debug) cout<<"ran pPPr for sex "<<x<<endl;
+    }//x
+    
+    if (debug>=dbgPopDy) cout<<"finished projectPopForZeroTAC()"<<endl;
+    
 //-------------------------------------------------------------------------------------
 FUNCTION void runPopDyMod(int debug, ostream& cout)
     if (debug>=dbgPopDy) cout<<"starting runPopDyMod()"<<endl;
@@ -2393,6 +2513,7 @@ FUNCTION void initPopDyMod(int debug, ostream& cout)
     n_yxmsz.initialize();
     nmN_yxmsz.initialize();
     tmN_yxmsz.initialize();
+    tmF_yxmsz.initialize();
        
     setAllDevs(debug,cout);//set devs vectors
     
@@ -2584,7 +2705,7 @@ FUNCTION dvar4_array applyFshMort(dvar4_array& n0_xmsz, int y, int debug, ostrea
     for (int x=1;x<=nSXs;x++){
         for (int m=1;m<=nMSs;m++){
             for (int s=1;s<=nSCs;s++){
-                tmF_yxmsz(y,x,m,s).initialize();//total fishing mortality rate
+                //tmF_yxmsz(y,x,m,s).initialize();//total fishing mortality rate
                 for (int f=1;f<=nFsh;f++) tmF_yxmsz(y,x,m,s) += rmF_fyxmsz(f,y,x,m,s)+dmF_fyxmsz(f,y,x,m,s);
                 n1_xmsz(x,m,s) = elem_prod(mfexp(-tmF_yxmsz(y,x,m,s)),n0_xmsz(x,m,s));//numbers surviving all fisheries
                 tm_z = n0_xmsz(x,m,s)-n1_xmsz(x,m,s);                                 //numbers killed by all fisheries
@@ -3409,7 +3530,7 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
     cpF_fyxmsz.initialize();//size-specific capture rate
     rmF_fyxmsz.initialize();//retention rate
     dmF_fyxmsz.initialize();//discard mortality rate
-    tmF_yxmsz.initialize(); //total mortality rate
+    //tmF_yxmsz.initialize(); //total mortality rate
     
     /*********************************************************\n
      * Fully-selected annual capture rates are calculated     \n
@@ -3454,7 +3575,7 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
             if (pids[k]) {lnC += pDC4(pids[k]);}
 
             //extract devs vector
-            k = FisheriesInfo::idxLnDevs;
+            k = FisheriesInfo::idxDevsLnC;
             useDevs = pids[k];
             dvar_vector dvsLnC;             
             ivector idxDevsLnC;
@@ -3681,7 +3802,7 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
         }//useEX=TRUE
     }//pc
     if (debug>dbgCalcProcs) cout<<"Finished pass 2"<<endl;
- 
+    
     if (debug>dbgCalcProcs) {
         for (int f=1;f<=nFsh;f++){
             cout<<"cpF_fyxmsz("<<f<<",mnYr:mxYr,  MALE,MATURE,NEW SHELL) = ";
@@ -3773,6 +3894,7 @@ FUNCTION void calcSurveyQs(int debug, ostream& cout)
             }//(mnYr<=y)&&(y<=mxYrp1)
         }//idx
     }//pc
+    
     if (debug>dbgCalcProcs) cout<<"finished calcSurveyQs()"<<endl;
     
 //-------------------------------------------------------------------------------------
@@ -7211,7 +7333,7 @@ FUNCTION void updateMPI(int debug, ostream& cout)
     if (debug) cout<<"finished recruitment parameters"<<endl;
      
     //natural mortality parameters
-    if (debug) cout<<"fstarting natural mortality parameters"<<endl;
+    if (debug) cout<<"starting natural mortality parameters"<<endl;
     ptrMPI->ptrNM->pM->setFinalValsFromParamVals(pM);
     ptrMPI->ptrNM->pDM1->setFinalValsFromParamVals(pDM1);
     ptrMPI->ptrNM->pDM2->setFinalValsFromParamVals(pDM2);
@@ -7953,90 +8075,161 @@ FUNCTION void writeStateForOpMod(int y,ostream& os)
     }
     
 //-----------------------------------    
-FUNCTION void writeOpModPinFile(ostream& os)
-    //NOTE: need to call updateMPI() at some point before calling this function
-    //to write current parameter values to the pin file
-    os<<"#####---OpMod Pin File"<<endl;
+FUNCTION void writeEstModPinFile(int closed, ostream& os)
+    updateMPI(0,cout);
+    ptrMPI->addNextYearToInfo(closed);
+    os<<"#####---EstMod Pin File"<<endl;
+    ptrMPI->writePin(os);
     
-    os<<"#-------------------------------"<<endl;
-    os<<"# Recruitment parameters  "<<endl;
-    os<<"#-------------------------------"<<endl;
-    ptrMPI->ptrRec->pLnR->writeToPin(os);
-    ptrMPI->ptrRec->pRCV->writeToPin(os);
-    ptrMPI->ptrRec->pRX->writeToPin(os);
-    ptrMPI->ptrRec->pRa->writeToPin(os);
-    ptrMPI->ptrRec->pRb->writeToPin(os);
-    ptrMPI->ptrRec->pDevsLnR->writeToPin(os);
+//-------------------------------------
+FUNCTION int calcTAC(int hcr, double OFL)  
+    int closed = 1;
+    double TAC = 0.0;
+    if (hcr==1){
+        dmatrix vspB_yx = value(spB_yx);
+        double MMB = vspB_yx(mxYr,  MALE);
+        double MFB = vspB_yx(mxYr,FEMALE);
+        ivector perm(1,2); perm[1]=2;perm[2]=1;
+        dmatrix vspB_xy = wts::permuteDims(perm,vspB_yx);
+        double aveMFB = mean(vspB_xy(FEMALE)(ptrMOs->HCR1_avgMinYr,ptrMOs->HCR1_avgMaxYr));
+        TAC = HarvestStrategies::HCR1_FemaleRamp(MFB, aveMFB, MMB);
+    }
+    if (TAC>0.0) closed=0;
+
+    //--save TAC and OFL to file for OpMod to read
+    adstring fn = "TAC_"+str(mxYr+1)+".txt";
+    ofstream os; os.open(fn, ios::trunc);
+    os<<"#---TAC, OFL for MSE OpMod"<<endl;
+    os<<"# TAC      OFL"<<endl;
+    os<<TAC<<tb<<OFL<<endl;
+    os.close();
     
-    os<<"#-------------------------------"<<endl;
-    os<<"# Natural mortality parameters  "<<endl;
-    os<<"#-------------------------------"<<endl;
-    ptrMPI->ptrNM->pM->writeToPin(os);
-    ptrMPI->ptrNM->pDM1->writeToPin(os);
-    ptrMPI->ptrNM->pDM2->writeToPin(os);
-    ptrMPI->ptrNM->pDM3->writeToPin(os);
-    ptrMPI->ptrNM->pDM4->writeToPin(os);
+    return(closed);
     
-    os<<"#-------------------------------"<<endl;
-    os<<"# Growth parameters  "<<endl;
-    os<<"#-------------------------------"<<endl;
-    ptrMPI->ptrGrw->pGrA->writeToPin(os);
-    ptrMPI->ptrGrw->pGrB->writeToPin(os);
-    ptrMPI->ptrGrw->pGrBeta->writeToPin(os);
-    
-    os<<"#-------------------------------"<<endl;
-    os<<"# Molt-to-maturity parameters  "<<endl;
-    os<<"#-------------------------------"<<endl;
-    ptrMPI->ptrM2M->pvLgtPrM2M->writeToPin(os);
-    
-    os<<"#-------------------------------"<<endl;
-    os<<"# Selectivity parameters  "<<endl;
-    os<<"#-------------------------------"<<endl;
-    ptrMPI->ptrSel->pS1->writeToPin(os);
-    ptrMPI->ptrSel->pS2->writeToPin(os);
-    ptrMPI->ptrSel->pS3->writeToPin(os);
-    ptrMPI->ptrSel->pS4->writeToPin(os);
-    ptrMPI->ptrSel->pS5->writeToPin(os);
-    ptrMPI->ptrSel->pS6->writeToPin(os);
-    
-    ptrMPI->ptrSel->pDevsS1->writeToPin(os);
-    ptrMPI->ptrSel->pDevsS2->writeToPin(os);
-    ptrMPI->ptrSel->pDevsS3->writeToPin(os);
-    ptrMPI->ptrSel->pDevsS4->writeToPin(os);
-    ptrMPI->ptrSel->pDevsS5->writeToPin(os);
-    ptrMPI->ptrSel->pDevsS6->writeToPin(os);
-    
-    ptrMPI->ptrSel->pvNPSel->writeToPin(os);
-    
-    os<<"#-------------------------------"<<endl;
-    os<<"# Fisheries parameters  "<<endl;
-    os<<"#-------------------------------"<<endl;
-    ptrMPI->ptrFsh->pHM->writeToPin(os);
-    ptrMPI->ptrFsh->pLnC->writeToPin(os);
-    ptrMPI->ptrFsh->pDC1->writeToPin(os);
-    ptrMPI->ptrFsh->pDC2->writeToPin(os);
-    ptrMPI->ptrFsh->pDC3->writeToPin(os);
-    ptrMPI->ptrFsh->pDC4->writeToPin(os);
-    
-    ptrMPI->ptrFsh->pDevsLnC->writeToPin(os);
-    
-    ptrMPI->ptrFsh->pLnEffX->writeToPin(os);
-    ptrMPI->ptrFsh->pLgtRet->writeToPin(os);
-    
-    os<<"#-------------------------------"<<endl;
-    os<<"# Surveys parameters  "<<endl;
-    os<<"#-------------------------------"<<endl;
-    ptrMPI->ptrSrv->pQ->writeToPin(os);
-    ptrMPI->ptrSrv->pDQ1->writeToPin(os);
-    ptrMPI->ptrSrv->pDQ2->writeToPin(os);
-    ptrMPI->ptrSrv->pDQ3->writeToPin(os);
-    ptrMPI->ptrSrv->pDQ4->writeToPin(os);
-    
-    os<<"#-------------------------------"<<endl;
-    os<<"# MSE-related parameters  "<<endl;
-    os<<"#-------------------------------"<<endl;
-    ptrMPI->ptrMSE->pMSE_LnC->writeToPin(os);
-    
+//----------------------
+FUNCTION finishOpModMode
+    PRINT2B1("#----MSE OpModMode: Recalculating population dynamics")
+    if (inpTAC>0.0){
+        dvariable mseCapF = mfexp(pMSE_LnC[1]);
+        projectPopForTAC(mseCapF,0,cout);
+        calcObjFunForTAC(dbgObjFun,cout);
+        PRINT2B2("#--Final obj fun = ",objFun)
+    } else {
+        projectPopForZeroTAC(0,cout);
+    }
+
+    //--define parent folder for subsequent files
+    ptrMC->mxYr   = mxYr+1;
+    ptrMC->asYr   = ptrMC->asYr+1;
+    adstring nxtOpModFolder  = "../"+str(ptrMC->asYr)+".OpMod";
+    adstring nxtEstModFolder = "../"+str(ptrMC->asYr)+".EstMod";
+
+    //--write model configuration file for OpMod in mxYr+1
+    adstring nwMC = wts::concatenateFilePaths(nxtOpModFolder,
+                                              "OpMod.Configuration.inp");
+    PRINT2B2("writing MC to ",nwMC)
+    ptrMC->write(nwMC);
+
+    //--write model datasets file and dataset files for estimation model in mxYr+1
+    //--bio data
+    {
+        adstring nwF = wts::concatenateFilePaths(nxtEstModFolder,ptrMDS->fnBioData);
+        ofstream ofs; ofs.open(nwF,ios::trunc);
+        ptrMDS->ptrBio->write(ofs);
+        ofs.close();
+    }
+    //--fishery data
+    for (int i=1;i<=ptrMDS->nFsh;i++){
+        if ((i!=1)||(inpTAC>0.0)){
+            //update fishery i (skipping directed fishery if TAC=0)
+            adstring name  = ptrMDS->ppFsh[i-1]->name;
+            //update fishery data for year mxYr+1
+            FleetData::debug=0;
+            ptrMDS->ppFsh[i-1]->addFisheryCatchData(ptrMC->mxYr,
+                                                    prj_cpN_fxmsz(i),
+                                                    prj_rmN_fxmsz(i),
+                                                    ptrMDS->ptrBio->wAtZ_xmz,
+                                                    0.0,
+                                                    0.0,
+                                                    rng);
+        }
+        //write new fishery data
+        adstring nwF = wts::concatenateFilePaths(nxtEstModFolder,ptrMDS->fnsFisheryData[i]);
+        ofstream ofs; ofs.open(nwF,ios::trunc);
+        ptrMDS->ppFsh[i-1]->write(ofs);
+        ofs.close();
+        FleetData::debug=0;
+    }
+    //--survey data
+    //----calculate survey data for year mxYr+1
+    cout<<"Calculating survey data for for year "<<ptrMC->mxYr+1<<endl;
+    prj_n_vxmsz.initialize();
+    for (int v=1;v<=nSrv;v++){
+        for (int x=1;x<=nSXs;x++){
+            for (int m=1;m<=nMSs;m++){
+                for (int s=1;s<=nSCs;s++){
+                    //NOTE: using survey characteristics from final year of "real" data
+                    prj_n_vxmsz(v,x,m,s) = elem_prod(ptrOMI->q_vxmsz(v,x,m,s),prj_n_xmsz(x,m,s));
+                }
+            }
+        }
+    }
+    cout<<"Calculated survey data for for year "<<ptrMC->mxYr+1<<endl;
+    //----write survey data files
+    for (int i=1;i<=ptrMDS->nSrv;i++){
+        adstring name  = ptrMDS->ppSrv[i-1]->name;
+        //update survey data for year mxYr+1
+        FleetData::debug=0;
+        ptrMDS->ppSrv[i-1]->addIndexCatchData(ptrMC->mxYr+1,
+                                              prj_n_vxmsz(i),
+                                              ptrMDS->ptrBio->wAtZ_xmz,
+                                              0.0,
+                                              0.0,
+                                              rng);
+
+        //write new survey data
+        adstring nwF = wts::concatenateFilePaths(nxtEstModFolder,ptrMDS->fnsSurveyData[i]);
+        ofstream ofs; ofs.open(nwF,ios::trunc);
+        ptrMDS->ppSrv[i-1]->write(ofs);
+        ofs.close();
+        FleetData::debug=0;
+    }
+    //--growth data
+    for (int i=1;i<=ptrMDS->nGrw;i++){
+        adstring name  = ptrMDS->ppGrw[i-1]->name;
+        //update growth data for year mxYr+1
+        //NOTHING TO UPDATE
+
+        //write new growth data
+        adstring nwF = wts::concatenateFilePaths(nxtEstModFolder,ptrMDS->fnsGrowthData[i]);
+        ofstream ofs; ofs.open(nwF,ios::trunc);
+        ptrMDS->ppGrw[i-1]->write(ofs);
+        ofs.close();
+    }
+    //--chela height data
+    for (int i=1;i<=ptrMDS->nCHD;i++){
+        adstring name  = ptrMDS->ppCHD[i-1]->name;
+        //update chela height data for year mxYr+1
+        //NOTHING TO UPDATE
+
+        //write new chela height data
+        adstring nwF = wts::concatenateFilePaths(nxtEstModFolder,ptrMDS->fnsChelaHeightData[i]);
+        ofstream ofs; ofs.open(nwF,ios::trunc);
+        ptrMDS->ppCHD[i-1]->write(ofs);
+        ofs.close();
+    }
+    adstring nwMDS = wts::concatenateFilePaths(nxtEstModFolder,ptrMC->fnMDS);
+    rpt::echo<<"writing MDS to '"<<nwMDS<<"'"<<endl;
+    ptrMDS->write(nwMDS);
+
+    //write OpMod "state" to file
+    {
+    adstring nwF = "OpModStateFile_"+str(mxYr+2)+".txt";//writing out for July 1, mxYr+2 (yes, this is correct!)
+    ofstream ofs; ofs.open(nwF,ios::trunc);
+    writeStateForOpMod(0,ofs);
+    ofs.close();
+    }
+
 // =============================================================================
 // =============================================================================
 FINAL_SECTION
@@ -8044,7 +8237,9 @@ FINAL_SECTION
     PRINT2B1("#--Starting FINAL_SECTION")
         
     if (!mseMode){
+        PRINT2B1("#--mseMode is OFF")
         if (mcevalOn) {
+            PRINT2B1("#--mceval is ON")
             PRINT2B1("#----Closing mcmc file")
             mcmc.open((char*)(fnMCMC),ios::app);
             mcmc.precision(12);
@@ -8054,6 +8249,7 @@ FINAL_SECTION
         }
 
         if (!mcevalOn){
+            PRINT2B1("#--mceval is OFF")
             PRINT2B2("obj fun = ",objFun)
             PRINT2B1(" ")
             {
@@ -8095,192 +8291,101 @@ FINAL_SECTION
             calcObjFun(dbgObjFun,cout);
             PRINT2B2("#--Final obj fun = ",objFun)
                     
-            {
-            PRINT2B1("#----Writing OpMod state file")
-            adstring nwF = "OpModStateFile_"+str(mxYr+1)+".txt";
-            //nwF = wts::concatenateFilePaths(parent,nwF);
-            ofstream ofs; ofs.open(nwF,ios::trunc);
-            writeStateForOpMod(mxYr,ofs);
-            ofs.close();
-            PRINT2B1("#----Finished writing OpModInfo file")
+            //do OFL calculations
+            if (doOFL){
+                PRINT2B1("#----Starting OFL calculations")
+                ofstream echoOFL; echoOFL.open("calcOFL.final.txt", ios::trunc);
+                echoOFL.precision(12);
+                calcOFL(mxYr+1,1,echoOFL);//updates ptrOFLResults
+                ptrOFLResults->writeCSVHeader(echoOFL); echoOFL<<endl;
+                ptrOFLResults->writeToCSV(echoOFL);     echoOFL<<endl;
+                echoOFL.close();
+                PRINT2B1("#----Finished OFL calculations")
             }
+            
+            //do TAC calculations
+            PRINT2B2("#----doTAC = ",doTAC)
+            int closed = 0;
+            if (doTAC>0) {
+                PRINT2B1("#----Starting TAC calculations")
+                closed = calcTAC(doTAC, value(ptrOFLResults->OFL));
+                PRINT2B1("#----Finished TAC calculations")
+            }
+                
+            //write state for operating model
+            {
+                PRINT2B1("#----Writing OpMod state file")
+                adstring nwF = "OpModStateFile_"+str(mxYr+1)+".txt";
+                //nwF = wts::concatenateFilePaths(parent,nwF);
+                ofstream ofs; ofs.open(nwF,ios::trunc);
+                writeStateForOpMod(mxYr,ofs);
+                ofs.close();
+                PRINT2B1("#----Finished writing OpMod state file")
+            }
+            
+            //write MPI for EstMod for upcoming year
+            //----devs for upcoming year are zero
+            {
+                ptrMPI->addNextYearToInfo(closed);
+                ptrMPI->setToWriteVectorInitialValues(false);
+                adstring nwF = "EstMod.ParametersInfo."+str(mxYr+1)+".inp";
+                ofstream ofs; ofs.open(nwF, ios::trunc);
+                ptrMPI->write(ofs);
+                ofs.close();
+            }
+
+            //--write pin for EstMod for upcoming year
+            {
+                adstring nwF = "EstModPinFile_"+str(mxYr+1)+".txt";
+                ofstream ofs; ofs.open(nwF, ios::trunc);
+                ptrMPI->writePin(ofs);
+                ofs.close();
+            }
+                
         }
     } else if (mseEstModMode){
         //running in estModMode
         PRINT2B1("#----MSE EstModMode: Recalculating population dynamics")
         if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
-        //--calculate OFL
-        calcOFL(mxYrp1, 0, cout);
-        dvariable OFL = ptrOFLResults->OFL;
-
-        //--calculate TAC for upcoming year using harvest control rule
-        double TAC = 0.0;
-        if (ptrMOs->HCR==1){
-            dmatrix vspB_yx = value(spB_yx);
-            double MMB = vspB_yx(mxYr,  MALE);
-            double MFB = vspB_yx(mxYr,FEMALE);
-            ivector perm(1,2); perm[1]=2;perm[2]=1;
-            dmatrix vspB_xy = wts::permuteDims(perm,vspB_yx);
-            double aveMFB = mean(vspB_xy(FEMALE)(ptrMOs->HCR1_avgMinYr,ptrMOs->HCR1_avgMaxYr));
-            TAC = HarvestStrategies::HCR1_FemaleRamp(MFB, aveMFB, MMB);
-        }
-
-        //--save TAC and OFL to file for OpMod to read
-        ofstream os; os.open("TAC.txt", ios::trunc);
-        os<<"#---TAC, OFL for MSE OpMod"<<endl;
-        os<<"# TAC      OFL"<<endl;
-        os<<TAC<<tb<<OFL<<endl;
-        os.close();
-        
-        //--write pin for EstMod for upcoming year based on this year
-        //----devs for upcoming year are zero
-
-        //--write model parameters info file for EstMod for upcoming year
-        //----values for devs vectors SHOULD NOT be written into file
-
-
-    } else if (mseOpModMode){
-        //running in mseOpModMode
-        PRINT2B1("#----MSE OpModMode: Recalculating population dynamics")
-        //if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
-        dvariable mseCapF = mfexp(pMSE_LnC[1]);
-        projectPopForTAC(mseCapF,0,cout);
-        calcObjFunForTAC(dbgObjFun,cout);
+        calcObjFun(dbgObjFun,cout);
         PRINT2B2("#--Final obj fun = ",objFun)
+        
+        //--calculate OFL
+        {
+            cout<<"#----Starting OFL calculations"<<endl;
+            ofstream echoOFL; echoOFL.open("calcOFL.final.txt", ios::trunc);
+            echoOFL.precision(12);
+            calcOFL(mxYr+1,1,echoOFL);//updates ptrOFLResults
+            ptrOFLResults->writeCSVHeader(echoOFL); echoOFL<<endl;
+            ptrOFLResults->writeToCSV(echoOFL);     echoOFL<<endl;
+            echoOFL.close();
+            cout<<"#----Finished OFL calculations"<<endl;
+        }
+        
+        //--calculate TAC for upcoming year using harvest control rule
+        int closed = calcTAC(doTAC, value(ptrOFLResults->OFL));
                 
-        //--define parent folder for subsequent files
-        ptrMC->mxYr   = mxYr+1;
-        ptrMC->asYr   = ptrMC->asYr+1;
-        adstring parent = "../EstMod"+str(ptrMC->asYr);
-                
-        //--write model configuration file for estimation model in mxYr+1
-        ptrMC->fnMDS  = "ModelDatasets.dat";
-        ptrMC->fnMOs  = "ModelOptions.dat";
-        ptrMC->fnMPI  = "ModelParametersInfo.dat";
-        adstring nwMC = wts::concatenateFilePaths(parent,
-                                                  "ConfigurationFile.dat");
-        rpt::echo<<"writing MC to '"<<nwMC<<"'"<<endl;
-        ptrMC->write(nwMC);
-        
-        //--write model datasets file and dataset files for estimation model in mxYr+1
-        //--bio data
+        //write MPI for EstMod for upcoming year
+        //----devs for upcoming year are zero
         {
-            ptrMDS->fnBioData = "Data.BioInfo.dat";
-            adstring nwF = wts::concatenateFilePaths(parent,ptrMDS->fnBioData);
-            ofstream ofs; ofs.open(nwF,ios::trunc);
-            ptrMDS->ptrBio->write(ofs);
+            ptrMPI->addNextYearToInfo(closed);
+            ptrMPI->setToWriteVectorInitialValues(false);
+            adstring nwF = "EstMod.ParametersInfo."+str(mxYr+1)+".inp";
+            ofstream ofs; ofs.open(nwF, ios::trunc);
+            ptrMPI->write(ofs);
             ofs.close();
-        }
-        //--fishery data
-        for (int i=1;i<=ptrMDS->nFsh;i++){
-            adstring name  = ptrMDS->ppFsh[i-1]->name;
-            ptrMDS->fnsFisheryData[i] = "Data.Fishery."+name+".dat";
-            //update fishery data for year mxYr+1
-            FleetData::debug=0;
-            ptrMDS->ppFsh[i-1]->addFisheryCatchData(ptrMC->mxYr,
-                                                    prj_cpN_fxmsz(i),
-                                                    prj_rmN_fxmsz(i),
-                                                    ptrMDS->ptrBio->wAtZ_xmz,
-                                                    0.0,
-                                                    0.0,
-                                                    rng);
-            //write new fishery data
-            adstring nwF = wts::concatenateFilePaths(parent,ptrMDS->fnsFisheryData[i]);
-            ofstream ofs; ofs.open(nwF,ios::trunc);
-            ptrMDS->ppFsh[i-1]->write(ofs);
-            ofs.close();
-            FleetData::debug=0;
-        }
-        //--survey data
-        //----calculate survey data for year mxYr+1
-        cout<<"Calculating survey data for for year "<<ptrMC->mxYr+1<<endl;
-        prj_n_vxmsz.initialize();
-        for (int v=1;v<=nSrv;v++){
-            for (int x=1;x<=nSXs;x++){
-                for (int m=1;m<=nMSs;m++){
-                    for (int s=1;s<=nSCs;s++){
-                        //NOTE: using survey characteristics from final year of "real" data
-                        prj_n_vxmsz(v,x,m,s) = elem_prod(ptrOMI->q_vxmsz(v,x,m,s),prj_n_xmsz(x,m,s));
-                    }
-                }
-            }
-        }
-        cout<<"Calculated survey data for for year "<<ptrMC->mxYr+1<<endl;
-        //----write survey data files
-        for (int i=1;i<=ptrMDS->nSrv;i++){
-            adstring name  = ptrMDS->ppSrv[i-1]->name;
-            ptrMDS->fnsSurveyData[i] = "Data.Survey."+name+".dat";
-            //update survey data for year mxYr+1
-            FleetData::debug=0;
-            ptrMDS->ppSrv[i-1]->addIndexCatchData(ptrMC->mxYr+1,
-                                                  prj_n_vxmsz(i),
-                                                  ptrMDS->ptrBio->wAtZ_xmz,
-                                                  0.0,
-                                                  0.0,
-                                                  rng);
-            
-            //write new survey data
-            adstring nwF = wts::concatenateFilePaths(parent,ptrMDS->fnsSurveyData[i]);
-            ofstream ofs; ofs.open(nwF,ios::trunc);
-            ptrMDS->ppSrv[i-1]->write(ofs);
-            ofs.close();
-            FleetData::debug=0;
-        }
-        //--growth data
-        for (int i=1;i<=ptrMDS->nGrw;i++){
-            adstring name  = ptrMDS->ppGrw[i-1]->name;
-            ptrMDS->fnsGrowthData[i] = "Data.Growth."+name+".dat";
-            //update growth data for year mxYr+1
-            
-            //write new survey data
-            adstring nwF = wts::concatenateFilePaths(parent,ptrMDS->fnsGrowthData[i]);
-            ofstream ofs; ofs.open(nwF,ios::trunc);
-            ptrMDS->ppGrw[i-1]->write(ofs);
-            ofs.close();
-        }
-        //--chela height data
-        for (int i=1;i<=ptrMDS->nCHD;i++){
-            adstring name  = ptrMDS->ppCHD[i-1]->name;
-            ptrMDS->fnsChelaHeightData[i] = "Data.CHD."+name+".dat";
-            //update chela height data for year mxYr+1
-            
-            //write new chela height data
-            adstring nwF = wts::concatenateFilePaths(parent,ptrMDS->fnsChelaHeightData[i]);
-            ofstream ofs; ofs.open(nwF,ios::trunc);
-            ptrMDS->ppCHD[i-1]->write(ofs);
-            ofs.close();
-        }
-        adstring nwMDS = wts::concatenateFilePaths(parent,
-                                                   ptrMC->fnMDS);
-        rpt::echo<<"writing MDS to '"<<nwMDS<<"'"<<endl;
-        ptrMDS->write(nwMDS);
-        
-        //--write ModelOptions for OpMod
-        
-        //--write pin file for OpMod for subsequent year
-        {
-        rpt::echo<<"updating MPI for OpMod"<<endl;
-        updateMPI(0,cout);
-        rpt::echo<<"updated MPI for OpMod"<<endl;
-        rpt::echo<<"writing OpMod pin file for next year"<<endl;
-        adstring nwF = wts::concatenateFilePaths(parent,
-                                                 "OpModPinFile.pin");
-        ofstream ofs; ofs.open(nwF,ios::trunc);
-        //writeOpModPinFile(ofs);
-        ptrMPI->writePin(ofs);
-        ofs.close();
-        rpt::echo<<"finished writing OpMod pin file for next year"<<endl;
-        }
-        
-        //write OpMod "state" to file
-        {
-        adstring nwF = "OpModStateFile_"+str(ptrOMI->mxYr+1)+".txt";
-        //nwF = wts::concatenateFilePaths(parent,nwF);
-        ofstream ofs; ofs.open(nwF,ios::trunc);
-        writeStateForOpMod(0,ofs);
-        ofs.close();
         }
 
+        //--write pin for EstMod for upcoming year
+        {
+            adstring nwF = "EstModPinFile_"+str(mxYr+1)+".txt";
+            ofstream ofs; ofs.open(nwF, ios::trunc);
+            ptrMPI->writePin(ofs);
+            ofs.close();
+        }
+                
+    } else if (mseOpModMode){
+        finishOpModMode();
     }//mseOpModMode
     
     int hour,minute,second;
@@ -8298,7 +8403,10 @@ FINAL_SECTION
     PRINT2B2("Finishing time: ",ctime(&finish))
     adstring hms = "This run took: "+str(hour)+" hours, "+str(minute)+" minutes, "+str(second)+" seconds.";
     PRINT2B1(hms)
-    PRINT2B1("#------------------")
+    PRINT2B1("#--Finished FINAL_SECTION")
+    PRINT2B1("#------------------------")
+    PRINT2B1("#------------------------")
+    PRINT2B1("")
         
 // =============================================================================
 // =============================================================================

@@ -586,6 +586,23 @@ class VectorInfo {
          * @return 
          */
         int getSize(){return N;}
+        
+        /**
+         * Add a value to the end of the init and final vectors.
+         * 
+         * @param val - value to add
+         * @param ibVal - corresponding IndexBlock value to add
+         */
+        void addValueOnArithmeticScale(double val, int ibVal);
+        
+        /**
+         * Add a value to the end of the init and final vectors.
+         * 
+         * @param val - value to add
+         * @param ibVal - corresponding IndexBlock value to add
+         */
+        void addValueOnParameterScale(double val, int ibVal);
+        
         /**
          * Gets the parameter scale type, as an adstring.
          * 

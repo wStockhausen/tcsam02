@@ -43,18 +43,18 @@ void IndexRange::parse(adstring str){
     if (debug) cout<<"':' located at position "<<i<<endl;
     if (i){
         mn = ::atoi(str(1,i-1));          
-        if (mn<0){mn=modMin+1+mn;} else
-        if (mn<modMin){mn=modMin;} else
-        if (mn>modMax){mn=modMax;}
+        if (mn<0){mn=modMin+1+mn;} //else
+        //if (mn<modMin){mn=modMin;} else
+        //if (mn>modMax){mn=modMax;}
         mx = ::atoi(str(i+1,str.size())); 
-        if (mx<0){mx=modMax-1-mx;} else
-        if (mx<modMin){mx=modMin;} else
-        if (mx>modMax){mx=modMax;}
+        if (mx<0){mx=modMax-1-mx;} //else
+        //if (mx<modMin){mx=modMin;} else
+        //if (mx>modMax){mx=modMax;}
     } else {
         mx = ::atoi(str);
-        if (mx<0){mx=modMax-1-mx;} else
-        if (mx<modMin){mx=modMin;} else
-        if (mx>modMax){mx=modMax;}
+        if (mx<0){mx=modMax-1-mx;}// else
+        //if (mx<modMin){mx=modMin;} else
+        //if (mx>modMax){mx=modMax;}
         mn=mx;
     }
     if (debug) cout<<"mn,mx = "<<mn<<cc<<mx<<endl;
@@ -131,6 +131,20 @@ int IndexBlock::getMax(void){
     int mx = ppIRs[0]->getMax();
     for (int i=1;i<nRCs;i++) mx = max(mx,ppIRs[i]->getMax());
     return mx;
+}
+
+void IndexBlock::addElement(int e){
+    if (debug) cout<<"Starting IndexBlock::addElement("<<e<<")"<<endl;
+    adstring stro  = this->asString();    //old index block string representation
+    adstring strn = stro(1,stro.size()-1);//new index block string representation
+    strn = strn+";"+str(e)+"]";
+    if (debug) {
+        cout<<"old index block string: "<<stro<<endl;
+        cout<<"new index block string: "<<strn<<endl;
+    }
+    modMax = max(modMax,e);//expand max, if necessary
+    this->parse(strn);
+    if (debug) cout<<"Finished IndexBlock::addElement("<<e<<")"<<endl;
 }
 
 /**
