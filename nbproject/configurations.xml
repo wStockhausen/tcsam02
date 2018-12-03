@@ -1,0 +1,492 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configurationDescriptor version="97">
+  <logicalFolder name="root" displayName="root" projectFiles="true" kind="ROOT">
+    <logicalFolder name="HeaderFiles"
+                   displayName="Header Files"
+                   projectFiles="true">
+      <itemPath>include/HarvestStrategies.hpp</itemPath>
+      <itemPath>include/MSEClasses.hpp</itemPath>
+      <itemPath>include/ModelConfiguration.hpp</itemPath>
+      <itemPath>include/ModelConstants.hpp</itemPath>
+      <itemPath>include/ModelData.hpp</itemPath>
+      <itemPath>include/ModelFunctions.hpp</itemPath>
+      <itemPath>include/ModelIndexBlocks.hpp</itemPath>
+      <itemPath>include/ModelIndexFunctions.hpp</itemPath>
+      <itemPath>include/ModelOptions.hpp</itemPath>
+      <itemPath>include/ModelParameterFunctions.hpp</itemPath>
+      <itemPath>include/ModelParameterInfoTypes.hpp</itemPath>
+      <itemPath>include/ModelParametersInfo.hpp</itemPath>
+      <itemPath>include/ModelPopDyClasses.hpp</itemPath>
+      <itemPath>include/ModelSelectivities.hpp</itemPath>
+      <itemPath>include/OFLCalcs.hpp</itemPath>
+      <itemPath>include/SummaryFunctions.hpp</itemPath>
+      <itemPath>include/TCSAM.hpp</itemPath>
+      <itemPath>tcsam02.htp</itemPath>
+    </logicalFolder>
+    <logicalFolder name="ResourceFiles"
+                   displayName="Resource Files"
+                   projectFiles="true">
+    </logicalFolder>
+    <logicalFolder name="SourceFiles"
+                   displayName="Source Files"
+                   projectFiles="true">
+      <itemPath>src/CatchData.cpp</itemPath>
+      <itemPath>src/HarvestStrategies.cpp</itemPath>
+      <itemPath>src/IndivData.cpp</itemPath>
+      <itemPath>src/MSEClasses.cpp</itemPath>
+      <itemPath>src/ModelConfiguration.cpp</itemPath>
+      <itemPath>src/ModelConstants.cpp</itemPath>
+      <itemPath>src/ModelData.cpp</itemPath>
+      <itemPath>src/ModelFunctions.cpp</itemPath>
+      <itemPath>src/ModelIndexBlocks.cpp</itemPath>
+      <itemPath>src/ModelIndexFunctions.cpp</itemPath>
+      <itemPath>src/ModelOptions.cpp</itemPath>
+      <itemPath>src/ModelParameterFunctions.cpp</itemPath>
+      <itemPath>src/ModelParameterInfoTypes.cpp</itemPath>
+      <itemPath>src/ModelParametersInfo.cpp</itemPath>
+      <itemPath>src/ModelPopDyClasses.cpp</itemPath>
+      <itemPath>src/ModelSelectivities.cpp</itemPath>
+      <itemPath>src/OFLCalcs.cpp</itemPath>
+      <itemPath>src/SummaryFunctions.cpp</itemPath>
+      <itemPath>tcsam02.cpp</itemPath>
+    </logicalFolder>
+    <logicalFolder name="TestFiles"
+                   displayName="Test Files"
+                   projectFiles="false"
+                   kind="TEST_LOGICAL_FOLDER">
+    </logicalFolder>
+    <logicalFolder name="ExternalFiles"
+                   displayName="Important Files"
+                   projectFiles="false"
+                   kind="IMPORTANT_FILES_FOLDER">
+      <itemPath>Makefile</itemPath>
+      <itemPath>README.md</itemPath>
+      <itemPath>tcsam02.tpl</itemPath>
+    </logicalFolder>
+  </logicalFolder>
+  <projectmakefile>Makefile</projectmakefile>
+  <confs>
+    <conf name="Debug" type="1">
+      <toolsSet>
+        <compilerSet>default</compilerSet>
+        <dependencyChecking>true</dependencyChecking>
+        <rebuildPropChanged>false</rebuildPropChanged>
+      </toolsSet>
+      <compileType>
+        <ccTool>
+          <incDir>
+            <pElem>.</pElem>
+            <pElem>include</pElem>
+            <pElem>/Users/WilliamStockhausen/StockAssessments-Crab/AssessmentModelDevelopment/wtsADMB/include</pElem>
+            <pElem>/Users/WilliamStockhausen/Programs/admb/build/dist/include</pElem>
+            <pElem>/Users/WilliamStockhausen/Programs/admb/build/dist/contrib/include</pElem>
+          </incDir>
+        </ccTool>
+        <linkerTool>
+          <linkerLibItems>
+            <linkerLibFileItem>/Users/WilliamStockhausen/StockAssessments-Crab/AssessmentModelDevelopment/wtsADMB/dist/Debug-MacOSX/CLang-MacOSX/libwtsadmb.a</linkerLibFileItem>
+            <linkerLibFileItem>/Users/WilliamStockhausen/Programs/admb/build/dist/lib/libadmb-contrib.a</linkerLibFileItem>
+            <linkerLibFileItem>/Users/WilliamStockhausen/StockAssessments-Crab/AssessmentModelDevelopment/wtsADMB/dist/Debug-MacOSX/CLang-MacOSX/libwtsadmb.a</linkerLibFileItem>
+            <linkerLibFileItem>/Users/WilliamStockhausen/Programs/admb/build/dist/lib/libadmb-contrib.a</linkerLibFileItem>
+          </linkerLibItems>
+          <commandLine>-g</commandLine>
+        </linkerTool>
+      </compileType>
+      <item path="include/HarvestStrategies.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/MSEClasses.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelConfiguration.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelConstants.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelData.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelFunctions.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelIndexBlocks.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelIndexFunctions.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelOptions.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelParameterFunctions.hpp"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="include/ModelParameterInfoTypes.hpp"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="include/ModelParametersInfo.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelPopDyClasses.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelSelectivities.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/OFLCalcs.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/SummaryFunctions.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/TCSAM.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="src/CatchData.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/HarvestStrategies.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/IndivData.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/MSEClasses.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelConfiguration.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelConstants.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelData.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelFunctions.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelIndexBlocks.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelIndexFunctions.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelOptions.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelParameterFunctions.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelParameterInfoTypes.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelParametersInfo.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelPopDyClasses.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelSelectivities.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/OFLCalcs.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/SummaryFunctions.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="tcsam02.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="tcsam02.htp" ex="false" tool="3" flavor2="0">
+      </item>
+    </conf>
+    <conf name="Release" type="1">
+      <toolsSet>
+        <compilerSet>default</compilerSet>
+        <dependencyChecking>true</dependencyChecking>
+        <rebuildPropChanged>false</rebuildPropChanged>
+      </toolsSet>
+      <compileType>
+        <cTool>
+          <developmentMode>5</developmentMode>
+        </cTool>
+        <ccTool>
+          <developmentMode>5</developmentMode>
+        </ccTool>
+        <fortranCompilerTool>
+          <developmentMode>5</developmentMode>
+        </fortranCompilerTool>
+        <asmTool>
+          <developmentMode>5</developmentMode>
+        </asmTool>
+      </compileType>
+      <item path="include/HarvestStrategies.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/MSEClasses.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelConfiguration.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelConstants.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelData.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelFunctions.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelIndexBlocks.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelIndexFunctions.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelOptions.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelParameterFunctions.hpp"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="include/ModelParameterInfoTypes.hpp"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="include/ModelParametersInfo.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelPopDyClasses.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelSelectivities.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/OFLCalcs.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/SummaryFunctions.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/TCSAM.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="src/CatchData.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/HarvestStrategies.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/IndivData.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/MSEClasses.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelConfiguration.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelConstants.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelData.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelFunctions.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelIndexBlocks.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelIndexFunctions.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelOptions.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelParameterFunctions.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelParameterInfoTypes.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelParametersInfo.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelPopDyClasses.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelSelectivities.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/OFLCalcs.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/SummaryFunctions.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="tcsam02.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="tcsam02.htp" ex="false" tool="3" flavor2="0">
+      </item>
+    </conf>
+    <conf name="Debug-MacOSX-ADMBv12" type="1">
+      <toolsSet>
+        <compilerSet>GNU|GNU</compilerSet>
+        <dependencyChecking>true</dependencyChecking>
+        <rebuildPropChanged>false</rebuildPropChanged>
+      </toolsSet>
+      <compileType>
+        <ccTool>
+          <incDir>
+            <pElem>.</pElem>
+            <pElem>include</pElem>
+            <pElem>/Users/WilliamStockhausen/StockAssessments-Crab/AssessmentModelDevelopment/wtsADMB/include</pElem>
+            <pElem>/Users/WilliamStockhausen/Programs/admb_v12/build/debug/include</pElem>
+            <pElem>/Users/WilliamStockhausen/Programs/admb_v12/build/debug/contrib/include</pElem>
+          </incDir>
+        </ccTool>
+        <linkerTool>
+          <linkerLibItems>
+            <linkerLibFileItem>/Users/WilliamStockhausen/StockAssessments-Crab/AssessmentModelDevelopment/wtsADMB/dist/Debug-MacOSX-ADMBv12/GNU-MacOSX/libwtsadmb.a</linkerLibFileItem>
+            <linkerLibFileItem>/Users/WilliamStockhausen/Programs/admb_v12/build/debug/lib/libadmb-contrib.a</linkerLibFileItem>
+            <linkerLibFileItem>/Users/WilliamStockhausen/StockAssessments-Crab/AssessmentModelDevelopment/wtsADMB/dist/Debug-MacOSX-ADMBv12/GNU-MacOSX/libwtsadmb.a</linkerLibFileItem>
+            <linkerLibFileItem>/Users/WilliamStockhausen/Programs/admb_v12/build/debug/lib/libadmb-contrib.a</linkerLibFileItem>
+          </linkerLibItems>
+          <commandLine>-g</commandLine>
+        </linkerTool>
+      </compileType>
+      <item path="include/HarvestStrategies.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/MSEClasses.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelConfiguration.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelConstants.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelData.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelFunctions.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelIndexBlocks.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelIndexFunctions.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelOptions.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelParameterFunctions.hpp"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="include/ModelParameterInfoTypes.hpp"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="include/ModelParametersInfo.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelPopDyClasses.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelSelectivities.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/OFLCalcs.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/SummaryFunctions.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/TCSAM.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="src/CatchData.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/HarvestStrategies.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/IndivData.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/MSEClasses.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelConfiguration.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/ModelConstants.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/ModelData.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/ModelFunctions.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/ModelIndexBlocks.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/ModelIndexFunctions.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/ModelOptions.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/ModelParameterFunctions.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/ModelParameterInfoTypes.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/ModelParametersInfo.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/ModelPopDyClasses.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelSelectivities.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/OFLCalcs.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/SummaryFunctions.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="tcsam02.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="tcsam02.htp" ex="false" tool="3" flavor2="0">
+      </item>
+    </conf>
+    <conf name="MacOSX-ADMBv12" type="1">
+      <toolsSet>
+        <compilerSet>GNU|GNU</compilerSet>
+        <dependencyChecking>true</dependencyChecking>
+        <rebuildPropChanged>false</rebuildPropChanged>
+      </toolsSet>
+      <compileType>
+        <ccTool>
+          <incDir>
+            <pElem>.</pElem>
+            <pElem>include</pElem>
+            <pElem>/Users/WilliamStockhausen/StockAssessments-Crab/AssessmentModelDevelopment/wtsADMB/include</pElem>
+            <pElem>/Users/WilliamStockhausen/Programs/admb_v12/build/dist/include</pElem>
+            <pElem>/Users/WilliamStockhausen/Programs/admb_v12/build/dist/contrib/include</pElem>
+          </incDir>
+        </ccTool>
+        <linkerTool>
+          <linkerLibItems>
+            <linkerLibFileItem>/Users/WilliamStockhausen/StockAssessments-Crab/AssessmentModelDevelopment/wtsADMB/dist/MacOSX-ADMBv12/GNU-MacOSX/libwtsadmb.a</linkerLibFileItem>
+            <linkerLibFileItem>/Users/WilliamStockhausen/Programs/admb_v12/build/dist/lib/libadmb-contrib.a</linkerLibFileItem>
+            <linkerLibFileItem>/Users/WilliamStockhausen/StockAssessments-Crab/AssessmentModelDevelopment/wtsADMB/dist/MacOSX-ADMBv12/GNU-MacOSX/libwtsadmb.a</linkerLibFileItem>
+            <linkerLibFileItem>/Users/WilliamStockhausen/Programs/admb_v12/build/dist/lib/libadmb-contrib.a</linkerLibFileItem>
+          </linkerLibItems>
+          <commandLine>-g</commandLine>
+        </linkerTool>
+      </compileType>
+      <item path="include/HarvestStrategies.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/MSEClasses.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelConfiguration.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelConstants.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelData.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelFunctions.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelIndexBlocks.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelIndexFunctions.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelOptions.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelParameterFunctions.hpp"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="include/ModelParameterInfoTypes.hpp"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="include/ModelParametersInfo.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelPopDyClasses.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/ModelSelectivities.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/OFLCalcs.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/SummaryFunctions.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/TCSAM.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="src/CatchData.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/HarvestStrategies.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/IndivData.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/MSEClasses.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelConfiguration.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/ModelConstants.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/ModelData.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/ModelFunctions.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/ModelIndexBlocks.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/ModelIndexFunctions.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/ModelOptions.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/ModelParameterFunctions.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/ModelParameterInfoTypes.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/ModelParametersInfo.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/ModelPopDyClasses.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/ModelSelectivities.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/OFLCalcs.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="src/SummaryFunctions.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="tcsam02.cpp" ex="false" tool="1" flavor2="9">
+      </item>
+      <item path="tcsam02.htp" ex="false" tool="3" flavor2="0">
+      </item>
+    </conf>
+  </confs>
+</configurationDescriptor>
