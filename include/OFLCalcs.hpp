@@ -16,6 +16,10 @@ class Equilibrium_Calculator {
         static int debug;
         
     public:
+        int nMSs;
+        int nSCs;
+        int nZBs;
+        dmatrix I_z; //identity matrix for size classes
         PopProjector* pPP;//pointer to single-sex population projector
         
     public:
@@ -24,7 +28,7 @@ class Equilibrium_Calculator {
          * 
          * @param pPPp - pointer to a PopProjector object to base equilibrium calculations on
          */
-        Equilibrium_Calculator(PopProjector* pPPp){pPP = pPPp;}
+        Equilibrium_Calculator(PopProjector* pPPp);
         /**
          * Class destructor.
          */

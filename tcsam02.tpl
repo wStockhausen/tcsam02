@@ -2290,9 +2290,9 @@ FUNCTION void runAltPopDyModOneYear(int y, int x, int debug, ostream& cout)
     pPPr->dtF = dtF_y(y); //time at which fishery occurs
     pPPr->dtM = dtM_y(y); //time at which mating occurs
     dvariable dirF = -1.0;//don't change scale on directed fishery F's
-    if (debug>=dbgPopDy) PopProjector::debug=1000;   
+//    if (debug>=dbgPopDy) PopProjector::debug=1000;   
     n_yxmsz(y+1,x)       = pPPr->project(dirF,n_yxmsz(y,x),cout);
-    if (debug>=dbgPopDy) PopProjector::debug=0;
+//    if (debug>=dbgPopDy) PopProjector::debug=0;
     n_yxmsz(y+1,x,IMMATURE,NEW_SHELL) += R_yxz(y,x);
     spB_yx(y,x)          = pPPr->getMatureBiomassAtMating();
     dvar4_array cpN_fmsz = pPPr->getFisheriesCaptureAbundance();
@@ -2371,10 +2371,10 @@ FUNCTION void projectPopForTAC(dvariable& mseCapF, int debug, ostream& cout)
         pPPr->dtF = ptrOMI->dtF; //time at which fishery occurs
         pPPr->dtM = ptrOMI->dtM; //time at which mating occurs
         dvariable dirF = -1.0;//don't change scale on directed fishery F's
-        if (debug>=dbgPopDy) PopProjector::debug=1000;
+//        if (debug>=dbgPopDy) PopProjector::debug=1000;
         dvar3_array n_msz   = ptrOMI->n_xmsz(x);//sex "x" population abundance at start of year
         prj_n_xmsz(x)       = pPPr->project(dirF,n_msz,cout);
-        if (debug>=dbgPopDy) PopProjector::debug=0;
+//        if (debug>=dbgPopDy) PopProjector::debug=0;
         prj_n_xmsz(x,IMMATURE,NEW_SHELL) += prjR*ptrOMI->R_x(x)*ptrOMI->R_z;
         prj_spB_x(x)         = pPPr->getMatureBiomassAtMating();
         dvar4_array cpN_fmsz = pPPr->getFisheriesCaptureAbundance();
@@ -2460,10 +2460,10 @@ FUNCTION void projectPopForZeroTAC(int debug, ostream& cout)
         pPPr->dtF = ptrOMI->dtF; //time at which fishery occurs
         pPPr->dtM = ptrOMI->dtM; //time at which mating occurs
         dvariable dirF = -1.0;//don't change scale on directed fishery F's
-        if (debug>=dbgPopDy) PopProjector::debug=1000;
+//        if (debug>=dbgPopDy) PopProjector::debug=1000;
         dvar3_array n_msz   = ptrOMI->n_xmsz(x);//sex "x" population abundance at start of year
         prj_n_xmsz(x)       = pPPr->project(dirF,n_msz,cout);
-        if (debug>=dbgPopDy) PopProjector::debug=0;
+//        if (debug>=dbgPopDy) PopProjector::debug=0;
         prj_n_xmsz(x,IMMATURE,NEW_SHELL) += prjR*ptrOMI->R_x(x)*ptrOMI->R_z;
         prj_spB_x(x)         = pPPr->getMatureBiomassAtMating();
         dvar4_array cpN_fmsz = pPPr->getFisheriesCaptureAbundance();
@@ -4130,7 +4130,7 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
     }
 
     //1. get initial population for "upcoming" year, yr
-    dvar4_array n_xmsz = wts::value(n_yxmsz(yr));
+    dvar4_array n_xmsz = n_yxmsz(yr);
     if (debug) {cout<<"  males_msz:"<<endl; wts::print(n_xmsz(  MALE),cout,1);}
     if (debug) {cout<<"females_msz:"<<endl; wts::print(n_xmsz(FEMALE),cout,1);}
     
@@ -4253,7 +4253,7 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
         CatchInfo* pCIM = new CatchInfo(nZBs,nFsh);//male catch info
         pCIM->setCaptureRates(avgCapF_xfmsz(MALE));
         pCIM->setCaptureRates(avgCapF_xfms(MALE));
-        pCIM->setSelectivityFcns(avgSFcn_xfmsz(MALE));//ERROR: Should be avgSFcn_xfmsz(MALE)?!!
+        pCIM->setSelectivityFcns(avgSFcn_xfmsz(MALE));
         pCIM->setRetentionFcns(avgRFcn_xfmsz(MALE));
         pCIM->setHandlingMortality(avgHM_f);
         dvariable maxCapF = pCIM->findMaxTargetCaptureRate(cout);
@@ -4262,7 +4262,7 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
         CatchInfo* pCIF = new CatchInfo(nZBs,nFsh);//female catch info
         pCIF->setCaptureRates(avgCapF_xfmsz(FEMALE));
         pCIF->setCaptureRates(avgCapF_xfms(FEMALE));
-        pCIF->setSelectivityFcns(avgSFcn_xfmsz(FEMALE));//ERROR: Should be avgSFcn_xfmsz(FEMALE)?!!
+        pCIF->setSelectivityFcns(avgSFcn_xfmsz(FEMALE));
         pCIF->setRetentionFcns(avgRFcn_xfmsz(FEMALE));
         pCIF->setHandlingMortality(avgHM_f);
         pCIF->maxF = maxCapF;//need to set this for females

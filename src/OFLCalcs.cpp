@@ -12,7 +12,19 @@ using namespace tcsam;
 //Equilibrium_Calculator
 ////////////////////////////////////////////////////////////////////////////////
 /** flag to print debug info */
-int Equilibrium_Calculator::debug = 0;
+int Equilibrium_Calculator::debug = 1;
+/**
+ * Class constructor.
+ * 
+ * @param pPPp - pointer to a PopProjector object to base equilibrium calculations on
+ */
+Equilibrium_Calculator::Equilibrium_Calculator(PopProjector* pPPp){
+    pPP = pPPp;
+    nMSs = pPP->pPI->nMSs;
+    nSCs = pPP->pPI->nSCs;
+    nZBs = pPP->pPI->nZBs;
+    I_z = identity_matrix(1,nZBs);
+}
 /**
  * Calculate equilibrium (longterm) population abundance on July 1.
  * 
@@ -36,16 +48,9 @@ dvar3_array Equilibrium_Calculator::calcEqNatZ(dvar_vector& R_z,
     if (debug) cout<<"starting d3_array Equilibrium_Calculator::calcEqNatZ(...)"<<endl;
     RETURN_ARRAYS_INCREMENT();
 
-    int nMSs = pPP->pPI->nMSs;
-    int nSCs = pPP->pPI->nSCs;
-    int nZBs = pPP->pPI->nZBs;
-    
     //the equilibrium solution
     dvar3_array n_msz(1,nMSs,1,nSCs,1,nZBs);
-    
-    //create an identity matrix
-    dmatrix I = identity_matrix(1,nZBs);
-    
+        
     //--calc the state transition matrices
     int i = IMMATURE; 
     int m = MATURE;
@@ -73,20 +78,20 @@ dvar3_array Equilibrium_Calculator::calcEqNatZ(dvar_vector& R_z,
     dvar_matrix S1_mo = wts::diag(S1_msz(m,o)); //pr(survival|size) for mature old shell crab before molting occurs (but they won't molt)
     
     //full state transition matrices
-    dvar_matrix lA = S2_in * (I-Th_in) * Tr_in * Ph_in * S1_in;//imm, new -> imm, new
-    dvar_matrix lB = S2_in * (I-Th_io) * Tr_io * Ph_io * S1_io;//imm, old -> imm, new
-    dvar_matrix lC = S2_io * (I-Ph_in) * S1_in;                //imm, new -> imm, old
-    dvar_matrix lD = S2_io * (I-Ph_io) * S1_io;                //imm, old -> imm, old
-    dvar_matrix lE = S2_mn * Th_in * Tr_mn * Ph_in * S1_in;    //imm, new -> mat, new (terminal molt)
-    dvar_matrix lF = S2_mn * Th_io * Tr_mo * Ph_io * S1_io;    //imm, old -> mat, new (terminal molt)
-    dvar_matrix lG = S2_mo * S1_mn;                            //mat, new -> mat, old
-    dvar_matrix lH = S2_mo * S1_mo;                            //mat, old -> mat, old
+    dvar_matrix lA = S2_in * (I_z-Th_in) * Tr_in * Ph_in * S1_in;//imm, new -> imm, new
+    dvar_matrix lB = S2_in * (I_z-Th_io) * Tr_io * Ph_io * S1_io;//imm, old -> imm, new
+    dvar_matrix lC = S2_io * (I_z-Ph_in) * S1_in;                //imm, new -> imm, old
+    dvar_matrix lD = S2_io * (I_z-Ph_io) * S1_io;                //imm, old -> imm, old
+    dvar_matrix lE = S2_mn * Th_in * Tr_mn * Ph_in * S1_in;      //imm, new -> mat, new (terminal molt)
+    dvar_matrix lF = S2_mn * Th_io * Tr_mo * Ph_io * S1_io;      //imm, old -> mat, new (terminal molt)
+    dvar_matrix lG = S2_mo * S1_mn;                              //mat, new -> mat, old
+    dvar_matrix lH = S2_mo * S1_mo;                              //mat, old -> mat, old
     //--done calculating transition matrices
     
     //calculate inverses of matrix quantities
-    dvar_matrix iM1 = inv(I - lD);
-    dvar_matrix iM2 = inv(I - lA - lB * iM1 * lC);
-    dvar_matrix iM3 = inv(I - lH);
+    dvar_matrix iM1 = inv(I_z - lD);
+    dvar_matrix iM2 = inv(I_z - lA - lB * iM1 * lC);
+    dvar_matrix iM3 = inv(I_z - lH);
     
     //the equilibrium solution is
     n_msz.initialize();
@@ -118,6 +123,10 @@ dvar3_array Equilibrium_Calculator::calcEqNatZF0(dvariable R, ostream& cout){
 
     dvar3_array S1_msz = pPP->pPI->calcSurvival(pPP->dtM,cout);
     dvar3_array S2_msz = pPP->pPI->calcSurvival(1.0-pPP->dtM,cout);
+    if (debug){
+        cout<<"#--S1_msz = "<<&S1_msz<<endl;
+        cout<<"#--S2_msz = "<<&S2_msz<<endl;
+    }
     
     dvar_vector R_zp = R*pPP->pPI->R_z;
     
@@ -125,7 +134,7 @@ dvar3_array Equilibrium_Calculator::calcEqNatZF0(dvariable R, ostream& cout){
     
     if (debug) {
         cout<<"n_msz = "<<endl; wts::print(n_msz,cout,1);
-        cout<<"finished d3_array Equilibrium_Calculator::calcEqNatZF0(double R)"<<endl;
+        cout<<"finished dvar3_array Equilibrium_Calculator::calcEqNatZF0(double R)"<<endl;
     }
     RETURN_ARRAYS_DECREMENT();
     return n_msz;
@@ -144,16 +153,13 @@ dvar3_array Equilibrium_Calculator::calcEqNatZF0(dvariable R, ostream& cout){
  */
 dvar3_array Equilibrium_Calculator::calcEqNatZFM(dvariable R, dvariable dirF, ostream& cout){
     if (debug) {
-        cout<<"starting d3_array Equilibrium_Calculator::calcEqNatZFM(double R)"<<endl;
+        cout<<"starting dvar3_array Equilibrium_Calculator::calcEqNatZFM(double R)"<<endl;
         cout<<"R = "<<R<<". dirF = "<<dirF<<endl;
     }
     RETURN_ARRAYS_INCREMENT();
-    int nMSs = pPP->pPI->nMSs;
-    int nSCs = pPP->pPI->nSCs;
-    int nZBs = pPP->pPI->nZBs;
     
-    double dtM = pPP->dtM;
-    double dtF = pPP->dtF;
+    double dtM = pPP->dtM;//time to mating
+    double dtF = pPP->dtF;//time to fisheries
     
     dvar3_array S1_msz(1,nMSs,1,nSCs,1,nZBs);//survival until molting/mating
     dvar3_array S2_msz(1,nMSs,1,nSCs,1,nZBs);//survival after molting/mating
@@ -164,6 +170,11 @@ dvar3_array Equilibrium_Calculator::calcEqNatZFM(dvariable R, dvariable dirF, os
         dvar3_array S1a_msz = pPP->pPI->calcSurvival(dtF,cout);     //survival prior to fisheries
         dvar3_array S1F_msz = pPP->pCI->calcSurvival(dirF,cout);    //survival of fisheries
         dvar3_array S1b_msz = pPP->pPI->calcSurvival(dtM-dtF,cout); //survival after fisheries, before mating
+        if (debug){
+            cout<<"#--S1a_msz = "<<&S1a_msz<<endl;
+            cout<<"#--S1F_msz = "<<&S1F_msz<<endl;
+            cout<<"#--S1b_msz = "<<&S1b_msz<<endl;
+        }
         S1_msz = elem_prod(S1b_msz,elem_prod(S1F_msz,S1a_msz));//total survival before mating
         S2_msz = pPP->pPI->calcSurvival(1.0-dtM,cout);//survival after mating/molting/growth
     } else {
@@ -172,6 +183,11 @@ dvar3_array Equilibrium_Calculator::calcEqNatZFM(dvariable R, dvariable dirF, os
         dvar3_array S2a_msz = pPP->pPI->calcSurvival(dtF-dtM,cout);     //survival afterMGM, before fisheries
         dvar3_array S2F_msz = pPP->pCI->calcSurvival(dirF,cout);        //survival of fisheries
         dvar3_array S2b_msz = pPP->pPI->calcSurvival(1.0-dtF,cout);     //survival after fisheries, to year end
+        if (debug){
+            cout<<"#--S2a_msz = "<<&S2a_msz<<endl;
+            cout<<"#--S2F_msz = "<<&S2F_msz<<endl;
+            cout<<"#--S2b_msz = "<<&S2b_msz<<endl;
+        }
         S2_msz = elem_prod(S2b_msz,elem_prod(S2F_msz,S2a_msz)); //total survival after MGM to year end
     }
     dvar_vector R_zp = R*pPP->pPI->R_z;
@@ -179,7 +195,7 @@ dvar3_array Equilibrium_Calculator::calcEqNatZFM(dvariable R, dvariable dirF, os
     
     if (debug) {
         cout<<"n_msz = "<<endl; wts::print(n_msz,cout,1);
-        cout<<"finished d3_array Equilibrium_Calculator::calcEqNatZFM(double R)"<<endl;
+        cout<<"finished dvar3_array Equilibrium_Calculator::calcEqNatZFM(double R)"<<endl;
     }
     RETURN_ARRAYS_DECREMENT();
     return n_msz; 
@@ -239,7 +255,6 @@ dvariable Equilibrium_Calculator::calcEqMatureBiomassAtMatingFM(dvariable R, dva
     dvariable eqMB = 0;//dummy value    
     //advance to population to time of mating
     if (pPP->dtF<=pPP->dtM){ //fisheries occur BEFORE molting/growth/maturity 
-        dvar3_array n3_msz(1,pPP->nMSs,1,pPP->nSCs,1,pPP->nZBs);
         if (debug) {cout<<"dtF<=dtM"<<endl;}
         //apply natural mortality BEFORE fisheries
         dvar3_array n1_msz = pPP->pPI->applyNM(pPP->dtF,n_msz,cout);
@@ -248,6 +263,7 @@ dvariable Equilibrium_Calculator::calcEqMatureBiomassAtMatingFM(dvariable R, dva
         dvar3_array n2_msz = pPP->pCI->applyFM(dirF, n1_msz, cout);
         if (debug) {cout<<"n2_msz ="<<endl; wts::print(n2_msz,cout,1);}
         //apply natural mortality after fisheries but before molting/growth
+        dvar3_array n3_msz(1,nMSs,1,nSCs,1,nZBs);
         if (pPP->dtF==pPP->dtM){
             if (debug) cout<<"dtF=dtM"<<endl;
             n3_msz = n2_msz;
@@ -280,7 +296,7 @@ dvariable Equilibrium_Calculator::calcEqMatureBiomassAtMatingFM(dvariable R, dva
 //Tier3_Calculator
 ////////////////////////////////////////////////////////////////////////////////
 /** flag to print debug info */
-int Tier3_Calculator::debug = 0;
+int Tier3_Calculator::debug = 1;
 /**
  * Constructor.
  * 
@@ -303,12 +319,12 @@ Tier3_Calculator::Tier3_Calculator(double XXp, Equilibrium_Calculator* pECp) : T
  * @return MMB for unfished population (1000's t)
  */
 dvariable Tier3_Calculator::calcB100(dvariable R, ostream& cout){
-    if (debug) cout<<"starting d3_array Tier3_Calculator::calcB100(dvariable R)"<<endl;
+    if (debug) cout<<"starting dvariable Tier3_Calculator::calcB100(dvariable R)"<<endl;
     RETURN_ARRAYS_INCREMENT();
     //calculate mature biomass at time of mating
     B100 = pEC->calcEqMatureBiomassAtMatingF0(R,cout);
     B0 = B100;
-    if (debug) cout<<"finished double Tier3_Calculator::calcB100(dvariable R)"<<endl;
+    if (debug) cout<<"finished dvariable Tier3_Calculator::calcB100(dvariable R)"<<endl;
     RETURN_ARRAYS_DECREMENT();
     return B100;
 }
@@ -354,7 +370,7 @@ dvariable Tier3_Calculator::calcFmsy(dvariable R, ostream& cout){
     //calculate unfished mmb (B0)
     B0   = calcB100(R,cout);
     Bmsy = XX*B0;
-    if (debug){cout<<"B100 ="<<B0<<". Bmsy = "<<Bmsy<<endl;}
+    if (debug){cout<<"in Tier3_Calculator::calcFmsy(R): B100 ="<<B0<<". Bmsy = "<<Bmsy<<endl;}
     
     //From initial guess for FXX, iterate to improve FXX    
     dvariable dF   = 0.0001;//"delta" F for derivative calculation
@@ -364,8 +380,11 @@ dvariable Tier3_Calculator::calcFmsy(dvariable R, ostream& cout){
     int i=0;
     while ((i++ < 20)){
         mmbp = pEC->calcEqMatureBiomassAtMatingFM(R,FXX+dF,cout);
+        if (debug) cout<<"Got here 1 in Tier3_Calculator::calcFmsy(R)"<<endl;
         mmb  = pEC->calcEqMatureBiomassAtMatingFM(R,FXX,cout);
+        if (debug) cout<<"Got here 2 in Tier3_Calculator::calcFmsy(R)"<<endl;
         mmbm = pEC->calcEqMatureBiomassAtMatingFM(R,FXX-dF,cout);
+        if (debug) cout<<"Got here 3 in Tier3_Calculator::calcFmsy(R)"<<endl;
         dMMBdF = 0.5*(mmbp-mmbm)/dF;//derivative of mmb wrto F
         XXp   = mmb/B0;           //ratio of mmb for current FXX relative to unfished 
         dFXX  = (Bmsy - mmb)/dMMBdF;
@@ -393,7 +412,7 @@ dvariable Tier3_Calculator::calcFmsy(dvariable R, ostream& cout){
 //OFL_Calculator
 ////////////////////////////////////////////////////////////////////////////////
 /** flag to print debug info */
-int OFL_Calculator::debug = 0;
+int OFL_Calculator::debug = 1;
 /**
  * Constructor.
  * 
@@ -587,7 +606,6 @@ dvariable OFL_Calculator::calcOFL(dvariable Fofl, dvar4_array& n_xmsz, ostream& 
     //do males
     PopProjector* pPPM = pTCM->pEC->pPP;
     //calc catch abundance of males at Fofl
-    if (debug) PopProjector::debug=1;
     pPPM->project(Fofl,n_xmsz(  MALE),cout);
     //calc retained catch biomass (directed fishery only) from catch abundance for males
     ofl_fx(0,MALE) = pPPM->pPI->calcTotalBiomass(pPPM->pCI->rmN_fmsz(1),cout);
@@ -610,7 +628,6 @@ dvariable OFL_Calculator::calcOFL(dvariable Fofl, dvar4_array& n_xmsz, ostream& 
         }
         totCM += pPPF->pPI->calcTotalBiomass(pPPF->pCI->cmN_msz,cout);    
     }
-    if (debug) PopProjector::debug=0;
     
     dvariable ofl = sum(ofl_fx);
     if (debug||(ofl!=totCM)) {
@@ -660,9 +677,9 @@ OFLResults* OFL_Calculator::calcOFLResults(dvar_vector R, dvar4_array& n_xmsz, o
     
     res->avgRec_x = R;
     res->finlNatZ_xmsz.allocate(1,tcsam::nSXs,
-                               1,tcsam::nMSs,
-                               1,tcsam::nSCs,
-                               1,pTCM->pEC->pPP->nZBs);
+                                1,tcsam::nMSs,
+                                1,tcsam::nSCs,
+                                1,pTCM->pEC->pPP->nZBs);
     res->finlNatZ_xmsz = n_xmsz;
     res->pPDIM = pTCM->pEC->pPP->pPI;
     res->pCIM  = pTCM->pEC->pPP->pCI;
@@ -679,7 +696,6 @@ OFLResults* OFL_Calculator::calcOFLResults(dvar_vector R, dvar4_array& n_xmsz, o
                                 1,pTCM->pEC->pPP->nZBs);
     if (debug) {
         cout<<"calcOFLResults: allocated eq NatZ for F=0"<<endl;
-        Equilibrium_Calculator::debug=1;
     }
     res->eqNatZF0_xmsz(MALE) = pTCM->pEC->calcEqNatZF0(R(MALE),cout);
     if (debug) cout<<"calcOFLResults: calculated eq NatZ(MALE) for F=0"<<endl;
@@ -687,7 +703,6 @@ OFLResults* OFL_Calculator::calcOFLResults(dvar_vector R, dvar4_array& n_xmsz, o
         res->eqNatZF0_xmsz(FEMALE) = pTCF->pEC->calcEqNatZF0(R(FEMALE),cout);
         if (debug) cout<<"calcOFLResults: calculated eq NatZ(FEMALE) for F=0"<<endl;
     }
-    if (debug) Equilibrium_Calculator::debug=0;
             
     res->Fmsy = pTCM->calcFmsy(R(MALE),cout);//also calculates B0 and Bmsy
     res->B0   = pTCM->B0;
@@ -701,7 +716,6 @@ OFLResults* OFL_Calculator::calcOFLResults(dvar_vector R, dvar4_array& n_xmsz, o
                                 1,pTCM->pEC->pPP->nZBs);
     if (debug) {
         cout<<"calcOFLResults: allocated eq NatZ for F=Fmsy"<<endl;
-        Equilibrium_Calculator::debug=1;
     }
     res->eqNatZFM_xmsz(MALE) = pTCM->pEC->calcEqNatZFM(R(MALE),res->Fmsy,cout);
     if (debug) cout<<"calcOFLResults: calculated eq NatZ(MALE) for F=Fmsy"<<endl;
@@ -709,7 +723,6 @@ OFLResults* OFL_Calculator::calcOFLResults(dvar_vector R, dvar4_array& n_xmsz, o
         res->eqNatZFM_xmsz(FEMALE) = pTCF->pEC->calcEqNatZFM(R(FEMALE),res->Fmsy,cout);
         if (debug) cout<<"calcOFLResults: calculated eq NatZ(FEMALE) for F=Fmsy"<<endl;
     }
-    if (debug) Equilibrium_Calculator::debug=0;
             
     res->Fofl = calcFofl(res->Bmsy,res->Fmsy,n_xmsz(MALE),cout);
     res->prjB = prjMMB;
@@ -724,7 +737,7 @@ OFLResults* OFL_Calculator::calcOFLResults(dvar_vector R, dvar4_array& n_xmsz, o
 ////////////////////////////////////////////////////////////////////////////////
 //OFLResults
 ////////////////////////////////////////////////////////////////////////////////
-int OFLResults::debug = 0;
+int OFLResults::debug = 1;
 OFLResults::OFLResults(){
     pPDIM=0;
     pPDIF=0;
