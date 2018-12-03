@@ -1,12 +1,37 @@
 #TCSAM02
-TCSAM02 is the current (Septemtber 2017) modeling framework for the 
+##Introduction
+TCSAM02 is the current (Septemtber 2018) modeling framework for the 
 Bering Sea and Aleutian Islands Tanner crab assessment. It supersedes the
-TCSAM2013 mdeling framework, which was used for the Tanner crab assessment from 
+TCSAM2013 modeling framework, which was used for the Tanner crab assessment from 
 September 2014 to May, 2017. The two modeling frameworks were demonstrated to
 produce identical ("exactly equivalent") results at the May 2017 Crab Plan Team (CPT)
 meeting in Juneau. The TCSAM02 framework was subsequently recommended by the CPT, and 
 approved by the North Pacific Fishery Management Council's Science and Statistical Committee,
-for use in the September 2017 Tnaner crab assessment.
+for use in the September 2017 Tanner crab assessment and has been used in subsequent assessments.
+
+
+##Required libraries
+The admb and wtsADMB C++ libraries are required to compile TCSAM02. The relevant ADMB library can be found at http://www.admb-project.org. The
+current version of TCSAM02 uses ADMB version 12. wtsADMB is a library of ADMB-RELATED C++ functions available as soure code on GitHub
+at https://github.com/wStockhausen/wtsADMB. 
+
+
+##Setting up TCSAM02 as a Netbeans Project
+Netbeans should be configured with the C++ modules installed. 
+1. Use Team/git/clone to clone the repository into TopFolder/tcsam02, where "TopFolder" is an arbitrary directory.
+2. Create a new Netbeans C++ application called "tcsam02" in the directory TopFolder (so TopFolder/tcsam02 will be
+the top-level folder in the Netbeans project). Using the Project Creator:
+    a. create a "new" C++ application project in TopFolder
+    b. uncheck the "Create Main File" option
+    c. use "tcsam02" as the project name
+    d. save the project
+3. Open the "tcsam02" project in Netbeans.
+    a. add the files under the "include"subfolder to the "Header Files" (right click the icon, select "Add existing file")
+    b. add the files under the "src" subfolder to the "Source Files"
+    c. add tcsam02.tpl to the "Important Files"
+    d. add the cloned Makefile to the "Important Files"
+4. Right-click the "tcsam02" project icon, select "Properties", and set up  the compiler and linker options per your system.
+
 
 ##TCSAM02 commandline options
 * -configFile filename : specify full path to model configuration file

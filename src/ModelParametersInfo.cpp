@@ -1355,7 +1355,7 @@ SelectivityInfo::~SelectivityInfo(){
 }
 
 void SelectivityInfo::addNextYear1(adstring flt_type, int y, imatrix& fltpcs){
-    debug=1;
+    //debug=1;
     if (debug) cout<<endl<<"starting SelectivityInfo::addNextYear1('"<<flt_type<<"',"<<y<<")"<<endl;
     
     //define vector for selectivity function pcs that have been updated already

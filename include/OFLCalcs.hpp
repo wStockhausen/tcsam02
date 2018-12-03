@@ -100,6 +100,7 @@ class Equilibrium_Calculator {
  */
 class Tier_Calculator {
     public:
+        static const int maxIts = 5;//max iterations when calculating Fmsy
         Equilibrium_Calculator* pEC;//pointer to Equilibrium_Calculator object for males
         
     public:
@@ -306,7 +307,8 @@ class OFLResults {
  */
 class OFL_Calculator{
     public:
-        static int debug;
+        static int debug;//flag to print debugging info
+        static const int maxIts = 5;//max iterations when calculating Fofl using the HCR
 
     public:
         int tier;     //Tier for status determination and OFL calculation

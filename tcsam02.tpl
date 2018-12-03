@@ -479,6 +479,9 @@
 //                  so that these could be called from PRELIMINARY_CALCS when TAC=0. 
 //             4. Modified opModMode output of data files to handle closed
 //                  directed fishery correctly.
+//-2018-12-03: 1. Corrected problems with OFL calculations associated with code changes to
+//                  incorporate MSE calculations. OFL results now agree (again) with results
+//                  from the 2018 assessment.
 //
 // =============================================================================
 // =============================================================================
@@ -4295,9 +4298,9 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
             pOC = new OFL_Calculator(pT3CM,pT3CF);
             if (debug) {
                 cout<<"created pOC."<<endl;
-//                OFL_Calculator::debug=1;
-//                Tier3_Calculator::debug=1;
-//                Equilibrium_Calculator::debug=0;
+                OFL_Calculator::debug=1;
+                Tier3_Calculator::debug=1;
+                Equilibrium_Calculator::debug=0;
                 cout<<"Calculating ptrOFLResults"<<endl;
             }
             ptrOFLResults = pOC->calcOFLResults(avgRec_x,n_xmsz,cout);
@@ -4306,9 +4309,9 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
                 ptrOFLResults->writeCSVHeader(cout); cout<<endl;
                 ptrOFLResults->writeToCSV(cout); cout<<endl;
                 ptrOFLResults->writeToR(cout,ptrMC,"oflResults",0); cout<<endl;
-//                OFL_Calculator::debug=0;
-//                Tier3_Calculator::debug=0;
-//                Equilibrium_Calculator::debug=0;
+                OFL_Calculator::debug=0;
+                Tier3_Calculator::debug=0;
+                Equilibrium_Calculator::debug=0;
             }
         }//Tier 3 calculation
     
