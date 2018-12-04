@@ -8088,6 +8088,7 @@ FUNCTION void writeEstModPinFile(int closed, ostream& os)
 FUNCTION int calcTAC(int hcr, double OFL)  
     int closed = 1;
     double TAC = 0.0;
+    adstring info;
     if (hcr==1){
         dmatrix vspB_yx = value(spB_yx);
         double MMB = vspB_yx(mxYr,  MALE);
@@ -8096,6 +8097,7 @@ FUNCTION int calcTAC(int hcr, double OFL)
         dmatrix vspB_xy = wts::permuteDims(perm,vspB_yx);
         double aveMFB = mean(vspB_xy(FEMALE)(ptrMOs->HCR1_avgMinYr,ptrMOs->HCR1_avgMaxYr));
         TAC = HarvestStrategies::HCR1_FemaleRamp(MFB, aveMFB, MMB);
+        info = "#--HCR1: MFB = "+str(MFB)+cc+"aveMFB = "+str(aveMFB)+cc+"ratio = "+str(MFB/aveMFB)+cc+"TAC = "+str(TAC);
     }
     if (TAC>0.0) closed=0;
 
@@ -8105,6 +8107,8 @@ FUNCTION int calcTAC(int hcr, double OFL)
     os<<"#---TAC, OFL for MSE OpMod"<<endl;
     os<<"# TAC      OFL"<<endl;
     os<<TAC<<tb<<OFL<<endl;
+    os<<endl;
+    os<<info<<endl;
     os.close();
     
     return(closed);
