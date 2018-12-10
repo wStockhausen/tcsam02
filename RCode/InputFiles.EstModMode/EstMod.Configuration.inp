@@ -1,0 +1,31 @@
+################################################################################################
+#TCSAM02 configuration file for EstModMode
+################################################################################################
+2016.11.15   # Model Configuration version
+EstMod       # model scenario 
+1948         # model start year (pop. model start year) 
+&&year       # assessment year (final pop model numbers at size are given for July 1, assessment year) 
+32           # Number of size bins in the model 
+#size bin cut pts
+24.5	29.5	34.5	39.5	44.5	49.5	54.5	59.5	64.5	69.5	74.5	79.5	84.5	89.5	94.5	99.5	104.5	109.5	114.5	119.5	124.5	129.5	134.5	139.5	144.5	149.5	154.5	159.5	164.5	169.5	174.5	179.5	184.5 
+#--FiSHERIES
+4  #number of fisheries
+TCF                          #fishery 1: retained and bycatch in directed Tanner crab fishery
+SCF                          #fishery 2: bycatch in snow crab bycatch fishery
+GTF                          #fishery 3: bycatch in groundfish fisheries
+RKF                          #fishery 4: bycatch in Bristol Bay red king crab fishery
+#--SURVEYS
+1  #number of surveys
+NMFS                         #survey 1: NMFS trawl survey (base configuration)
+#--run options
+FALSE                     	 #run operating model only
+TRUE                      	 #fit to priors
+#--input files
+EstMod.ParametersInfo.inp   #model parameters info file
+Datasets.inp 	            #model datasets file
+EstMod.Options.inp 	        #model options file
+#--parameter initialization options
+OFF                     #jitter resampling option (leave OFF to set using command line option)
+0.6                     #jitter range
+OFF                     #prior resampling option
+1                       #prior variance inflation factor

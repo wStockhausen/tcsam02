@@ -1,0 +1,126 @@
+#-------------------------------
+# Recruitment parameters  
+#-------------------------------
+#--recruitment parameters
+#pLnR[0]:
+0
+#pRCV[0]:
+0
+#pRX[0]:
+0
+#pRa[0]:
+0
+#pRb[0]:
+0
+#pDevsLnR[0]:
+0
+
+#-------------------------------
+# Natural mortality parameters  
+#-------------------------------
+#--natural mortality parameters
+#pM[0]:
+0
+#pDM1[0]:
+0
+#pDM2[0]:
+0
+#pDM3[0]:
+0
+#pDM4[0]:
+0
+
+#-------------------------------
+# Growth parameters  
+#-------------------------------
+#--growth parameters
+#pGrA[0]:
+0
+#pGrB[0]:
+0
+#pGrBeta[0]:
+0
+
+#-------------------------------
+# Molt-to-maturity parameters  
+#-------------------------------
+#--molt-to-maturity parameters
+#pvLgtPrM2M[0]:
+0
+
+#-------------------------------
+# Selectivity parameters  
+#-------------------------------
+#--selectivity parameters
+#pS1[0]:
+0
+#pS2[0]:
+0
+#pS3[0]:
+0
+#pS4[0]:
+0
+#pS5[0]:
+0
+#pS6[0]:
+0
+#pDevsS1[0]:
+0
+#pDevsS2[0]:
+0
+#pDevsS3[0]:
+0
+#pDevsS4[0]:
+0
+#pDevsS5[0]:
+0
+#pDevsS6[0]:
+0
+#pvNPSel[0]:
+0
+
+#-------------------------------
+# Fisheries parameters  
+#-------------------------------
+#--fisheries parameters
+#pHM[0]:
+0
+#pLnC[0]:
+0
+#pDC1[0]:
+0
+#pDC2[0]:
+0
+#pDC3[0]:
+0
+#pDC4[0]:
+0
+#pDevsLnC[0]:
+0
+#pLnEffX[0]:
+0
+#pLgtRet[0]:
+0
+
+#-------------------------------
+# Surveys parameters  
+#-------------------------------
+#--surveys parameters
+#pQ[0]:
+0
+#pDQ1[0]:
+0
+#pDQ2[0]:
+0
+#pDQ3[0]:
+0
+#pDQ4[0]:
+0
+
+#-------------------------------
+# MSE-related parameters  
+#-------------------------------
+#--MSE parameters
+#pMSE_LnC[1]:
+-0.937032
+

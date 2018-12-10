@@ -1,0 +1,14 @@
+#####################################################################
+#TCSAM02 18AM17 Datasets File for 2018 Assessment
+#####################################################################
+Data.Bio.Info.inp 			#biological info file
+4   #number of fishery data files
+Data.Fishery.TCF.inp 		#data file for tanner crab fishery  (TCF)
+Data.Fishery.SCF.inp 		#data file for snow crab fishery    (SCF) 
+Data.Fishery.GTF.inp 		#data file for groundfish fisheries (GTF) 
+Data.Fishery.RKF.inp 		#data file for BBRKC fishery        (RKF) 
+1   #number of survey data files
+Data.Survey.NMFS.inp        #data file for NMFS trawl survey (base configuration)
+1   #number of growth datasets
+Data.Growth.EBS.inp         #data file for EBS growth data
+0	#number of maturity ogive datasets

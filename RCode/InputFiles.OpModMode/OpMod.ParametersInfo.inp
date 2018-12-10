@@ -1,0 +1,69 @@
+###################################################
+#OpMod parameters info file for TCSAM02           #
+###################################################
+2018.10.29  #model parameters info version
+#-------------------------------
+# Recruitment parameters  
+#-------------------------------
+recruitment  #process name
+PARAMETER_COMBINATIONS
+0  #number of parameter combinations
+
+#-------------------------------
+# Natural mortality parameters  
+#-------------------------------
+natural_mortality  #process name
+100  #reference size for scaling
+PARAMETER_COMBINATIONS
+0  #number of parameter combinations
+
+#-------------------------------
+# Growth parameters  
+#-------------------------------
+growth  #process name
+PARAMETER_COMBINATIONS
+0  #number of parameter combinations
+
+#-------------------------------
+# Molt-to-maturity parameters  
+#-------------------------------
+molt_to_maturity  #process name
+PARAMETER_COMBINATIONS
+0  #number of parameter combinations
+
+#-------------------------------
+# Selectivity parameters  
+#-------------------------------
+selectivities  #process name
+PARAMETER_COMBINATIONS
+0  #number of parameter combinations
+
+#-------------------------------
+# Fisheries parameters  
+#-------------------------------
+fisheries  #process name
+PARAMETER_COMBINATIONS
+0  #number of parameter combinations
+
+#-------------------------------
+# Surveys parameters  
+#-------------------------------
+surveys  #process name
+PARAMETER_COMBINATIONS
+0  #number of parameter combinations
+
+#-------------------------------
+# MSE parameters  
+#-------------------------------
+MSE  #process name
+PARAMETER_COMBINATIONS
+1  #number of parameter combinations
+#id  FISHERY  pMSE_LnC  label  
+1       1        1      directed_fishery
+PARAMETERS
+pMSE_LnC  #multiplier for capture rate in the directed fishery
+  1  #number of bounded parameters
+#           lower  upper  initial    param           resample  prior   prior   prior    prior
+#id jitter? bounds bounds  value     scale     phase  values?  weight  type    params   consts  label
+1     OFF    -5.0   5.0     0.0    ARITHMETIC    1      OFF      1     none     none     none    ln(C)_for_TAC    #no prior params. no prior consts. 
+

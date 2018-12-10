@@ -1,0 +1,133 @@
+###############################################
+#TCSAM02 2017AM (201709 B2b) options
+###############################################
+2018.11.07   # Model Options version
+
+#----Initial Numbers-At-Size Options
+#0 - build up n-at-z from recruitments (like TCSAM2013)
+#1 - calculate initial n-at-z using equilibrium calculations (like Gmacs)
+0    #selected option                                      ##--matches 2017 assessment
+
+#----Options for parameterizing natural mortality
+#0 - use log-scale parameterization (default)
+#1 - use TCSAM2013 parameterization (arithmetic scale)
+1    #selected option                                      ##--matches 2017 assessment
+
+#----Mean Growth Parameterizaton Options
+#0 - TCSAM2013 parameterization (ln-scale intercept, slope)
+#1 - parameterization based on min, max pre-molt sizes
+1    #selected option                                      ##--matches 2017 assessment
+
+#----Growth Probability Distribution Options
+#0 - use gamma probability distribution (like TCSAM2013)
+#1 - use cumulative gamma distribution (like Gmacs)
+1    #selected option                                      ##--matches 2017 assessment
+
+#----Options for likelihood penalties on negative growth increments
+10.0   #min CW for positive growth constraint NEW: 20171201
+185    #max CW for positive growth constraint NEW: 20171201
+1.0e6  #likelihood weight for penalty on approaching negative growth increments          NEW:20171129
+1.0    #eps parameter in posfun() for penalty on approaching negative growth increments  NEW:20171129
+
+#----PrM2M Options
+#----Penalty weights for prM2M
+2  #number of prM2M parameter combinations
+#----Options for penalty on prM2M smoothness
+#0 - penalize prM2M parameters (like TCSAM2013)
+#1 - penalize prM2M ogive
+0    #selected option                                      ##--matches 2017 assessment
+1  2    #weights for prM2M smoothness penalties (matches 2017 assessment: males, females)
+#----Options for penalty on non-decreasing prM2M
+#0 - use posfun function on prM2M parameters
+#1 - use exponential function on prM2M parameters
+#2 - use posfun function on prM2M ogives
+#3 - use exponential function on prM2M ogives
+0    #selected option
+0  0    #weights for penalties on non-decreasing prM2M (matches 2017 assessment: males, females)
+
+#----Nonparametric Selectivity Options
+#----Penalty weights for NPSel
+1  #number of nonparametric selectivity functions
+#----Options for penalty on NPSel smoothness
+#0 - penalize NPSel parameters
+#1 - penalize NPSel functions
+0    #selected option                                      ##--New!!
+1    #weights for NPSel smoothness penalties
+
+#----Effort Extrapolation Options
+#-----fishery effort averaging scenarios
+2   #number of effort averaging periods
+# id   fishery  avg_year_block
+   1     SCF      [1992:2017]  #2017 last year for effort
+   2     RKF      [1992:2017]  #2017 last year for effort
+#----fishery capture rate averaging scenarios
+#-----options for avgOpt
+# 1 - average fully-selected capture rate
+# 2 - average mean size-specific capture rate
+4   #number of effort averaging periods
+# id   fishery  sex   maturity  shell  idParam  idAvgOptsEff   avgOpt   llWgt
+   1     SCF    MALE    ALL      ALL     0            1          1       1.0       #matches 2017 assessment
+   2     SCF   FEMALE   ALL      ALL     0            1          1       1.0       #matches 2017 assessment
+   3     RKF    MALE    ALL      ALL     0            2          1       1.0       #matches 2017 assessment
+   4     RKF   FEMALE   ALL      ALL     0            2          1       1.0       #matches 2017 assessment
+
+#----Regularization penalty on F-devs
+1.0  #cv during constant-penalty period
+0    #phase at which to start diminishing the penalty  (matches 2017 assessment)
+1    #phase at which to remove penalty                 (matches 2017 assessment)
+
+#----Penalty weight on squared-sum of dev values
+1.0e+4 #weight value to apply to squared-sum of devs values
+1      #min phase to apply penalty
+
+#----Options for OFL calculations
+#------capture rate/selectivity function averaging options
+# 0 - average max capture rates, selectivity functions (like TCSAM2013)
+# 1 - average size-specific capture rates
+#fishery    option
+  TCF         0     #matches 2017 assessment
+  SCF         0     #matches 2017 assessment
+  GTF         0     #matches 2017 assessment
+  RKF         0     #matches 2017 assessment
+#------averaging periods (years)
+#fishery    years
+  TCF         5     
+  SCF         5     
+  GTF         5     
+  RKF         5     
+#------externally-calculated substitute max capture rates
+# rate <  0 : ignore and use internally-calculated rate
+# rate => 0 : use listed rate
+#fishery     rate
+  TCF        -1    #matches 2017 assessment
+  SCF        -1    #matches 2017 assessment
+  GTF        -1    #matches 2017 assessment
+  RKF        -1    #matches 2017 assessment
+
+#----Options for iterative re-weighting of size composition data
+#------iterative re-weighting options
+# 0 - no iterative re-weighting
+# 1 - use harmonic means of McAllister-Ianelli effective N's
+# 2 - use Francis weights
+0    # selected option                                  matches 2017 assessment
+6    # phase at which to begin iterative re-weighting
+5    # maximum number of iterations
+
+#----MSE options
+#------Harvest Control Rule
+# 1 - HCR1: 
+# 2 - HCR2: 
+# 3 - HCR3: 
+# 4 - HCR4: 
+# 5 - HCR5: 
+# 6 - HCR6: 
+1  #selected HCR
+#---------HCR-specific options (uncomment for selected HCR)
+HCR1
+#min, max years for averaging
+1982 2017 #2017 last year for "real" recruitment
+#--
+HCR2
+Ramp ID: 1, 2 or 3
+1  #Ramp ID
+

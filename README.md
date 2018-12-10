@@ -22,32 +22,58 @@ Netbeans should be configured with the C++ modules installed.
 1. Use Team/git/clone to clone the repository into TopFolder/tcsam02, where "TopFolder" is an arbitrary directory.
 2. Create a new Netbeans C++ application called "tcsam02" in the directory TopFolder (so TopFolder/tcsam02 will be
 the top-level folder in the Netbeans project). Using the Project Creator:
-    a. create a "new" C++ application project in TopFolder
-    b. uncheck the "Create Main File" option
-    c. use "tcsam02" as the project name
-    d. save the project
+    * create a "new" C++ application project in TopFolder
+    * uncheck the "Create Main File" option
+    * use "tcsam02" as the project name
+    * save the project
 3. Open the "tcsam02" project in Netbeans.
-    a. add the files under the "include"subfolder to the "Header Files" (right click the icon, select "Add existing file")
-    b. add the files under the "src" subfolder to the "Source Files"
-    c. add tcsam02.tpl to the "Important Files"
-    d. add the cloned Makefile to the "Important Files"
-4. Right-click the "tcsam02" project icon, select "Properties", and set up  the compiler and linker options per your system.
-
+    * edit nbproject/configurations.xml to replace "tcsam02-Makefile.mk" with "Makefile" in both instances
+    * delete "tcsam02-Makefile.mk"
+    * Note that "Makefile" is now under the "Important Files" icon in the Project view
+    * edit the Makefile variables PLATFORM and ADMB_HOME_WIN or ADMB_HOME_MAC under "#Environment" to conform to your ADMB installation
+    * add tcsam02.tpl to the "Important Files"
+    * right-click the Makefile under "Important Files", Select "Make Target" and run the .tpl2cpp target (may need to "Add" it first)
+    * assuming the tpl2cpp ran successfully (if not, check your path to tpl2cpp.exe), the files tcsam02.htp and tcsam02.cpp will have been created
+        * add tcsam02.htp to the "Header Files" (right click the icon, select "Add existing file")
+        * add tcsam02.cpp to the "Source Files" (right click the icon, select "Add existing file")
+    * add the files under the "include" subfolder to the "Header Files" (right click the icon, select "Add existing file")
+    * add the files under the "src" subfolder to the "Source Files" (right click the icon, select "Add existing file")
+4. Right-click the "tcsam02" project icon, select "Properties", and set up  the compiler and 
+linker options per your system.
+    * Windows (64-bit ADMB, MinGW toolset, for non-optimized compilation)
+        * Under "Build/C++ Compiler", 
+            * "Include Directories": add ".", "include", and the paths to the wtsADMB include directory, the ADMB include directory, and the ADMB include/contrib directory
+            * "Additional Options": add "-std=c++11 -O3 -D_FILE_OFFSET_BITS=64" (no quotes)
+        * Under Linker", file paths under "Libraries" should point to the libwtsadmb.a and libadmb-contrib.a libraries
+    * OSX (64-bit ADMB, GNU toolset, for non-optimized compilation)
+        * Under "Build/C++ Compiler", 
+            * "Include Directories": add ".", "include", and the paths to the wtsADMB include directory, the ADMB include directory, and the ADMB include/contrib directory
+            * "Additional Options": none
+        * Under Linker", 
+            * file paths under "Libraries" should point to the libwtsadmb.a and libadmb-contrib.a libraries
+            * "Additional Options": add "-g" (no quotes) to include debugging symbols
 
 ## TCSAM02 commandline options
-* -configFile filename : specify full path to model configuration file
-* -resultsFile filename : specify full path to model results (.rep?) file
-* -pin filename : specify pin file for initial parameter values 
-* -mcpin filename : specify pin file for running NUTS mcmc
+### file options
+* -configFile filename : flag to specify full path to model configuration file
+* -pin filename : flag to specify pin file for initial parameter values 
+* -binp fnPin : flag to use binary pin file fnPin to set parameter values
+* -ainp fnPin : flag to use ascii  pin file fnPin to set parameter values
+* -mcpin filename : flag to specify pin file for running NUTS mcmc
+
+### run configuration options
+* -mceval : flag to run in mceval mode (i.e., mcevalOn=1)
+* -runAlt : flag to run alternative pop dy equations
 * -calcOFL : flag to calculate OFL-related values after final phase
+* -calcTAC hcr : flag to calculate TAC using the indicated harvest control rule (hcr)
 * -calcDynB0 : flag to calculate dynamic B0 after final phase
-* -opModMode : flag to run in operating model mode (run model without parameter estimation)
-* -mseMode type : flag to run model in MSE 'type' mode (type = 'mseOpModMode' or 'mseEstModMode')
-* -doRetro yRetro : do retrospective model run for year assYr-yRetro
-* -fitSimData iSimDataSeed : fit simulated data with random error based on a random number seed 
-* -ctrDebugParams ctr : flag to print diagnostic information related to parameters starting at counter ctr
+* -doRetro yRetro : flag to do retrospective model run for year assYr-yRetro
+* -fitSimData iSimDataSeed : flag to fit simulated data with random error based on a random number seed 
 * -jitter iSeed : flag to jitter initial parameter values using a random number seed
 * -resample : flag to turn on resampling for initial parameter values
+
+### commandline flags to print debugging info
+* -ctrDebugParams ctr : flag to print diagnostic information related to parameters starting at counter ctr
 * -debugModelConfig : flag to print diagnostic information related to OFL calculations
 * -debugModelDatasets : flag to print diagnostic information related to OFL calculations
 * -debugModelParamsInfo : flag to print diagnostic information related to OFL calculations
