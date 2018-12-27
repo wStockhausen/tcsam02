@@ -482,6 +482,7 @@
 //-2018-12-03: 1. Corrected problems with OFL calculations associated with code changes to
 //                  incorporate MSE calculations. OFL results now agree (again) with results
 //                  from the 2018 assessment.
+//-2018-12-26: 1. Corrected some problems with writing the report file (missing commas, etc).
 //
 // =============================================================================
 // =============================================================================
@@ -4569,6 +4570,7 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
         }
         if (debug<0) cout<<tb<<tb<<")"<<cc<<endl;//end of smoothness penalties list
     }
+    if (debug<0) cout<<tb<<"),";//end of nonparametric selectivity penalties list
     
     //penalties on sums of dev vectors to enforce sum-to-zero
     double penWgt = 0.0;
@@ -7431,36 +7433,36 @@ FUNCTION void ReportToR(ostream& os, double maxGrad, int debug, ostream& cout)
         os<<"objFun="<<value(objFun)<<cc<<"maxGrad="<<maxGrad<<cc<<endl;
         //model configuration
         ptrMC->writeToR(os,"mc",0); os<<","<<endl;
-        os<<"#end of mc"<<endl;
+        os<<tb<<"#end of mc"<<endl;
         
         //model data
         ptrMDS->writeToR(os,"data",0); os<<","<<endl;
-        os<<"#end of data"<<endl;
+        os<<tb<<"#end of data"<<endl;
         
         //parameter values
         ReportToR_Params(os,debug,cout); os<<","<<endl;
-        os<<"#end of params"<<endl;
+        os<<tb<<"#end of params"<<endl;
         
         //model processes
         ReportToR_ModelProcesses(os,debug,cout); os<<","<<endl;
-        os<<"#end of modelprocesses"<<endl;
+        os<<tb<<"#end of modelprocesses"<<endl;
         
         //model results
         ReportToR_ModelResults(os,debug,cout); os<<","<<endl;
-        os<<"#end of modelresults"<<endl;
+        os<<tb<<"#end of modelresults"<<endl;
 
         //model fit quantities
         ReportToR_ModelFits(os,maxGrad,debug,cout); os<<","<<endl;
-        os<<"#end of modelfits"<<endl;
+        os<<tb<<"#end of modelfits"<<endl;
         
         //simulated model data
         createSimData(debug, cout, 0, ptrSimMDS);//deterministic
         ptrSimMDS->writeToR(os,"sim.data",0); os<<","<<endl;
-        os<<"#end of sim.data"<<endl;
+        os<<tb<<"#end of sim.data"<<endl;
         
         //cohort projections
         ReportToR_CohortProgression(os,debug,cout);
-        os<<"#end of cohortprogression"<<endl;
+        os<<tb<<"#end of cohortprogression"<<endl;
         
         //do OFL calculations
         if (doOFL&&last_phase()){
@@ -7471,9 +7473,10 @@ FUNCTION void ReportToR(ostream& os, double maxGrad, int debug, ostream& cout)
             ptrOFLResults->writeCSVHeader(echoOFL); echoOFL<<endl;
             ptrOFLResults->writeToCSV(echoOFL);     echoOFL<<endl;
             echoOFL.close();
+            //pick up writing ReportTotR
             os<<","<<endl;
             ptrOFLResults->writeToR(os,ptrMC,"ptrOFLResults",0);
-            os<<"#end of ptrOFLResults"<<endl;
+            os<<tb<<"#end of ptrOFLResults"<<endl;
             cout<<"ReportToR: finished OFL calculations"<<endl;
         }
 
@@ -7482,7 +7485,7 @@ FUNCTION void ReportToR(ostream& os, double maxGrad, int debug, ostream& cout)
             cout<<"ReportToR: starting dynamic B0 calculations"<<endl;
             os<<","<<endl;
             calcDynB0(-1,os);
-            os<<"#end of dynamic B0 results"<<endl;
+            os<<tb<<"#end of dynamic B0 results"<<endl;
             cout<<"ReportToR: finished dynamic B0 calculations"<<endl;
         }
 

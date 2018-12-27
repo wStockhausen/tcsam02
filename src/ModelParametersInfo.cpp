@@ -2567,7 +2567,7 @@ void ModelParametersInfo::writeToR(std::ostream & os){
     ptrM2M->writeToR(os); os<<cc<<endl;
     ptrSel->writeToR(os); os<<cc<<endl;
     ptrFsh->writeToR(os); os<<cc<<endl;
-    ptrSrv->writeToR(os); os<<endl;
+    ptrSrv->writeToR(os); os<<cc<<endl;
     ptrMSE->writeToR(os); os<<endl;
     os<<")";
 }
