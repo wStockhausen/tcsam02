@@ -246,7 +246,7 @@ CatchInfo::CatchInfo(int npZBs, int npFsh){
     rmN_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
     dmN_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
     
-    totFM.allocate(1,nZBs);
+    totFM_z.allocate(1,nZBs);
     S_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
 }
 
@@ -274,7 +274,7 @@ CatchInfo& CatchInfo::operator =(const CatchInfo& o){
         dmN_fmsz(f) = 1.0*o.dmN_fmsz(f);
     }
     
-    totFM   = 1.0*o.totFM;
+    totFM_z = 1.0*o.totFM_z;
     S_msz   = 1.0*o.S_msz;
     cmN_msz = 1.0*o.cmN_msz;
     
@@ -328,42 +328,70 @@ dvar3_array CatchInfo::applyFM(dvariable dirF, dvar3_array& n_msz, ostream& cout
     cpN_fmsz.initialize();//capture abundance, by fishery
     rmN_fmsz.initialize();//retained catch mortality (abundance)
     dmN_fmsz.initialize();//discards catch mortality (abundance)
+    
+    dvector     tdF_z(1,nZBs);//for use in calculating fishing rate components
+    dvar_vector tvF_z(1,nZBs);//for use in calculating fishing rate components
+    dvar_vector tfF_z(1,nZBs);//for use in calculating fishing rate components
     for (int s=1;s<=nSCs;s++){
         for (int m=1;m<=nMSs;m++){ 
-            totFM.initialize();
-            //directed fishery
+            //calculate fishery rates
+            totFM_z.initialize();
+            //--directed fishery
             rmF_fmsz(1,m,s) = elem_prod(retF_fmsz(1,m,s),              ratF*cpF_fmsz(1,m,s));
             dmF_fmsz(1,m,s) = elem_prod(hm_f(1)*(1.0-retF_fmsz(1,m,s)),ratF*cpF_fmsz(1,m,s));
-            totFM += rmF_fmsz(1,m,s)+dmF_fmsz(1,m,s);
-            //bycatch fisheries
+            totFM_z += rmF_fmsz(1,m,s)+dmF_fmsz(1,m,s);
+            //--bycatch fisheries
             for (int f=2;f<=nFsh;f++){
                 rmF_fmsz(f,m,s) = elem_prod(retF_fmsz(f,m,s),              cpF_fmsz(f,m,s));
                 dmF_fmsz(f,m,s) = elem_prod(hm_f(f)*(1.0-retF_fmsz(f,m,s)),cpF_fmsz(f,m,s));
-                totFM += rmF_fmsz(f,m,s)+dmF_fmsz(f,m,s);
+                totFM_z        += rmF_fmsz(f,m,s)+dmF_fmsz(f,m,s);
             }
             
-            np_msz(m,s) = elem_prod(mfexp(-totFM),n_msz(m,s));//survival after all fisheries
-            cmN_msz(m,s) = n_msz(m,s)-np_msz(m,s);             //total catch mortality, all fisheries
+            //calculate numbers surviving and numbers killed
+            np_msz(m,s) = elem_prod(mfexp(-totFM_z),n_msz(m,s));//survival after all fisheries
+            cmN_msz(m,s) = n_msz(m,s)-np_msz(m,s);              //total catch mortality, all fisheries
             
-            //total capture abundance, directed fishery
-            cpN_fmsz(1,m,s) = elem_prod(elem_div(ratF*cpF_fmsz(1,m,s),totFM),cmN_msz(m,s));
+            //calculate capture abundance, retained abundance, and discard abundance mortality
+            tdF_z = value(totFM_z);
+            tvF_z = elem_prod(1-wts::isEQ(tdF_z,0.0),totFM_z) + wts::isEQ(tdF_z,0.0);//= totFM_z(z)                     if totFM_z(z) > 0, else = 1
+            tfF_z = elem_div(1.0-mfexp(-totFM_z),tvF_z);                             //= (1-exp(-totFM_z(z))/totFM_z(z) if totFM_z(z) > 0, else = 1
+            //--directed fishery
+            cpN_fmsz(1,m,s) = elem_prod(elem_prod(ratF*cpF_fmsz(1,m,s),tfF_z),n_msz(m,s));
             //retained catch mortality (abundance), directed fishery
-            rmN_fmsz(1,m,s) = elem_prod(elem_div(rmF_fmsz(1,m,s),totFM),cmN_msz(m,s));
+            rmN_fmsz(1,m,s) = elem_prod(elem_prod(     rmF_fmsz(1,m,s),tfF_z),n_msz(m,s));
             //discard catch mortality (abundance), directed fishery
-            dmN_fmsz(1,m,s) = elem_prod(elem_div(dmF_fmsz(1,m,s),totFM),cmN_msz(m,s));
-            //bycatch fisheries
+            dmN_fmsz(1,m,s) = elem_prod(elem_prod(     dmF_fmsz(1,m,s),tfF_z),n_msz(m,s));
+            //--bycatch fisheries
             for (int f=2;f<=nFsh;f++){
                 //total capture abundance
-                cpN_fmsz(f,m,s) = elem_prod(elem_div(cpF_fmsz(f,m,s),totFM),cmN_msz(m,s));
+                cpN_fmsz(f,m,s) = elem_prod(elem_prod(cpF_fmsz(f,m,s),tfF_z),n_msz(m,s));
                 //retained catch mortality (abundance)
-                rmN_fmsz(f,m,s) = elem_prod(elem_div(rmF_fmsz(f,m,s),totFM),cmN_msz(m,s));
+                rmN_fmsz(f,m,s) = elem_prod(elem_prod(rmF_fmsz(f,m,s),tfF_z),n_msz(m,s));
                 //discard catch mortality (abundance)
-                dmN_fmsz(f,m,s) = elem_prod(elem_div(dmF_fmsz(f,m,s),totFM),cmN_msz(m,s));
+                dmN_fmsz(f,m,s) = elem_prod(elem_prod(dmF_fmsz(f,m,s),tfF_z),n_msz(m,s));
             }//f
         }//m
     }//s
     if (debug) {
-        cout<<"#--np_msz = "<<&np_msz<<endl;
+        cout<<"#--In CatchInfo::calcCatch"<<endl;
+        cout<<"dirF, maxCapF,ratF    = "<<dirF<<cc<<maxF<<cc<<ratF<<endl;
+        for (int s=1;s<=nSCs;s++){
+            for (int m=1;m<=nMSs;m++){ 
+                cout<<"m,s     = "<<m<<cc<<s<<endl;
+                cout<<"n_msz   = "<<n_msz(m,s)<<endl;
+                cout<<"cmN_msz = "<<cmN_msz(m,s)<<endl;
+                for (int f=1;f<=nFsh;f++){
+                    cout<<"f = "<<f<<endl;
+                    cout<<"cpF_fmsz = "<<cpF_fmsz(f,m,s)<<endl;
+                    cout<<"cpN_fmsz = "<<cpN_fmsz(f,m,s)<<endl;
+                    cout<<"ret_fmsz = "<<retF_fmsz(f,m,s)<<endl;
+                    cout<<"rmF_fmsz = "<<rmF_fmsz(f,m,s)<<endl;
+                    cout<<"rmN_fmsz = "<<rmN_fmsz(f,m,s)<<endl;
+                    cout<<"dmF_fmsz = "<<dmF_fmsz(f,m,s)<<endl;
+                    cout<<"dmN_fmsz = "<<dmN_fmsz(f,m,s)<<endl;
+                }
+            }
+        }
     }
     if (debug) cout<<"finished CatchInfo::calcCatch(dvariable dirF, dvar3_array n_msz)"<<endl;
     RETURN_ARRAYS_DECREMENT();
@@ -389,13 +417,13 @@ dvar3_array CatchInfo::calcSurvival(dvariable dirF, ostream& cout){
     S_msz.initialize();
     for (int s=1;s<=nSCs;s++){
         for (int m=1;m<=nMSs;m++){ 
-            totFM.initialize();
-            totFM += elem_prod(ratF*cpF_fmsz(1,m,s),
-                              retF_fmsz(1,m,s) + hm_f(1)*(1.0-retF_fmsz(1,m,s)));
+            totFM_z.initialize();
+            totFM_z += elem_prod(ratF*cpF_fmsz(1,m,s),
+                                 retF_fmsz(1,m,s) + hm_f(1)*(1.0-retF_fmsz(1,m,s)));
             for (int f=2;f<=nFsh;f++)
-                totFM += elem_prod(cpF_fmsz(f,m,s),
-                                  retF_fmsz(f,m,s) + hm_f(f)*(1.0-retF_fmsz(f,m,s)));
-            S_msz(m,s) = exp(-totFM);                //survival of fisheries
+                totFM_z += elem_prod(cpF_fmsz(f,m,s),
+                                     retF_fmsz(f,m,s) + hm_f(f)*(1.0-retF_fmsz(f,m,s)));
+            S_msz(m,s) = exp(-totFM_z);                //survival of fisheries
         }//m
     }//s
     if (debug) cout<<"#--S_msz = "<<&S_msz<<endl;

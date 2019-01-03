@@ -44,8 +44,23 @@ public:
 public:
     MSE_OpModInfo(ModelConfiguration* ptrMC);
     ~MSE_OpModInfo(){}
+    /**
+     * Read from an input filestream in ADMB OpModMode format
+     * @param is - input filestream
+     */
     void read(cifstream& is);
-    friend cifstream& operator >>(cifstream & is, MSE_OpModInfo & obj){obj.read(is); return is;}
+    /**
+     * Write to an output filestream in ADMB OpModMode format
+     * @param is - output filestream
+     */
+    void write(ostream& os);
+    /**
+     * Write to an output filestream in R format
+     * @param is - output filestream
+     */
+    void writeToR(ostream& os);
+    friend cifstream& operator >>(cifstream & is, MSE_OpModInfo & obj){obj.read(is);  return is;}
+    friend ostream&   operator <<(ostream & os,   MSE_OpModInfo & obj){obj.write(os); return os;}
 protected:
     void allocate();
 };

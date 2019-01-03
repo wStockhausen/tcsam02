@@ -483,6 +483,13 @@
 //                  incorporate MSE calculations. OFL results now agree (again) with results
 //                  from the 2018 assessment.
 //-2018-12-26: 1. Corrected some problems with writing the report file (missing commas, etc).
+//             2. Added ReportToR_OpModMode().
+//-2018-12-31: 1. Corrected some problems with ReportToR_OpModMode(). Needs to be fleshed out.
+//             2. Corrected how R_y is allocated in MSEClasses.cpp from mnYr,mxYr to mnYr,mxYr-1
+//                  so that input file is read correctly.
+//-2019-01-03: 1. Resolved issues with OpMod files and input. In process, revised a lot of associated
+//                  variables and functions. NOTE: don't use "\t" in writing output that will be
+//                  read back in to ADMB--ADMB reads it as a bunch of zeros, not a tab character.
 //
 // =============================================================================
 // =============================================================================
@@ -554,11 +561,14 @@ GLOBALS_SECTION
     //MSE objects
     MSE_OpModInfo* ptrOMI=0; //ptr to MSE OpModInfo object
     
-    //population dynamics objects
+    //population dynamics objects for alternative calculations
     int runAlt = 0;
-    PopDyInfo*    pPDI=0;//  population dynamics info
-    CatchInfo*    pCDI=0;//  catch info
-    PopProjector* pPPr=0;//  population projector
+    PopDyInfo*    pPDI=0;//  pointer to population dynamics info
+    CatchInfo*    pCDI=0;//  pointer to catch info
+    PopProjector* pPPr=0;//  pointer to population projector
+    
+    //MSE OpMod objects
+    PopProjector** ppOpModPPr_x=0;//pointer to sex-specific array of population projectors 
           
     //dimensions for R output
     adstring yDms;
@@ -1472,6 +1482,7 @@ DATA_SECTION
         ad_comm::change_datafile_name("OpModStateFile.txt");
         PRINT2B1("#--Reading OpModStateFile.txt")
         (*ad_comm::global_datafile)>>(*ptrOMI);
+        ptrOMI->write(rpt::echo);        
         PRINT2B1("#--Finished reading OpModStateFile.txt")
         prjR = 0.0;
         PRINT2B1("#--Reading TAC.txt")
@@ -1762,15 +1773,18 @@ PRELIMINARY_CALCS_SECTION
     PRINT2B1("#Starting PRELIMINARY_CALCS_SECTION")
     int debug=1;
     
+//---------PRELIMINARY_CALCS: ALT POP DY CALCULATIONS---------------------------
+    if (runAlt){
+        //create population projection objects
+        PRINT2B1("#--Creating population projection objects")
+        pPDI = new PopDyInfo(nZBs);         //  generic population dynamics info
+        pCDI = new CatchInfo(nZBs,nFsh);    //  generic catch info
+        pPPr = new PopProjector(pPDI,pCDI); //  generic population projector
+        PRINT2B1("#--Created population projection objects")
+    }
+
 //---------PRELIMINARY_CALCS: ALL MODEL RUNS------------------------------------    
     PRINT2B1("PRELIMINARY_CALCS: ALL MODEL RUNS")
-    //create population projection objects
-    PRINT2B1("--Creating population projection objects")
-    pPDI = new PopDyInfo(nZBs);         //  generic population dynamics info
-    pCDI = new CatchInfo(nZBs,nFsh);    //  generic catch info
-    pPPr = new PopProjector(pPDI,pCDI); //  generic population projector
-    PRINT2B1("--Created population projection objects")
-
     //set initial values for all parameters
     if (usePin) {
         PRINT2B1("NOTE: setting initial values for parameters using pin file")
@@ -2061,6 +2075,46 @@ PRELIMINARY_CALCS_SECTION
             PRINT2B2("stdv recruitment: ",sd);
             PRINT2B2("expected total recruitment: ",mfexp(mn+square(sd)/2.0));
             PRINT2B2("projected total recruitment: ",prjR);
+            //create population projection objects
+            PRINT2B1("#--MSE OpMod: creating population projection objects")
+            dvariable maxCapF = 0.0;
+            ppOpModPPr_x = new PopProjector*[nSXs];
+            for (int x=1;x<=nSXs;x++){
+                //set population info
+                PopDyInfo* ptrPDI = new PopDyInfo(nZBs); //generic population dynamics info
+                ptrPDI->w_mz  = 1.0*ptrOMI->wAtZ_xmz(x);  //assign weight-at-length
+                ptrPDI->R_z   = 1.0*ptrOMI->R_z;          //relative recruitment-at-size
+                ptrPDI->M_msz = 1.0*ptrOMI->M_xmsz(x);    //rates of natural mortality
+                ptrPDI->T_szz = 1.0*ptrOMI->prGr_xszz(x); //growth transition matrices
+                //pr(terminal molt|size)
+                for (int s=1;s<=nSCs;s++) ptrPDI->Th_sz(s) = 1.0*ptrOMI->prM2M_xz(x);
+                
+                //set catch info
+                CatchInfo* ptrCDI = new CatchInfo(nZBs,nFsh); //generic catch info
+                prj_hmF_f = 1.0*ptrOMI->hmF_f;
+                prj_capF_fmsz.initialize();
+                prj_retF_fmsz.initialize();
+                prj_selF_fmsz.initialize();
+                for (int f=1;f<=nFsh;f++){
+                    for (int m=1;m<=nMSs;m++){
+                        prj_capF_fmsz(f,m) = 1.0*ptrOMI->cpF_fxmsz(f,x,m);
+                        prj_retF_fmsz(f,m) = 1.0*ptrOMI->ret_fxmsz(f,x,m);
+                        prj_selF_fmsz(f,m) = 1.0*ptrOMI->sel_fxmsz(f,x,m);
+                    }//m
+                }//f
+                ptrCDI->setHandlingMortality(prj_hmF_f);
+                ptrCDI->setCaptureRates(prj_capF_fmsz);
+                ptrCDI->setRetentionFcns(prj_retF_fmsz);
+                ptrCDI->setSelectivityFcns(prj_selF_fmsz);
+                if (x==  MALE) maxCapF = ptrCDI->findMaxTargetCaptureRate(cout);//TODO: how to handle FEMALEs
+                if (x==FEMALE) ptrCDI->maxF = maxCapF;//need to set for females based on males
+                PopProjector* ptrPPr = new PopProjector(ptrPDI,ptrCDI); //generic population projector
+                ptrPPr->dtF = 1.0*ptrOMI->dtF; //time at which fisheries occur
+                ptrPPr->dtM = 1.0*ptrOMI->dtM; //time at which mating occurs
+
+                ppOpModPPr_x[x-1] = ptrPPr;
+            }
+            PRINT2B1("#--MSE OpMod: created population projection objects")
             if (inpTAC>0.0){
                 dvariable mseCapF = mfexp(pMSE_LnC[1]);
                 projectPopForTAC(mseCapF,dbgAll,rpt::echo);
@@ -2326,6 +2380,10 @@ FUNCTION void runAltPopDyModOneYear(int y, int x, int debug, ostream& cout)
 FUNCTION void projectPopForTAC(dvariable& mseCapF, int debug, ostream& cout)
     if (debug>=dbgPopDy) cout<<"projectPopForTAC()"<<endl;
 
+    dvar4_array cpN_fmsz(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
+    dvar4_array rmN_fmsz(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
+    dvar4_array dmN_fmsz(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
+        
     prjRetCatchMortBio_fx.initialize();
     prjDscCatchMortBio_fx.initialize();
     prjTotCatchMortBio_fx.initialize();
@@ -2334,56 +2392,36 @@ FUNCTION void projectPopForTAC(dvariable& mseCapF, int debug, ostream& cout)
     prj_dmN_fxmsz.initialize(); //discard mortality abundance
     prj_dsN_fxmsz.initialize(); //total discard abundance
     
-    dvariable maxCapF = 0.0;
-    
     for (int x=1;x<=nSXs;x++){   
-        //1. Update population rates, based on year and sex
-        pPDI->w_mz  = ptrOMI->wAtZ_xmz(x);//assign weight-at-length
-        pPDI->R_z   = ptrOMI->R_z;                    //relative recruitment-at-size
-        pPDI->M_msz = ptrOMI->M_xmsz(x);               //rates of natural mortality
-        pPDI->T_szz = ptrOMI->prGr_xszz(x);            //growth transition matrices
-        //pr(terminal molt|size)
-        for (int s=1;s<=nSCs;s++) pPDI->Th_sz(s) = ptrOMI->prM2M_xz(x);
-        //if (debug) cout<<"updated pPDI for sex "<<x<<" in "<<y<<endl;
-
-        //2. Update fishery conditions based on year and sex
-        prj_hmF_f = ptrOMI->hmF_f;
-        prj_capF_fmsz.initialize();
-        prj_retF_fmsz.initialize();
-        prj_selF_fmsz.initialize();
-        for (int f=1;f<=nFsh;f++){
-            for (int m=1;m<=nMSs;m++){
-                prj_capF_fmsz(f,m) = ptrOMI->cpF_fxmsz(f,x,m);
-                prj_retF_fmsz(f,m) = ptrOMI->ret_fxmsz(f,x,m);
-                prj_selF_fmsz(f,m) = ptrOMI->sel_fxmsz(f,x,m);
-            }//m
-        }//f
-
-        
-        //determine proposed rates for directed fishery that will
-        //result in TAC being taken
-        prj_capF_fmsz(1) = mseCapF*prj_selF_fmsz(1);
-
-        //update CatchInfo objects
-        pCDI->setHandlingMortality(prj_hmF_f);
-        pCDI->setCaptureRates(prj_capF_fmsz);
-        pCDI->setRetentionFcns(prj_retF_fmsz);
-        pCDI->setSelectivityFcns(prj_selF_fmsz);
-        if (debug) cout<<"updated pCDI for sex "<<x<<endl;
-
-        //3. run PopProjector
-        pPPr->dtF = ptrOMI->dtF; //time at which fishery occurs
-        pPPr->dtM = ptrOMI->dtM; //time at which mating occurs
-        dvariable dirF = -1.0;//don't change scale on directed fishery F's
+        //project population under directed fishing male capture rate mseCapF
+        dvariable dirF = 1.0*mseCapF;
 //        if (debug>=dbgPopDy) PopProjector::debug=1000;
-        dvar3_array n_msz   = ptrOMI->n_xmsz(x);//sex "x" population abundance at start of year
-        prj_n_xmsz(x)       = pPPr->project(dirF,n_msz,cout);
+        PopProjector* pPPr = ppOpModPPr_x[x-1];
+        dvar3_array n_msz  = 1.0*ptrOMI->n_xmsz(x);//sex "x" population abundance at start of year
+        prj_n_xmsz(x)      = 1.0*pPPr->project(dirF,n_msz,cout);
 //        if (debug>=dbgPopDy) PopProjector::debug=0;
+        prj_spB_x(x)       = 1.0*pPPr->getMatureBiomassAtMating();
         prj_n_xmsz(x,IMMATURE,NEW_SHELL) += prjR*ptrOMI->R_x(x)*ptrOMI->R_z;
-        prj_spB_x(x)         = pPPr->getMatureBiomassAtMating();
-        dvar4_array cpN_fmsz = pPPr->getFisheriesCaptureAbundance();
-        dvar4_array rmN_fmsz = pPPr->getRetainedCatchMortality();
-        dvar4_array dmN_fmsz = pPPr->getDiscardCatchMortality();
+        
+        //extract catch info
+        cpN_fmsz.initialize();
+        rmN_fmsz.initialize();
+        dmN_fmsz.initialize();
+        cpN_fmsz = pPPr->getFisheriesCaptureAbundance();
+        rmN_fmsz = pPPr->getRetainedCatchMortality();
+        dmN_fmsz = pPPr->getDiscardCatchMortality();
+//        if (debug){
+//            cout<<"#--check on fishery rates used"<<endl;
+//            for (int f=1;f<=nFsh;f++){
+//               for (int m=1;m<=nMSs;m++){
+//                    for (int s=1;s<=nSCs;s++){
+//                        cout<<"#----x,f,m,s = "<<x<<cc<<f<<cc<<m<<cc<<s<<endl;
+//                        cout<<"diff(cpF_fxmsz) = "<<pPPr->pCI->cpF_fmsz(f,m,s)-ptrOMI->cpF_fxmsz(f,x,m,s)<<endl;
+//                        cout<<"diff(rmF_fxmsz) = "<<pPPr->pCI->retF_fmsz(f,m,s)-ptrOMI->ret_fxmsz(f,x,m,s)<<endl;
+//                    }
+//                }
+//            }
+//        }
         for (int f=1;f<=nFsh;f++){
             for (int m=1;m<=nMSs;m++){
                 prj_cpN_fxmsz(f,x,m) = cpN_fmsz(f,m); //capture abundance
@@ -2403,7 +2441,62 @@ FUNCTION void projectPopForTAC(dvariable& mseCapF, int debug, ostream& cout)
         if (debug) cout<<"ran pPPr for sex "<<x<<endl;
     }//x
     
+    if (debug>=dbgPopDy){
+        cout<<"#--projected population with directed fishery F = "<<mseCapF<<endl;
+        cout<<"#----total catch mortality (biomass) = "<<sum(prjDscCatchMortBio_fx)+sum(prjDscCatchMortBio_fx)<<endl;
+        cout<<"#----retained catch mortality (biomass): "<<endl<<prjRetCatchMortBio_fx<<endl;
+        cout<<"#----discards catch mortality (biomass): "<<endl<<prjDscCatchMortBio_fx<<endl;
+    }
     if (debug>=dbgPopDy) cout<<"finished projectPopForTAC()"<<endl;
+    
+//-------------------------------------------------------------------------------------
+//Calculate objective function TODO: finish
+FUNCTION void calcObjFunForTAC(int debug, ostream& cout)
+    if ((debug>=dbgObjFun)||(debug<0)) {PRINT2B1("----Starting calcObjFunForTAC()")}
+
+    int k = 0;
+    dvector objFunV(0,20);
+
+    //reset objective function
+    objFun.initialize(); objFunV[k++] = value(objFun);
+    
+    //Fit OpMod catch to TAC
+    dvariable prdTAC = 0.0;
+    dvariable prdTot = 0.0;
+    for (int f=1;f<=nFsh;f++){
+        prdTAC += sum(prjRetCatchMortBio_fx(f));
+        prdTot += sum(prjTotCatchMortBio_fx(f));
+    }
+    
+    dvariable nllForTAC = square(inpTAC-prdTAC);
+    
+    dvariable nllForOFL = 0.0; 
+    posfun(inpOFL-prdTot,1.0e-2,nllForOFL);
+    nllForOFL *= 1000.0;
+    
+    objFun += (nllForTAC + nllForOFL);   objFunV[k++] = value(objFun);
+    
+    if ((debug>=dbgObjFun)||(debug<0)){
+        int k=0;
+        PRINT2B2("proc call          = ",ctrProcCalls)
+        PRINT2B2("proc call in phase = ",ctrProcCallsInPhase)
+        PRINT2B2("pMSE_LnC =",pMSE_LnC[1]);
+        PRINT2B2("mseCapF  =",mfexp(pMSE_LnC[1]));
+        PRINT2B2("after initialization. objFun =",objFunV[k++])
+        PRINT2B2("inpTAC    = ",inpTAC)    
+        PRINT2B2("prdTAC    = ",prdTAC)    
+        PRINT2B2("nllForTAC = ",nllForTAC)    
+        PRINT2B2("inpOFL    = ",inpOFL)    
+        PRINT2B2("prdTot    = ",prdTot)    
+        for (int f=1;f<=nFsh;f++) {
+            adstring s = str(f)+" = ";
+            for (int x=1;x<=nSXs;x++) s = s + str(value(prjTotCatchMortBio_fx(f,x)))+"\t";
+            PRINT2B1(s);
+        }
+        PRINT2B2("nllForOFL = ",nllForOFL)    
+        PRINT2B2("after MSE OpMod call objFun =",value(objFun))
+        PRINT2B1("----Finished calcObjFunForTAC()")
+    }
     
 ///**
 // * MSE OpModMode ONLY:
@@ -2416,6 +2509,10 @@ FUNCTION void projectPopForTAC(dvariable& mseCapF, int debug, ostream& cout)
 FUNCTION void projectPopForZeroTAC(int debug, ostream& cout)
     if (debug>=dbgPopDy) cout<<"projectPopForZeroTAC()"<<endl;
 
+    dvar4_array cpN_fmsz(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
+    dvar4_array rmN_fmsz(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
+    dvar4_array dmN_fmsz(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
+        
     prjRetCatchMortBio_fx.initialize();
     prjDscCatchMortBio_fx.initialize();
     prjTotCatchMortBio_fx.initialize();
@@ -2424,55 +2521,36 @@ FUNCTION void projectPopForZeroTAC(int debug, ostream& cout)
     prj_dmN_fxmsz.initialize(); //discard mortality abundance
     prj_dsN_fxmsz.initialize(); //total discard abundance
     
-    dvariable maxCapF = 0.0;
-    
     for (int x=1;x<=nSXs;x++){   
-        //1. Update population rates, based on year and sex
-        pPDI->w_mz  = ptrOMI->wAtZ_xmz(x);   //assign weight-at-length
-        pPDI->R_z   = ptrOMI->R_z;           //relative recruitment-at-size
-        pPDI->M_msz = ptrOMI->M_xmsz(x);     //rates of natural mortality
-        pPDI->T_szz = ptrOMI->prGr_xszz(x);  //growth transition matrices
-        //pr(terminal molt|size)
-        for (int s=1;s<=nSCs;s++) pPDI->Th_sz(s) = ptrOMI->prM2M_xz(x);
-        //if (debug) cout<<"updated pPDI for sex "<<x<<" in "<<y<<endl;
-
-        //2. Update fishery conditions based on year and sex
-        prj_hmF_f = ptrOMI->hmF_f;
-        prj_capF_fmsz.initialize();
-        prj_retF_fmsz.initialize();
-        prj_selF_fmsz.initialize();
-        for (int f=1;f<=nFsh;f++){
-            for (int m=1;m<=nMSs;m++){
-                prj_capF_fmsz(f,m) = ptrOMI->cpF_fxmsz(f,x,m);
-                prj_retF_fmsz(f,m) = ptrOMI->ret_fxmsz(f,x,m);
-                prj_selF_fmsz(f,m) = ptrOMI->sel_fxmsz(f,x,m);
-            }//m
-        }//f
-
-        
-        //directed fishery is closed,so set capture rates to 0
-        prj_capF_fmsz(1) = 0.0*prj_selF_fmsz(1);
-
-        //update CatchInfo objects
-        pCDI->setHandlingMortality(prj_hmF_f);
-        pCDI->setCaptureRates(prj_capF_fmsz);
-        pCDI->setRetentionFcns(prj_retF_fmsz);
-        pCDI->setSelectivityFcns(prj_selF_fmsz);
-        if (debug) cout<<"updated pCDI for sex "<<x<<endl;
-
-        //3. run PopProjector
-        pPPr->dtF = ptrOMI->dtF; //time at which fishery occurs
-        pPPr->dtM = ptrOMI->dtM; //time at which mating occurs
-        dvariable dirF = -1.0;//don't change scale on directed fishery F's
+        //project population under no directed fishing
+        dvariable dirF = 0.0;
 //        if (debug>=dbgPopDy) PopProjector::debug=1000;
-        dvar3_array n_msz   = ptrOMI->n_xmsz(x);//sex "x" population abundance at start of year
-        prj_n_xmsz(x)       = pPPr->project(dirF,n_msz,cout);
+        PopProjector* pPPr = ppOpModPPr_x[x-1];
+        dvar3_array n_msz  = 1.0*ptrOMI->n_xmsz(x);//sex "x" population abundance at start of year
+        prj_n_xmsz(x)      = 1.0*pPPr->project(dirF,n_msz,cout);
 //        if (debug>=dbgPopDy) PopProjector::debug=0;
+        prj_spB_x(x)       = 1.0*pPPr->getMatureBiomassAtMating();
         prj_n_xmsz(x,IMMATURE,NEW_SHELL) += prjR*ptrOMI->R_x(x)*ptrOMI->R_z;
-        prj_spB_x(x)         = pPPr->getMatureBiomassAtMating();
-        dvar4_array cpN_fmsz = pPPr->getFisheriesCaptureAbundance();
-        dvar4_array rmN_fmsz = pPPr->getRetainedCatchMortality();
-        dvar4_array dmN_fmsz = pPPr->getDiscardCatchMortality();
+        
+        //extract catch info
+        cpN_fmsz.initialize();
+        rmN_fmsz.initialize();
+        dmN_fmsz.initialize();
+        cpN_fmsz = pPPr->getFisheriesCaptureAbundance();
+        rmN_fmsz = pPPr->getRetainedCatchMortality();
+        dmN_fmsz = pPPr->getDiscardCatchMortality();
+//        if (debug){
+//            cout<<"#--check on fishery rates used"<<endl;
+//            for (int f=1;f<=nFsh;f++){
+//               for (int m=1;m<=nMSs;m++){
+//                    for (int s=1;s<=nSCs;s++){
+//                        cout<<"#----x,f,m,s = "<<x<<cc<<f<<cc<<m<<cc<<s<<endl;
+//                        cout<<"diff(cpF_fxmsz) = "<<pPPr->pCI->cpF_fmsz(f,m,s)-ptrOMI->cpF_fxmsz(f,x,m,s)<<endl;
+//                        cout<<"diff(rmF_fxmsz) = "<<pPPr->pCI->retF_fmsz(f,m,s)-ptrOMI->ret_fxmsz(f,x,m,s)<<endl;
+//                    }
+//                }
+//            }
+//        }
         for (int f=1;f<=nFsh;f++){
             for (int m=1;m<=nMSs;m++){
                 prj_cpN_fxmsz(f,x,m) = cpN_fmsz(f,m); //capture abundance
@@ -2492,7 +2570,102 @@ FUNCTION void projectPopForZeroTAC(int debug, ostream& cout)
         if (debug) cout<<"ran pPPr for sex "<<x<<endl;
     }//x
     
+    if (debug>=dbgPopDy){
+        cout<<"#--projected population directed fishery closed (TAC=0)"<<endl;
+        cout<<"#----total catch mortality (biomass) = "<<sum(prjDscCatchMortBio_fx)+sum(prjDscCatchMortBio_fx)<<endl;
+        cout<<"#----retained catch mortality (biomass): "<<endl<<prjRetCatchMortBio_fx<<endl;
+        cout<<"#----discards catch mortality (biomass): "<<endl<<prjDscCatchMortBio_fx<<endl;
+    }
     if (debug>=dbgPopDy) cout<<"finished projectPopForZeroTAC()"<<endl;
+    
+/////**
+//// * MSE OpModMode ONLY:
+//// * Project the population from July 1, year to July 1, year+1 given that
+//// * the TAC is 0 and the directed fishery is closed.
+//// * 
+//// * This function is directly based on projectPopForTAC.
+//// * 
+//// */
+//FUNCTION void projectPopForZeroTAC(int debug, ostream& cout)
+//    if (debug>=dbgPopDy) cout<<"projectPopForZeroTAC()"<<endl;
+//
+//    prjRetCatchMortBio_fx.initialize();
+//    prjDscCatchMortBio_fx.initialize();
+//    prjTotCatchMortBio_fx.initialize();
+//    prj_cpN_fxmsz.initialize(); //capture abundance
+//    prj_rmN_fxmsz.initialize(); //retained mortality abundance
+//    prj_dmN_fxmsz.initialize(); //discard mortality abundance
+//    prj_dsN_fxmsz.initialize(); //total discard abundance
+//    
+//    dvariable maxCapF = 0.0;
+//    
+//    for (int x=1;x<=nSXs;x++){   
+//        //1. Update population rates, based on year and sex
+//        pPDI->w_mz  = ptrOMI->wAtZ_xmz(x);   //assign weight-at-length
+//        pPDI->R_z   = ptrOMI->R_z;           //relative recruitment-at-size
+//        pPDI->M_msz = ptrOMI->M_xmsz(x);     //rates of natural mortality
+//        pPDI->T_szz = ptrOMI->prGr_xszz(x);  //growth transition matrices
+//        //pr(terminal molt|size)
+//        for (int s=1;s<=nSCs;s++) pPDI->Th_sz(s) = ptrOMI->prM2M_xz(x);
+//        //if (debug) cout<<"updated pPDI for sex "<<x<<" in "<<y<<endl;
+//
+//        //2. Update fishery conditions based on year and sex
+//        prj_hmF_f = ptrOMI->hmF_f;
+//        prj_capF_fmsz.initialize();
+//        prj_retF_fmsz.initialize();
+//        prj_selF_fmsz.initialize();
+//        for (int f=1;f<=nFsh;f++){
+//            for (int m=1;m<=nMSs;m++){
+//                prj_capF_fmsz(f,m) = ptrOMI->cpF_fxmsz(f,x,m);
+//                prj_retF_fmsz(f,m) = ptrOMI->ret_fxmsz(f,x,m);
+//                prj_selF_fmsz(f,m) = ptrOMI->sel_fxmsz(f,x,m);
+//            }//m
+//        }//f
+//
+//        
+//        //directed fishery is closed,so set capture rates to 0
+//        prj_capF_fmsz(1) = 0.0*prj_selF_fmsz(1);
+//
+//        //update CatchInfo objects
+//        pCDI->setHandlingMortality(prj_hmF_f);
+//        pCDI->setCaptureRates(prj_capF_fmsz);
+//        pCDI->setRetentionFcns(prj_retF_fmsz);
+//        pCDI->setSelectivityFcns(prj_selF_fmsz);
+//        if (debug) cout<<"updated pCDI for sex "<<x<<endl;
+//
+//        //3. run PopProjector
+//        pPPr->dtF = ptrOMI->dtF; //time at which fishery occurs
+//        pPPr->dtM = ptrOMI->dtM; //time at which mating occurs
+//        dvariable dirF = -1.0;//don't change scale on directed fishery F's
+////        if (debug>=dbgPopDy) PopProjector::debug=1000;
+//        dvar3_array n_msz   = ptrOMI->n_xmsz(x);//sex "x" population abundance at start of year
+//        prj_n_xmsz(x)       = pPPr->project(dirF,n_msz,cout);
+////        if (debug>=dbgPopDy) PopProjector::debug=0;
+//        prj_n_xmsz(x,IMMATURE,NEW_SHELL) += prjR*ptrOMI->R_x(x)*ptrOMI->R_z;
+//        prj_spB_x(x)         = pPPr->getMatureBiomassAtMating();
+//        dvar4_array cpN_fmsz = pPPr->getFisheriesCaptureAbundance();
+//        dvar4_array rmN_fmsz = pPPr->getRetainedCatchMortality();
+//        dvar4_array dmN_fmsz = pPPr->getDiscardCatchMortality();
+//        for (int f=1;f<=nFsh;f++){
+//            for (int m=1;m<=nMSs;m++){
+//                prj_cpN_fxmsz(f,x,m) = cpN_fmsz(f,m); //capture abundance
+//                prj_rmN_fxmsz(f,x,m) = rmN_fmsz(f,m); //retained mortality abundance
+//                prj_dmN_fxmsz(f,x,m) = dmN_fmsz(f,m); //discard mortality abundance
+//                //total discard abundance
+//                prj_dsN_fxmsz(f,x,m) = prj_cpN_fxmsz(f,x,m)-prj_rmN_fxmsz(f,x,m);
+//                for (int s=1;s<=nSCs;s++){
+//                    //retained catch mortality (biomass)
+//                    prjRetCatchMortBio_fx(f,x) += prj_rmN_fxmsz(f,x,m,s)*ptrOMI->wAtZ_xmz(x,m);
+//                    //discarded catch mortality (biomass)
+//                    prjDscCatchMortBio_fx(f,x) += prj_dmN_fxmsz(f,x,m,s)*ptrOMI->wAtZ_xmz(x,m);
+//                }//s
+//            }//m
+//            prjTotCatchMortBio_fx(f,x) = prjRetCatchMortBio_fx(f,x) + prjDscCatchMortBio_fx(f,x);
+//        }//f
+//        if (debug) cout<<"ran pPPr for sex "<<x<<endl;
+//    }//x
+//    
+//    if (debug>=dbgPopDy) cout<<"finished projectPopForZeroTAC()"<<endl;
     
 //-------------------------------------------------------------------------------------
 FUNCTION void runPopDyMod(int debug, ostream& cout)
@@ -4800,49 +4973,6 @@ FUNCTION void calcNLLs_Recruitment(int debug, ostream& cout)
     
     if (debug>dbgObjFun) cout<<"Finished calcNLLs_Recruitment"<<endl;
 
-//-------------------------------------------------------------------------------------
-//Calculate objective function TODO: finish
-FUNCTION void calcObjFunForTAC(int debug, ostream& cout)
-    if ((debug>=dbgObjFun)||(debug<0)) {PRINT2B1("----Starting calcObjFunForTAC()")}
-
-    int k = 0;
-    dvector objFunV(0,20);
-
-    //reset objective function
-    objFun.initialize();                     objFunV[k++] = value(objFun);
-    
-    //Fit OpMod catch to TAC
-    dvariable prdTAC = 0.0;
-    dvariable prdTot = 0.0;
-    for (int f=1;f<=nFsh;f++){
-        prdTAC += sum(prjRetCatchMortBio_fx(f));
-        prdTot += sum(prjTotCatchMortBio_fx(f));
-    }
-    
-    dvariable nllForTAC = square(inpTAC-prdTAC);
-    dvariable nllForOFL = 0.0; 
-    posfun(inpOFL-prdTot,1.0e-2,nllForOFL);
-    nllForOFL *= 100.0;
-    
-    objFun += (nllForTAC + nllForOFL);   objFunV[k++] = value(objFun);
-    
-    if ((debug>=dbgObjFun)||(debug<0)){
-        int k=0;
-        PRINT2B2("proc call          = ",ctrProcCalls)
-        PRINT2B2("proc call in phase = ",ctrProcCallsInPhase)
-        PRINT2B2("pMSE_LnC =",pMSE_LnC[1]);
-        PRINT2B2("mseCapF  =",mfexp(pMSE_LnC[1]));
-        PRINT2B2("after initialization. objFun =",objFunV[k++])
-        PRINT2B2("inpTAC    = ",inpTAC)    
-        PRINT2B2("prdTAC    = ",prdTAC)    
-        PRINT2B2("nllForTAC = ",nllForTAC)    
-        PRINT2B2("inpOFL    = ",inpOFL)    
-        PRINT2B2("prdTot    = ",prdTot)    
-        PRINT2B2("nllForOFL = ",nllForOFL)    
-        PRINT2B2("after MSE OpMod call objFun =",value(objFun))
-        PRINT2B1("----Finished calcObjFunForTAC()")
-    }
-    
 //-------------------------------------------------------------------------------------
 //Calculate objective function TODO: finish
 FUNCTION void calcObjFun(int debug, ostream& cout)
@@ -7321,6 +7451,15 @@ FUNCTION void ReportToR_ModelFits(ostream& os, double maxGrad, int debug, ostrea
     if (debug) cout<<"Finished ReportToR_ModelFits(...)"<<endl;
 
 //-------------------------------------------------------------------------------------
+//Write quantities related to model fits to file as R list
+FUNCTION void ReportToR_OFLResults(ostream& os, int debug, ostream& cout)
+    if (debug) cout<<"Starting ReportToR_OFLResults(...)"<<endl;
+    os<<tb<<"#--OFLResults:"<<endl;
+    ptrOFLResults->writeToR(os,ptrMC,"oflResults",debug);
+    os<<tb<<"#--end of OFLResults"<<endl;
+    if (debug) cout<<"Finished ReportToR_OFLResults(...)"<<endl;
+
+//-------------------------------------------------------------------------------------
 //Update MPI for current parameter values (mainly for export))
 FUNCTION void updateMPI(int debug, ostream& cout)
     if (debug) cout<<"Starting updateMPI(...)"<<endl;
@@ -7492,6 +7631,42 @@ FUNCTION void ReportToR(ostream& os, double maxGrad, int debug, ostream& cout)
     os<<")"<<endl;
     if (debug) cout<<"Finished ReportToR(...)"<<endl;
 
+//-------------------------------------------------------------------------------------
+//Write results to file as R list
+FUNCTION void ReportToR_OpModMode(ostream& os, double maxGrad, int debug, ostream& cout)
+    if (debug) cout<<"Starting ReportToR_OpModMode(...)"<<endl;
+
+    updateMPI(debug,cout);
+        
+    os<<"res=list("<<endl;
+        os<<"objFun="<<value(objFun)<<cc<<"maxGrad="<<maxGrad<<cc<<endl;
+        //model configuration
+        ptrMC->writeToR(os,"mc",0); os<<","<<endl;
+        os<<tb<<"#end of mc"<<endl;
+        
+        //parameter values
+        ReportToR_Params(os,debug,cout); os<<endl;
+        os<<tb<<"#end of params"<<endl;
+        
+//        //model processes
+//        ReportToR_ModelProcesses(os,debug,cout); os<<","<<endl;
+//        os<<tb<<"#end of modelprocesses"<<endl;
+//        
+//        //model results
+//        ReportToR_ModelResults(os,debug,cout); os<<","<<endl;
+//        os<<tb<<"#end of modelresults"<<endl;
+//
+//        //model fit quantities
+//        ReportToR_ModelFits(os,maxGrad,debug,cout); os<<","<<endl;
+//        os<<tb<<"#end of modelfits"<<endl;
+//        
+//        //cohort projections
+//        ReportToR_CohortProgression(os,debug,cout);
+//        os<<tb<<"#end of cohortprogression"<<endl;
+        
+    os<<")"<<endl;
+    if (debug) cout<<"Finished ReportToR_OpModMode(...)"<<endl;
+
 //----------------------------------------------------------------------
 //Write parameter information to file
 FUNCTION void writeParameters(ostream& os,int toR, int willBeActive)      
@@ -7630,7 +7805,20 @@ REPORT_SECTION
                 fs.close();
             }
         } else if (mseOpModMode){
-            PRINT2B1("TODO: CREATE A REPORT FILE FOR OpModMode")
+            PRINT2B1("#--Write REPORT FILE for OpModMode--")
+            //write report as R file
+            report.precision(12);
+            ReportToR_OpModMode(report,maxGrad,1,rpt::echo);
+            //write parameter values to csv
+            ofstream os1("tcsam02.params.all.final.csv", ios::trunc);
+            os1.precision(12);
+            writeParameters(os1,0,0);
+            os1.close();
+            //write parameter values to csv
+            ofstream os2("tcsam02.params.active.final.csv", ios::trunc);
+            os2.precision(12);
+            writeParameters(os2,0,1);
+            os2.close();
         } 
     }
     PRINT2B1("--FINISHED REPORT_SECTION---------")
@@ -8041,22 +8229,24 @@ FUNCTION void writeStateForOpMod(int y,ostream& os)
         os<<y+1     <<tb<<"#year for projection"<<endl;
         os<<dtF_y(y)<<tb<<"#dtF"<<endl;
         os<<dtM_y(y)<<tb<<"#dtM"<<endl;
+        os<<endl;
         os<<"#wAtZ_xmz:"<<endl; wts::print(ptrMDS->ptrBio->wAtZ_xmz,os,1); os<<endl;
         os<<"#R_y:"<<endl<<R_y(mnYr,y)<<endl;
         os<<"#R_x:"<<endl<<R_yx(y)<<endl;
         os<<"#R_z:"<<endl<<R_yz(y)<<endl;
+        os<<endl;
         os<<"#M_xmsz:"   <<endl; wts::print(M_yxmsz(y),os,1);    os<<endl;
         os<<"#prGr_xszz:"<<endl; wts::print(prGr_yxszz(y),os,1); os<<endl;
         os<<"#prM2M_xz:" <<endl; wts::print(prM2M_yxz(y),os,1);  os<<endl;
-        os<<"#hmF_f:"<<endl<<column(hmF_fy,y)<<endl;
+        os<<"#hmF_f:"<<endl<<column(hmF_fy,y)<<endl<<endl;
         os<<"#cpF_fxmsz:"<<endl;
-        for (int f=1;f<=nFsh;f++) {os<<"  #"<<f<<endl; wts::print(cpF_fyxmsz(f,y),os,1); os<<endl;}
+        for (int f=1;f<=nFsh;f++) {os<<tb<<"#"<<f<<endl; wts::print(cpF_fyxmsz(f,y),os,2); os<<endl;}
         os<<"#ret_fxmsz:"<<endl;
-        for (int f=1;f<=nFsh;f++) {os<<"  #"<<f<<endl; wts::print(ret_fyxmsz(f,y),os,1); os<<endl;}
+        for (int f=1;f<=nFsh;f++) {os<<tb<<"#"<<f<<endl; wts::print(ret_fyxmsz(f,y),os,2); os<<endl;}
         os<<"#sel_fxmsz:"<<endl;
-        for (int f=1;f<=nFsh;f++) {os<<"  #"<<f<<endl; wts::print(sel_fyxmsz(f,y),os,1); os<<endl;}
+        for (int f=1;f<=nFsh;f++) {os<<tb<<"#"<<f<<endl; wts::print(sel_fyxmsz(f,y),os,2); os<<endl;}
         os<<"#q_vxmsz:"<<endl;
-        for (int v=1;v<=nSrv;v++) {os<<"  #"<<v<<endl; wts::print(q_vyxmsz(v,y),os,1); os<<endl;}
+        for (int v=1;v<=nSrv;v++) {os<<tb<<"#"<<v<<endl; wts::print(q_vyxmsz(v,y),os,2); os<<endl;}
         os<<"#n_xmsz (pop state at start of year to be projected):"<<endl; wts::print(n_yxmsz(y+1),os,1); os<<endl;
     } else {
         os<<"#--OpMod state for projecting year "<<ptrOMI->mxYr+1<<"--"<<endl;
@@ -8064,14 +8254,17 @@ FUNCTION void writeStateForOpMod(int y,ostream& os)
         os<<ptrOMI->mxYr+1<<tb<<"#year for projection"       <<endl;
         os<<ptrOMI->dtF<<tb<<"#dtF"<<endl;
         os<<ptrOMI->dtM<<tb<<"#dtM"<<endl;
+        os<<endl;
         os<<"#wAtZ_xmz:"<<endl; wts::print(ptrOMI->wAtZ_xmz,os,1); os<<endl; 
-        os<<"#R_y:"<<endl<<ptrOMI->R_y(mnYr,mxYr)<<tb<<prjR<<endl;
+        os<<"#R_y:"<<endl<<ptrOMI->R_y<<tb<<prjR<<endl;
         os<<"#R_x:"<<endl<<ptrOMI->R_x<<endl;
         os<<"#R_z:"<<endl<<ptrOMI->R_z<<endl;
+        os<<endl;
         os<<"#M_xmsz:"   <<endl; wts::print(ptrOMI->M_xmsz,   os,1); os<<endl;
         os<<"#prGr_xszz:"<<endl; wts::print(ptrOMI->prGr_xszz,os,1); os<<endl;
         os<<"#prM2M_xz:" <<endl; wts::print(ptrOMI->prM2M_xz, os,1); os<<endl;
         os<<"#hmF_f:"    <<endl<<ptrOMI->hmF_f<<endl;
+        os<<endl;
         os<<"#cpF_fxmsz:"<<endl; wts::print(ptrOMI->cpF_fxmsz,os,1); os<<endl;
         os<<"#ret_fxmsz:"<<endl; wts::print(ptrOMI->ret_fxmsz,os,1); os<<endl;
         os<<"#sel_fxmsz:"<<endl; wts::print(ptrOMI->sel_fxmsz,os,1); os<<endl;

@@ -857,11 +857,13 @@ void OFLResults::writeToR(ostream& os, ModelConfiguration* ptrMC, adstring name,
     adstring mDms = ptrMC->dimMSsToR;//maturity
     adstring sDms = ptrMC->dimSCsToR;//shell condition
     adstring zDms = ptrMC->dimZBsToR;//size bin midpoints
+    adstring fDms = "f=c('directed fishery',"+wts::to_qcsv(ptrMC->lblsFsh)+")";//fisheries
     os<<name<<"=list(OFL="<<OFL<<cc<<"Fofl="<<Fofl<<cc<<"prjB="<<prjB<<cc<<"curB="<<curB;
     os<<cc<<"Fmsy="<<Fmsy<<cc<<"Bmsy="<<Bmsy<<cc<<"MSY="<<MSY;
-    os<<cc<<"B100="<<B0<<cc<<"avgRecM="<<avgRec_x(MALE);
+    os<<cc<<"B100="<<B0<<cc<<"avgRec="<<sum(avgRec_x)<<cc<<"avgRecM="<<avgRec_x(MALE);
     if (tcsam::nSXs>1) os<<cc<<"avgRecF="<<avgRec_x(FEMALE);
     os<<cc<<endl;
+    os<<"ofl_fx="; wts::writeToR(os,value(ofl_fx),fDms,xDms); os<<cc<<endl;
     os<<"finlNatZ_xmsz="; wts::writeToR(os,finlNatZ_xmsz,xDms,mDms,sDms,zDms); os<<cc<<endl;
     pPDIM->writeToR(os,ptrMC,"popDyInfoM",0); os<<cc<<endl;
     if (tcsam::nSXs>1) {pPDIF->writeToR(os,ptrMC,"popDyInfoF",0); os<<cc<<endl;}

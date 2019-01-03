@@ -160,8 +160,8 @@ class CatchInfo {
         dvar4_array dmN_fmsz;//
         
     private:
-        dvar_vector totFM;//total fishing mortality
-        dvar3_array S_msz;//survival following fisheries
+        dvar_vector totFM_z;//total fishing mortality    (temporary for calculations)
+        dvar3_array S_msz;//survival following fisheries (temporary for calculations)
           
     public:
         /**
