@@ -17,6 +17,7 @@ MSE_OpModInfo::MSE_OpModInfo(ModelConfiguration* ptrMC){
     nZBs = ptrMC->nZBs;
     nFsh = ptrMC->nFsh;
     nSrv = ptrMC->nSrv;
+    this->ptrMC = ptrMC;
 }
 /**
  * Read from an input filestream in ADMB OpModMode format
@@ -117,36 +118,33 @@ void MSE_OpModInfo::write(ostream& os){
  * @param os - output filestream
  */
 void MSE_OpModInfo::writeToR(ostream& os){
-    os<<mnYr<<tb<<"#mnYr"<<endl; //start year
-    os<<mxYr<<tb<<"#mxYr"<<endl; //current year
-    os<<dtF<<tb<<"#dtF"<<endl;  //dtF
-    os<<dtM<<tb<<"#dtM"<<endl;  //dtM
-    os<<"#--wAtZ_xmz:"<<endl;
-    wts::print(wAtZ_xmz,os,0); 
-    os<<"#--R_y:"<<endl;
-    os<<R_y<<endl;
-    os<<"#--R_x:"<<endl;
-    os<<R_x<<endl;
-    os<<"#--R_z:"<<endl;
-    os<<R_z<<endl;
-    os<<"#--M_xmsz:"<<endl;
-    wts::print(M_xmsz,os,0);
-    os<<"#--prGr_xszz:"<<endl;
-    wts::print(prGr_xszz,os,0);
-    os<<"#--prM2M_xz:"<<endl;
-    wts::print(prM2M_xz,os,0);
-    os<<"#--hmF_f:"<<endl;
-    os<<hmF_f<<endl;
-    os<<"#--cpF_fxmsz:"<<endl;
-    wts::print(cpF_fxmsz,os,0);
-    os<<"#--ret_fxmsz:"<<endl;
-    wts::print(ret_fxmsz,os,0);
-    os<<"#--sel_fxmsz:"<<endl;
-    wts::print(sel_fxmsz,os,0);
-    os<<"#--q_vxmsz:"<<endl;
-    wts::print(q_vxmsz,os,0);
-    os<<"#--n_xmsz:"<<endl;
-    wts::print(n_xmsz,os,0);
+    adstring xDms  = ptrMC->dimSXsToR;
+    adstring mDms  = ptrMC->dimMSsToR;
+    adstring sDms  = ptrMC->dimSCsToR;
+    adstring zbDms = ptrMC->dimZBsToR;
+    adstring zpDms = ptrMC->dimZPsToR;
+    adstring fDms  = ptrMC->dimFshToR;
+    adstring vDms  = ptrMC->dimSrvToR;
+    
+    adstring yDms  = "y="+str(mnYr)+":"+str(mxYr-1);
+    
+    os<<"list("<<endl;
+    os<<"mnYr="<<mnYr<<cc<<"mxYr="<<mxYr<<cc<<endl;
+    os<<"dtFr="<<dtF<<cc<<"dtM="<<dtM<<cc<<endl;
+    os<<"wAtZ_xmz=";  wts::writeToR(os,wAtZ_xmz,xDms,mDms,zbDms);            os<<cc<<endl;
+    os<<"R_y=";       wts::writeToR(os,R_y,yDms);                            os<<cc<<endl;
+    os<<"R_x=";       wts::writeToR(os,R_x,xDms);                            os<<cc<<endl;
+    os<<"R_z=";       wts::writeToR(os,R_z,zbDms);                           os<<cc<<endl;
+    os<<"M_xmsz=";    wts::writeToR(os,M_xmsz,xDms,mDms,sDms,zbDms);         os<<cc<<endl;
+    os<<"prGr_xszz="; wts::writeToR(os,prGr_xszz,xDms,sDms,zbDms,zpDms);     os<<cc<<endl;
+    os<<"prM2M_xz=";  wts::writeToR(os,prM2M_xz,xDms,zbDms);                 os<<cc<<endl;
+    os<<"hmF_f=";     wts::writeToR(os,hmF_f,fDms);                          os<<cc<<endl;
+    os<<"cpF_fxmsz="; wts::writeToR(os,cpF_fxmsz,fDms,xDms,mDms,sDms,zbDms); os<<cc<<endl;
+    os<<"ret_fxmsz="; wts::writeToR(os,ret_fxmsz,fDms,xDms,mDms,sDms,zbDms); os<<cc<<endl;
+    os<<"sel_fxmsz="; wts::writeToR(os,sel_fxmsz,fDms,xDms,mDms,sDms,zbDms); os<<cc<<endl;
+    os<<"q_vxmsz=";   wts::writeToR(os,q_vxmsz,  vDms,xDms,mDms,sDms,zbDms); os<<cc<<endl;
+    os<<"n_xmsz=";    wts::writeToR(os,n_xmsz,xDms,mDms,sDms,zbDms);         os<<endl;
+    os<<")";
 }
 
 void MSE_OpModInfo::allocate(){

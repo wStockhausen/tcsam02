@@ -18,6 +18,7 @@ class MSE_OpModInfo {
 public:
     static int debug;
 public:
+    ModelConfiguration* ptrMC;
     int nSXs;
     int nMSs;
     int nSCs;
@@ -43,7 +44,7 @@ public:
     d4_array n_xmsz;
 public:
     MSE_OpModInfo(ModelConfiguration* ptrMC);
-    ~MSE_OpModInfo(){}
+    ~MSE_OpModInfo(){ptrMC=0;}
     /**
      * Read from an input filestream in ADMB OpModMode format
      * @param is - input filestream

@@ -482,14 +482,15 @@
 //-2018-12-03: 1. Corrected problems with OFL calculations associated with code changes to
 //                  incorporate MSE calculations. OFL results now agree (again) with results
 //                  from the 2018 assessment.
-//-2018-12-26: 1. Corrected some problems with writing the report file (missing commas, etc).
-//             2. Added ReportToR_OpModMode().
-//-2018-12-31: 1. Corrected some problems with ReportToR_OpModMode(). Needs to be fleshed out.
-//             2. Corrected how R_y is allocated in MSEClasses.cpp from mnYr,mxYr to mnYr,mxYr-1
+//-2018-12-26:  1. Corrected some problems with writing the report file (missing commas, etc).
+//              2. Added ReportToR_OpModMode().
+//-2018-12-31:  1. Corrected some problems with ReportToR_OpModMode(). Needs to be fleshed out.
+//              2. Corrected how R_y is allocated in MSEClasses.cpp from mnYr,mxYr to mnYr,mxYr-1
 //                  so that input file is read correctly.
-//-2019-01-03: 1. Resolved issues with OpMod files and input. In process, revised a lot of associated
+//-2019-01-03:  1. Resolved issues with OpMod files and input. In process, revised a lot of associated
 //                  variables and functions. NOTE: don't use "\t" in writing output that will be
 //                  read back in to ADMB--ADMB reads it as a bunch of zeros, not a tab character.
+//              2. Expanded ReportToR_OpModMode(); Removed sim data from ReportToR()
 //
 // =============================================================================
 // =============================================================================
@@ -2443,7 +2444,7 @@ FUNCTION void projectPopForTAC(dvariable& mseCapF, int debug, ostream& cout)
     
     if (debug>=dbgPopDy){
         cout<<"#--projected population with directed fishery F = "<<mseCapF<<endl;
-        cout<<"#----total catch mortality (biomass) = "<<sum(prjDscCatchMortBio_fx)+sum(prjDscCatchMortBio_fx)<<endl;
+        cout<<"#----total catch mortality (biomass) = "<<sum(prjTotCatchMortBio_fx)<<endl;
         cout<<"#----retained catch mortality (biomass): "<<endl<<prjRetCatchMortBio_fx<<endl;
         cout<<"#----discards catch mortality (biomass): "<<endl<<prjDscCatchMortBio_fx<<endl;
     }
@@ -7595,9 +7596,9 @@ FUNCTION void ReportToR(ostream& os, double maxGrad, int debug, ostream& cout)
         os<<tb<<"#end of modelfits"<<endl;
         
         //simulated model data
-        createSimData(debug, cout, 0, ptrSimMDS);//deterministic
-        ptrSimMDS->writeToR(os,"sim.data",0); os<<","<<endl;
-        os<<tb<<"#end of sim.data"<<endl;
+//        createSimData(debug, cout, 0, ptrSimMDS);//deterministic
+//        ptrSimMDS->writeToR(os,"sim.data",0); os<<","<<endl;
+//        os<<tb<<"#end of sim.data"<<endl;
         
         //cohort projections
         ReportToR_CohortProgression(os,debug,cout);
@@ -7645,26 +7646,26 @@ FUNCTION void ReportToR_OpModMode(ostream& os, double maxGrad, int debug, ostrea
         os<<tb<<"#end of mc"<<endl;
         
         //parameter values
-        ReportToR_Params(os,debug,cout); os<<endl;
+        ReportToR_Params(os,debug,cout); os<<cc<<endl;
         os<<tb<<"#end of params"<<endl;
         
-//        //model processes
-//        ReportToR_ModelProcesses(os,debug,cout); os<<","<<endl;
-//        os<<tb<<"#end of modelprocesses"<<endl;
-//        
-//        //model results
-//        ReportToR_ModelResults(os,debug,cout); os<<","<<endl;
-//        os<<tb<<"#end of modelresults"<<endl;
-//
-//        //model fit quantities
-//        ReportToR_ModelFits(os,maxGrad,debug,cout); os<<","<<endl;
-//        os<<tb<<"#end of modelfits"<<endl;
-//        
-//        //cohort projections
-//        ReportToR_CohortProgression(os,debug,cout);
-//        os<<tb<<"#end of cohortprogression"<<endl;
+        //OpMod info
+        os<<"info="; ptrOMI->writeToR(os); os<<cc<<endl;
+        os<<tb<<"#end of OpMod info"<<endl;
         
-    os<<")"<<endl;
+        os<<"results=list("<<endl;
+        os<<"inpTAC="<<inpTAC<<cc<<"inpOFL="<<inpOFL<<cc<<endl;
+        os<<"capF="<<mfexp(pMSE_LnC[1])<<cc;
+        os<<"retCatchMort="<<sum(prjRetCatchMortBio_fx)<<cc;
+        os<<"totCatchMort="<<sum(prjTotCatchMortBio_fx)<<cc;
+        os<<"n_xmsz="; wts::writeToR(os,prj_n_xmsz,
+                                     ptrMC->dimSXsToR,
+                                     ptrMC->dimMSsToR,
+                                     ptrMC->dimSCsToR,
+                                     ptrMC->dimZBsToR); os<<endl;
+        os<<")"<<endl<<"#end of om results"<<endl;
+        os<<")"<<endl<<"#end of OpMod report"<<endl;
+        
     if (debug) cout<<"Finished ReportToR_OpModMode(...)"<<endl;
 
 //----------------------------------------------------------------------
