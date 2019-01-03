@@ -284,6 +284,10 @@ class EffXtrapScenarios{
         
         /** options for MSEs*/
         adstring_array optsMSE;
+        /** min year for recruitment statistics for OpMod */
+        int opModRecStatsMinYr;
+        /** max year for recruitment statistics for OpMod */
+        int opModRecStatsMaxYr;
         /** harvest control rule to use */
         int HCR; 
         /** min year for averaging in HCR 1*/

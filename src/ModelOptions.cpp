@@ -246,7 +246,7 @@ void EffXtrapScenarios::writeToR(std::ostream& os){
 //          ModelOptions
 //--------------------------------------------------------------------------------
 int ModelOptions::debug = 0;
-const adstring ModelOptions::VERSION = "2018.11.07";
+const adstring ModelOptions::VERSION = "2019.01.03";
 
 ModelOptions::ModelOptions(ModelConfiguration& mc){
     ptrMC=&mc;
@@ -450,6 +450,8 @@ void ModelOptions::read(cifstream & is) {
     
     //MSE-related options
     cout<<"#MSE-related options"<<endl;
+    is>>opModRecStatsMinYr;
+    is>>opModRecStatsMaxYr;
     is>>HCR;
     cout<<HCR<<tb<<"#harvest control rule scenario"<<endl;
     int tst = 1;
@@ -607,6 +609,28 @@ void ModelOptions::write(ostream & os) {
     os<<"#---------------------"<<endl<<endl;
     
     //MSE-related options
+    os<<"#----MSE-related options"<<endl;
+    os<<"#------Time period for recruitment projection statistics"<<endl;
+    os<<"#min, max year for statistics"<<endl;
+    os<<opModRecStatsMinYr<<tb<<opModRecStatsMaxYr<<endl;
+    
+    os<<"#------Harvest Control Rule"<<endl;
+    os<<"# 1 - HCR1: "<<endl;
+    os<<"# 2 - HCR2: "<<endl;
+    os<<"# 3 - HCR3: "<<endl;
+    os<<"# 4 - HCR4: "<<endl;
+    os<<"# 5 - HCR5: "<<endl;
+    os<<"# 6 - HCR6: "<<endl;
+    os<<HCR<<tb<<"#selected harvest control rule scenario"<<endl;
+    os<<"#---------HCR-specific options (uncomment for selected HCR)"<<endl;
+    if (HCR==1){
+        os<<"#--options for HCR1"<<endl;
+        os<<HCR1_avgMinYr<<tb<<HCR1_avgMaxYr<<tb<<"#min, max years for female biomass averaging"<<endl;
+    } else if (HCR==2){
+        os<<"#--options for HCR2"<<endl;
+        os<<"#Ramp ID: 1, 2 or 3"<<endl;
+        os<<HCR2_rampID<<tb<<tb<<"#ramp id"<<endl;
+    }
     
     if (debug) cout<<"#end ModelOptions::write(ostream)"<<endl;
 }

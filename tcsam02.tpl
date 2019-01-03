@@ -490,7 +490,9 @@
 //-2019-01-03:  1. Resolved issues with OpMod files and input. In process, revised a lot of associated
 //                  variables and functions. NOTE: don't use "\t" in writing output that will be
 //                  read back in to ADMB--ADMB reads it as a bunch of zeros, not a tab character.
-//              2. Expanded ReportToR_OpModMode(); Removed sim data from ReportToR()
+//              2. Expanded ReportToR_OpModMode(); Removed sim data from ReportToR().
+//              3. Expanded ModelOptions to include min/max years for OpMod recruitment statistics.
+//                  ModelOptions version now 2019.01.03.
 //
 // =============================================================================
 // =============================================================================
@@ -1473,6 +1475,9 @@ DATA_SECTION
     !!ctrProcCallsInPhase = 0;
     
     //MSE-related variables
+    number opModMnLnR;
+    number opModSdLnR;
+    number opModDevLnR;
     number prjR;
     number inpOFL; //OFL for upcoming year
     number inpTAC; //TAC for upcoming year
@@ -2067,14 +2072,16 @@ PRELIMINARY_CALCS_SECTION
          if (mseOpModMode){
 //-----------PRELIMINARY_CALCS: MSE OpMod RUNS ONLY-----------------------------
             PRINT2B1("PRELIMINARY_CALCS: MSE OpModMode")
-            dvector vLnR_y = log(ptrOMI->R_y(1982,mxYr));
+            dvector vLnR_y = log(ptrOMI->R_y(ptrMOs->opModRecStatsMinYr,ptrMOs->opModRecStatsMaxYr));
             cout<<"vLnR_y = "<<vLnR_y<<endl;
-            double mn = mean(vLnR_y);
-            double sd = sqrt(wts::variance(vLnR_y));
-            prjR = mfexp(wts::drawSampleNormal(rng, mn, sd));
-            PRINT2B2("mean recruitment: ",mn);
-            PRINT2B2("stdv recruitment: ",sd);
-            PRINT2B2("expected total recruitment: ",mfexp(mn+square(sd)/2.0));
+            opModMnLnR = mean(vLnR_y);
+            opModSdLnR = sqrt(wts::variance(vLnR_y));
+            opModDevLnR = wts::drawSampleNormal(rng, 0.0, opModSdLnR);
+            prjR = mfexp(opModMnLnR+opModDevLnR);
+            PRINT2B2("mean recruitment: ",opModMnLnR);
+            PRINT2B2("stdv recruitment: ",opModSdLnR);
+            PRINT2B2("recruitment dev : ",opModDevLnR);
+            PRINT2B2("expected total recruitment: ",mfexp(opModMnLnR+square(opModSdLnR)/2.0));
             PRINT2B2("projected total recruitment: ",prjR);
             //create population projection objects
             PRINT2B1("#--MSE OpMod: creating population projection objects")
@@ -7643,27 +7650,31 @@ FUNCTION void ReportToR_OpModMode(ostream& os, double maxGrad, int debug, ostrea
         os<<"objFun="<<value(objFun)<<cc<<"maxGrad="<<maxGrad<<cc<<endl;
         //model configuration
         ptrMC->writeToR(os,"mc",0); os<<","<<endl;
-        os<<tb<<"#end of mc"<<endl;
+        os<<tb<<"#--end of mc"<<endl;
         
         //parameter values
         ReportToR_Params(os,debug,cout); os<<cc<<endl;
-        os<<tb<<"#end of params"<<endl;
+        os<<tb<<"#--end of params"<<endl;
         
         //OpMod info
         os<<"info="; ptrOMI->writeToR(os); os<<cc<<endl;
-        os<<tb<<"#end of OpMod info"<<endl;
+        os<<tb<<"#--end of OpMod info"<<endl;
         
         os<<"results=list("<<endl;
         os<<"inpTAC="<<inpTAC<<cc<<"inpOFL="<<inpOFL<<cc<<endl;
         os<<"capF="<<mfexp(pMSE_LnC[1])<<cc;
         os<<"retCatchMort="<<sum(prjRetCatchMortBio_fx)<<cc;
-        os<<"totCatchMort="<<sum(prjTotCatchMortBio_fx)<<cc;
+        os<<"totCatchMort="<<sum(prjTotCatchMortBio_fx)<<cc<<endl;
+        os<<"recStats=list("<<endl;
+        os<<"minYr="<<ptrMOs->opModRecStatsMinYr<<cc<<"maxYr="<<ptrMOs->opModRecStatsMaxYr<<cc<<endl;
+        os<<"mnLnR="<<opModMnLnR<<cc<<"sdLnR="<<opModSdLnR<<cc<<"devLnR="<<opModDevLnR<<cc<<endl;
+        os<<"prjR="<<prjR<<")"<<cc<<endl;
         os<<"n_xmsz="; wts::writeToR(os,prj_n_xmsz,
                                      ptrMC->dimSXsToR,
                                      ptrMC->dimMSsToR,
                                      ptrMC->dimSCsToR,
                                      ptrMC->dimZBsToR); os<<endl;
-        os<<")"<<endl<<"#end of om results"<<endl;
+        os<<")"<<endl<<tb<<"#--end of om results"<<endl;
         os<<")"<<endl<<"#end of OpMod report"<<endl;
         
     if (debug) cout<<"Finished ReportToR_OpModMode(...)"<<endl;
