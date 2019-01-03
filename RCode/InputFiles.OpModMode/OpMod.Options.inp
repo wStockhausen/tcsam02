@@ -1,7 +1,7 @@
 ###############################################
 #TCSAM02 2017AM (201709 B2b) options
 ###############################################
-2018.11.07   # Model Options version
+2019.01.03   # Model Options version
 
 #----Initial Numbers-At-Size Options
 #0 - build up n-at-z from recruitments (like TCSAM2013)
@@ -114,6 +114,9 @@
 5    # maximum number of iterations
 
 #----MSE options
+#------Time period for recruitment projection statistics
+#min, max year for statistics
+1982 2017
 #------Harvest Control Rule
 # 1 - HCR1: 
 # 2 - HCR2: 
@@ -127,7 +130,7 @@ HCR1
 #min, max years for averaging
 1982 2017 #2017 last year for "real" recruitment
 #--
-HCR2
-Ramp ID: 1, 2 or 3
-1  #Ramp ID
+#HCR2
+#Ramp ID: 1, 2 or 3
+#1  #Ramp ID
 
