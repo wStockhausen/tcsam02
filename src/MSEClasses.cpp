@@ -28,7 +28,19 @@ void MSE_OpModInfo::read(cifstream& is){
     is>>mxYr; //current year
     is>>dtF;  //dtF
     is>>dtM;  //dtM
-    allocate();
+    
+    is>>nTACs;
+    dmatrix tmp(1,nTACs,1,3);
+    is>>tmp;
+    
+    allocate();//allocate arrays
+    
+    for (int y=1;y<=nTACs;y++){
+        yrsTAC(y) = (int) tmp(y,1);
+        TAC_y(y) = tmp(y,2);
+        OFL_y(y) = tmp(y,3);
+    }
+    
     for (int x=1;x<=nSXs;x++)
         for (int m=1;m<=nMSs;m++)
             is>>wAtZ_xmz(x,m); 
@@ -92,6 +104,14 @@ void MSE_OpModInfo::write(ostream& os){
     os<<dtM<<tb<<"#dtM"<<endl;  //dtM
     os<<endl;
     
+    os<<nTACs<<tb<<"#number of TAC/OFL years"<<endl;
+    if (nTACs>0){
+        os<<"#year   TAC   OFL"<<endl;
+        for (int y=1;y<=nTACs;y++){
+            os<<yrsTAC(y)<<tb<<TAC_y(y)<<tb<<OFL_y(y)<<endl;
+        }
+    }
+    
     os<<"#wAtZ_xmz:"<<endl; wts::print(wAtZ_xmz,os,0); os<<endl;
     
     os<<"#R_y:"<<endl; os<<R_y<<endl;
@@ -128,9 +148,16 @@ void MSE_OpModInfo::writeToR(ostream& os){
     
     adstring yDms  = "y="+str(mnYr)+":"+str(mxYr-1);
     
+    adstring tacDims = "y=";
+    if (nTACs>0) tacDims = tacDims+str(yrsTAC(1))+":"+str(yrsTAC(nTACs));
+    
     os<<"list("<<endl;
     os<<"mnYr="<<mnYr<<cc<<"mxYr="<<mxYr<<cc<<endl;
-    os<<"dtFr="<<dtF<<cc<<"dtM="<<dtM<<cc<<endl;
+    os<<"dtF="<<dtF<<cc<<"dtM="<<dtM<<cc<<endl;
+    if (nTACs>0){
+        os<<"TAC_y=";     wts::writeToR(os,TAC_y,tacDims);                       os<<cc<<endl;
+        os<<"OFL_y=";     wts::writeToR(os,OFL_y,tacDims);                       os<<cc<<endl;
+    }
     os<<"wAtZ_xmz=";  wts::writeToR(os,wAtZ_xmz,xDms,mDms,zbDms);            os<<cc<<endl;
     os<<"R_y=";       wts::writeToR(os,R_y,yDms);                            os<<cc<<endl;
     os<<"R_x=";       wts::writeToR(os,R_x,xDms);                            os<<cc<<endl;
@@ -148,6 +175,11 @@ void MSE_OpModInfo::writeToR(ostream& os){
 }
 
 void MSE_OpModInfo::allocate(){
+    if (nTACs>0){
+        yrsTAC.allocate(1,nTACs);
+        TAC_y.allocate(1,nTACs);
+        OFL_y.allocate(1,nTACs);
+    }
     wAtZ_xmz.allocate(1,nSXs,1,nMSs,1,nZBs);
     R_y.allocate(mnYr,mxYr-1);
     R_x.allocate(1,nSXs);
@@ -161,4 +193,29 @@ void MSE_OpModInfo::allocate(){
     sel_fxmsz.allocate(1,nFsh,1,nSXs,1,nMSs,1,nSCs,1,nZBs);
     q_vxmsz.allocate(1,nSrv,1,nSXs,1,nMSs,1,nSCs,1,nZBs);
     n_xmsz.allocate(1,nSXs,1,nMSs,1,nSCs,1,nZBs);
+}
+
+void MSE_OpModInfo::addOneYear(double prjRec, double newTAC, double newOFL){
+    dvector oldR_y    = R_y;
+    ivector oldYrsTAC = yrsTAC;
+    dvector oldTAC_y  = TAC_y;
+    dvector oldOFL_y  = OFL_y;
+    mxYr = mxYr+1;
+    R_y.deallocate();
+    R_y.allocate(mnYr,mxYr-1);
+    R_y(mnYr,mxYr-2) = oldR_y;
+    R_y(mxYr-1) = prjRec;
+    nTACs = nTACs+1;
+    yrsTAC.deallocate();
+    TAC_y.deallocate();
+    OFL_y.deallocate();
+    yrsTAC.allocate(1,nTACs);
+    TAC_y.allocate(1,nTACs);
+    OFL_y.allocate(1,nTACs);
+    yrsTAC(1,nTACs-1) = oldYrsTAC;
+    TAC_y(1,nTACs-1) = oldTAC_y;
+    OFL_y(1,nTACs-1) = oldOFL_y;
+    yrsTAC(nTACs) = oldYrsTAC(nTACs)+1;
+    TAC_y(nTACs) = newTAC;
+    OFL_y(nTACs) = newOFL;
 }

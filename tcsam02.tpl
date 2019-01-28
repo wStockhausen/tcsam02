@@ -493,6 +493,9 @@
 //              2. Expanded ReportToR_OpModMode(); Removed sim data from ReportToR().
 //              3. Expanded ModelOptions to include min/max years for OpMod recruitment statistics.
 //                  ModelOptions version now 2019.01.03.
+//-2019-01-28:  1. Expanded MSE_OpModInfo to include time series of recruitment, TACs, and OFLs
+//                  and write them to R in the "results" list written by ReportToR_OpModMode()
+//                  to facilitate further analysis of model results.
 //
 // =============================================================================
 // =============================================================================
@@ -7576,6 +7579,7 @@ FUNCTION void ReportToR(ostream& os, double maxGrad, int debug, ostream& cout)
     updateMPI(debug,cout);
         
     os<<"res=list("<<endl;
+        os<<"mode='estModMode'"<<cc<<endl;
         if (jitter) os<<"jitter="<<iSeed<<cc<<endl;
         os<<"objFun="<<value(objFun)<<cc<<"maxGrad="<<maxGrad<<cc<<endl;
         //model configuration
@@ -7647,7 +7651,7 @@ FUNCTION void ReportToR_OpModMode(ostream& os, double maxGrad, int debug, ostrea
     updateMPI(debug,cout);
         
     os<<"res=list("<<endl;
-        os<<"objFun="<<value(objFun)<<cc<<"maxGrad="<<maxGrad<<cc<<endl;
+        os<<"mode='opModMode'"<<cc<<"objFun="<<value(objFun)<<cc<<"maxGrad="<<maxGrad<<cc<<endl;
         //model configuration
         ptrMC->writeToR(os,"mc",0); os<<","<<endl;
         os<<tb<<"#--end of mc"<<endl;
@@ -7660,21 +7664,47 @@ FUNCTION void ReportToR_OpModMode(ostream& os, double maxGrad, int debug, ostrea
         os<<"info="; ptrOMI->writeToR(os); os<<cc<<endl;
         os<<tb<<"#--end of OpMod info"<<endl;
         
+        //OpMod results
         os<<"results=list("<<endl;
-        os<<"inpTAC="<<inpTAC<<cc<<"inpOFL="<<inpOFL<<cc<<endl;
-        os<<"capF="<<mfexp(pMSE_LnC[1])<<cc;
-        os<<"retCatchMort="<<sum(prjRetCatchMortBio_fx)<<cc;
-        os<<"totCatchMort="<<sum(prjTotCatchMortBio_fx)<<cc<<endl;
-        os<<"recStats=list("<<endl;
-        os<<"minYr="<<ptrMOs->opModRecStatsMinYr<<cc<<"maxYr="<<ptrMOs->opModRecStatsMaxYr<<cc<<endl;
-        os<<"mnLnR="<<opModMnLnR<<cc<<"sdLnR="<<opModSdLnR<<cc<<"devLnR="<<opModDevLnR<<cc<<endl;
-        os<<"prjR="<<prjR<<")"<<cc<<endl;
-        os<<"n_xmsz="; wts::writeToR(os,prj_n_xmsz,
-                                     ptrMC->dimSXsToR,
-                                     ptrMC->dimMSsToR,
-                                     ptrMC->dimSCsToR,
-                                     ptrMC->dimZBsToR); os<<endl;
-        os<<")"<<endl<<tb<<"#--end of om results"<<endl;
+            os<<"catchStats=list("<<endl;
+                os<<"inpTAC="<<inpTAC<<cc<<"inpOFL="<<inpOFL<<cc<<endl;
+        adstring tacDims = "y=";
+        if (ptrOMI->nTACs==0){
+            tacDims = tacDims+str(ptrOMI->mxYr)+":"+str(ptrOMI->mxYr);
+            dvector TAC_y(ptrOMI->mxYr,ptrOMI->mxYr);
+            dvector OFL_y(ptrOMI->mxYr,ptrOMI->mxYr);
+            TAC_y(ptrOMI->mxYr) = inpTAC;
+            OFL_y(ptrOMI->mxYr) = inpOFL;
+        } else {
+            tacDims = tacDims+str(ptrOMI->yrsTAC(1))+":"+str(ptrOMI->yrsTAC(ptrOMI->nTACs)+1);
+            dvector TAC_y(ptrOMI->TAC_y.indexmin(),ptrOMI->TAC_y.indexmax()+1);
+            dvector OFL_y(ptrOMI->OFL_y.indexmin(),ptrOMI->OFL_y.indexmax()+1);
+            TAC_y(ptrOMI->TAC_y.indexmin(),ptrOMI->TAC_y.indexmax()) = ptrOMI->TAC_y;
+            OFL_y(ptrOMI->OFL_y.indexmin(),ptrOMI->OFL_y.indexmax()) = ptrOMI->OFL_y;
+            TAC_y(ptrOMI->TAC_y.indexmax()+1) = inpTAC;
+            OFL_y(ptrOMI->OFL_y.indexmax()+1) = inpOFL;
+                os<<"TAC_y=";     wts::writeToR(os,TAC_y,tacDims); os<<cc<<endl;
+                os<<"OFL_y=";     wts::writeToR(os,OFL_y,tacDims); os<<cc<<endl;
+        }
+                os<<"capF="<<mfexp(pMSE_LnC[1])<<cc;
+                os<<"retCatchMort="<<sum(prjRetCatchMortBio_fx)<<cc;
+                os<<"totCatchMort="<<sum(prjTotCatchMortBio_fx)<<endl;
+            os<<")"<<cc<<endl;
+        adstring dimRecYrsToR = "y="+str(ptrOMI->R_y.indexmin())+":"+str(ptrOMI->R_y.indexmax()+1);
+        dvector dR_y(ptrOMI->R_y.indexmin(),ptrOMI->R_y.indexmax()+1);
+        dR_y(ptrOMI->R_y.indexmin(),ptrOMI->R_y.indexmax()) = ptrOMI->R_y;
+        dR_y(ptrOMI->R_y.indexmax()+1)                      = prjR;
+            os<<"recStats=list("<<endl;
+                os<<"minYr="<<ptrMOs->opModRecStatsMinYr<<cc<<"maxYr="<<ptrMOs->opModRecStatsMaxYr<<cc<<endl;
+                os<<"mnLnR="<<opModMnLnR<<cc<<"sdLnR="<<opModSdLnR<<cc<<"devLnR="<<opModDevLnR<<cc<<"prjR="<<prjR<<cc<<endl;
+                os<<"R_y="; wts::writeToR(os,dR_y,dimRecYrsToR); 
+            os<<")"<<cc<<endl;
+            os<<"n_xmsz="; wts::writeToR(os,prj_n_xmsz,
+                                         ptrMC->dimSXsToR,
+                                         ptrMC->dimMSsToR,
+                                         ptrMC->dimSCsToR,
+                                         ptrMC->dimZBsToR); os<<endl;
+            os<<")"<<endl<<tb<<"#--end of om results"<<endl;
         os<<")"<<endl<<"#end of OpMod report"<<endl;
         
     if (debug) cout<<"Finished ReportToR_OpModMode(...)"<<endl;
@@ -8242,6 +8272,8 @@ FUNCTION void writeStateForOpMod(int y,ostream& os)
         os<<dtF_y(y)<<tb<<"#dtF"<<endl;
         os<<dtM_y(y)<<tb<<"#dtM"<<endl;
         os<<endl;
+        os<<0<<tb<<"#number of years for TAC/OFLs"<<endl;
+        os<<endl;
         os<<"#wAtZ_xmz:"<<endl; wts::print(ptrMDS->ptrBio->wAtZ_xmz,os,1); os<<endl;
         os<<"#R_y:"<<endl<<R_y(mnYr,y)<<endl;
         os<<"#R_x:"<<endl<<R_yx(y)<<endl;
@@ -8266,6 +8298,12 @@ FUNCTION void writeStateForOpMod(int y,ostream& os)
         os<<ptrOMI->mxYr+1<<tb<<"#year for projection"       <<endl;
         os<<ptrOMI->dtF<<tb<<"#dtF"<<endl;
         os<<ptrOMI->dtM<<tb<<"#dtM"<<endl;
+        os<<endl;
+        os<<ptrOMI->nTACs+1<<tb<<"#number of years for TAC/OFLs"<<endl;
+        os<<"#year TAC  OFL"<<endl;
+        for (int y=1;y<=ptrOMI->nTACs;y++)
+            os<<ptrOMI->yrsTAC(y)<<tb<<ptrOMI->TAC_y(y)<<tb<<ptrOMI->OFL_y(y)<<endl;
+        os<<ptrOMI->mxYr<<tb<<inpTAC<<tb<<inpOFL<<endl;
         os<<endl;
         os<<"#wAtZ_xmz:"<<endl; wts::print(ptrOMI->wAtZ_xmz,os,1); os<<endl; 
         os<<"#R_y:"<<endl<<ptrOMI->R_y<<tb<<prjR<<endl;
@@ -8518,46 +8556,44 @@ FINAL_SECTION
                 PRINT2B1("#----Finished OFL calculations")
             }
             
-            //do TAC calculations
+            //do TAC calculations (doTAC = HCR number)
             PRINT2B2("#----doTAC = ",doTAC)
-            int closed = 0;
             if (doTAC>0) {
                 PRINT2B1("#----Starting TAC calculations")
-                closed = calcTAC(doTAC, value(ptrOFLResults->OFL));
+                int closed = calcTAC(doTAC, value(ptrOFLResults->OFL));
                 PRINT2B1("#----Finished TAC calculations")
-            }
                 
-            //write state for operating model
-            {
-                PRINT2B1("#----Writing OpMod state file")
-                adstring nwF = "OpModStateFile_"+str(mxYr+1)+".txt";
-                //nwF = wts::concatenateFilePaths(parent,nwF);
-                ofstream ofs; ofs.open(nwF,ios::trunc);
-                writeStateForOpMod(mxYr,ofs);
-                ofs.close();
-                PRINT2B1("#----Finished writing OpMod state file")
-            }
+                //write state for operating model
+                {
+                    PRINT2B1("#----Writing OpMod state file")
+                    adstring nwF = "OpModStateFile_"+str(mxYr+1)+".txt";
+                    //nwF = wts::concatenateFilePaths(parent,nwF);
+                    ofstream ofs; ofs.open(nwF,ios::trunc);
+                    writeStateForOpMod(mxYr,ofs);
+                    ofs.close();
+                    PRINT2B1("#----Finished writing OpMod state file")
+                }
             
-            //write MPI for EstMod for upcoming year
-            //----devs for upcoming year are zero
-            {
-                ptrMPI->addNextYearToInfo(closed);
-                ptrMPI->setToWriteVectorInitialValues(false);
-                adstring nwF = "EstMod.ParametersInfo."+str(mxYr+1)+".inp";
-                ofstream ofs; ofs.open(nwF, ios::trunc);
-                ptrMPI->write(ofs);
-                ofs.close();
-            }
+                //write MPI for EstMod for upcoming year
+                //----devs for upcoming year are zero
+                {
+                    ptrMPI->addNextYearToInfo(closed);
+                    ptrMPI->setToWriteVectorInitialValues(false);
+                    adstring nwF = "EstMod.ParametersInfo."+str(mxYr+1)+".inp";
+                    ofstream ofs; ofs.open(nwF, ios::trunc);
+                    ptrMPI->write(ofs);
+                    ofs.close();
+                }
 
-            //--write pin for EstMod for upcoming year
-            {
-                adstring nwF = "EstModPinFile_"+str(mxYr+1)+".txt";
-                ofstream ofs; ofs.open(nwF, ios::trunc);
-                ptrMPI->writePin(ofs);
-                ofs.close();
-            }
-                
-        }
+                //--write pin for EstMod for upcoming year
+                {
+                    adstring nwF = "EstModPinFile_"+str(mxYr+1)+".txt";
+                    ofstream ofs; ofs.open(nwF, ios::trunc);
+                    ptrMPI->writePin(ofs);
+                    ofs.close();
+                }
+            }//doTAC>0
+        }//!mcevalOn
     } else if (mseEstModMode){
         //running in estModMode
         PRINT2B1("#----MSE EstModMode: Recalculating population dynamics")
