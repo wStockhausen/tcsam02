@@ -496,6 +496,7 @@
 //-2019-01-28:  1. Expanded MSE_OpModInfo to include time series of recruitment, TACs, and OFLs
 //                  and write them to R in the "results" list written by ReportToR_OpModMode()
 //                  to facilitate further analysis of model results.
+//-2019-01-30:  1. Added boiler plate to calculate inputs for Tanner crab MSE HCR 6.
 //
 // =============================================================================
 // =============================================================================
@@ -8344,6 +8345,24 @@ FUNCTION int calcTAC(int hcr, double OFL)
         double aveMFB = mean(vspB_xy(FEMALE)(ptrMOs->HCR1_avgMinYr,ptrMOs->HCR1_avgMaxYr));
         TAC = HarvestStrategies::HCR1_FemaleRamp(MFB, aveMFB, MMB);
         info = "#--HCR1: MFB = "+str(MFB)+cc+"aveMFB = "+str(aveMFB)+cc+"ratio = "+str(MFB/aveMFB)+cc+"TAC = "+str(TAC);
+    }
+    if (hcr==6){
+        double Fmsy        = value(ptrOFLResults->Fmsy);
+        d3_array selF_msz  = value(ptrOFLResults->pCIM->selF_fmsz(1));
+        d3_array M_msz     = value(ptrOFLResults->pPDIM->M_msz);
+        d3_array n_msz     = value(this->n_vyxmsz(1,mxYr,MALE));
+        dmatrix w_mz       = value(ptrMDS->ptrBio->wAtZ_xmz(MALE));
+        dvector cpB_z(20,32); cpB_z.initialize();
+        for (int m=1;m<=nMSs;m++){
+            for (int s=1;s<=nMSs;s++){
+                cpB_z += elem_prod(selF_msz(m,s)(20,32),
+                                   elem_prod(exp(-M_msz(m,s)(20,32)),
+                                             elem_prod(n_msz(m,s)(20,32),w_mz(m)(20,32))
+                                            )
+                                   )*(1-exp(-Fmsy));       
+            }
+        }
+        double CWmsy = sum(cpB_z);
     }
     if (TAC>0.0) closed=0;
 
