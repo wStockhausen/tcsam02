@@ -35,6 +35,7 @@ const adstring SelFcns::STR_ASCLOGISTIC95LN50  ="asclogistic95ln50";
 const adstring SelFcns::STR_ASCNORMAL          ="ascnormal";
 const adstring SelFcns::STR_DBLNORMAL4         ="dblnormal4";
 const adstring SelFcns::STR_DBLNORMAL6         ="dblnormal6";
+const adstring SelFcns::STR_CONSTANT           ="constant";
 const adstring SelFcns::STR_NONPARAMETRIC      ="nonparametric";
 
 //--------------------------------------------------------------------------------
@@ -76,6 +77,7 @@ int SelFcns::getSelFcnID(adstring str){
     if (str==STR_ASCNORMAL)           return ID_ASCNORMAL;
     if (str==STR_DBLNORMAL4)          return ID_DBLNORMAL4;
     if (str==STR_DBLNORMAL6)          return ID_DBLNORMAL6;
+    if (str==STR_CONSTANT)            return ID_CONSTANT;
     if (str==STR_NONPARAMETRIC)       return ID_NONPARAMETRIC;
     cout<<"Error in SelFcns::getSelFcnID(adstring str)"<<endl;
     cout<<"Function name '"<<str<<"' not a valid selectivity function name."<<endl;
@@ -139,6 +141,9 @@ adstring SelFcns::getSelFcnID(int id){
         case ID_DBLNORMAL6: 
             if (debug) cout<<"SelFcn = "<<STR_DBLNORMAL6<<endl;
             return STR_DBLNORMAL6;
+        case ID_CONSTANT: 
+            if (debug) cout<<"SelFcn = "<<STR_CONSTANT<<endl;
+            return STR_CONSTANT;
         case ID_NONPARAMETRIC: 
             if (debug) cout<<"SelFcn = "<<STR_NONPARAMETRIC<<endl;
             return STR_NONPARAMETRIC;
@@ -165,7 +170,7 @@ adstring SelFcns::getSelFcnID(int id){
  * 
  * @return - selectivity function values as dvar_vector
  */
-dvar_vector SelFcns::calcSelFcn(int id,dvector& z, dvar_vector& params, double fsZ){
+dvar_vector SelFcns::calcSelFcn(int id, dvector& z, dvar_vector& params, double fsZ){
     RETURN_ARRAYS_INCREMENT();
     if (debug) cout<<"Starting SelFcns::calcSelFcns(...) id: "<<id<<endl;
     dvar_vector s(z.indexmin(),z.indexmax());
@@ -186,6 +191,7 @@ dvar_vector SelFcns::calcSelFcn(int id,dvector& z, dvar_vector& params, double f
         case ID_ASCNORMAL:           {s=ascnormal(z,params,fsZ);           break;}
         case ID_DBLNORMAL4:          {s=dblnormal4(z,params,fsZ);          break;}
         case ID_DBLNORMAL6:          {s=dblnormal6(z,params,fsZ);          break;}
+        case ID_CONSTANT:            {s=constant(z);                       break;}
         case ID_NONPARAMETRIC:       {s=nonparametric(z,params,fsZ);       break;}
         default:
         {
@@ -752,6 +758,23 @@ dvar_vector SelFcns::dblnormal6(dvector& z, dvar_vector& params, double fsZ){
     RETURN_ARRAYS_DECREMENT();
     return s;
 }
+
+/**
+ * Calculates "constant" selectivity function (=1 at all sizes)
+ * Inputs:
+ * @param z      - dvector of sizes at which to compute function values
+ * 
+ * @return - selectivity function values as dvar_vector
+ */
+dvar_vector SelFcns::constant(dvector& z){
+    RETURN_ARRAYS_INCREMENT();
+    if (debug) cout<<"Starting SelFcns::constant(...)"<<endl;
+    dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
+    s = 1.0;
+    if (debug) cout<<"Finished SelFcns::constant(...)"<<endl;
+    RETURN_ARRAYS_DECREMENT();
+    return s;
+}       
 
 /**
  * Calculates "nonparametric" selectivity function with smoothness imposed

@@ -29,7 +29,7 @@ int FisheriesInfo::debug        = 0;
 int SurveysInfo::debug          = 0;
 int MSE_Info::debug             = 0;
 int ModelParametersInfo::debug  = 0;
-const adstring ModelParametersInfo::version = "2018.10.29";
+const adstring ModelParametersInfo::version = "2019.02.13";
     
 /*----------------------------------------------------------------------------*/
 /**
@@ -2017,7 +2017,7 @@ void FisheriesInfo::writeToR(std::ostream & os){
 *----------------------------------------------------------------------------*/
 const adstring SurveysInfo::NAME = "surveys";
 const int SurveysInfo::nIVs=5;//number of index variables
-const int SurveysInfo::nPVs=5;//number of parameter variables
+const int SurveysInfo::nPVs=6;//number of parameter variables
 const int SurveysInfo::nXIs=2;//number of "extra" variables
 const int SurveysInfo::idxAvlFcn = SurveysInfo::nIVs+SurveysInfo::nPVs+1;
 const int SurveysInfo::idxSelFcn = SurveysInfo::nIVs+SurveysInfo::nPVs+2;
@@ -2048,12 +2048,14 @@ SurveysInfo::SurveysInfo(){
     lblPVs(k) = "pDQ2"; dscPVs(k++) = "offset 2 for ln-scale catchability";
     lblPVs(k) = "pDQ3"; dscPVs(k++) = "offset 3 for ln-scale catchability";
     lblPVs(k) = "pDQ4"; dscPVs(k++) = "offset 4 for ln-scale catchability";
+    lblPVs(k) = "pA";   dscPVs(k++) = "max availability";
     k=1;
     pQ   = new BoundedNumberVectorInfo(lblPVs(k++));
     pDQ1 = new BoundedNumberVectorInfo(lblPVs(k++));
     pDQ2 = new BoundedNumberVectorInfo(lblPVs(k++));
     pDQ3 = new BoundedNumberVectorInfo(lblPVs(k++));
     pDQ4 = new BoundedNumberVectorInfo(lblPVs(k++));
+    pA   = new BoundedNumberVectorInfo(lblPVs(k++));
     
     ParameterGroupInfo::nXIs=SurveysInfo::nXIs;
     lblXIs.allocate(1,nXIs);
@@ -2069,6 +2071,7 @@ SurveysInfo::~SurveysInfo(){
     if (pDQ2) delete pDQ2; pDQ2 =0;
     if (pDQ3) delete pDQ3; pDQ3 =0;
     if (pDQ4) delete pDQ4; pDQ4 =0;
+    if (pA)   delete pA;   pA =0;
 }
 
 imatrix SurveysInfo::addNextYear1(int closed){
@@ -2130,6 +2133,8 @@ void SurveysInfo::read(cifstream & is){
             rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDQ3)<<endl;  k++;
             pDQ4 = ParameterGroupInfo::read(is,lblPVs(k),pDQ4); 
             rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDQ4)<<endl;  k++;
+            pA = ParameterGroupInfo::read(is,lblPVs(k),pA);    
+            rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pA)<<endl;  k++;
         } else {
             cout<<"Error reading SurveysInfo from "<<is.get_file_name()<<endl;
             cout<<"Expected keyword 'PARAMETERS' but got '"<<str<<"'."<<endl;
@@ -2175,6 +2180,8 @@ void SurveysInfo::write(std::ostream & os){
         os<<(*pDQ3)<<endl;
         os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
         os<<(*pDQ4)<<endl;
+        os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
+        os<<(*pA)<<endl;
     }//nPCs>0
  }
 
@@ -2185,6 +2192,7 @@ void SurveysInfo::writeToPin(std::ostream & os){
     pDQ2->writeToPin(os);
     pDQ3->writeToPin(os);
     pDQ4->writeToPin(os);
+    pA->writeToPin(os);
  }
 
 void SurveysInfo::writeToR(std::ostream & os){
@@ -2197,7 +2205,8 @@ void SurveysInfo::writeToR(std::ostream & os){
             pDQ1->writeToR(os,"pDQ1",indent++); os<<cc<<endl;
             pDQ2->writeToR(os,"pDQ2",indent++); os<<cc<<endl;
             pDQ3->writeToR(os,"pDQ3",indent++); os<<cc<<endl;
-            pDQ4->writeToR(os,"pDQ4",indent++); os<<endl;
+            pDQ4->writeToR(os,"pDQ4",indent++); os<<cc<<endl;
+            pA  ->writeToR(os,"pA",indent++);   os<<endl;
         }
     os<<")";
 }

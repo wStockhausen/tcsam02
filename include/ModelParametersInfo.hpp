@@ -817,6 +817,8 @@ class SurveysInfo : public ParameterGroupInfo {
         BoundedNumberVectorInfo* pDQ3;
         /** ln-scale offset 4 */
         BoundedNumberVectorInfo* pDQ4;
+        /** max availability parameter */
+        BoundedNumberVectorInfo* pA;
         
         SurveysInfo();
         ~SurveysInfo();

@@ -220,6 +220,9 @@ class EffXtrapScenarios{
         /** selected option for growth pdf */
         int optGrowthPDF;   
         
+        /** max extent of size bins for growth probabilities */
+        int maxGrowthZBEx;
+        
         /** min pre-molt size to apply penalty to prevent negative growth increments */
         double minGrowthCW;
         /** max pre-molt size to apply penalty to prevent negative growth increments */
