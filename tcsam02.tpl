@@ -524,6 +524,8 @@
 //                  nonparametric selectivity functions.
 //              2. Corrected some problems with reporting penalties on NPSel functions
 //                  to R.
+//              3. Fixed "debug" setting in calcCohortProgression call in 
+//                  reportToR_CohortProgression.
 //
 // =============================================================================
 // =============================================================================
@@ -7540,7 +7542,7 @@ FUNCTION void ReportToR_ModelResults(ostream& os, int debug, ostream& cout)
 // */
 FUNCTION void ReportToR_CohortProgression(ostream& os, int nzp, int includeM, int includeF, int xtra, int debug, ostream& cout)
     if (debug) cout<<"Starting ReportToR_CohortProgression(...)"<<endl;
-    d5_array n_yxmsz = calcCohortProgression(mxYr,nzp,includeM,includeF,1,cout);
+    d5_array n_yxmsz = calcCohortProgression(mxYr,nzp,includeM,includeF,debug,cout);
     int ny = n_yxmsz.indexmax();
     if (xtra){
         dmatrix  prM2M_xz  = value(prM2M_yxz(mxYr));
