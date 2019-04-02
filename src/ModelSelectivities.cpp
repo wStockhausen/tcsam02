@@ -789,10 +789,13 @@ dvar_vector SelFcns::constant(dvector& z){
 dvar_vector SelFcns::nonparametric(dvector& z, dvar_vector& params, int idZ){
     RETURN_ARRAYS_INCREMENT();
     if (debug) cout<<"Starting SelFcns::nonparametric(...)"<<endl;
-    dvariable n; n.initialize();
+    if (debug) cout<<"iz_min, iz_max = "<<z.indexmin()<<cc<<z.indexmax()<<endl;
+    if (debug) cout<<"ip_min, ip_max = "<<params.indexmin()<<cc<<params.indexmax()<<endl;
     dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
-    s = 1.0/(1.0+mfexp(-params));//unnormalized
+    s(params.indexmin(),params.indexmax()) = 1.0/(1.0+mfexp(-params));//unnormalized
     if (idZ>0) s *= (1.0+mfexp(-params[idZ]));//normalized to 1
+    if (params.indexmin()>z.indexmin()) s(z.indexmin(),params.indexmin()-1) = 0.0;//set lower to 0
+    if (params.indexmax()<z.indexmax()) s(params.indexmax()+1,z.indexmax()) = 1.0;//set upper to 1
     if (debug) cout<<"Finished SelFcns::nonparametric(...)"<<endl;
     RETURN_ARRAYS_DECREMENT();
     return s;

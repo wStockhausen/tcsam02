@@ -520,6 +520,10 @@
 //-2019-02-21:  1. Added model option maxGrowthZBEx to be able to change the extent
 //                  that immature crab can grow (had been hard-wired at 11).
 //              2. Incremented VERSION in ModelOptions to "2019.02.21".
+//-2019-04-02:  1. Corrected some problems associated with indexing in the 
+//                  nonparametric selectivity functions.
+//              2. Corrected some problems with reporting penalties on NPSel functions
+//                  to R.
 //
 // =============================================================================
 // =============================================================================
@@ -1961,13 +1965,13 @@ PRELIMINARY_CALCS_SECTION
             calcGrowth(dbgLevel,rpt::echo);
 
             PRINT2B1("testing calcPrM2M():")
-            calcPrM2M(dbgCalcProcs+1,rpt::echo);
+            calcPrM2M(dbgLevel,rpt::echo);
 
             PRINT2B1("testing calcSelectivities():")
             calcSelectivities(dbgLevel,rpt::echo);
 
             PRINT2B1("testing calcFisheryFs():")
-            calcFisheryFs(dbgCalcProcs+1,rpt::echo);
+            calcFisheryFs(dbgLevel,rpt::echo);
 
             PRINT2B1("testing calcSurveyQs():")
             calcSurveyQs(dbgLevel,cout);
@@ -2245,7 +2249,7 @@ PROCEDURE_SECTION
     if (mseOpModMode){
         dvariable mseCapF = mfexp(pMSE_LnC[1]);//multiplier on capture rate in directed fishery
         projectPopForTAC(mseCapF,0,cout);
-        calcObjFunForTAC(1000,cout);
+        calcObjFunForTAC(dbg,cout);
     } else {
         if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
         calcObjFun(dbg,rpt::echo);
@@ -3615,9 +3619,13 @@ FUNCTION void calcSelectivities(int debug, ostream& cout)
         } else if (idSel==SelFcns::ID_NONPARAMETRIC){
             //calculate nonparametric selectivity function
             int pcNP = pids[ptrSel->nIVs+ptrSel->nPVs];
+            if (debug>dbgCalcProcs) cout<<tb<<"pcNP = "<<pcNP<<endl;
             dvar_vector nonParParams = pvNPSel(pcNP);
+            if (debug>dbgCalcProcs) cout<<tb<<"nonParParams = "<<pvNPSel(pcNP)<<endl;
             int idZ = (int) fsZ;
+            if (debug>dbgCalcProcs) cout<<tb<<"idZ = "<<idZ<<endl;
             npSel_cz(pcNP) = SelFcns::calcSelFcn(idSel, zBs, nonParParams, idZ);
+            if (debug>dbgCalcProcs) cout<<tb<<"npSel_cz(pcNP) = "<<npSel_cz(pcNP)<<endl;
             sel_cz(pc)     = npSel_cz(pcNP);
             if (debug>dbgCalcProcs) cout<<tb<<"pcNP = "<<pcNP<<tb<<"pc = "<<pc<<tb<<"sel_cz: "<<sel_cz(pc)<<endl;
             //loop over model indices as defined in the index blocks
@@ -4614,6 +4622,7 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     if (debug<0) cout<<"list("<<endl;//start list of penalties by category
 
     //growth-related penalties
+    if (debug>dbgObjFun) cout<<"calculating growth-related penalties"<<endl;
     if (debug<0) cout<<tb<<"growth=list(negativeGrowth=list("<<endl;//start of growth penalties list
     GrowthInfo* ptrGrw = ptrMPI->ptrGrw;
     //calculate growth parameters on arithmetic scale
@@ -4697,13 +4706,15 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
             cout<<tb<<tb<<tb<<"'"<<pc<<"'=list(wgt="<<ptrMOs->wgtNegGrowth<<cc<<"pen="<<pen<<cc<<"objfun="<<ptrMOs->wgtNegGrowth*pen<<")"<<endl;
         }
     }
-    if (debug<0) cout<<tb<<tb<<"))"<<cc<<endl;//end of growth penalties list
+    if (debug<0) cout<<tb<<tb<<"))"<<cc<<"#end of growth-related penalties"<<endl;//end of growth penalties list
     
     //maturity-related penalties
+    if (debug>dbgObjFun) cout<<"calculating maturity-related penalties"<<endl;
     if (debug<0) cout<<tb<<"maturity=list("<<endl;//start of maturity penalties list
     //smoothness penalties
     dvector penWgtSmthLgtPrMat = ptrMOs->wgtPenSmthPrM2M;
     if (ptrMOs->optPenSmthPrM2M==0){
+        if (debug>dbgObjFun) cout<<"--calculating smoothness penalties on parameters"<<endl;
         //smoothness penalties on maturity PARAMETERS (NOT maturity ogives)
         fPenSmoothLgtPrMat.initialize();
         if (debug<0) cout<<tb<<tb<<"smoothness=list(";//start of smoothness penalties list
@@ -4720,9 +4731,10 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
             objFun += penWgtSmthLgtPrMat(i)*fPenSmoothLgtPrMat(i);
             if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrMat(i)<<cc<<"pen="<<fPenSmoothLgtPrMat(i)<<cc<<"objfun="<<penWgtSmthLgtPrMat(i)*fPenSmoothLgtPrMat(i)<<")"<<endl;
         }
-        if (debug<0) cout<<tb<<tb<<")"<<cc<<endl;//end of smoothness penalties list
+        if (debug<0) cout<<tb<<tb<<")"<<cc<<"#end of smoothness penalties"<<endl;//end of smoothness penalties list
     } else if (ptrMOs->optPenSmthPrM2M==1){
         //smoothness penalties on maturity OGIVES (NOT maturity parameters)
+        if (debug>dbgObjFun) cout<<"calculating smoothness penalties on ogives"<<endl;
         fPenSmoothLgtPrMat.initialize();
         if (debug<0) cout<<tb<<tb<<"smoothness=list(";//start of smoothness penalties list
         for (int i=1;i<ptrMPI->ptrM2M->nPCs;i++){
@@ -4738,7 +4750,7 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
             objFun += penWgtSmthLgtPrMat(i)*fPenSmoothLgtPrMat(i);
             if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrMat(i)<<cc<<"pen="<<fPenSmoothLgtPrMat(i)<<cc<<"objfun="<<penWgtSmthLgtPrMat(i)*fPenSmoothLgtPrMat(i)<<")"<<endl;
         }
-        if (debug<0) cout<<tb<<tb<<")"<<cc<<endl;//end of smoothness penalties list
+        if (debug<0) cout<<tb<<tb<<")"<<cc<<"#end of smoothness penalties"<<endl;//end of smoothness penalties list
     }
     //penalties for decreasing maturity parameters/ogives
     dvector penWgtNonDecLgtPrMat = ptrMOs->wgtPenNonDecPrM2M;
@@ -4792,18 +4804,18 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
         objFun += penWgtNonDecLgtPrMat(i)*fPenNonDecLgtPrMat(i);
         if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtNonDecLgtPrMat(i)<<cc<<"pen="<<fPenNonDecLgtPrMat(i)<<cc<<"objfun="<<penWgtNonDecLgtPrMat(i)*fPenNonDecLgtPrMat(i)<<")";
     }
-    if (debug<0) cout<<tb<<tb<<")"<<endl;//end of non-decreasing penalties list    
-    if (debug<0) cout<<tb<<"),";//end of maturity penalties list
+    if (debug<0) cout<<tb<<tb<<") "<<"#end of non-decreasing penalties"<<endl;//end of non-decreasing penalties list    
+    if (debug<0) cout<<tb<<")"<<cc<<"#end of maturity penalties"<<endl;//end of maturity penalties list
     
     //penalties on nonparametric selectivity functions
     if (debug<0) cout<<tb<<"nonParSelFcns=list("<<endl;//start of nonparametric selectivity function penalties list
     //smoothness penalties
     fPenSmoothNPSel.initialize();
     if (ptrMPI->ptrSel->pvNPSel->getSize()>0){
+        if (debug<0) cout<<tb<<tb<<"smoothness=list(";//start of smoothness penalties list
         dvector penWgtSmthNPSel = ptrMOs->wgtPenSmthNPSel;
         if (ptrMOs->optPenSmthNPSel==0){
             //smoothness penalties on selectivity PARAMETERS (NOT selectivity functions)
-            if (debug<0) cout<<tb<<tb<<"smoothness=list(";//start of smoothness penalties list
             for (int i=1;i<npNPSel;i++){
                 dvar_vector v = 1.0*pvNPSel(i);
                 fPenSmoothNPSel(i) = 0.5*norm2(calc2ndDiffs(v));
@@ -4817,28 +4829,28 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
                 objFun += penWgtSmthNPSel(i)*fPenSmoothNPSel(i);
                 if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthNPSel(i)<<cc<<"pen="<<fPenSmoothNPSel(i)<<cc<<"objfun="<<penWgtSmthNPSel(i)*fPenSmoothNPSel(i)<<")"<<endl;
             }
-            if (debug<0) cout<<tb<<tb<<")"<<cc<<endl;//end of smoothness penalties list
         } else if (ptrMOs->optPenSmthNPSel==1){
             //smoothness penalties on nonparametric selectivity curves (NOT parameter vectors)
             fPenSmoothNPSel.initialize();
-            if (debug<0) cout<<tb<<tb<<"smoothness=list(";//start of smoothness penalties list
             for (int i=ptrMOs->wgtPenSmthNPSel.indexmin();i<ptrMOs->wgtPenSmthNPSel.indexmax();i++){
-                dvar_vector v = 1.0*npSel_cz(i);
-                fPenSmoothNPSel(i) = 0.5*norm2(calc2ndDiffs(v));
+                dvar_vector v = 1.0*pvNPSel(i);
+                dvar_vector s = 1.0*npSel_cz(i)(v.indexmin(),v.indexmax());//only want to smooth over estimated part of sel function
+                fPenSmoothNPSel(i) = 0.5*norm2(calc2ndDiffs(s));
                 objFun += penWgtSmthNPSel(i)*fPenSmoothNPSel(i);
                 if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthNPSel(i)<<cc<<"pen="<<fPenSmoothNPSel(i)<<cc<<"objfun="<<penWgtSmthNPSel(i)*fPenSmoothNPSel(i)<<"),"<<endl;
             }
             {
                 int i = ptrMOs->wgtPenSmthNPSel.indexmax();
-                dvar_vector v = 1.0*npSel_cz(i);
-                fPenSmoothNPSel(i) = 0.5*norm2(calc2ndDiffs(v));
+                dvar_vector v = 1.0*pvNPSel(i);
+                dvar_vector s = 1.0*npSel_cz(i)(v.indexmin(),v.indexmax());
+                fPenSmoothNPSel(i) = 0.5*norm2(calc2ndDiffs(s));
                 objFun += penWgtSmthNPSel(i)*fPenSmoothNPSel(i);
                 if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthNPSel(i)<<cc<<"pen="<<fPenSmoothNPSel(i)<<cc<<"objfun="<<penWgtSmthNPSel(i)*fPenSmoothNPSel(i)<<")"<<endl;
             }
         }
-        if (debug<0) cout<<tb<<tb<<")"<<cc<<endl;//end of smoothness penalties list
+        if (debug<0) cout<<tb<<tb<<") "<<"#end of smoothness penalties"<<endl;//end of smoothness penalties list
     }
-    if (debug<0) cout<<tb<<"),";//end of nonparametric selectivity penalties list
+    if (debug<0) cout<<tb<<")"<<cc<<"#end of nonparameteric selectivities penalties"<<endl;//end of nonparametric selectivity penalties list
     
     //penalties on sums of dev vectors to enforce sum-to-zero
     double penWgt = 0.0;
