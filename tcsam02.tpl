@@ -526,6 +526,7 @@
 //                  to R.
 //              3. Fixed "debug" setting in calcCohortProgression call in 
 //                  reportToR_CohortProgression.
+//-2019-06-17:  1. Added MaturityOgiveData (as opposed to ChelaHeightData) datasets 
 //
 // =============================================================================
 // =============================================================================
@@ -1223,6 +1224,28 @@ DATA_SECTION
          ptrMDS->ppCHD[v-1]->calcSizeBinIndices(ptrMC->zCutPts);
      }
      PRINT2B2("chela height datasets map to model surveys: ",mapD2MChd)
+    }
+ END_CALCS
+ 
+    //Match up model surveys with maturity ogive datasets
+    //Assign size bin indices to observations
+    ivector mapD2MMOd(1,ptrMDS->nMOD);
+ LOCAL_CALCS
+    {
+     int idx;
+     for (int v=1;v<=ptrMDS->nMOD;v++){
+         idx = wts::which(ptrMDS->ppMOD[v-1]->survey,ptrMC->lblsSrv);
+         if (idx<1){
+             cout<<"\n\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"<<endl;
+             cout<<"Error specifying survey names and labels in MO data file and config file."<<endl;
+             cout<<"Incorrect survey name in CH data file is '"<<ptrMDS->ppMOD[v-1]<<"'"<<endl;
+             cout<<"Please fix names in files!!"<<endl;
+             exit(-1);
+         }
+         mapD2MMOd(v)   = idx;//map from maturity ogive dataset object v to model survey index
+         ptrMDS->ppMOD[v-1]->calcSizeBinRemapper(ptrMC->zCutPts);
+     }
+     PRINT2B2("maturity ogive datasets map to model surveys: ",mapD2MMOd)
     }
  END_CALCS
  
@@ -5102,10 +5125,11 @@ FUNCTION void calcObjFun(int debug, ostream& cout)
     calcNLLs_ExtrapolatedEffort(debug,cout); objFunV[k++] = value(objFun);
     
     //data components
-    calcNLLs_Fisheries(debug,cout);       objFunV[k++] = value(objFun);
-    calcNLLs_Surveys(debug,cout);         objFunV[k++] = value(objFun);
-    calcNLLs_GrowthData(debug,cout);      objFunV[k++] = value(objFun);
-    calcNLLs_ChelaHeightData(debug,cout); objFunV[k++] = value(objFun);
+    calcNLLs_Fisheries(debug,cout);         objFunV[k++] = value(objFun);
+    calcNLLs_Surveys(debug,cout);           objFunV[k++] = value(objFun);
+    calcNLLs_GrowthData(debug,cout);        objFunV[k++] = value(objFun);
+    calcNLLs_ChelaHeightData(debug,cout);   objFunV[k++] = value(objFun);
+    calcNLLs_MaturityOgiveData(debug,cout); objFunV[k++] = value(objFun);
     if ((debug>=dbgObjFun)||(debug<0)){
         PRINT2B2("proc call          = ",ctrProcCalls)
         PRINT2B2("proc call in phase = ",ctrProcCallsInPhase)
@@ -5114,14 +5138,116 @@ FUNCTION void calcObjFun(int debug, ostream& cout)
         PRINT2B2("after calcAllPriors.  objFun =",objFunV[2])
         PRINT2B2("after calcNLLs_Recruitment.        objFun =",objFunV[3])
         PRINT2B2("after calcNLLs_ExtrapolatedEffort. objFun =",objFunV[4])
-        PRINT2B2("after calcNLLs_Fisheries.       objFun =",objFunV[5])
-        PRINT2B2("after calcNLLs_Surveys.         objFun =",objFunV[6])
-        PRINT2B2("after calcNLLs_GrowthData.      objFun =",objFunV[7])
-        PRINT2B2("after calcNLLs_ChelaHeightData. objFun =",objFunV[8])    
+        PRINT2B2("after calcNLLs_Fisheries.          objFun =",objFunV[5])
+        PRINT2B2("after calcNLLs_Surveys.            objFun =",objFunV[6])
+        PRINT2B2("after calcNLLs_GrowthData.         objFun =",objFunV[7])
+        PRINT2B2("after calcNLLs_ChelaHeightData.    objFun =",objFunV[8])    
+        PRINT2B2("after calcNLLs_MaturityOgiveData.  objFun =",objFunV[9])    
         PRINT2B1("----Finished calcObjFun()")
     }
     
 //******************************************************************************
+//* Function: void calcNLLs_MaturityOgiveData
+//* 
+//* Description: Calculates NLLs for maturity ogive data
+//* 
+//* Inputs:
+//*  debug - flag to print debugging info 
+//* Returns:
+//*  void
+//* Alters:
+//*  objFun
+//******************************************************************************
+FUNCTION void calcNLLs_MaturityOgiveData(int debug, ostream& cout)  
+    //debug = dbgObjFun+1;
+    if(debug>dbgObjFun) cout<<"Starting calcNLLs_MaturityOgiveData()"<<endl;
+    
+    if (debug<0) cout<<"list("<<endl;
+    for (int i=0;i<ptrMDS->nMOD;i++){
+        MaturityOgiveData* pMOD = ptrMDS->ppMOD[i];
+        if ((pMOD->llWgt>0.0)||(debug<0)){
+            if (debug<0) cout<<"`"<<pMOD->name<<"`=list("<<endl;
+            const int nObs = pMOD->nObs;
+            if (debug>dbgObjFun) cout<<"nObs= "<<nObs<<tb;
+            if (nObs>0) {
+                /* index of model survey corresponding to dataset */
+                int v = mapD2MMOd(i+1);//
+                if (debug>dbgObjFun) cout<<"v= "<<v<<tb<<"survey: "<<ptrMC->lblsSrv[v]<<endl;
+                /* sex corresponding to this dataset */
+                const int SEX = pMOD->sex;
+                /* likelihood multiplier for this dataset */
+                const double wgt = pMOD->llWgt;
+                /* year corresponding to observed fractions */
+                const ivector y_n = pMOD->obsYear_n;
+               /* observation size bin corresponding to observation */
+                const ivector obsZ_n = pMOD->obsSize_n;
+               /* observation size bin index for size corresponding to observation */
+                const ivector obsIZ_n = pMOD->obsZBI_n;
+                /* sample sizes for observed fractions */
+                const dvector ss_n = pMOD->obsSS_n;
+                /* observed fractions of new shell mature crab at size */
+                const dvector obsPM_n = pMOD->obsPrMat_n;
+                
+                /* calculate model-predicted ratios by year for 
+                 * all observed size bins */
+                int mny = n_vyxmsz(v).indexmin();
+                int mxy = n_vyxmsz(v).indexmax();
+                dvar_matrix modPrMat_yzp(mny,mxy,1,pMOD->nZBs); modPrMat_yzp.initialize();
+                dvar_vector vmMat_z(1,nZBs);
+                dvar_vector vmTot_z(1,nZBs);
+                for (int y=mny;y<=mxy;y++){
+                    vmMat_z  = n_vyxmsz(v,y,SEX,MATURE,NEW_SHELL);
+                    vmTot_z  = vmMat_z + n_vyxmsz(v,y,SEX,IMMATURE,NEW_SHELL);
+                    modPrMat_yzp(y) = elem_div(pMOD->zbRemapper*vmMat_z,
+                                               pMOD->zbRemapper*vmTot_z+1.0e-10);//small value added
+                    if (debug>dbgObjFun) cout<<y<<tb<<modPrMat_yzp(y)<<endl;
+                }
+                    
+                //compare model predictions with observations
+                dvar_vector modPM_n(1,nObs);  modPM_n.initialize();
+                dvar_vector nlls_n(1,nObs);   nlls_n.initialize();
+                dvector zscrs_n(1,nObs);      zscrs_n.initialize();
+                if (debug>dbgObjFun) cout<<"n"<<tb<<"y"<<tb<<"z"<<tb<<"iz"<<tb<<"ss"<<tb<<"obsPM"<<tb<<"modPM"<<tb<<"nll"<<tb<<"zscr"<<endl;
+                for (int n=1;n<=nObs;n++){
+                    if (debug>dbgObjFun) cout<<n<<tb<<y_n(n)<<tb<<obsZ_n(n)<<tb<<obsIZ_n(n)<<tb<<ss_n(n)<<tb<<obsPM_n(n)<<tb;
+//                    if ((obsIZ(n)>0)&(obsIZ(n)<=nZBs)){
+//                        if (debug>dbgObjFun) cout<<y_n(n)<<tb;
+                        modPM_n(n) = modPrMat_yzp(y_n(n),obsIZ_n(n));
+                        if (debug>dbgObjFun) cout<<modPM_n(n)<<tb;
+                        if ((modPM_n(n)>0.0)&(modPM_n(n)<1.0)){
+                            if (obsPM_n(n)>0.0) nlls_n(n) -= ss_n(n)*obsPM_n(n)*(log(modPM_n(n))-log(obsPM_n(n)));
+                            if (obsPM_n(n)<1.0) nlls_n(n) -= ss_n(n)*(1.0-obsPM_n(n))*(log(1.0-modPM_n(n))-log(1.0-obsPM_n(n)));
+                            if (debug>dbgObjFun) cout<<nlls_n(n)<<tb;
+                            double modPMv = value(modPM_n(n));
+                            zscrs_n(n) = (obsPM_n(n)-modPMv)/sqrt(modPMv*(1.0-modPMv)/ss_n(n));
+                            if (debug>dbgObjFun) cout<<zscrs_n(n)<<endl;
+                        }
+//                    }
+                }//loop over n
+                dvariable nll = sum(nlls_n);
+                objFun += wgt*nll;
+                if (debug>dbgObjFun) cout<<tb<<"sum(nlls) = "<<nll<<endl;
+                if (debug<0) {
+                    cout<<"fleet="<<qt<<ptrMC->lblsSrv[v]<<qt<<cc;
+                    cout<<"sex="<<qt<<tcsam::getSexType(SEX)<<qt<<cc<<"type='binomial'"<<cc
+                            <<"wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl;
+                    cout<<"y=";     wts::writeToR(cout,y_n);             cout<<cc<<endl;
+                    cout<<"n=";     wts::writeToR(cout,ss_n);            cout<<cc<<endl;
+                    cout<<"z=";     wts::writeToR(cout,obsZ_n);          cout<<cc<<endl;
+                    cout<<"i=";     wts::writeToR(cout,obsIZ_n);         cout<<cc<<endl;
+                    cout<<"obsPM="; wts::writeToR(cout,obsPM_n);         cout<<cc<<endl;
+                    cout<<"modPM="; wts::writeToR(cout,value(modPM_n));  cout<<cc<<endl;
+                    cout<<"nlls=";  wts::writeToR(cout,value(nlls_n));   cout<<cc<<endl;
+                    cout<<"zscrs="; wts::writeToR(cout,zscrs_n);         cout<<cc<<endl;
+                    cout<<"rmse="<<sqrt(norm2(zscrs_n)/zscrs_n.size())<<"),"<<endl;
+                }
+            }//nObs>0
+        }//((pMOD->llWgt>0)||(debug<0))
+    }//datasets (i)
+    if (debug<0) cout<<"NULL)"<<endl;
+    if (debug>dbgObjFun) cout<<"finished calcNLLs_MaturityOgiveData()"<<endl;
+
+///******************************************************************************
 //* Function: void calcNLLs_ChelaHeightData
 //* 
 //* Description: Calculates NLLs for chela height data
@@ -5182,7 +5308,9 @@ FUNCTION void calcNLLs_ChelaHeightData(int debug, ostream& cout)
                 dvariable nll = sum(nlls_n);
                 objFun += wgt*nll;
                 if (debug<0) {
-                    cout<<"type='binomial',wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl;
+                    cout<<"fleet="<<qt<<ptrMC->lblsSrv[v]<<qt<<cc;
+                    cout<<"sex="<<qt<<"MALE"<<qt<<cc<<"type='binomial'"<<cc
+                            <<"wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl;
                     cout<<"y=";     wts::writeToR(cout,y_n);             cout<<cc<<endl;
                     cout<<"n=";     wts::writeToR(cout,ss_n);            cout<<cc<<endl;
                     cout<<"z=";     wts::writeToR(cout,pCHD->obsSize_n); cout<<cc<<endl;
@@ -7587,8 +7715,10 @@ FUNCTION void ReportToR_ModelFits(ostream& os, double maxGrad, int debug, ostrea
         os<<tb<<"#end of surveys"<<endl;
         os<<tb<<"growthdata="; calcNLLs_GrowthData(-1,os);         os<<cc<<endl;
         os<<tb<<"#end of growthdata"<<endl;
-        os<<tb<<"maturitydata="; calcNLLs_ChelaHeightData(-1,os);  os<<cc<<endl;
-        os<<tb<<"#end of maturitydata"<<endl;
+        os<<tb<<"chelaheightdata="; calcNLLs_ChelaHeightData(-1,os);  os<<cc<<endl;
+        os<<tb<<"#end of chelaheightdata"<<endl;
+        os<<tb<<"maturityogivedata="; calcNLLs_MaturityOgiveData(-1,os);  os<<cc<<endl;
+        os<<tb<<"#end of maturityogivedata"<<endl;
         os<<tb<<"effortdata="; calcNLLs_ExtrapolatedEffort(-1,os); os<<endl;
         os<<tb<<"#end of effortdata"<<endl;
     os<<")";

@@ -1189,6 +1189,7 @@ ModelDatasets::ModelDatasets(ModelConfiguration* ptrMC){
     ppSrv=0;
     ppGrw=0;
     ppCHD=0;
+    ppMOD=0;
 }
 /**
  * Class destructor. Cleans up various pointers.
@@ -1211,6 +1212,10 @@ ModelDatasets::~ModelDatasets(){
     if (ppCHD) {
         for (int s=0;s<nCHD;s++) delete ppCHD[s];
         delete ppCHD; ppCHD = 0;
+    } 
+    if (ppMOD) {
+        for (int s=0;s<nMOD;s++) delete ppMOD[s];
+        delete ppMOD; ppMOD = 0;
     } 
 }
 /**
@@ -1251,7 +1256,7 @@ void ModelDatasets::read(cifstream & is){
         }
     }
     is>>nGrw;
-    rpt::echo<<nGrw<<tb<<"#number of survey datasets to read in"<<std::endl;
+    rpt::echo<<nGrw<<tb<<"#number of growth datasets to read in"<<std::endl;
     if (nGrw){
         fnsGrowthData.allocate(1,nGrw);
         is>>fnsGrowthData; 
@@ -1261,13 +1266,23 @@ void ModelDatasets::read(cifstream & is){
         }
     }
     is>>nCHD;
-    rpt::echo<<nCHD<<tb<<"#number of survey datasets to read in"<<std::endl;
+    rpt::echo<<nCHD<<tb<<"#number of chela height datasets to read in"<<std::endl;
     if (nCHD){
         fnsChelaHeightData.allocate(1,nCHD);
         is>>fnsChelaHeightData; 
         for (int i=1;i<=nCHD;i++) {
             fnsChelaHeightData[i] = wts::concatenateFilePaths(parent,fnsChelaHeightData[i]);
-            rpt::echo<<fnsChelaHeightData[i]<<tb<<"#survey dataset "<<i<<std::endl;
+            rpt::echo<<fnsChelaHeightData[i]<<tb<<"#chela height dataset "<<i<<std::endl;
+        }
+    }
+    is>>nMOD;
+    rpt::echo<<nMOD<<tb<<"#number of maturity ogive datasets to read in"<<std::endl;
+    if (nMOD){
+        fnsMaturityOgiveData.allocate(1,nMOD);
+        is>>fnsMaturityOgiveData; 
+        for (int i=1;i<=nMOD;i++) {
+            fnsMaturityOgiveData[i] = wts::concatenateFilePaths(parent,fnsMaturityOgiveData[i]);
+            rpt::echo<<fnsMaturityOgiveData[i]<<tb<<"#maturity ogive dataset "<<i<<std::endl;
         }
     }
     
@@ -1323,6 +1338,17 @@ void ModelDatasets::read(cifstream & is){
             strm>>(*ppCHD[i]);
         }
     }
+    //          Maturity Ogive Data
+    if (nMOD) {
+        rpt::echo<<"#-------Maturity Ogive Datasets---------"<<std::endl;
+        ppMOD = new MaturityOgiveData*[nMOD];
+        for (int i=0;i<nMOD;i++) {
+            ppMOD[i] = new MaturityOgiveData();
+            cifstream strm(fnsMaturityOgiveData(i+1),ios::in);
+            rpt::echo<<std::endl<<"#----------Maturity Ogive Data "<<i+1<<"-----"<<std::endl;
+            strm>>(*ppMOD[i]);
+        }
+    }
 }
 /**
  * Write ModelDatasets info to output text file in ADMB format.
@@ -1354,29 +1380,9 @@ void ModelDatasets::write(ostream & os){
     os<<"#-------chela height data files---------"<<std::endl;
     os<<nCHD<<tb<<"#number of chela height data files"<<std::endl;
     for (int i=1;i<=nCHD;i++) os<<fnsChelaHeightData[i]<<tb<<"#chela height dataset "<<i<<std::endl;
-//    
-//    os<<"#-----biological data---------"<<std::endl;
-//    os<<(*ptrBio)<<std::endl;
-//    os<<"#-------fishery data ---------"<<std::endl;
-//    if (nFsh){
-//        for (int i=1;i<nFsh;i++) os<<"#----fishery dataset "<<i<<std::endl<<(*ppFsh[i-1])<<std::endl;
-//        os<<"#----fishery dataset "<<nFsh<<std::endl<<(*ppFsh[nFsh-1])<<std::endl;
-//    }
-//    os<<"#-------survey data ---------"<<std::endl;
-//    if (nSrv){
-//        for (int i=1;i<nSrv;i++) os<<"#----survey dataset "<<i<<std::endl<<(*ppSrv[i-1])<<std::endl;
-//        os<<"#----survey dataset "<<nSrv<<std::endl<<(*ppSrv[nSrv-1]);
-//    }
-//    os<<"#-------growth data ---------"<<std::endl;
-//    if (nGrw){
-//        for (int i=1;i<nGrw;i++) os<<"#----growth dataset "<<i<<std::endl<<(*ppGrw[i-1])<<std::endl;
-//        os<<"#----growth dataset "<<nGrw<<std::endl<<(*ppGrw[nGrw-1]);
-//    }
-//    os<<"#-------chela height data ---------"<<std::endl;
-//    if (nCHD){
-//        for (int i=1;i<nCHD;i++) os<<"#----chela height dataset "<<i<<std::endl<<(*ppCHD[i-1])<<std::endl;
-//        os<<"#----chela height dataset "<<nCHD<<std::endl<<(*ppCHD[nCHD-1]);
-//    }
+    os<<"#-------maturity ogive data files---------"<<std::endl;
+    os<<nMOD<<tb<<"#number of maturity ogive data files"<<std::endl;
+    for (int i=1;i<=nMOD;i++) os<<fnsMaturityOgiveData[i]<<tb<<"#maturity ogive dataset "<<i<<std::endl;
    if (debug) std::cout<<"end ModelDatasets::write(...) "<<this<<std::endl;
 }
 /**
@@ -1422,6 +1428,23 @@ void ModelDatasets::writeToR(ostream& os, std::string nm, int indent) {
                 }
                 chdNm = "chelaheight_"+str(nCHD);
                 ppCHD[nCHD-1]->writeToR(os,(char*)chdNm,indent); os<<std::endl;
+            }
+        indent--;
+        for (int n=0;n<indent;n++) os<<tb;
+        os<<"),"<<std::endl;            
+        
+        //maturity ogive data
+        adstring modNm;
+        for (int n=0;n<indent;n++) os<<tb;
+        os<<"maturityogives=list("<<std::endl;
+        indent++;
+            if (ppMOD) {
+                for (int i=0;i<(nCHD-1);i++) {
+                    chdNm = "maturityogives_"+str(i+1);
+                    ppMOD[i]->writeToR(os,(char*)chdNm,indent); os<<cc<<std::endl;
+                }
+                chdNm = "chelaheight_"+str(nCHD);
+                ppMOD[nMOD-1]->writeToR(os,(char*)modNm,indent); os<<std::endl;
             }
         indent--;
         for (int n=0;n<indent;n++) os<<tb;

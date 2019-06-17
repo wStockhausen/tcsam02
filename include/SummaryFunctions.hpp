@@ -260,6 +260,16 @@ namespace tcsam {
      * @return extracted vector (indices consistent with z's)
      */
     dvector extractFromYXMSZ(int y, int x, int m, int s, d5_array& n_yxmsz);
+    
+    /**
+     * Get a matrix capable of rebinning one binned vector to another
+     * 
+     * @param origCtPts - cut points of original bin structure
+     * @param finlCutPts - cut points of final bin structure
+     * 
+     * @return - matrix such that N_finl = mat * N_orig.
+     */
+    dmatrix getRebinMatrix(dvector origCtPts, dvector finlCtPts);
 }
 #endif	/* SUMMARYFUNCTIONS_HPP */
 

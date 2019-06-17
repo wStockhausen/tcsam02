@@ -13,6 +13,8 @@
  *           3. changed effort averaging interval from IndexRange to IndexBlock
  * 20161109: 1. added GrowthData, ChelaHeightData classes
  *           2. revised ModelDatasets to incorporate new data classes
+ * 20190530: 1. added MaturityOgiveData class
+ *           2. revised ModelDatasets to incorporate new data class
 */
 
 #ifndef MODELDATA_HPP
@@ -28,6 +30,7 @@
 //      FleetData
 //      GrowthData
 //      ChelaHeightData
+//      MaturtyOgiveData
 //      ModelDatasets
 //**********************************************************************
 class ModelConfiguration; //forward definition
@@ -726,6 +729,91 @@ class IndexBlock;
         friend std::ostream& operator <<(std::ostream & os, ChelaHeightData & obj){obj.write(os); return os;}
     };
 
+    /**
+     * Class encapsulating a dataset reflecting annual maturity ogives (male or female)
+     */
+    class MaturityOgiveData {
+    public:
+        /** flag to print debugging info */
+        static int debug;
+        /** stream to write debugging info */
+        static ostream& os;
+        /** keyword indicating effort data */
+        const static adstring KW_MATURITYOGIVE_DATA;
+    public:
+        /** dataset name */
+        adstring name;
+        /** survey name */
+        adstring survey;
+        /** sex (as int) */
+        int sex;
+        /** likelihood function type */
+        int llType; 
+        /** likelihood weight (i.e., multiplier) */
+        double llWgt;   
+        /**number of size bins used */
+        int nZBs;
+        /** cutpoints for the maturity ogives */
+        dvector cutpts;
+        /** number of observations */
+        int nObs;
+        /** input data (columns: year,size,N,fraction mature) */
+        dmatrix  inpData_nc;  
+        /** ivector of year corresponding to observations */
+        ivector obsYear_n;
+        /** dvector of observed sizes */
+        dvector obsSize_n;
+        /** dvector for sample sizes corresponding to observations */
+        dvector obsSS_n;
+        /** dvector for observed fraction mature */
+        dvector obsPrMat_n;
+        /** ivector of indices to model size bins corresponding to observed sizes */
+        ivector obsZBI_n;
+        /** matrix to re-map model size bins to maturity ogive size bins */
+        dmatrix zbRemapper;
+    public:
+        /**
+         * Constructor.
+         */
+        MaturityOgiveData();
+        /**
+         * Destructor.
+         */
+        ~MaturityOgiveData();
+        /**
+         * Calculates matrix to re-map model size bins maturity ogive size bins.
+         * 
+         * @param zCs - model size bin cutpoints
+         */
+        void calcSizeBinRemapper(const dvector& zCs);
+        /**
+         * Read input data in ADMB format from a file stream
+         * 
+         * @param is - input file stream
+         */
+        void read(cifstream & is);//read file in ADMB format
+        /**
+         * Write data to an output stream in ADMB format
+         * 
+         * @param os output stream
+         */
+        void write(std::ostream & os); //write object to file in ADMB format
+        /**
+         * Write data to an output stream as an R-formatted list object
+         * 
+         * @param os output stream
+         */
+        void writeToR(std::ostream& os, std::string nm, int indent=0);//write object to R file as list
+        /**
+         * Operator to read ADMB-formatted data from an input stream into a MaturityOgiveData object.
+         */
+        friend cifstream& operator >>(cifstream & is, MaturityOgiveData & obj){obj.read(is); return is;}
+        /**
+         * Operator to write data to an output stream in ADMB format from a MaturityOgiveData object.
+         */
+        friend std::ostream& operator <<(std::ostream & os, MaturityOgiveData & obj){obj.write(os); return os;}
+    };
+
 //--------------------------------------------------------------------------------
 //         ModelDatasets
 //--------------------------------------------------------------------------------
@@ -773,6 +861,13 @@ class IndexBlock;
         adstring_array fnsChelaHeightData;
         /** pointer to array of pointers to chela height dataset objects */
         ChelaHeightData**    ppCHD;        
+        
+        /** number of maturity ogive datasets to read */
+        int nMOD;
+        /** maturity ogive data files names */
+        adstring_array fnsMaturityOgiveData;
+        /** pointer to array of pointers to maturity ogive dataset objects */
+        MaturityOgiveData**    ppMOD;        
     public:
         ModelDatasets(ModelConfiguration* ptrMC);
         ~ModelDatasets();

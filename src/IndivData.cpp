@@ -4,6 +4,7 @@
 #include "ModelConfiguration.hpp"
 #include "ModelIndexBlocks.hpp"
 #include "ModelData.hpp"
+#include "SummaryFunctions.hpp"
 
 using namespace tcsam;
 
@@ -11,11 +12,14 @@ using namespace tcsam;
 //  Includes
 //      GrowthData
 //      ChelaHeightData
+//      MaturityOgiveData
 //**********************************************************************
 /* debug flag for growth data */
 int GrowthData::debug  = 0;
 /* debug flag for chela height data */
 int ChelaHeightData::debug  = 0;
+/* debug flag for chela height data */
+int MaturityOgiveData::debug  = 0;
 //----------------------------------------------------------------------
 //          GrowthData
 //----------------------------------------------------------------------
@@ -269,3 +273,146 @@ void ChelaHeightData::writeToR(ostream& os, std::string nm, int indent) {
     if (debug) cout<<"ChelaHeightData::done writing to R"<<std::endl;
 }
 /////////////////////////////////end ChelaHeightData/////////////////////////
+//----------------------------------------------------------------------
+//          MaturityOgiveData
+//----------------------------------------------------------------------
+/* keyword for maturity ogive data */
+const adstring MaturityOgiveData::KW_MATURITYOGIVE_DATA = "MATURITYOGIVE_DATA";
+/**
+ * Constructor for class.
+ */
+MaturityOgiveData::MaturityOgiveData(){}
+/**
+ * Destructor for class.
+ */
+MaturityOgiveData::~MaturityOgiveData(){}
+/**
+ * Calculates matrix to re-map model size bins maturity ogive size bins.
+ * 
+ * @param zCs - model size bin cutpoints
+ */
+void MaturityOgiveData::calcSizeBinRemapper(const dvector& zCs){
+    rpt::echo<<"Starting MaturityOgiveData::calcSizeBinRemapper(zCs)"<<endl;
+    zbRemapper = tcsam::getRebinMatrix(zCs,cutpts);
+    rpt::echo<<"model zCs = "<<zCs<<endl;
+    rpt::echo<<"MO    zCs = "<<cutpts<<endl;
+    rpt::echo<<"sizeBinRemapper: "<<endl; rpt::echo<<zbRemapper<<endl;
+    rpt::echo<<"Finished MaturityOgiveData::calcSizeBinRemapper(zCs)"<<endl;
+}
+/**
+ * Read maturity ogive data from input file stream.
+ * 
+ * @param is - the file stream to read from
+ */
+void MaturityOgiveData::read(cifstream & is){
+    if (debug){
+        cout<<"start MaturityOgiveData::read(...) "<<this<<std::endl;
+        cout<<"#------------------------------------------"<<std::endl;
+        cout<<"#file name is "<<is.get_file_name()<<std::endl;
+        cout<<"#------------------------------------------"<<std::endl;
+    }
+    if (!is) {
+        cout<<"Apparent error reading MaturityOgiveData."<<std::endl;
+        cout<<"#file name is "<<is.get_file_name()<<std::endl;
+        cout<<"File stream is 'bad'--file may not exist!"<<std::endl;
+        cout<<"Terminating!!"<<std::endl;
+        exit(-1);
+    }
+    
+    adstring str;
+    is>>str;
+    if (!(str==KW_MATURITYOGIVE_DATA)){
+        cout<<"#Error reading effort data from "<<is.get_file_name()<<std::endl;
+        cout<<"Expected keyword '"<<KW_MATURITYOGIVE_DATA<<"' but got '"<<str<<"'"<<std::endl;
+        cout<<"Aborting..."<<std::endl;
+        exit(-1);
+    }
+    is>>name;
+    rpt::echo<<name<<tb<<"#dataset name"<<endl;
+    is>>survey;
+    rpt::echo<<survey<<tb<<"#survey name"<<endl;
+    is>>str; rpt::echo<<sex<<tb<<"#sex"<<endl; sex = tcsam::getSexType(str);
+    is>>str; llType = tcsam::getLikelihoodType(str);
+    rpt::echo<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood function type"<<std::endl;
+    is>>llWgt;
+    rpt::echo<<llWgt<<tb<<"#likelihood weight (multiplier)"<<std::endl;
+    is>>nZBs;//number of size bins
+    rpt::echo<<nZBs<<tb<<"#number of size bins"<<std::endl;
+    cutpts.allocate(1,nZBs+1);
+    is>>cutpts;
+    rpt::echo<<"#size bin cut points"<<std::endl<<cutpts<<std::endl;
+    is>>nObs;//number of observations
+    rpt::echo<<nObs<<tb<<"#number of observations"<<std::endl;
+    inpData_nc.allocate(1,nObs,1,5);
+    is>>inpData_nc;
+    rpt::echo<<"#year    size    index  nIndivs     fraction mature"<<std::endl<<inpData_nc<<std::endl;
+    
+    obsYear_n.allocate(1,nObs);
+    obsSize_n.allocate(1,nObs);
+    obsZBI_n.allocate(1,nObs);
+    obsSS_n.allocate(1,nObs);
+    obsPrMat_n.allocate(1,nObs);
+   
+    obsYear_n  = wts::to_ivector(column(inpData_nc,1));
+    obsSize_n  = column(inpData_nc,2);
+    obsZBI_n   = wts::to_ivector(column(inpData_nc,3));
+    obsSS_n    = column(inpData_nc,4);
+    obsPrMat_n = column(inpData_nc,5);
+    
+    rpt::echo<<"obsYear_n  = "<<obsYear_n <<endl;
+    rpt::echo<<"obsSize_n  = "<<obsSize_n <<endl;
+    rpt::echo<<"obsZBI_n   = "<<obsZBI_n  <<endl;
+    rpt::echo<<"obsSS_n    = "<<obsSS_n   <<endl;
+    rpt::echo<<"obsPrMat_n = "<<obsPrMat_n<<endl;
+    
+    if (debug) cout<<"end MaturityOgiveData::read(...) "<<this<<std::endl;    
+}
+/**
+ * Write data to output stream.
+ * 
+ * @param os - the output stream
+ */
+void MaturityOgiveData::write(ostream & os){
+    if (debug) cout<<"start MaturityOgiveData::write(...) "<<this<<std::endl;
+    os<<KW_MATURITYOGIVE_DATA<<tb<<"#required keyword"<<std::endl;
+    os<<name<<tb<<"#dataset name"<<std::endl;
+    os<<survey<<tb<<"#survey name"<<std::endl;
+    os<<tcsam::getSexType(sex)<<tb<<"#sex"<<endl;
+    os<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood function type"<<std::endl;
+    os<<llWgt<<tb<<"#likelihood weight (multiplier)"<<std::endl;
+    os<<nZBs<<tb<<"#number of size bins"<<std::endl;
+    os<<"#size bin cut points"<<std::endl;
+    os<<cutpts<<std::endl;
+    os<<nObs<<tb<<"#number of observations"<<std::endl;
+    os<<"#year    size    zbIndex  nIndivs     fraction mature"<<std::endl;
+    os<<inpData_nc<<std::endl;
+    if (debug) cout<<"end MaturityOgiveData::write(...) "<<this<<std::endl;
+}
+/**
+ * Write to an output stream as an R list with name given by name variable. 
+ * 
+ * @param os - the output stream
+ * @param nm - the name of the list (ignored)
+ * @param indent - the number of tabs to indent, initially
+ */
+void MaturityOgiveData::writeToR(ostream& os, std::string nm, int indent) {
+    if (debug) cout<<"MaturityOgiveData::writing to R"<<std::endl;
+    for (int n=0;n<indent;n++) os<<tb;
+        os<<"`"<<name<<"`"<<"=list("<<std::endl;
+        indent++; 
+            for (int n=0;n<indent;n++) os<<tb;
+            os<<"name="<<qt<<name<<qt<<cc;
+            os<<"survey="<<qt<<survey<<qt<<cc;
+            os<<"sex="<<qt<<tcsam::getSexType(sex)<<qt<<cc;
+            os<<"llType="<<qt<<tcsam::getLikelihoodType(llType)<<qt<<cc;
+            os<<"llWgt="<<llWgt<<cc<<std::endl;
+            for (int n=0;n<indent;n++) os<<tb;
+            os<<"cutpts="; wts::writeToR(os,cutpts);  os<<cc<<std::endl;
+            for (int n=0;n<indent;n++) os<<tb;
+            adstring colnames="'y','z','zbIndex','nIndivs','fraction mature'";
+            os<<"data="; wts::writeToR(os,inpData_nc,colnames); os<<std::endl;
+        indent--;
+    for (int n=0;n<indent;n++) os<<tb; os<<")"<<std::endl;
+    if (debug) cout<<"MaturityOgiveData::done writing to R"<<std::endl;
+}
+/////////////////////////////////end MaturityOgiveData/////////////////////////
