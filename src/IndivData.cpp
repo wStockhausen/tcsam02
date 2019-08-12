@@ -38,6 +38,58 @@ GrowthData::GrowthData(){
  */
 GrowthData::~GrowthData(){}
 /**
+ * Set the maximum year in which to include growth data.
+ * 
+ * @param mxYr - the max year in which to include growth data
+ */
+void GrowthData::setMaxYear(int mxYr){
+    if (debug) {
+        cout     <<"Starting GrowthData::setMaxYear("<<mxYr<<")"<<endl;
+        rpt::echo<<"Starting GrowthData::setMaxYear("<<mxYr<<")"<<endl;
+    }
+    //define temporary arrays
+    imatrix newYears_xn;  newYears_xn.allocate(1,tcsam::nSXs);    //note: allocation incomplete
+    d3_array newData_xcn; newData_xcn.allocate(1,tcsam::nSXs,1,3);//note: allocation incomplete
+    //determine number of observations to keep, by sex
+    for (int x=1;x<=nSXs;x++){
+        int nx = 0;
+        for (int iy=obsYears_xn(x).indexmin(); iy<=obsYears_xn(x).indexmax(); iy++){
+            if (obsYears_xn(x)(iy)<=mxYr) nx++;
+        }
+        //finish allocations
+        newYears_xn(x).allocate(1,nx);
+        newData_xcn(x,1).allocate(1,nx);
+        newData_xcn(x,2).allocate(1,nx);
+        newData_xcn(x,3).allocate(1,nx);
+        //copy observations
+        int iyp = 1;
+        for (int iy=obsYears_xn(x).indexmin(); iy<=obsYears_xn(x).indexmax(); iy++){
+            if (obsYears_xn(x)(iy)<=mxYr) {
+                newYears_xn(x,iyp)   = obsYears_xn(x)(iy);
+                newData_xcn(x,1,iyp) = inpData_xcn(x,1,iy);
+                newData_xcn(x,2,iyp) = inpData_xcn(x,2,iy);
+                newData_xcn(x,3,iyp) = inpData_xcn(x,3,iy);
+                iyp++;
+            }
+        }
+        nObs_x(x) = nx;
+        obsYears_xn(x).deallocate(); obsYears_xn(x).allocate(1,nx);
+        obsYears_xn(x) = newYears_xn(x);
+        inpData_xcn(x,1).deallocate(); inpData_xcn(x,1).allocate(1,nx); 
+        inpData_xcn(x,2).deallocate(); inpData_xcn(x,2).allocate(1,nx); 
+        inpData_xcn(x,3).deallocate(); inpData_xcn(x,3).allocate(1,nx); 
+        for (int ic=1;ic<=3;ic++) inpData_xcn(x,ic) = newData_xcn(x,ic);
+        if (debug) {
+            rpt::echo<<"obsYears_xn("<<x<<") = "<<obsYears_xn(x)<<endl;
+            rpt::echo<<"inpData{"<<x<<") = "<<endl<<inpData_xcn(x)<<endl;
+        }
+    }
+    if (debug) {
+        cout     <<"Finished GrowthData::setMaxYear("<<mxYr<<")"<<endl;
+        rpt::echo<<"Finished GrowthData::setMaxYear("<<mxYr<<")"<<endl;
+    }
+}
+/**
  * Read growth data from input file stream.
  * 
  * @param is - the file stream to read from
@@ -286,6 +338,53 @@ MaturityOgiveData::MaturityOgiveData(){}
  * Destructor for class.
  */
 MaturityOgiveData::~MaturityOgiveData(){}
+/**
+ * Set the maximum year in which to include maturity ogive data.
+ * 
+ * @param mxYr - the max year in which to include maturity ogive data
+ */
+void MaturityOgiveData::setMaxYear(int mxYr){
+    if (debug) {
+        cout     <<"start MaturityOgiveData::setMaxYear("<<mxYr<<")"<<endl;    
+        rpt::echo<<"start MaturityOgiveData::setMaxYear("<<mxYr<<")"<<endl;    
+    }
+    //count data with years <= mxYr
+    int n = 0;
+    for (int i=obsYear_n.indexmin();i<=obsYear_n.indexmax();i++)
+        if (obsYear_n(i)<=mxYr) n++;
+    nObs = n;
+    //revise input data
+    n = 1;
+    dmatrix newData_nc(1,nObs,1,5);
+    for (int i=obsYear_n.indexmin();i<=obsYear_n.indexmax();i++)
+        if (obsYear_n(i)<=mxYr) newData_nc(n++) = inpData_nc(i);
+    
+    inpData_nc.deallocate(); inpData_nc.allocate(1,nObs,1,5);
+    for (int i=1;i<=nObs;i++) inpData_nc(i) = newData_nc(i);
+    
+    obsYear_n.deallocate();  obsYear_n.allocate(1,nObs);
+    obsSize_n.deallocate();  obsSize_n.allocate(1,nObs);
+    obsZBI_n.deallocate();   obsZBI_n.allocate(1,nObs);
+    obsSS_n.deallocate();    obsSS_n.allocate(1,nObs);
+    obsPrMat_n.deallocate(); obsPrMat_n.allocate(1,nObs);
+   
+    obsYear_n  = wts::to_ivector(column(inpData_nc,1));
+    obsSize_n  = column(inpData_nc,2);
+    obsZBI_n   = wts::to_ivector(column(inpData_nc,3));
+    obsSS_n    = column(inpData_nc,4);
+    obsPrMat_n = column(inpData_nc,5);
+    
+    rpt::echo<<"obsYear_n  = "<<obsYear_n <<endl;
+    rpt::echo<<"obsSize_n  = "<<obsSize_n <<endl;
+    rpt::echo<<"obsZBI_n   = "<<obsZBI_n  <<endl;
+    rpt::echo<<"obsSS_n    = "<<obsSS_n   <<endl;
+    rpt::echo<<"obsPrMat_n = "<<obsPrMat_n<<endl;
+    
+    if (debug) {
+        cout     <<"end MaturityOgiveData::setMaxYear("<<mxYr<<")"<<endl;    
+        rpt::echo<<"end MaturityOgiveData::setMaxYear("<<mxYr<<")"<<endl;    
+    }
+}
 /**
  * Calculates matrix to re-map model size bins maturity ogive size bins.
  * 

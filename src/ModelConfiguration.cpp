@@ -185,6 +185,7 @@ void ModelConfiguration::read(cifstream & is) {
  */
 void ModelConfiguration::setMaxModelYear(int yr){
     mxYr = yr;
+    asYr = mxYr+1;
     csvYrs  =qt+str(mnYr)+qt; for (int y=(mnYr+1);y<=mxYr;    y++) csvYrs  += cc+qt+str(y)+qt;
     csvYrsP1=qt+str(mnYr)+qt; for (int y=(mnYr+1);y<=(mxYr+1);y++) csvYrsP1 += cc+qt+str(y)+qt;
     dimYrsToR   = "y=c("+csvYrs+")";

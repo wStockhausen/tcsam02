@@ -527,6 +527,8 @@
 //              3. Fixed "debug" setting in calcCohortProgression call in 
 //                  reportToR_CohortProgression.
 //-2019-06-17:  1. Added MaturityOgiveData (as opposed to ChelaHeightData) datasets 
+//-2019-08-12:  1. Revised GrowthData to handle retrospective runs. 
+//              2. Revised MaturityOgiveData to handle retrospective runs. 
 //
 // =============================================================================
 // =============================================================================
@@ -1010,7 +1012,7 @@ DATA_SECTION
     
     mnYr   = ptrMC->mnYr;
     mxYr   = ptrMC->mxYr;
-    if (doRetro){mxYr = mxYr-yRetro; ptrMC->setMaxModelYear(mxYr);}
+    if (doRetro)  {mxYr = mxYr-yRetro; ptrMC->setMaxModelYear(mxYr);}
     if (jitter)   {ptrMC->jitter   = 1;}
     if (resample) {ptrMC->resample = 1;}
     
@@ -1090,6 +1092,26 @@ DATA_SECTION
         ModelDatasets::debug=debugModelDatasets;
         BioData::debug=debugModelDatasets;
         FleetData::debug=debugModelDatasets;
+    }
+    if (doRetro) {
+        PRINT2B2("doRetro: RESETTING maxYr on Growth & MaturityOgive Data to ",mxYr+1)
+        for (int i=0;i<ptrMDS->nGrw; i++) {
+            PRINT2B2("#---Resetting mxYr on growth dataset ",i+1)
+            GrowthData::debug=1;
+            ptrMDS->ppGrw[i]->setMaxYear(mxYr+1);
+            GrowthData::debug=0;
+            rpt::echo<<(*ptrMDS->ppGrw[i])<<endl;
+            PRINT2B2("#---Finished resetting mxYr on growth dataset ",i+1)
+        }
+        for (int i=0;i<ptrMDS->nMOD; i++) {
+            PRINT2B2("#---Resetting mxYr on maturity ogive dataset ",i+1)
+            MaturityOgiveGrowthData::debug=1;
+            ptrMDS->ppMOD[i]->setMaxYear(mxYr+1);
+            MaturityOgiveData::debug=0;
+            rpt::echo<<(*ptrMDS->ppMOD[i])<<endl;
+            PRINT2B2("#---Finished resetting mxYr on maturity ogive dataset ",i+1)
+        }
+        PRINT2B2("doRetro: finished RESETTING maxYr on Growth & MaturityOgive Data to ",mxYr+1)
     }
     PRINT2B1("#----finished model datasets---")
     if (debugDATA_SECTION){
@@ -1508,8 +1530,8 @@ DATA_SECTION
     ivector nDevsLnR_c(1,npcRec);              //number of recruit devs by parameter combination
     
     //growth arrays
-    matrix zGrA_xy(1,nSXs,mnYr,mxYr);//pre-molt size corresponding to pGrA in alt growth parameterization
-    matrix zGrB_xy(1,nSXs,mnYr,mxYr);//pre-molt size corresponding to pGrB in alt growth parameterization
+    matrix zGrA_xy(1,nSXs,mnYr,mxYr+1);//pre-molt size corresponding to pGrA in alt growth parameterization
+    matrix zGrB_xy(1,nSXs,mnYr,mxYr+1);//pre-molt size corresponding to pGrB in alt growth parameterization
     
     imatrix idxDevsLnC_fy(1,nFsh,mnYr,mxYr); //matrix to check devs indexing for lnC
     
@@ -1727,8 +1749,8 @@ PARAMETER_SECTION
     //growth related quantities
     matrix mnGrZ_cz(1,npcGrw,1,nZBs);           //mean post-molt size by parameter combination, pre-molt size
     3darray prGr_czz(1,npcGrw,1,nZBs,1,nZBs);   //prob of growth to z (row=lefthand z index) from zp (col=righthand z index) by parameter combination
-    4darray mnGrZ_yxsz(mnYr,mxYr,1,nSXs,1,nSCs,1,nZBs); //mean post-molt size by by year, sex, shell condition, pre-molt size
-    5darray prGr_yxszz(mnYr,mxYr,1,nSXs,1,nSCs,1,nZBs,1,nZBs); //prob of growth to z (row=lefthand z index) from zp (col=righthand z index) by year, sex, shell condition
+    4darray mnGrZ_yxsz(mnYr,mxYr+1,1,nSXs,1,nSCs,1,nZBs); //mean post-molt size by by year, sex, shell condition, pre-molt size
+    5darray prGr_yxszz(mnYr,mxYr+1,1,nSXs,1,nSCs,1,nZBs,1,nZBs); //prob of growth to z (row=lefthand z index) from zp (col=righthand z index) by year, sex, shell condition
     matrix grA_xy(1,nSXs,mnYr,mxYr+1);    //"a" parameters for growth, by sex and year
     matrix grB_xy(1,nSXs,mnYr,mxYr+1);    //"b" parameters for growth, by sex and year
     matrix grBeta_xy(1,nSXs,mnYr,mxYr+1); //beta parameters for growth, by sex and year
@@ -1987,7 +2009,7 @@ PRELIMINARY_CALCS_SECTION
             calcNatMort(dbgLevel,rpt::echo);
 
             PRINT2B1("testing calcGrowth():")
-            calcGrowth(dbgLevel,rpt::echo);
+            calcGrowth(dbgLevel+100,rpt::echo);
 
             PRINT2B1("testing calcPrM2M():")
             calcPrM2M(dbgLevel,rpt::echo);
@@ -2087,7 +2109,7 @@ PRELIMINARY_CALCS_SECTION
             {
                 PRINT2B1("--Testing calcObjFun()")
                 if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
-                calcObjFun(dbgAll,rpt::echo);
+                calcObjFun(dbgAll+100,rpt::echo);
                 PRINT2B2("--Finished testing calcObjFun(): ",objFun)
             }
 
@@ -3553,7 +3575,7 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
         if (debug) cout<<"growth indices for pc "<<pc<<endl<<idxs<<endl;
         for (int idx=idxs.indexmin();idx<=idxs.indexmax();idx++){
             y = idxs(idx,1); //year index
-            if ((mnYr<=y)&&(y<=mxYr)){
+            if ((mnYr<=y)&&(y<=mxYr+1)){
                 mnx = mxx = idxs(idx,2);//sex index
                 if (mnx==tcsam::ALL_SXs){mnx = 1; mxx = tcsam::nSXs;}
                 if (debug>dbgCalcProcs) cout<<"y = "<<y<<tb<<"sex = "<<tcsam::getSexType(mnx)<<": "<<tcsam::getSexType(mnx)<<endl;
@@ -5159,7 +5181,7 @@ FUNCTION void calcObjFun(int debug, ostream& cout)
 //*  objFun
 //******************************************************************************
 FUNCTION void calcNLLs_MaturityOgiveData(int debug, ostream& cout)  
-    //debug = dbgObjFun+1;
+    debug = dbgObjFun+1;
     if(debug>dbgObjFun) cout<<"Starting calcNLLs_MaturityOgiveData()"<<endl;
     
     if (debug<0) cout<<"list("<<endl;
@@ -5353,6 +5375,7 @@ FUNCTION void calcNLLs_GrowthData(int debug, ostream& cout)
                     double wgt = pGD->llWgt;
                     /* observation year */
                     ivector year_n = pGD->obsYears_xn(x);
+                    if(debug>dbgObjFun) cout<<"year_n = "<<year_n<<endl;
                     /* pre-molt size, by observation */
                     dvar_vector zpre_n = pGD->inpData_xcn(x,2);
                     /* post-molt size, by observation */

@@ -614,7 +614,7 @@ class IndexBlock;
         /** years associated with observations, by sex */
         imatrix obsYears_xn;
         /** input data, by sex, c: year,pre-molt size, post-molt size, n: observations */
-        d3_array  inpData_xcn;  
+        d3_array inpData_xcn;  
     public:
         /**
          * Constructor.
@@ -624,6 +624,12 @@ class IndexBlock;
          * Destructor.
          */
         ~GrowthData();
+        /**
+         * Set the maximum year in which to fit the data.
+         * 
+         * @param mxYr - the max year to include data
+         */
+        void setMaxYear(int mxYr);
         /**
          * Read input data in ADMB format from a file stream
          * 
@@ -740,6 +746,8 @@ class IndexBlock;
         static ostream& os;
         /** keyword indicating effort data */
         const static adstring KW_MATURITYOGIVE_DATA;
+    private:
+        int mxYr; //max year to which data will be fitted
     public:
         /** dataset name */
         adstring name;
@@ -781,6 +789,12 @@ class IndexBlock;
          */
         ~MaturityOgiveData();
         /**
+         * Set the maximum year in which to include maturity ogive.
+         * 
+         * @param mxYr - the max year in which to include maturity ogive
+         */
+        void setMaxYear(int mxYr);    
+/**
          * Calculates matrix to re-map model size bins maturity ogive size bins.
          * 
          * @param zCs - model size bin cutpoints
