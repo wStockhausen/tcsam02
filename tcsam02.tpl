@@ -529,6 +529,8 @@
 //-2019-06-17:  1. Added MaturityOgiveData (as opposed to ChelaHeightData) datasets 
 //-2019-08-12:  1. Revised GrowthData to handle retrospective runs. 
 //              2. Revised MaturityOgiveData to handle retrospective runs. 
+//-2019-08-17:  1. Corrected y-dimension problem writing growth info to R now that
+//                  growth arrays extend to mxYr+1.
 //
 // =============================================================================
 // =============================================================================
@@ -1105,7 +1107,7 @@ DATA_SECTION
         }
         for (int i=0;i<ptrMDS->nMOD; i++) {
             PRINT2B2("#---Resetting mxYr on maturity ogive dataset ",i+1)
-            MaturityOgiveGrowthData::debug=1;
+            MaturityOgiveData::debug=1;
             ptrMDS->ppMOD[i]->setMaxYear(mxYr+1);
             MaturityOgiveData::debug=0;
             rpt::echo<<(*ptrMDS->ppMOD[i])<<endl;
@@ -5181,7 +5183,6 @@ FUNCTION void calcObjFun(int debug, ostream& cout)
 //*  objFun
 //******************************************************************************
 FUNCTION void calcNLLs_MaturityOgiveData(int debug, ostream& cout)  
-    debug = dbgObjFun+1;
     if(debug>dbgObjFun) cout<<"Starting calcNLLs_MaturityOgiveData()"<<endl;
     
     if (debug<0) cout<<"list("<<endl;
@@ -5378,10 +5379,13 @@ FUNCTION void calcNLLs_GrowthData(int debug, ostream& cout)
                     if(debug>dbgObjFun) cout<<"year_n = "<<year_n<<endl;
                     /* pre-molt size, by observation */
                     dvar_vector zpre_n = pGD->inpData_xcn(x,2);
+                    if(debug>dbgObjFun) cout<<"zpre_n = "<<zpre_n<<endl;
                     /* post-molt size, by observation */
                     dvar_vector zpst_n = ptrMDS->ppGrw[i]->inpData_xcn(x,3);
+                    if(debug>dbgObjFun) cout<<"zpst_n = "<<zpst_n<<endl;
                     /* molt increment, by observation */
                     dvar_vector incZ_n = zpst_n - zpre_n;
+                    if(debug>dbgObjFun) cout<<"incZ_n = "<<incZ_n<<endl;
                     /* mean post-molt size, by observation */
                     //dvar_vector mnZ_n = elem_prod(mfexp(grA_xy(x)(year_n)),pow(zpre_n,grB_xy(x)(year_n)));
                     dvar_vector mnZ_n(zpre_n.indexmin(),zpre_n.indexmax());
@@ -7538,9 +7542,9 @@ FUNCTION void ReportToR_ModelProcesses(ostream& os, int debug, ostream& cout)
         os<<"T_list=list("<<endl;
             os<<"mnZAM_cz   ="; wts::writeToR(os,value(mnGrZ_cz),adstring("pc=1:"+str(npcGrw )),zbDms);       os<<cc<<endl;
             os<<"T_czz      ="; wts::writeToR(os,value(prGr_czz),adstring("pc=1:"+str(npcGrw )),zbDms,zpDms); os<<cc<<endl;
-            os<<"mnZAM_yxsz =";  wts::writeToR(os,wts::value(mnGrZ_yxsz),yDms,xDms,sDms,zbDms);              os<<cc<<endl;
+            os<<"mnZAM_yxsz =";  wts::writeToR(os,wts::value(mnGrZ_yxsz),ypDms,xDms,sDms,zbDms);              os<<cc<<endl;
             if (0){//TDODO: develop option to output
-                os<<"T_yxszz    =";  wts::writeToR(os,wts::value(prGr_yxszz),yDms,xDms,sDms,zbDms,zpDms);    os<<endl;
+                os<<"T_yxszz    =";  wts::writeToR(os,wts::value(prGr_yxszz),ypDms,xDms,sDms,zbDms,zpDms);    os<<endl;
             } else {
                 os<<"T_yxszz    =NULL"<<endl;
             }
