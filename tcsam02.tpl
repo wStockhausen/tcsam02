@@ -6313,9 +6313,9 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
     } else
     if (ptrZFD->optFit==tcsam::FIT_BY_XME){
         effWgtComps_xmsyn.allocate(tcsam::ALL_SXs,tcsam::ALL_SXs,
-                               tcsam::ALL_MSs,tcsam::ALL_MSs,
-                               tcsam::ALL_SCs,tcsam::ALL_SCs,
-                               mny,mxy,1,3);
+                                    tcsam::ALL_MSs,tcsam::ALL_MSs,
+                                    tcsam::ALL_SCs,tcsam::ALL_SCs,
+                                    mny,mxy,1,3);
         oP_z.allocate(1,nSXs*nMSs*nZBs);
         mP_z.allocate(1,nSXs*nMSs*nZBs);
         for (int iy=1;iy<=yrs.size();iy++) {
