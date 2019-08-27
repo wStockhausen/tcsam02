@@ -531,6 +531,7 @@
 //              2. Revised MaturityOgiveData to handle retrospective runs. 
 //-2019-08-17:  1. Corrected y-dimension problem writing growth info to R now that
 //                  growth arrays extend to mxYr+1.
+//-2019-08-27:  1. Added extra debugging output to calcNLL functions
 //
 // =============================================================================
 // =============================================================================
@@ -5097,6 +5098,10 @@ FUNCTION void calcNLLs_Recruitment(int debug, ostream& cout)
         nllRecDevs = 0.5*norm2(zscrDevsLnR_cy(pc));
         nllRecDevs += nDevsLnR_c(pc)*log(stdvDevsLnR_c(pc));
         objFun += nllWgtRecDevs*nllRecDevs;
+        if (debug>dbgObjFun) {
+            cout<<"pc    nll        objfun"<<endl;
+            cout<<pc<<": "<<nllRecDevs<<tb<<nllWgtRecDevs*nllRecDevs<<endl;
+        }
         if (debug<0){
             double rmse = sqrt(value(norm2(devsLnR_cy(pc)))/nDevsLnR_c(pc));
             cout<<tb<<tb<<"'"<<pc<<"'=list(type='normal',wgt="<<nllWgtRecDevs<<cc<<"nll="<<nllRecDevs<<cc
@@ -5113,6 +5118,10 @@ FUNCTION void calcNLLs_Recruitment(int debug, ostream& cout)
         nllRecDevs = 0.5*norm2(zscrDevsLnR_cy(pc));
         nllRecDevs += nDevsLnR_c(pc)*log(stdvDevsLnR_c(pc));
         objFun += nllWgtRecDevs*nllRecDevs;
+        if (debug>dbgObjFun) {
+            cout<<"pc    nll        objfun"<<endl;
+            cout<<pc<<": "<<nllRecDevs<<tb<<nllWgtRecDevs*nllRecDevs<<endl;
+        }
         if (debug<0){
             double rmse = sqrt(value(norm2(devsLnR_cy(pc)))/nDevsLnR_c(pc));
             cout<<tb<<tb<<"'"<<pc<<"'=list(type='normal',wgt="<<nllWgtRecDevs<<cc<<"nll="<<nllRecDevs<<cc
@@ -5511,15 +5520,26 @@ FUNCTION void calcNorm2NLL(double wgt, dvar_vector& mod, dvector& obs, dvector& 
     if (cnt>0) rmse = sqrt(value(norm2(zscr))/cnt);
     nll += 0.5*norm2(zscr);
     objFun += wgt*nll;
-    if (debug<0){
+    if ((debug<0)||(debug>=dbgAll)){
         adstring obsyrs = wts::to_qcsv(yrs);
         adstring modyrs = str(mod.indexmin())+":"+str(mod.indexmax());
-        cout<<"list(nll.type='norm2',wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl; 
-        cout<<"obs=";   wts::writeToR(cout,obs,        obsyrs); cout<<cc<<endl;
-        cout<<"mod=";   wts::writeToR(cout,value(mod), modyrs); cout<<cc<<endl;
-        cout<<"stdv=";  wts::writeToR(cout,stdv,       obsyrs); cout<<cc<<endl;
-        cout<<"zscrs="; wts::writeToR(cout,value(zscr),modyrs); cout<<cc<<endl;
-        cout<<"rmse="<<rmse<<")";
+        if (debug<0){
+            cout<<"list(nll.type='norm2',wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl; 
+            cout<<"obs=";   wts::writeToR(cout,obs,        obsyrs); cout<<cc<<endl;
+            cout<<"mod=";   wts::writeToR(cout,value(mod), modyrs); cout<<cc<<endl;
+            cout<<"stdv=";  wts::writeToR(cout,stdv,       obsyrs); cout<<cc<<endl;
+            cout<<"zscrs="; wts::writeToR(cout,value(zscr),modyrs); cout<<cc<<endl;
+            cout<<"rmse="<<rmse<<")";
+        }
+        if (debug>=dbgAll) {
+            cout<<"obsyrs = "<<obsyrs<<endl;
+            cout<<"obs    = "<<obs<<endl;
+            cout<<"modyrs = "<<modyrs<<endl;
+            cout<<"mod    = "<<value(mod)<<endl;
+            cout<<"zscrs  = "<<value(zscr)<<endl;
+            cout<<"rmse   = "<<rmse<<endl;
+            cout<<"nll    = "<<value(nll)<<tb<<"objFun = "<<wgt*nll<<endl;
+        }
     }
     if (debug>=dbgAll) cout<<"Finished calcNorm2NLL()"<<endl;
     
@@ -5543,17 +5563,28 @@ FUNCTION void calcNormalNLL(double wgt, dvar_vector& mod, dvector& obs, dvector&
         nll += 0.5*norm2(zscr);
     }
     objFun += wgt*nll;
-    if (debug<0){
+    if ((debug<0)||(debug>=dbgAll)){
         adstring obsyrs = wts::to_qcsv(yrs);
         adstring modyrs = str(mod.indexmin())+":"+str(mod.indexmax());
-        cout<<"list(nll.type='normal',wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl; 
-        cout<<"obs=";   wts::writeToR(cout,obs,        obsyrs); cout<<cc<<endl;
-        cout<<"mod=";   wts::writeToR(cout,value(mod), modyrs); cout<<cc<<endl;
-        cout<<"stdv=";  wts::writeToR(cout,stdv,       obsyrs); cout<<cc<<endl;
-        cout<<"zscrs="; wts::writeToR(cout,value(zscr),modyrs); cout<<cc<<endl;
-        cout<<"rmse="<<rmse<<")";
+        if (debug<0){
+            cout<<"list(nll.type='normal',wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl; 
+            cout<<"obs=";   wts::writeToR(cout,obs,        obsyrs); cout<<cc<<endl;
+            cout<<"mod=";   wts::writeToR(cout,value(mod), modyrs); cout<<cc<<endl;
+            cout<<"stdv=";  wts::writeToR(cout,stdv,       obsyrs); cout<<cc<<endl;
+            cout<<"zscrs="; wts::writeToR(cout,value(zscr),modyrs); cout<<cc<<endl;
+            cout<<"rmse="<<rmse<<")";
+        }
+        if (debug>=dbgAll) {
+            cout<<"obsyrs = "<<obsyrs<<endl;
+            cout<<"obs    = "<<obs<<endl;
+            cout<<"modyrs = "<<modyrs<<endl;
+            cout<<"mod    = "<<value(mod)<<endl;
+            cout<<"zscrs  = "<<value(zscr)<<endl;
+            cout<<"rmse   = "<<rmse<<endl;
+            cout<<"nll    = "<<value(nll)<<tb<<"objFun = "<<wgt*nll<<endl;
+        }
     }
-   if (debug>=dbgAll) cout<<"Finished calcNormalNLL()"<<endl;
+    if (debug>=dbgAll) cout<<"Finished calcNormalNLL()"<<endl;
     
 //-------------------------------------------------------------------------------------
 //Calculate lognormal NLL contribution to objective function
@@ -5577,17 +5608,28 @@ FUNCTION void calcLognormalNLL(double wgt, dvar_vector& mod, dvector& obs, dvect
             objFun += wgt*nll;
         }
     }
-    if (debug<0){
+    if ((debug<0)||(debug>=dbgAll)){
         adstring obsyrs = wts::to_qcsv(yrs);
         adstring modyrs = str(mod.indexmin())+":"+str(mod.indexmax());
-        cout<<"list(nll.type='lognormal',wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl; 
-        cout<<"obs=";   wts::writeToR(cout,obs,        obsyrs); cout<<cc<<endl;
-        cout<<"mod=";   wts::writeToR(cout,value(mod), modyrs); cout<<cc<<endl;
-        cout<<"stdv=";  wts::writeToR(cout,stdv,       obsyrs); cout<<cc<<endl;
-        cout<<"zscrs="; wts::writeToR(cout,value(zscr),modyrs); cout<<cc<<endl;
-        cout<<"rmse="<<rmse<<")";
+        if (debug<0){
+            cout<<"list(nll.type='lognormal',wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl; 
+            cout<<"obs=";   wts::writeToR(cout,obs,        obsyrs); cout<<cc<<endl;
+            cout<<"mod=";   wts::writeToR(cout,value(mod), modyrs); cout<<cc<<endl;
+            cout<<"stdv=";  wts::writeToR(cout,stdv,       obsyrs); cout<<cc<<endl;
+            cout<<"zscrs="; wts::writeToR(cout,value(zscr),modyrs); cout<<cc<<endl;
+            cout<<"rmse="<<rmse<<")";
+        }
+        if (debug>=dbgAll) {
+            cout<<"obsyrs = "<<obsyrs<<endl;
+            cout<<"obs    = "<<obs<<endl;
+            cout<<"modyrs = "<<modyrs<<endl;
+            cout<<"mod    = "<<value(mod)<<endl;
+            cout<<"zscrs  = "<<value(zscr)<<endl;
+            cout<<"rmse   = "<<rmse<<endl;
+            cout<<"nll    = "<<value(nll)<<tb<<"objFun = "<<wgt*nll<<endl;
+        }
     }
-   if (debug>=dbgAll) cout<<"Finished calcLognormalNLL()"<<endl;
+    if (debug>=dbgAll) cout<<"Finished calcLognormalNLL()"<<endl;
     
 //-------------------------------------------------------------------------------------
 //Pass-through for no NLL contribution to objective function for aggregated catch
@@ -5606,19 +5648,30 @@ FUNCTION void calcMultinomialNLL(double wgt, dvar_vector& mod, dvector& obs, dou
     if (debug>=dbgAll) cout<<"Starting calcMultinomialNLL()"<<endl;
     dvariable nll = -ss*(obs*(log(mod+smlVal)-log(obs+smlVal)));//note dot-product sums
     objFun += wgt*nll;
-    if (debug<0){
+    if ((debug<0)||(debug>=dbgAll)){
         dvector vmod = value(mod);
         dvector nlls = -ss*(elem_prod(obs,log(vmod+smlVal)-log(obs+smlVal)));
         dvector zscrs = elem_div(obs-vmod,sqrt(elem_prod((vmod+smlVal),1.0-(vmod+smlVal))/ss));//pearson residuals
         double effN = 0.0;
         if ((ss>0)&&(norm2(obs-vmod)>0)) effN = (vmod*(1.0-vmod))/norm2(obs-vmod);
-        cout<<"list(nll.type='multinomial',yr="<<yr<<cc<<"wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<"ss="<<ss<<cc<<"effN="<<effN<<cc<<endl; 
-        adstring dzbs = "size=c("+ptrMC->csvZBs+")";
-        cout<<"nlls=";  wts::writeToR(cout,nlls, dzbs); cout<<cc<<endl;
-        cout<<"obs=";   wts::writeToR(cout,obs,  dzbs); cout<<cc<<endl;
-        cout<<"mod=";   wts::writeToR(cout,vmod, dzbs); cout<<cc<<endl;
-        cout<<"zscrs="; wts::writeToR(cout,zscrs,dzbs); cout<<endl;
-        cout<<")";
+        if (debug<0){
+            cout<<"list(nll.type='multinomial',yr="<<yr<<cc<<"wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<"ss="<<ss<<cc<<"effN="<<effN<<cc<<endl; 
+            adstring dzbs = "size=c("+ptrMC->csvZBs+")";
+            cout<<"nlls=";  wts::writeToR(cout,nlls, dzbs); cout<<cc<<endl;
+            cout<<"obs=";   wts::writeToR(cout,obs,  dzbs); cout<<cc<<endl;
+            cout<<"mod=";   wts::writeToR(cout,vmod, dzbs); cout<<cc<<endl;
+            cout<<"zscrs="; wts::writeToR(cout,zscrs,dzbs); cout<<endl;
+            cout<<")";
+        }
+        if (debug>=dbgAll) {
+             cout<<"yr = "    <<yr<<tb<<"ss = "<<ss<<endl;
+             cout<<"obs    = "<<obs         <<endl;
+             cout<<"mod    = "<<value(mod)  <<endl;
+             cout<<"zscrs  = "<<value(zscrs)<<endl;
+             cout<<"nlls   = "<<value(nlls)<<endl;
+             cout<<"effN   = "<<effN<<endl;
+             cout<<"nll    = "<<nll<<tb<<"objFun = "<<wgt*nll<<endl;
+         }
     }
     if (debug>=dbgAll) cout<<"Finished calcMultinomialNLL()"<<endl;
  
@@ -6524,7 +6577,7 @@ FUNCTION dvector calcEffWgtComponents(double ss, dvector& obs, dvar_vector& mod,
 //Calculate fishery components to objective function
 FUNCTION void calcNLLs_Fisheries(int debug, ostream& cout)
 //    if (debug>0) debug = dbgAll+10;
-    if (debug>=dbgAll) cout<<"Starting calcNLLs_Fisheries()"<<endl;
+    if (debug>=dbgAll) cout<<"\n\nStarting calcNLLs_Fisheries()"<<endl;
     if (debug<0) cout<<"list("<<endl;
     for (int f=1;f<=nFsh;f++){
         if (debug>=dbgAll) cout<<"calculating NLLs for fishery "<<ptrMC->lblsFsh[f]<<endl;
@@ -6637,17 +6690,26 @@ FUNCTION void calcNLLs_ExtrapolatedEffort(int debug, ostream& cout)
                 for (int s=mns;s<=mxs;s++){
                     zscrEffX_nxmsy(n,x,m,s) = (log(obsEff_nxmsy(n,x,m,s)+smlVal)-log(prdEff_nxmsy(n,x,m,s)+smlVal))/stdv;
                     nllEffX_nxms(n,x,m,s)   = norm2(zscrEffX_nxmsy(n,x,m,s));
-                    if (debug>dbgAll){
-                        cout<<"n    x   m    s      stdv   wgt     nll"<<endl;
-                        cout<<n<<tb<<x<<tb<<m<<tb<<s<<tb<<stdv<<tb<<ptrCRAS->llWgt<<tb<<nllEffX_nxms(n,x,m,s)<<endl;
-                        cout<<"obsEff_nxmsy(n,x,m,s) = "<<obsEff_nxmsy(n,x,m,s)<<endl;
-                        cout<<"prdEff_nxmsy(n,x,m,s) = "<<prdEff_nxmsy(n,x,m,s)<<endl;
-                        cout<<"zscores               = "<<zscrEffX_nxmsy(n,x,m,s)<<endl;
-                    }
                     if ((ptrCRAS->idParam)&&(active(pLnEffX(ptrCRAS->idParam)))){
                         objFun += (ptrCRAS->llWgt)*nllEffX_nxms(n,x,m,s);
+                        if (debug>dbgAll){
+                            cout<<"fishery: "<<ptrMC->lblsFsh[f]<<endl;
+                            cout<<"n    x   m    s      stdv   wgt     nll"<<endl;
+                            cout<<n<<tb<<x<<tb<<m<<tb<<s<<tb<<stdv<<tb<<ptrCRAS->llWgt<<tb<<nllEffX_nxms(n,x,m,s)<<endl;
+                            cout<<"obsEff_nxmsy(n,x,m,s) = "<<obsEff_nxmsy(n,x,m,s)<<endl;
+                            cout<<"prdEff_nxmsy(n,x,m,s) = "<<prdEff_nxmsy(n,x,m,s)<<endl;
+                            cout<<"zscores               = "<<zscrEffX_nxmsy(n,x,m,s)<<endl;
+                        }
                     } else {
                         objFun += 0.0;//add nothing, for now
+                        if (debug>dbgAll){
+                            cout<<"fishery: "<<ptrMC->lblsFsh[f]<<endl;
+                            cout<<"n    x   m    s      stdv   wgt     nll   objFun"<<endl;
+                            cout<<n<<tb<<x<<tb<<m<<tb<<s<<tb<<stdv<<tb<<ptrCRAS->llWgt<<tb<<nllEffX_nxms(n,x,m,s)<<tb<<0.0<<endl;
+                            cout<<"obsEff_nxmsy(n,x,m,s) = "<<obsEff_nxmsy(n,x,m,s)<<endl;
+                            cout<<"prdEff_nxmsy(n,x,m,s) = "<<prdEff_nxmsy(n,x,m,s)<<endl;
+                            cout<<"zscores               = "<<zscrEffX_nxmsy(n,x,m,s)<<endl;
+                        }
                     }
                 }//s
             }//m
@@ -6670,7 +6732,7 @@ FUNCTION void calcNLLs_ExtrapolatedEffort(int debug, ostream& cout)
 //Calculate survey components to objective function
 FUNCTION void calcNLLs_Surveys(int debug, ostream& cout)
 //    if (debug>0) debug = dbgAll+10;
-    if (debug>=dbgAll) cout<<"Starting calcNLLs_Surveys()"<<endl;
+    if (debug>=dbgAll) cout<<"\n\nStarting calcNLLs_Surveys()"<<endl;
     if (debug<0) cout<<"list("<<endl;
     for (int v=1;v<=nSrv;v++){
         if (debug>=dbgAll) cout<<"calculating NLLs for survey "<<ptrMC->lblsSrv[v]<<endl;
