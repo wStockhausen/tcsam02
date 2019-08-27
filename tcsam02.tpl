@@ -5665,10 +5665,10 @@ FUNCTION void calcMultinomialNLL(double wgt, dvar_vector& mod, dvector& obs, dou
         }
         if (debug>=dbgAll) {
              cout<<"yr = "    <<yr<<tb<<"ss = "<<ss<<endl;
-             cout<<"obs    = "<<obs         <<endl;
-             cout<<"mod    = "<<value(mod)  <<endl;
-             cout<<"zscrs  = "<<value(zscrs)<<endl;
-             cout<<"nlls   = "<<value(nlls)<<endl;
+             cout<<"obs    = "<<obs <<endl;
+             cout<<"mod    = "<<vmod<<endl;
+             cout<<"zscrs  = "<<zscrs<<endl;
+             cout<<"nlls   = "<<nlls<<endl;
              cout<<"effN   = "<<effN<<endl;
              cout<<"nll    = "<<nll<<tb<<"objFun = "<<wgt*nll<<endl;
          }
