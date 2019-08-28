@@ -430,7 +430,8 @@ void MaturityOgiveData::read(cifstream & is){
     rpt::echo<<name<<tb<<"#dataset name"<<endl;
     is>>survey;
     rpt::echo<<survey<<tb<<"#survey name"<<endl;
-    is>>str; rpt::echo<<sex<<tb<<"#sex"<<endl; sex = tcsam::getSexType(str);
+    is>>str; sex = tcsam::getSexType(str); 
+    rpt::echo<<tcsam::getSexType(sex)<<tb<<"#sex"<<endl;
     is>>str; llType = tcsam::getLikelihoodType(str);
     rpt::echo<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood function type"<<std::endl;
     is>>llWgt;

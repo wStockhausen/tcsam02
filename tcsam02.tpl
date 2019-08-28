@@ -532,6 +532,7 @@
 //-2019-08-17:  1. Corrected y-dimension problem writing growth info to R now that
 //                  growth arrays extend to mxYr+1.
 //-2019-08-27:  1. Added extra debugging output to calcNLL functions
+//              2. Fixed debugging info in MaturityOgiveData::read()
 //
 // =============================================================================
 // =============================================================================
