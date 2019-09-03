@@ -588,7 +588,7 @@ dvariable OFL_Calculator::calcMSY(dvar_vector R_x, dvariable Fmsy, ostream& cout
     }
     
     dvariable msy = sum(msy_fx);
-    if (debug||abs(value(100*0.5*(msy-totCM)/(msy+totCM)))>0.01) {
+    if (debug||abs(value(0.5*(msy-totCM)/(msy+totCM)))>0.01) {
         cout<<"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"<<endl;
         cout<<"in double OFL_Calculator::calcMSY(R_x,Fmsy,n_xmsz)"<<endl;
         cout<<"MSY   = "<<msy<<endl;
@@ -705,6 +705,7 @@ dvariable OFL_Calculator::calcPrjMMB(dvariable Fofl, dvar3_array& n_msz, ostream
  */
 OFLResults* OFL_Calculator::calcOFLResults(dvar_vector R, dvar4_array& n_xmsz, ostream& cout){
     if (debug) cout<<"starting OFLResults OFL_Calculator::calcOFLResults(R,n_xmsz,cout)"<<endl;
+    RETURN_ARRAYS_INCREMENT();
     int nFsh = pTCM->pEC->pPP->pCI->nFsh;
     OFLResults* res = new OFLResults();
     
@@ -762,6 +763,7 @@ OFLResults* OFL_Calculator::calcOFLResults(dvar_vector R, dvar4_array& n_xmsz, o
     
     res->ofl_fx.allocate(0,nFsh,1,tcsam::nSXs);
     res->ofl_fx = ofl_fx;
+    RETURN_ARRAYS_DECREMENT();
     if (debug) cout<<"finished OFLResults* OFL_Calculator::calcOFLResults(R,n_xmsz,cout)"<<endl;
     return res;
 }

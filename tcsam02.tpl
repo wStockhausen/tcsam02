@@ -533,6 +533,9 @@
 //                  growth arrays extend to mxYr+1.
 //-2019-08-27:  1. Added extra debugging output to calcNLL functions
 //              2. Fixed debugging info in MaturityOgiveData::read()
+//-2019-08-28:  1. upped OFL_Calculator::maxIts to 10 for Fofl calculations.
+//-2019-09-03:  1. increased MAX_DLINKS to 1000000. 
+//                   May be problem w/ incrementing/decrementing dvariables if OFL calcs.
 //
 // =============================================================================
 // =============================================================================
@@ -4631,6 +4634,7 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
                 Equilibrium_Calculator::debug=0;
                 cout<<"Calculating ptrOFLResults"<<endl;
             }
+            if (ptrOFLResults) delete(ptrOFLResults);
             ptrOFLResults = pOC->calcOFLResults(avgRec_x,n_xmsz,cout);
             if (debug) {
                 cout<<"calculated ptrOFLResults->"<<endl;
@@ -9065,5 +9069,6 @@ TOP_OF_MAIN_SECTION
   gradient_structure::set_GRADSTACK_BUFFER_SIZE(40000000); // this may be incorrect in the AUTODIF manual.
   gradient_structure::set_CMPDIF_BUFFER_SIZE(1500000000);
   gradient_structure::set_NUM_DEPENDENT_VARIABLES(7000);
+  gradient_structure::set_MAX_DLINKS(1000000);
   time(&start);
 

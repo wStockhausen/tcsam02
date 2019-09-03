@@ -308,7 +308,7 @@ class OFLResults {
 class OFL_Calculator{
     public:
         static int debug;//flag to print debugging info
-        static const int maxIts = 5;//max iterations when calculating Fofl using the HCR
+        static const int maxIts = 10;//max iterations when calculating Fofl using the HCR
 
     public:
         int tier;     //Tier for status determination and OFL calculation
