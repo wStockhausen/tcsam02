@@ -536,6 +536,7 @@
 //-2019-08-28:  1. upped OFL_Calculator::maxIts to 10 for Fofl calculations.
 //-2019-09-03:  1. increased MAX_DLINKS to 1000000. 
 //                   May be problem w/ incrementing/decrementing dvariables if OFL calcs.
+//-2019-09-24:  1. doRetro does not work (fails in PARAMETER_SECTION).
 //
 // =============================================================================
 // =============================================================================
