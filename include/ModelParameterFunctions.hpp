@@ -71,7 +71,7 @@ namespace tcsam {
      * @alters - This alters the values in the devs dvar_matrix.
      * 
      */
-    void setDevs(dvar_matrix& devs, param_init_bounded_vector_vector& pDevs,  DevsVectorVectorInfo* pI, int debug, std::ostream& cout);
+    void setDevs(dvar_matrix& devs, param_init_bounded_number_vector& pDevs,  DevsVectorVectorInfo* pI, int debug, std::ostream& cout);
 
     /**
      * Calculate ln-scale priors for a param_init_number_vector, based on its associated NumberVectorInfo, 
@@ -158,8 +158,11 @@ namespace tcsam {
  * @param toR - flag to write to R format (=1) or csv (=0)
  * @param willBeActive - flag to write only if parameter will be active
  */
-    void writeParameter(ostream& os, param_init_number& p,             adstring& ctg1, adstring& ctg2, 
-                                     NumberInfo* i, int toR, int willBeActive);
+    void writeParameter(ostream& os, 
+                        param_init_number& p,             
+                        adstring& ctg1, adstring& ctg2, 
+                        NumberInfo* i, 
+                        int toR, int willBeActive);
 /**
  * Writes information for a bounded parameter to an output stream.
  * 
@@ -171,8 +174,11 @@ namespace tcsam {
  * @param toR - flag to write to R format (=1) or csv (=0)
  * @param willBeActive - flag to write only if parameter will be active
  */
-    void writeParameter(ostream& os, param_init_bounded_number& p,     adstring& ctg1, adstring& ctg2, 
-                                     BoundedNumberInfo* i, int toR, int willBeActive);
+    void writeParameter(ostream& os, 
+                        param_init_bounded_number& p,     
+                        adstring& ctg1, adstring& ctg2, 
+                        BoundedNumberInfo* i, 
+                        int toR, int willBeActive);
 /**
  * Writes information for a parameter vector to an output stream.
  * 
@@ -184,8 +190,11 @@ namespace tcsam {
  * @param toR - flag to write to R format (=1) or csv (=0)
  * @param willBeActive - flag to write only if parameter vector will be active
  */
-    void writeParameters(ostream& os, param_init_vector& p,             adstring& ctg1, adstring& ctg2, 
-                                     VectorInfo* i, int toR, int willBeActive);
+    void writeParameters(ostream& os, 
+                         param_init_vector& p,             
+                         adstring& ctg1, adstring& ctg2, 
+                         VectorInfo* i, 
+                         int toR, int willBeActive);
 /**
  * Writes information for a bounded parameter vector to an output stream.
  * 
@@ -197,21 +206,27 @@ namespace tcsam {
  * @param toR - flag to write to R format (=1) or csv (=0)
  * @param willBeActive - flag to write only if parameter vector will be active
  */
-    void writeParameters(ostream& os, param_init_bounded_vector& p,     adstring& ctg1, adstring& ctg2, 
-                                     BoundedVectorInfo* i, int toR, int willBeActive);
+    void writeParameters(ostream& os, 
+                         param_init_bounded_vector& p,     
+                         adstring& ctg1, adstring& ctg2, 
+                         BoundedVectorInfo* i, 
+                         int toR, int willBeActive);
 /**
  * Writes information for a devs parameter vector to an output stream.
  * 
  * @param os - output stream
- * @param p - parameter vector (param_init_bounded_dev_vector)
+ * @param p - dvar_vector with devs parameter vector values
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
  * @param pI - pointer to associated DevsVectorInfo info object
  * @param toR - flag to write to R format (=1) or csv (=0)
  * @param willBeActive - flag to write only if parameter vector will be active
  */
-    void writeParameters(ostream& os, param_init_bounded_dev_vector& p, adstring& ctg1, adstring& ctg2, 
-                                     DevsVectorInfo* i, int toR, int willBeActive);
+    void writeParameters(ostream& os, 
+                         dvar_vector& p, 
+                         adstring& ctg1, adstring& ctg2, 
+                         DevsVectorInfo* i, 
+                         int toR, int willBeActive);
 /**
  * Writes a vector of parameters (param_init_number_vector) to R or csv.
  * 
@@ -223,8 +238,11 @@ namespace tcsam {
  * @param toR - flag to write to R format (=1) or csv (=0)
  * @param willBeActive - flag to write if parameters will be active in some phase
  */
-    void writeParameters(ostream& os, param_init_number_vector& p,        adstring& ctg1, adstring& ctg2, 
-                                      NumberVectorInfo* pI, int toR, int willBeActive);
+    void writeParameters(ostream& os, 
+                         param_init_number_vector& p,        
+                         adstring& ctg1, adstring& ctg2, 
+                         NumberVectorInfo* pI, 
+                         int toR, int willBeActive);
 /**
  * Writes a vector of parameters (param_init_bounded_number_vector) to R or csv.
  * 
@@ -236,8 +254,11 @@ namespace tcsam {
  * @param toR - flag to write to R format (=1) or csv (=0)
 * @param willBeActive - flag to write if parameters will be active in some phase
  */
-    void writeParameters(ostream& os, param_init_bounded_number_vector& p,adstring& ctg1, adstring& ctg2, 
-                                      BoundedNumberVectorInfo* pI, int toR, int willBeActive);
+    void writeParameters(ostream& os, 
+                         param_init_bounded_number_vector& p,
+                         adstring& ctg1, adstring& ctg2, 
+                         BoundedNumberVectorInfo* pI, 
+                         int toR, int willBeActive);
 /**
  * Writes a vector of parameter vectors (param_init_vector_vector) to R or csv.
  * 
@@ -249,8 +270,11 @@ namespace tcsam {
  * @param toR - flag to write to R format (=1) or csv (=0)
  * @param willBeActive - flag to write if parameters will be active in some phase
  */
-    void writeParameters(ostream& os, param_init_vector_vector& p,        adstring& ctg1, adstring& ctg2, 
-                                      VectorVectorInfo* pI, int toR, int willBeActive);
+    void writeParameters(ostream& os, 
+                         param_init_vector_vector& p,        
+                         adstring& ctg1, adstring& ctg2, 
+                         VectorVectorInfo* pI, 
+                         int toR, int willBeActive);
 /**
  * Writes a vector of parameter vectors (param_init_bounded_vector_vector) to R or csv.
  * 
@@ -262,8 +286,29 @@ namespace tcsam {
  * @param toR - flag to write to R format (otherwise csv)
  * @param willBeActive - flag to write if parameters will be active in some phase
  */
-    void writeParameters(ostream& os, param_init_bounded_vector_vector& p,adstring& ctg1, adstring& ctg2, 
-                                      BoundedVectorVectorInfo* pI, int toR, int willBeActive);
+    void writeParameters(ostream& os, 
+                         param_init_bounded_vector_vector& p,
+                         adstring& ctg1, adstring& ctg2, 
+                         BoundedVectorVectorInfo* pI, 
+                         int toR, int willBeActive);
+    
+/**
+ * Writes a vector of parameter vectors (param_init_bounded_vector_vector) to R or csv.
+ * 
+ * @param os - output stream to write to
+ * @param p - a dvar_matrix
+ * @param ctg1 - category 1 label
+ * @param ctg2 - category 2 label
+ * @param pI - pointer to associated DevsVectorVectorInfo info object
+ * @param toR - flag to write to R format (otherwise csv)
+ * @param willBeActive - flag to write if parameters will be active in some phase
+ */
+    void writeParameters(ostream& os, 
+                         dvar_matrix& p,
+                         adstring& ctg1, 
+                         adstring& ctg2, 
+                         DevsVectorVectorInfo* pI, 
+                         int toR, int willBeActive);
     
 /**
  * Sets the info for a param_init_number_vector from a NumberVectorInfo object.
@@ -332,16 +377,18 @@ namespace tcsam {
  * from a DevsVectorVectorInfo object.
  * 
  * @param pDVVI - pointer to a DevsVectorVectorInfo instance
- * @param npT [out] - size of vector
- * @param mns [out] - ivector with minimum indices for each vector
- * @param mxs [out] - ivector with maximum indices for each vector
+ * @param npV [out]  - number of devs vectors
+ * @param npT [out]  - size of param_init_bounded_number_vector
+ * @param mns [out]  - ivector(1,npV) with minimum indices for each vector
+ * @param mxs [out]  - ivector(1,npV) with maximum indices for each vector
  * @param idxs [out] - imatrix of reverse indices
- * @param lb [out] - dvector of lower bounds
- * @param ub [out] - dvector of upper bounds
- * @param phs [out] - ivector of phases for parameters
+ * @param lb [out]   - dvector(1,npV) of lower bounds
+ * @param ub [out]   - dvector(1,npV) of upper bounds
+ * @param phs [out]  - ivector(1,npT) of phases for parameters
  * @param os - output stream to write to
  */
-    void setParameterInfo(DevsVectorVectorInfo* pDVVI,                           
+    void setParameterInfo(DevsVectorVectorInfo* pDVVI, 
+                          int& npV,
                           int& npT,
                           ivector& mns, ivector& mxs,
                           imatrix& idxs,

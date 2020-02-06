@@ -9,7 +9,7 @@
 //**********************************************************************
 using namespace std;
 
-const adstring ModelConfiguration::VERSION = "2016.11.15";
+const adstring ModelConfiguration::VERSION = "2020.01.31";
 
 int ModelConfiguration::debug=0;
 //--------------------------------------------------------------------------------
@@ -18,6 +18,7 @@ int ModelConfiguration::debug=0;
 int    ModelConfiguration::mnYr     = -1;//min model year
 int    ModelConfiguration::asYr     = -1;//model assessment year
 int    ModelConfiguration::mxYr     = -1;//max model year
+int    ModelConfiguration::yRetro   =  0;//number of retrospective years
 int    ModelConfiguration::nSrv     = -1;//number of model surveys
 int    ModelConfiguration::nFsh     = -1;//number of model fisheries
 int    ModelConfiguration::nZBs     = -1;//number of model size bins
@@ -178,19 +179,19 @@ void ModelConfiguration::read(cifstream & is) {
     if (debug) cout<<"end ModelConfiguration::read(cifstream & is)"<<endl;
 }
 
-/**
- * Set max model year (for retrospective model runs).
- * 
- * @param yr - new max model year
- */
-void ModelConfiguration::setMaxModelYear(int yr){
-    mxYr = yr;
-    asYr = mxYr+1;
-    csvYrs  =qt+str(mnYr)+qt; for (int y=(mnYr+1);y<=mxYr;    y++) csvYrs  += cc+qt+str(y)+qt;
-    csvYrsP1=qt+str(mnYr)+qt; for (int y=(mnYr+1);y<=(mxYr+1);y++) csvYrsP1 += cc+qt+str(y)+qt;
-    dimYrsToR   = "y=c("+csvYrs+")";
-    dimYrsP1ToR = "y=c("+csvYrsP1+")";
-}
+///**
+// * Set max model year (for retrospective model runs).
+// * 
+// * @param yr - new max model year
+// */
+//void ModelConfiguration::setMaxModelYear(int yr){
+//    mxYr = yr;
+//    asYr = mxYr+1;
+//    csvYrs  =qt+str(mnYr)+qt; for (int y=(mnYr+1);y<=mxYr;    y++) csvYrs  += cc+qt+str(y)+qt;
+//    csvYrsP1=qt+str(mnYr)+qt; for (int y=(mnYr+1);y<=(mxYr+1);y++) csvYrsP1 += cc+qt+str(y)+qt;
+//    dimYrsToR   = "y=c("+csvYrs+")";
+//    dimYrsP1ToR = "y=c("+csvYrsP1+")";
+//}
 /***************************************************************
 *   function to write to file in ADMB format                   *
 ***************************************************************/
@@ -245,7 +246,8 @@ void ModelConfiguration::writeToR(ostream& os, std::string nm, int indent) {
         indent++;
         for (int n=0;n<indent;n++) os<<tb;
             os<<"y=list(n="<<mxYr-mnYr<<cc<<"mny="<<mnYr<<cc<<"asy="<<asYr<<cc<<"mxy="<<mxYr<<cc<<
-                           "nms=c("<<csvYrsP1<<"),vls="<<mnYr<<":"<<asYr<<"),"<<endl;
+                       "yRetro="<<yRetro<<
+                       "nms=c("<<csvYrsP1<<"),vls="<<mnYr<<":"<<asYr<<"),"<<endl;
         for (int n=0;n<indent;n++) os<<tb;
             os<<"x=list(n="<<tcsam::nSXs<<",nms=c("<<tcsamDims::formatForR(csvSXs)<<"))"<<cc<<endl;
         for (int n=0;n<indent;n++) os<<tb;

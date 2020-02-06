@@ -537,6 +537,23 @@
 //-2019-09-03:  1. increased MAX_DLINKS to 1000000. 
 //                   May be problem w/ incrementing/decrementing dvariables if OFL calcs.
 //-2019-09-24:  1. doRetro does not work (fails in PARAMETER_SECTION).
+//-2020-02-02:  1. Working on implementing retrospective analysis
+//              2. Converted all devs param_init_bounded_vector_vector objects to 
+//                  param_init_bounded_number objects to be able to set phases on
+//                  individual elements
+//              3. Added "likeFlags" dmatrix objects for all devs parameters objects
+//                  in order to remove non-estimated devs from sum-to-zero constraint
+//                  penalty likelihoods.
+//              4. Corrected dimension error in devs matrices (max index for
+//                  each devs vector was +1 to high [leftover from when devs parameter
+//                  vectors were defined by n-1 parameters, rather than n, with the
+//                  last element defined by the sum-to-zero constraint]) 
+//              5. Added a "read phases?" column to MPI format for VectorVectorInfo
+//                  class as well as ability to read in a subsequent row of phases
+//              6. Number of associated changes to ModelParameterInfoType classes
+//              7. Model and MPI versions changed to 2020.02.02.
+//-2020-02-05:  1. Added setMaxYear(yr) method to most data-related classes to drop
+//                 data from years > yr in conjunction with a retrospective run.
 //
 // =============================================================================
 // =============================================================================
@@ -591,6 +608,14 @@ GLOBALS_SECTION
         #undef PRINT2B2
     #endif
     #define PRINT2B2(t,o) std::cout<<(t)<<(o)<<std::endl; rpt::echo<<(t)<<(o)<<std::endl;
+    #ifdef PRINTDEVS
+        #undef PRINTDEVS
+    #endif
+    #define PRINTDEVS(s,P) {int ctr = 1; \
+                         for (int p=1;p<=npDevs##P;p++) { \
+                            std::cout<<s<<"["<<p<<"] = "; \
+                            for (int j=mniDevs##P[p];j<=mxiDevs##P[p];j++) std::cout<<pDevs##P[ctr++]<<tb; std::cout<<std::endl; \
+                         }}
 
     adstring model  = tcsam::MODEL;
     adstring modVer = tcsam::VERSION; 
@@ -1020,7 +1045,7 @@ DATA_SECTION
     
     mnYr   = ptrMC->mnYr;
     mxYr   = ptrMC->mxYr;
-    if (doRetro)  {mxYr = mxYr-yRetro; ptrMC->setMaxModelYear(mxYr);}
+    if (doRetro)  {ptrMC->setNumRetroYears(yRetro);}
     if (jitter)   {ptrMC->jitter   = 1;}
     if (resample) {ptrMC->resample = 1;}
     
@@ -1102,24 +1127,63 @@ DATA_SECTION
         FleetData::debug=debugModelDatasets;
     }
     if (doRetro) {
-        PRINT2B2("doRetro: RESETTING maxYr on Growth & MaturityOgive Data to ",mxYr+1)
-        for (int i=0;i<ptrMDS->nGrw; i++) {
-            PRINT2B2("#---Resetting mxYr on growth dataset ",i+1)
-            GrowthData::debug=1;
-            ptrMDS->ppGrw[i]->setMaxYear(mxYr+1);
-            GrowthData::debug=0;
-            rpt::echo<<(*ptrMDS->ppGrw[i])<<endl;
-            PRINT2B2("#---Finished resetting mxYr on growth dataset ",i+1)
+        PRINT2B2("doRetro: RESETTING max year on datasets for retrospective analyses to fishery year ",mxYr-yRetro)
+        if (ptrMDS->nFsh){
+            PRINT2B1("doRetro: RESETTING max year on fishery datasets ")
+            for (int i=0;i<ptrMDS->nFsh; i++) {
+                PRINT2B2("#---Resetting mxYr on fishery dataset ",i+1)
+                FleetData::debug=1;
+                ptrMDS->ppFsh[i]->setMaxYear(mxYr-yRetro);
+                FleetData::debug=0;
+                rpt::echo<<(*ptrMDS->ppFsh[i])<<endl;
+                PRINT2B2("#---Finished resetting mxYr on fishery dataset ",i+1)
+            }
         }
-        for (int i=0;i<ptrMDS->nMOD; i++) {
-            PRINT2B2("#---Resetting mxYr on maturity ogive dataset ",i+1)
-            MaturityOgiveData::debug=1;
-            ptrMDS->ppMOD[i]->setMaxYear(mxYr+1);
-            MaturityOgiveData::debug=0;
-            rpt::echo<<(*ptrMDS->ppMOD[i])<<endl;
-            PRINT2B2("#---Finished resetting mxYr on maturity ogive dataset ",i+1)
+        if (ptrMDS->nSrv){
+            PRINT2B1("doRetro: RESETTING max year on survey datasets ")
+            for (int i=0;i<ptrMDS->nSrv; i++) {
+                PRINT2B2("#---Resetting mxYr on survey dataset ",i+1)
+                FleetData::debug=1;
+                ptrMDS->ppSrv[i]->setMaxYear(mxYr+1-yRetro);
+                FleetData::debug=0;
+                rpt::echo<<(*ptrMDS->ppSrv[i])<<endl;
+                PRINT2B2("#---Finished resetting mxYr on survey dataset ",i+1)
+            }
         }
-        PRINT2B2("doRetro: finished RESETTING maxYr on Growth & MaturityOgive Data to ",mxYr+1)
+        if (ptrMDS->nGrw){
+            PRINT2B1("doRetro: RESETTING max year on growth datasets ")
+            for (int i=0;i<ptrMDS->nGrw; i++) {
+                PRINT2B2("#---Resetting mxYr on growth dataset ",i+1)
+                GrowthData::debug=1;
+                ptrMDS->ppGrw[i]->setMaxYear(mxYr+1-yRetro);
+                GrowthData::debug=0;
+                rpt::echo<<(*ptrMDS->ppGrw[i])<<endl;
+                PRINT2B2("#---Finished resetting mxYr on growth dataset ",i+1)
+            }
+        }
+        if (ptrMDS->nCHD){
+            PRINT2B1("doRetro: RESETTING max year on chela height datasets ")
+            for (int i=0;i<ptrMDS->nCHD; i++) {
+                PRINT2B2("#---Resetting mxYr on chela height dataset ",i+1)
+                ChelaHeightData::debug=1;
+                ptrMDS->ppCHD[i]->setMaxYear(mxYr+1-yRetro,ptrMC->zCutPts);
+                ChelaHeightData::debug=0;
+                rpt::echo<<(*ptrMDS->ppCHD[i])<<endl;
+                PRINT2B2("#---Finished resetting mxYr on chela height dataset ",i+1)
+            }
+        }
+        if (ptrMDS->nMOD){
+            PRINT2B1("doRetro: RESETTING max year on maturity ogive datasets ")
+            for (int i=0;i<ptrMDS->nMOD; i++) {
+                PRINT2B2("#---Resetting mxYr on maturity ogive dataset ",i+1)
+                MaturityOgiveData::debug=1;
+                ptrMDS->ppMOD[i]->setMaxYear(mxYr+1-yRetro);
+                MaturityOgiveData::debug=0;
+                rpt::echo<<(*ptrMDS->ppMOD[i])<<endl;
+                PRINT2B2("#---Finished resetting mxYr on maturity ogive dataset ",i+1)
+            }
+        }
+        PRINT2B1("doRetro: finished RESETTING maxYr on datasets for retrospective analyses")
     }
     PRINT2B1("#----finished model datasets---")
     if (debugDATA_SECTION){
@@ -1296,9 +1360,11 @@ DATA_SECTION
     int npRb; ivector phsRb; vector lbRb; vector ubRb;
     !!tcsam::setParameterInfo(ptrMPI->ptrRec->pRb,npRb,lbRb,ubRb,phsRb,rpt::echo);
     
-    int npDevsLnR; ivector mniDevsLnR; ivector mxiDevsLnR; imatrix idxsDevsLnR;
-    vector lbDevsLnR; vector ubDevsLnR; ivector phsDevsLnR;
-    !!tcsam::setParameterInfo(ptrMPI->ptrRec->pDevsLnR,npDevsLnR,mniDevsLnR,mxiDevsLnR,idxsDevsLnR,lbDevsLnR,ubDevsLnR,phsDevsLnR,rpt::echo);
+    int npDevsLnR; int nptDevsLnR;
+    ivector mniDevsLnR; ivector mxiDevsLnR; imatrix idxsDevsLnR;
+    vector lbDevsLnR;   vector ubDevsLnR;   ivector phsDevsLnR;
+    !!tcsam::setParameterInfo(ptrMPI->ptrRec->pDevsLnR,npDevsLnR,nptDevsLnR,mniDevsLnR,mxiDevsLnR,idxsDevsLnR,lbDevsLnR,ubDevsLnR,phsDevsLnR,rpt::echo);
+    matrix likeFlagsDevsLnR(1,npDevsLnR,mniDevsLnR,mxiDevsLnR);
  LOCAL_CALCS    
     if (mseOpModMode) {
         phsLnR = -1;
@@ -1382,24 +1448,41 @@ DATA_SECTION
     int npS6; ivector phsS6; vector lbS6; vector ubS6;
     !!tcsam::setParameterInfo(ptrMPI->ptrSel->pS6,npS6,lbS6,ubS6,phsS6,rpt::echo);
     
-    int npDevsS1; ivector mniDevsS1; ivector mxiDevsS1;  imatrix idxsDevsS1;
+    int npDevsS1; int nptDevsS1;
+    ivector mniDevsS1; ivector mxiDevsS1;  imatrix idxsDevsS1;
     vector lbDevsS1; vector ubDevsS1; ivector phsDevsS1;
-    !!tcsam::setParameterInfo(ptrMPI->ptrSel->pDevsS1,npDevsS1,mniDevsS1,mxiDevsS1,idxsDevsS1,lbDevsS1,ubDevsS1,phsDevsS1,rpt::echo);
-    int npDevsS2; ivector mniDevsS2; ivector mxiDevsS2;  imatrix idxsDevsS2;
+    !!tcsam::setParameterInfo(ptrMPI->ptrSel->pDevsS1,npDevsS1,nptDevsS1,mniDevsS1,mxiDevsS1,idxsDevsS1,lbDevsS1,ubDevsS1,phsDevsS1,rpt::echo);
+    matrix likeFlagsDevsS1(1,npDevsS1,mniDevsS1,mxiDevsS1);
+    
+    int npDevsS2; int nptDevsS2; 
+    ivector mniDevsS2; ivector mxiDevsS2;  imatrix idxsDevsS2;
     vector lbDevsS2; vector ubDevsS2; ivector phsDevsS2;
-    !!tcsam::setParameterInfo(ptrMPI->ptrSel->pDevsS2,npDevsS2,mniDevsS2,mxiDevsS2,idxsDevsS2,lbDevsS2,ubDevsS2,phsDevsS2,rpt::echo);
-    int npDevsS3; ivector mniDevsS3; ivector mxiDevsS3;  imatrix idxsDevsS3;
+    !!tcsam::setParameterInfo(ptrMPI->ptrSel->pDevsS2,npDevsS2,nptDevsS2,mniDevsS2,mxiDevsS2,idxsDevsS2,lbDevsS2,ubDevsS2,phsDevsS2,rpt::echo);
+    matrix likeFlagsDevsS2(1,npDevsS2,mniDevsS2,mxiDevsS2);
+    
+    int npDevsS3; int nptDevsS3; 
+    ivector mniDevsS3; ivector mxiDevsS3;  imatrix idxsDevsS3;
     vector lbDevsS3; vector ubDevsS3; ivector phsDevsS3;
-    !!tcsam::setParameterInfo(ptrMPI->ptrSel->pDevsS3,npDevsS3,mniDevsS3,mxiDevsS3,idxsDevsS3,lbDevsS3,ubDevsS3,phsDevsS3,rpt::echo);
-    int npDevsS4; ivector mniDevsS4; ivector mxiDevsS4;  imatrix idxsDevsS4;
+    !!tcsam::setParameterInfo(ptrMPI->ptrSel->pDevsS3,npDevsS3,nptDevsS3,mniDevsS3,mxiDevsS3,idxsDevsS3,lbDevsS3,ubDevsS3,phsDevsS3,rpt::echo);
+    matrix likeFlagsDevsS3(1,npDevsS3,mniDevsS3,mxiDevsS3);
+    
+    int npDevsS4; int nptDevsS4; 
+    ivector mniDevsS4; ivector mxiDevsS4;  imatrix idxsDevsS4;
     vector lbDevsS4; vector ubDevsS4; ivector phsDevsS4;
-    !!tcsam::setParameterInfo(ptrMPI->ptrSel->pDevsS4,npDevsS4,mniDevsS4,mxiDevsS4,idxsDevsS4,lbDevsS4,ubDevsS4,phsDevsS4,rpt::echo);
-    int npDevsS5; ivector mniDevsS5; ivector mxiDevsS5;  imatrix idxsDevsS5;
+    !!tcsam::setParameterInfo(ptrMPI->ptrSel->pDevsS4,npDevsS4,nptDevsS4,mniDevsS4,mxiDevsS4,idxsDevsS4,lbDevsS4,ubDevsS4,phsDevsS4,rpt::echo);
+    matrix likeFlagsDevsS4(1,npDevsS4,mniDevsS4,mxiDevsS4);
+    
+    int npDevsS5; int nptDevsS5; 
+    ivector mniDevsS5; ivector mxiDevsS5;  imatrix idxsDevsS5;
     vector lbDevsS5; vector ubDevsS5; ivector phsDevsS5;
-    !!tcsam::setParameterInfo(ptrMPI->ptrSel->pDevsS5,npDevsS5,mniDevsS5,mxiDevsS5,idxsDevsS5,lbDevsS5,ubDevsS5,phsDevsS5,rpt::echo);
-    int npDevsS6; ivector mniDevsS6; ivector mxiDevsS6;  imatrix idxsDevsS6;
+    !!tcsam::setParameterInfo(ptrMPI->ptrSel->pDevsS5,npDevsS5,nptDevsS5,mniDevsS5,mxiDevsS5,idxsDevsS5,lbDevsS5,ubDevsS5,phsDevsS5,rpt::echo);
+    matrix likeFlagsDevsS5(1,npDevsS5,mniDevsS5,mxiDevsS5);
+    
+    int npDevsS6; int nptDevsS6; 
+    ivector mniDevsS6; ivector mxiDevsS6;  imatrix idxsDevsS6;
     vector lbDevsS6; vector ubDevsS6; ivector phsDevsS6;
-    !!tcsam::setParameterInfo(ptrMPI->ptrSel->pDevsS6,npDevsS6,mniDevsS6,mxiDevsS6,idxsDevsS6,lbDevsS6,ubDevsS6,phsDevsS6,rpt::echo);
+    !!tcsam::setParameterInfo(ptrMPI->ptrSel->pDevsS6,npDevsS6,nptDevsS6,mniDevsS6,mxiDevsS6,idxsDevsS6,lbDevsS6,ubDevsS6,phsDevsS6,rpt::echo);
+    matrix likeFlagsDevsS6(1,npDevsS6,mniDevsS6,mxiDevsS6);
     
     int npNPSel; ivector mniNPSel; ivector mxiNPSel; imatrix idxsNPSel;
     vector lbNPSel; vector ubNPSel; ivector phsNPSel;
@@ -1441,10 +1524,12 @@ DATA_SECTION
     int npDC4; ivector phsDC4; vector lbDC4; vector ubDC4;
     !!tcsam::setParameterInfo(ptrMPI->ptrFsh->pDC4,npDC4,lbDC4,ubDC4,phsDC4,rpt::echo);
     
-    int npDevsLnC; ivector mniDevsLnC; ivector mxiDevsLnC; imatrix idxsDevsLnC;
+    int npDevsLnC; int nptDevsLnC;
+    ivector mniDevsLnC; ivector mxiDevsLnC; imatrix idxsDevsLnC;
     vector lbDevsLnC; vector ubDevsLnC; ivector phsDevsLnC;
-    !!tcsam::setParameterInfo(ptrMPI->ptrFsh->pDevsLnC,npDevsLnC,mniDevsLnC,mxiDevsLnC,idxsDevsLnC,lbDevsLnC,ubDevsLnC,phsDevsLnC,rpt::echo);
-    
+    !!tcsam::setParameterInfo(ptrMPI->ptrFsh->pDevsLnC,npDevsLnC,nptDevsLnC,mniDevsLnC,mxiDevsLnC,idxsDevsLnC,lbDevsLnC,ubDevsLnC,phsDevsLnC,rpt::echo);
+    matrix likeFlagsDevsLnC(1,npDevsLnC,mniDevsLnC,mxiDevsLnC);
+     
     int npLnEffX; ivector phsLnEffX; vector lbLnEffX; vector ubLnEffX;
     !!tcsam::setParameterInfo(ptrMPI->ptrFsh->pLnEffX,npLnEffX,lbLnEffX,ubLnEffX,phsLnEffX,rpt::echo);
     
@@ -1613,9 +1698,9 @@ PARAMETER_SECTION
     !!cout<<"pRa = "<<pRa<<endl;
     init_bounded_number_vector pRb(1,npRb,lbRb,ubRb,phsRb);         //size distribution parameter
     !!cout<<"pRb = "<<pRb<<endl;
-    init_bounded_vector_vector pDevsLnR(1,npDevsLnR,mniDevsLnR,mxiDevsLnR,lbDevsLnR,ubDevsLnR,phsDevsLnR);//ln-scale rec devs
-    !!for (int p=1;p<=npDevsLnR;p++) cout<<"pDevsLnR["<<p<<"] = "<<pDevsLnR[p]<<endl;
-    matrix devsLnR(1,npDevsLnR,mniDevsLnR,mxiDevsLnR+1);
+    init_bounded_number_vector pDevsLnR(1,nptDevsLnR,lbDevsLnR,ubDevsLnR,phsDevsLnR);//ln-scale rec devs
+    !!PRINTDEVS("pDevsLnR",LnR)
+    matrix devsLnR(1,npDevsLnR,mniDevsLnR,mxiDevsLnR);
     !!cout<<"got past recruitment parameters"<<endl;
    
     //natural mortality parameters
@@ -1658,24 +1743,33 @@ PARAMETER_SECTION
     !!cout<<"pS5 = "<<pS5<<endl;
     init_bounded_number_vector pS6(1,npS6,lbS6,ubS6,phsS6);
     !!cout<<"pS6 = "<<pS6<<endl;
-    init_bounded_vector_vector pDevsS1(1,npDevsS1,mniDevsS1,mxiDevsS1,lbDevsS1,ubDevsS1,phsDevsS1);
-    !!for (int p=1;p<=npDevsS1;p++) cout<<"pDevsS1["<<p<<"] = "<<pDevsS1[p]<<endl;
-    init_bounded_vector_vector pDevsS2(1,npDevsS2,mniDevsS2,mxiDevsS2,lbDevsS2,ubDevsS2,phsDevsS2);
-    !!for (int p=1;p<=npDevsS2;p++) cout<<"pDevsS2["<<p<<"] = "<<pDevsS2[p]<<endl;
-    init_bounded_vector_vector pDevsS3(1,npDevsS3,mniDevsS3,mxiDevsS3,lbDevsS3,ubDevsS3,phsDevsS3);
-    !!for (int p=1;p<=npDevsS3;p++) cout<<"pDevsS3["<<p<<"] = "<<pDevsS3[p]<<endl;
-    init_bounded_vector_vector pDevsS4(1,npDevsS4,mniDevsS4,mxiDevsS4,lbDevsS4,ubDevsS4,phsDevsS4);
-    !!for (int p=1;p<=npDevsS4;p++) cout<<"pDevsS4["<<p<<"] = "<<pDevsS4[p]<<endl;
-    init_bounded_vector_vector pDevsS5(1,npDevsS5,mniDevsS5,mxiDevsS5,lbDevsS5,ubDevsS5,phsDevsS5);
-    !!for (int p=1;p<=npDevsS5;p++) cout<<"pDevsS5["<<p<<"] = "<<pDevsS5[p]<<endl;
-    init_bounded_vector_vector pDevsS6(1,npDevsS6,mniDevsS6,mxiDevsS6,lbDevsS6,ubDevsS6,phsDevsS6);
-    !!for (int p=1;p<=npDevsS6;p++) cout<<"pDevsS6["<<p<<"] = "<<pDevsS6[p]<<endl;
-    matrix devsS1(1,npDevsS1,mniDevsS1,mxiDevsS1+1);
-    matrix devsS2(1,npDevsS2,mniDevsS2,mxiDevsS2+1);
-    matrix devsS3(1,npDevsS3,mniDevsS3,mxiDevsS3+1);
-    matrix devsS4(1,npDevsS4,mniDevsS4,mxiDevsS4+1);
-    matrix devsS5(1,npDevsS5,mniDevsS5,mxiDevsS5+1);
-    matrix devsS6(1,npDevsS6,mniDevsS6,mxiDevsS6+1);
+    
+    !!cout<<"creating devsS1"<<endl;
+    !!cout<<nptDevsS1<<tb<<lbDevsS1<<tb<<ubDevsS1<<tb<<phsDevsS1<<endl;
+    init_bounded_number_vector pDevsS1(1,nptDevsS1,lbDevsS1,ubDevsS1,phsDevsS1);
+    !!cout<<"got past devsS1"<<endl;
+    !!PRINTDEVS("pDevsS1",S1)
+    !!cout<<"got past PRINTDEVS(devsS1)"<<endl;
+    !!cout<<"creating devsS2"<<endl;
+    !!cout<<nptDevsS2<<tb<<lbDevsS2<<tb<<ubDevsS2<<tb<<phsDevsS2<<endl;
+    init_bounded_number_vector pDevsS2(1,nptDevsS2,lbDevsS2,ubDevsS2,phsDevsS2);
+    !!cout<<"got past devsS2"<<endl;
+    !!PRINTDEVS("pDevsS2",S2)
+    !!cout<<"got past PRINTDEVS(devsS2)"<<endl;
+    init_bounded_number_vector pDevsS3(1,nptDevsS3,lbDevsS3,ubDevsS3,phsDevsS3);
+    !!PRINTDEVS("pDevsS3",S3)
+    init_bounded_number_vector pDevsS4(1,nptDevsS4,lbDevsS4,ubDevsS4,phsDevsS4);
+    !!PRINTDEVS("pDevsS4",S4)
+    init_bounded_number_vector pDevsS5(1,nptDevsS5,lbDevsS5,ubDevsS5,phsDevsS5);
+    !!PRINTDEVS("pDevsS5",S5)
+    init_bounded_number_vector pDevsS6(1,nptDevsS6,lbDevsS6,ubDevsS6,phsDevsS6);
+    !!PRINTDEVS("pDevsS6",S6)
+    matrix devsS1(1,npDevsS1,mniDevsS1,mxiDevsS1);//TODO: why +1?
+    matrix devsS2(1,npDevsS2,mniDevsS2,mxiDevsS2);
+    matrix devsS3(1,npDevsS3,mniDevsS3,mxiDevsS3);
+    matrix devsS4(1,npDevsS4,mniDevsS4,mxiDevsS4);
+    matrix devsS5(1,npDevsS5,mniDevsS5,mxiDevsS5);
+    matrix devsS6(1,npDevsS6,mniDevsS6,mxiDevsS6);
     
     init_bounded_vector_vector pvNPSel(1,npNPSel,mniNPSel,mxiNPSel,lbNPSel,ubNPSel,phsNPSel);
     !!for (int p=1;p<=npNPSel;p++) cout<<"pvNPSel["<<p<<"] = "<<pvNPSel[p]<<endl;
@@ -1694,15 +1788,15 @@ PARAMETER_SECTION
     !!cout<<"pDC3 = "<<pDC3<<endl;
     init_bounded_number_vector pDC4(1,npDC4,lbDC4,ubDC4,phsDC4);//ln-offset 4 (e.g., female-immature offsets)
     !!cout<<"pDC4 = "<<pDC4<<endl;
-    init_bounded_vector_vector pDevsLnC(1,npDevsLnC,mniDevsLnC,mxiDevsLnC,lbDevsLnC,ubDevsLnC,phsDevsLnC);//ln-scale deviations
-    !!for (int p=1;p<=npDevsLnC;p++) cout<<"pDevsLnC["<<p<<"] = "<<pDevsLnC[p]<<endl;
+    init_bounded_number_vector pDevsLnC(1,nptDevsLnC,lbDevsLnC,ubDevsLnC,phsDevsLnC);//ln-scale deviations
+    !!PRINTDEVS("pDevsLnC",LnC)
     !!cout<<npLnEffX<<tb<<lbLnEffX<<tb<<ubLnEffX<<tb<<phsLnEffX<<endl;
     init_bounded_number_vector pLnEffX(1,npLnEffX,lbLnEffX,ubLnEffX,phsLnEffX);//ln-scale effort extrapolation parameters
     !!cout<<"pLnEffX = "<<pLnEffX<<endl;
     !!cout<<npLgtRet<<tb<<lbLgtRet<<tb<<ubLgtRet<<tb<<phsLgtRet<<endl;
     init_bounded_number_vector pLgtRet(1,npLgtRet,lbLgtRet,ubLgtRet,phsLgtRet);//lgt-scale retained fraction parameters
     !!cout<<"pLgtRet = "<<pLgtRet<<endl;
-    matrix devsLnC(1,npDevsLnC,mniDevsLnC,mxiDevsLnC+1);
+    matrix devsLnC(1,npDevsLnC,mniDevsLnC,mxiDevsLnC);
     !!cout<<"got past capture rate parameters"<<endl;
    
     //survey catchability parameters
@@ -1870,7 +1964,9 @@ PARAMETER_SECTION
 // =============================================================================
 PRELIMINARY_CALCS_SECTION
     PRINT2B1("#Starting PRELIMINARY_CALCS_SECTION")
-    int debug=1;
+    int debug=dbgAll+1;
+//---------PRELIMINARY_CALCS: Set Devs Likelihood Flags-------------------------
+    setAllDevsLikelihoodFlags(debug,rpt::echo);
     
 //---------PRELIMINARY_CALCS: ALT POP DY CALCULATIONS---------------------------
     if (runAlt){
@@ -1914,7 +2010,7 @@ PRELIMINARY_CALCS_SECTION
             rpt::echo<<"fishery has effort"<<endl;
             //extract years for effort averaging, keeping model limits in mind
             yrsAvgEff_ny(n).deallocate();
-            yrsAvgEff_ny(n) = wts::extractVector(mnYr,mxYr,ptrEAS->ptrIB->getFwdIndexVector());
+            yrsAvgEff_ny(n) = wts::extractVector(mnYr,mxYr-yRetro,ptrEAS->ptrIB->getFwdIndexVector());
             //assign values for effort averaging
             eff_ny(n).deallocate();
             eff_ny(n) = ptrMDS->ppFsh[fd-1]->ptrEff->eff_y(yrsAvgEff_ny(n));
@@ -1967,6 +2063,7 @@ PRELIMINARY_CALCS_SECTION
             PRINT2B1("writing effective MPI after setInitVals")
             ofstream os; os.open("effectiveMPI.dat", ios::trunc);
             os.precision(12);
+            ptrMPI->setToWriteVectorEstimationPhases(true);
             ptrMPI->setToWriteVectorInitialValues(true);
             os<<(*ptrMPI)<<endl;
             os.close();
@@ -4674,6 +4771,7 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
 //-------------------------------------------------------------------------------------
 //Calculate penalties for objective function. TODO: finish
 FUNCTION void calcPenalties(int debug, ostream& cout)
+    //debug=dbgObjFun+1;//TODO: uncomment this for testing
     if (debug>dbgObjFun) cout<<"Started calcPenalties()"<<endl;
     if (debug<0) cout<<"list("<<endl;//start list of penalties by category
 
@@ -4911,94 +5009,94 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     //penalties on sums of dev vectors to enforce sum-to-zero
     double penWgt = 0.0;
     if (current_phase()>=ptrMOs->phsSqSumDevsPen) penWgt = ptrMOs->wgtSqSumDevsPen;
-    if (debug<0) rpt::echo<<"#----Check on sum(devs) in calcPenalties "<<current_phase()<<tb<<ctrProcCallsInPhase<<endl;
+    if (debug) rpt::echo<<"#----Check on sum(devs) in calcPenalties "<<current_phase()<<tb<<ctrProcCallsInPhase<<endl;
     if (debug<0) cout<<tb<<"devsSumSq=list("<<endl;//start of devs penalties list
     //recruitment devs
     if (ptrMPI->ptrRec->pDevsLnR->getSize()){
-        if (debug<0) {
-            rpt::echo<<"pDevsLnR = ";
-            for (int i=1;i<=pDevsLnR.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsLnR[i])<<tb;
+        if (debug>dbgObjFun) {
+            rpt::echo<<"pDevsLnR: "<<endl;
+            for (int i=1;i<=devsLnR.indexmax();i++) rpt::echo<<tb<<"["<<i<<"]="<<likeFlagsDevsLnR[i]*devsLnR[i]<<endl;//dot product?
             rpt::echo<<endl;
         }
         if (debug<0) cout<<tb<<tb<<"pDevsLnR=";
-        calcDevsPenalties(debug,cout,penWgt,pDevsLnR,devsLnR);        
+        calcDevsPenalties(debug,cout,penWgt,likeFlagsDevsLnR,devsLnR);        
         if (debug<0) cout<<cc<<endl;
     }
     //S1 devs
     if (ptrMPI->ptrSel->pDevsS1->getSize()){
-        if (debug<0) {
-            rpt::echo<<"pDevsS1 = ";
-            for (int i=1;i<=pDevsS1.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsS1[i])<<tb;
+        if (debug>dbgObjFun) {
+            rpt::echo<<"pDevsS1: "<<endl;
+            for (int i=1;i<=devsS1.indexmax();i++) rpt::echo<<tb<<"["<<i<<"]="<<sum(elem_prod(likeFlagsDevsS1[i],devsS1[i]))<<endl;
             rpt::echo<<endl;
         }
         if (debug<0) cout<<tb<<tb<<"pDevsS1=";
-        calcDevsPenalties(debug,cout,penWgt,pDevsS1,devsS1);
+        calcDevsPenalties(debug,cout,penWgt,likeFlagsDevsS1,devsS1);
         if (debug<0) cout<<cc<<endl;
     }
     //S2 devs
     if (ptrMPI->ptrSel->pDevsS2->getSize()){
-        if (debug<0) {
-            rpt::echo<<"pDevsS2 = ";
-            for (int i=1;i<=pDevsS2.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsS2[i])<<tb;
+        if (debug>dbgObjFun) {
+            rpt::echo<<"pDevsS2: "<<endl;
+            for (int i=1;i<=devsS2.indexmax();i++) rpt::echo<<tb<<"["<<i<<"]="<<sum(elem_prod(likeFlagsDevsS2[i],devsS2[i]))<<endl;
             rpt::echo<<endl;
         }
         if (debug<0) cout<<tb<<tb<<"pDevsS2=";
-        calcDevsPenalties(debug,cout,penWgt,pDevsS2,devsS2);
+        calcDevsPenalties(debug,cout,penWgt,likeFlagsDevsS2,devsS2);
         if (debug<0) cout<<cc<<endl;
     }
     //S3 devs
     if (ptrMPI->ptrSel->pDevsS3->getSize()){
-        if (debug<0) {
-            rpt::echo<<"pDevsS3 = ";
-            for (int i=1;i<=pDevsS3.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsS3[i])<<tb;
+        if (debug>dbgObjFun) {
+            rpt::echo<<"pDevsS3: "<<endl;
+            for (int i=1;i<=devsS3.indexmax();i++) rpt::echo<<tb<<"["<<i<<"]="<<sum(elem_prod(likeFlagsDevsS3[i],devsS3[i]))<<endl;
             rpt::echo<<endl;
         }
         if (debug<0) cout<<tb<<tb<<"pDevsS3=";
-        calcDevsPenalties(debug,cout,penWgt,pDevsS3,devsS3);
+        calcDevsPenalties(debug,cout,penWgt,likeFlagsDevsS3,devsS3);
         if (debug<0) cout<<cc<<endl;
     }
     //S4 devs
     if (ptrMPI->ptrSel->pDevsS4->getSize()){
-        if (debug<0) {
-            rpt::echo<<"pDevsS4 = ";
-            for (int i=1;i<=pDevsS4.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsS4[i])<<tb;
+        if (debug>dbgObjFun) {
+            rpt::echo<<"pDevsS4: "<<endl;
+            for (int i=1;i<=devsS4.indexmax();i++) rpt::echo<<tb<<"["<<i<<"]="<<sum(elem_prod(likeFlagsDevsS4[i],devsS4[i]))<<endl;
             rpt::echo<<endl;
         }
         if (debug<0) cout<<tb<<tb<<"pDevsS4=";
-        calcDevsPenalties(debug,cout,penWgt,pDevsS4,devsS4);
+        calcDevsPenalties(debug,cout,penWgt,likeFlagsDevsS4,devsS4);
         if (debug<0) cout<<cc<<endl;
     }
     //S5 devs
     if (ptrMPI->ptrSel->pDevsS5->getSize()){
-        if (debug<0) {
-            rpt::echo<<"pDevsS5 = ";
-            for (int i=1;i<=pDevsS5.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsS5[i])<<tb;
+        if (debug>dbgObjFun) {
+            rpt::echo<<"pDevsS5: "<<endl;
+            for (int i=1;i<=devsS5.indexmax();i++) rpt::echo<<tb<<"["<<i<<"]="<<sum(elem_prod(likeFlagsDevsS5[i],devsS5[i]))<<endl;
             rpt::echo<<endl;
         }
         if (debug<0) cout<<tb<<tb<<"pDevsS5=";
-        calcDevsPenalties(debug,cout,penWgt,pDevsS5,devsS5);
+        calcDevsPenalties(debug,cout,penWgt,likeFlagsDevsS5,devsS5);
         if (debug<0) cout<<cc<<endl;
     }
     //S6 devs
     if (ptrMPI->ptrSel->pDevsS6->getSize()){
-        if (debug<0) {
-            rpt::echo<<"pDevsS6 = ";
-            for (int i=1;i<=pDevsS6.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsS6[i])<<tb;
+        if (debug>dbgObjFun) {
+            rpt::echo<<"pDevsS6:"<<endl;
+            for (int i=1;i<=devsS6.indexmax();i++) rpt::echo<<tb<<"["<<i<<"]="<<sum(elem_prod(likeFlagsDevsS6[i],devsS6[i]))<<endl;
             rpt::echo<<endl;
         }
         if (debug<0) cout<<tb<<tb<<"pDevsS6=";
-        calcDevsPenalties(debug,cout,penWgt,pDevsS6,devsS6);
+        calcDevsPenalties(debug,cout,penWgt,likeFlagsDevsS6,devsS6);
         if (debug<0) cout<<cc<<endl;
     }
     //capture rate devs
     if (ptrMPI->ptrFsh->pDevsLnC->getSize()){
-        if (debug<0) {
-            rpt::echo<<"pDevsLnC = ";
-            for (int i=1;i<=pDevsLnC.indexmax();i++) rpt::echo<<"["<<i<<"]="<<sum(devsLnC[i])<<tb;
+        if (debug>dbgObjFun) {
+            rpt::echo<<"pDevsLnC:"<<endl;
+            for (int i=1;i<=devsLnC.indexmax();i++) rpt::echo<<tb<<"["<<i<<"]="<<sum(elem_prod(likeFlagsDevsLnC[i],devsLnC[i]))<<endl;
             rpt::echo<<endl;
         }
         if (debug<0) cout<<tb<<tb<<"pDevsLnC=";
-        calcDevsPenalties(debug,cout,penWgt,pDevsLnC,devsLnC);
+        calcDevsPenalties(debug,cout,penWgt,likeFlagsDevsLnC,devsLnC);
         if (debug<0) cout<<cc<<endl;
     }
     if (debug<0) rpt::echo<<"#------"<<endl<<endl;
@@ -5021,11 +5119,11 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
         } else {
             if (debug<0) rpt::echo<<"phase: "<<current_phase()<<"; penWgt = "<<penWgt<<"; effCV = Inf"<<endl;
         }
-        for (int i=pDevsLnC.indexmin();i<=pDevsLnC.indexmax();i++){
-            dvariable fpen = 0.5*norm2(pDevsLnC(i));
+        for (int i=devsLnC.indexmin();i<=devsLnC.indexmax();i++){
+            dvariable fpen = 0.5*norm2(elem_prod(likeFlagsDevsLnC(i),devsLnC(i)));
             objFun += penWgt*fpen;
             if (debug<0) {
-                double rmse = sqrt(value(norm2(pDevsLnC(i)))/pDevsLnC(i).size());
+                double rmse = sqrt(value(norm2(elem_prod(likeFlagsDevsLnC(i),devsLnC(i))))/sum(likeFlagsDevsLnC(i)));
                 rpt::echo<<tb<<i<<": pen="<<fpen<<cc<<" objfun="<<penWgt*fpen<<endl;
                 if (penWgt>0) {
                     cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgt<<cc<<"effCV="<<effCV<<cc
@@ -5045,23 +5143,36 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
 
 //-------------------------------------------------------------------------------------
 //Calculate penalties on sums of devs vectors
-FUNCTION void calcDevsPenalties(int debug, ostream& cout, double penWgt, param_init_bounded_vector_vector& pDevs, dvar_matrix devs)    
+//FUNCTION void calcDevsPenalties(int debug, ostream& cout, double penWgt, param_init_bounded_vector_vector& pDevs, dvar_matrix devs)    
+FUNCTION void calcDevsPenalties(int debug, ostream& cout, double penWgt, const dmatrix& likeFlags, const dvar_matrix& devs)
+    if (debug>dbgObjFun) cout<<"starting calcDevsPenalties()"<<endl;
     dvariable fPen;
+    dvariable devsum;
     if (debug<0) cout<<"list(";//start of list
-    for (int i=pDevs.indexmin();i<=pDevs.indexmax();i++){
-        if (pDevs(i).get_phase_start()){
-            fPen.initialize();
-            fPen = square(sum(devs(i)));
-            objFun += penWgt*fPen;
-            if (debug<0) {
-                double rmse = sqrt(value(norm2(devs(i)))/devs(i).size());
-                cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgt<<cc<<"pen="<<fPen<<cc<<"objfun="<<penWgt*fPen<<cc<<"val="<<sum(devs(i))<<cc<<
-                                                  "rmse="<<rmse<<"),"<<endl;
-            }
+    int np = devs.indexmax();
+    for (int i=1;i<=np;i++){
+        fPen.initialize();
+        fPen = square(likeFlags(i)*devs(i));
+        objFun += penWgt*fPen;
+        if (debug>dbgObjFun){
+            cout<<"i = "<<i<<endl;
+            cout<<"likeFlags = "<<likeFlags(i)<<endl;
+            cout<<"devs      = "<<devs(i)<<endl;
+            cout<<"like*devs = "<<likeFlags(i)*devs(i)<<endl;
+            cout<<"fPen = "<<fPen<<tb<<"objFun = "<<penWgt*fPen<<endl;
         }
-    }
-    if (!debug) testNaNs(value(objFun),"in calcDevsPenalties()");
+        if (debug<0) {
+             double rmse = sqrt(value(norm2(elem_prod(likeFlags(i),devs(i))))/sum(likeFlags(i)));
+             cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgt<<cc<<
+                                              "pen="<<fPen<<cc<<
+                                              "objfun="<<penWgt*fPen<<cc<<
+                                              "val="<<sum(devs(i))<<cc<<
+                                              "rmse="<<rmse<<"),"<<endl;
+         }
+    }//--i
+    if (!debug)  testNaNs(value(objFun),"in calcDevsPenalties()");
     if (debug<0) cout<<tb<<tb<<"NULL)";//end of penalties list
+    if (debug>dbgObjFun) cout<<"finished calcDevsPenalties()"<<endl;
     
 //-------------------------------------------------------------------------------------
 //Calculate 1st differences of vector
@@ -7099,15 +7210,18 @@ FUNCTION int checkParams(BoundedVectorVectorInfo* pI, param_init_bounded_vector_
 //* Alters:
 //*  none
 //******************************************************************************
-FUNCTION int checkParams(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
+FUNCTION int checkParams(DevsVectorVectorInfo* pI, param_init_bounded_number_vector& p, int debug, ostream& cout)
 //    debug=dbgAll;
-    if (debug>=dbgAll) std::cout<<"Starting checkParams(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
+    if (debug>=dbgAll) std::cout<<"Starting checkParams(DevsVectorVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
     int np = pI->getSize();
     int r = 0;
     if (np){
+        ivector mni = pI->getMinIndices();
+        ivector mxi = pI->getMaxIndices();
+        int ctr = 1;
         for (int i=1;i<=np;i++) {
-            for (int j=p(i).indexmin();j<=p(i).indexmax();j++) {
-                if (isnan(value(p(i,j)))){
+            for (int j=mni(i);j<=mxi(i);j++) {
+                if (isnan(value(p(ctr++)))){
                     r++;
                     if (debug) cout<<"NaN detected in checkParams() for "<<p(1).label()<<"["<<i<<cc<<j<<"]"<<endl;
                 }
@@ -7493,58 +7607,73 @@ FUNCTION void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector
 //*  @alters pI - if usePin=1 or jittering or resampling occurs, then the initial values will be updated 
 //*  @alters p - if usePin=0, the initial values will be updated 
 //******************************************************************************
-FUNCTION void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int usePin, int debug, ostream& os)
+FUNCTION void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_number_vector& p, int usePin, int debug, ostream& os)
     //debug=dbgAll;
-    if (debug>=dbgAll) os<<"Starting setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
+    if (debug>=dbgAll) os<<"Starting setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
     int np = pI->getSize();
     if (np){
+        ivector mni = pI->getMinIndices();
+        ivector mxi = pI->getMaxIndices();
         if (usePin){
             //use values from pinfile assigned to p as initial values
+            int ctr = 1;
             for (int i=1;i<=np;i++) {
                 os<<"Using pin file to set initial values for "<<p(i).label()<<endl;
                 DevsVectorInfo* ptrI = static_cast<DevsVectorInfo*>((*pI)[i]);
-                dvector pnvls = value(p(i));                       //original initial values on parameter scale from pin file
                 dvector aovls = 1.0*ptrI->getInitVals();            //original initial values on arithmetic scale from parameter info
                 dvector povls = 1.0*ptrI->getInitValsOnParamScale();//original initial values on parameter scale from parameter info
-                ptrI->setInitValsFromParamVals(p(i));               //set final initial values on arithmetic scale for parameter info
+                dvector pnvls(mni(i),mxi(i));
+                for (int j=mni(i);j<=mxi(i);j++) pnvls(j) = value(p(ctr++));
+                ptrI->setInitValsFromParamVals(pnvls);              //set final initial values from pin (param) vals
                 os<<tb<<"pinfile    inits : "<<pnvls<<endl;
                 os<<tb<<"orig arith inits : "<<aovls<<endl;
                 os<<tb<<"orig param inits : "<<povls<<endl;
                 os<<tb<<"final arith inits: "<<ptrI->getInitVals()<<endl;//final initial values on arithmetic scale from parameter info
-                os<<tb<<"final param inits: "<<value(p(i))<<endl;        //final initial values on parameter scale from parameter info
+                ctr=ctr-(mxi(i)-mni(i)+1);//reset counter to start of current devs vector
+                os<<tb<<"final param inits: "; for (int j=mni(i);j<=mxi(i);j++) os<<p(ctr++)<<tb; os<<endl;//final initial values on parameter scale from parameter info
             }
         } else {
-            //use values based on pI as initial values for p
+            //use values based on pI (jittered, resampled, or original) as initial values for p
+            int ctr = 1;
             for (int i=1;i<=np;i++) {
-                dvector pnvls = value(p(i));                            //original initial values on parameter scale from pin file
-                dvector aovls = 1.0*(*pI)[i]->getInitVals();            //initial values on arithmetic scale from parameter info
-                dvector povls = 1.0*(*pI)[i]->getInitValsOnParamScale();//initial values on parameter scales from parameter info
-                if (debug>=dbgAll) os<<"pc "<<i<<" :"<<tb<<p(i).indexmin()<<tb<<p(i).indexmax()<<tb<<pnvls.indexmin()<<tb<<pnvls.indexmax()<<endl;
-                p(i)=povls;//set initial values on parameter scales from parameter info
-                DevsVectorInfo* ptrI = (*pI)[i];
-                if ((p(i).get_phase_start()>0)&&(ptrMC->jitter)&&(ptrI->jitter)){
+                dvector pnvls(mni(i),mxi(i));                                  //initial values on parameter scale from pin file
+                for (int j=mni(i);j<=mxi(i);j++) pnvls(j) = value(p(ctr++));   //get pin values from paramter values
+                DevsVectorInfo* ptrI = static_cast<DevsVectorInfo*>((*pI)[i]);
+                dvector aovls = 1.0*ptrI->getInitVals();                       //original initial values on arithmetic scale from parameter info
+                dvector povls = 1.0*ptrI->getInitValsOnParamScale();           //original initial values on parameter scale from parameter info
+                dvector afvls;                                                 //final initial values on arithmetic scale from parameter info
+                dvector pfvls;                                                 //final initial values on parameter scale from parameter info
+                if ((ptrMC->jitter)&&(ptrI->jitter)){
                     os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
                     if (debug>=dbgAll) os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
-                    dvector afvls = ptrI->jitterInitVals(rng,ptrMC->jitFrac);//get jittered values on arithmetic scale
-                    ptrI->setInitVals(afvls);                               //set jittered values as initial values on arithmetic scale
-                    p(i)=ptrI->getInitValsOnParamScale();                   //get jittered values on param scale as initial parameter values
+                    afvls = ptrI->jitterInitVals(rng,ptrMC->jitFrac);//get jittered values on arithmetic scale
+                    ptrI->setInitVals(afvls);                                //set jittered values as initial values on arithmetic scale
+                    pfvls = ptrI->getInitValsOnParamScale();         //get jittered values on param scale as initial parameter values
                 } else
-                if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
+                if ((ptrMC->resample)&&(ptrI->resample)){
                     os<<"Using resampling to set initial values for "<<p(i).label()<<" : "<<endl;
                     if (debug>=dbgAll) os<<"Using resampling to set initial values for "<<p(i).label()<<" : "<<endl;
-                    dvector afvls = ptrI->drawInitVals(rng,ptrMC->vif);//get resampled values on arithmetic scale
-                    ptrI->setInitVals(afvls);                          //set resampled values as initial values on arithmetic scale
-                    p(i)=ptrI->getInitValsOnParamScale();              //get resampled values on param scale as initial parameter values
+                    afvls = ptrI->drawInitVals(rng,ptrMC->vif);          //get resampled values on arithmetic scale
+                    ptrI->setInitVals(afvls);                            //set resampled values as initial values on arithmetic scale
+                    pfvls = ptrI->getInitValsOnParamScale();            //get resampled values on param scale as initial parameter values
                 } else {
                     os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
+                    if (debug>=dbgAll) os<<"Using MPI to set initial values for "<<p(i).label()<<" : "<<endl;
+                    afvls = aovls;
+                    pfvls = povls;
                 }
-                os<<tb<<"pinfile    inits : "<<pnvls<<endl;
-                os<<tb<<"orig arith inits : "<<aovls<<endl;
-                os<<tb<<"orig param inits : "<<povls<<endl;
-                os<<tb<<"final arith inits: "<<ptrI->getInitVals()<<endl;//final initial values on arithmetic scale from parameter info
-                os<<tb<<"final param inits: "<<value(p(i))<<endl;        //final initial values on parameter scale from parameter info
-            }
-        }
+                ctr=ctr-(mxi(i)-mni(i)+1);//reset counter to start of current devs vector
+                for (int j=mni(i);j<=mxi(i);j++) p(ctr++)= pfvls(j);     //set jittered initial values on parameter scales from parameter info
+
+                os<<tb<<"pinfile    inits : "<<pnvls<<endl;//pin values
+                os<<tb<<"orig arith inits : "<<aovls<<endl;//original initial values on arithmetic scale
+                os<<tb<<"orig param inits : "<<povls<<endl;//original initial values on parameter scale
+                os<<tb<<"final arith inits: "<<afvls<<endl;//final initial values on arithmetic scale
+                os<<tb<<"final param inits: "<<pfvls<<endl;//final initial values on parameter scale
+                ctr=ctr-(mxi(i)-mni(i)+1);//reset counter to start of current devs vector
+                os<<tb<<"final param inits: "; for (int j=mni(i);j<=mxi(i);j++) os<<p(ctr++)<<tb; os<<endl;//final initial parameter values
+            }//--i loop
+        }//--if(!usePin)
     } else {
         os<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
     }
@@ -7553,8 +7682,54 @@ FUNCTION void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_ve
         std::cout<<"Enter 1 to continue >>";
         std::cin>>np;
         if (np<0) exit(-1);
-        os<<"Finished setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
+        os<<"Finished setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
     }
+
+//-------------------------------------------------------------------------------------
+///**
+// * Fill in likelihood flags for devs matrix based on estimation phases
+// * 
+// * @param phsDevs       [in]  - ivector(nptDevs) with estimation phases
+// * @param likeFlagsDevs [out] - dmatrix of likelihood flags (0/1)
+// * 
+// */
+FUNCTION void setDevsLikelihoodFlags(const ivector& phsDevs, dmatrix& likeFlags, int debug, ostream& cout)
+    if (debug>=dbgAll) cout<<"starting setDevsLikelihoodFlags(phsDevs,likeFlags)"<<endl;
+    int np = likeFlags.indexmax();
+    int ctr = 1;
+    cout<<"phsDevs = "<<phsDevs<<endl;
+    for (int i=1;i<=np;i++){
+        int mni = likeFlags(i).indexmin();
+        int mxi = likeFlags(i).indexmax();
+        for (int j=mni;j<=mxi;j++) likeFlags(i,j) = 1.0*(phsDevs(ctr++)>0);
+        if (debug>=dbgAll) cout<<tb<<"likeFlags["<<i<<"]"<<" = "<<likeFlags(i)<<endl;
+    }
+    if (debug>=dbgAll) cout<<"finished setDevsLikelihoodFlags(phsDevs,likeFlags)"<<endl;
+
+//-------------------------------------------------------------------------------------
+FUNCTION void setAllDevsLikelihoodFlags(int debug, ostream& cout)
+    if (debug>=dbgAll) cout<<"starting setAllDevsLikelihoodFlags()"<<endl;
+
+    if (debug>=dbgAll) cout<<"setDevsLikelihoodFlags() for pLnR"<<endl;
+    setDevsLikelihoodFlags(phsDevsLnR, likeFlagsDevsLnR, debug, cout);
+
+    if (debug>=dbgAll) cout<<"setDevsLikelihoodFlags() for pDevsS1"<<endl;
+    setDevsLikelihoodFlags(phsDevsS1, likeFlagsDevsS1, debug, cout);
+    if (debug>=dbgAll) cout<<"setDevsLikelihoodFlags() for pDevsS2"<<endl;
+    setDevsLikelihoodFlags(phsDevsS2, likeFlagsDevsS2, debug, cout);
+    if (debug>=dbgAll) cout<<"setDevsLikelihoodFlags() for pDevsS3"<<endl;
+    setDevsLikelihoodFlags(phsDevsS3, likeFlagsDevsS3, debug, cout);
+    if (debug>=dbgAll) cout<<"setDevsLikelihoodFlags() for pDevsS4"<<endl;
+    setDevsLikelihoodFlags(phsDevsS4, likeFlagsDevsS4, debug, cout);
+    if (debug>=dbgAll) cout<<"setDevsLikelihoodFlags() for pDevsS5"<<endl;
+    setDevsLikelihoodFlags(phsDevsS5, likeFlagsDevsS5, debug, cout);
+    if (debug>=dbgAll) cout<<"setDevsLikelihoodFlags() for pDevsS6"<<endl;
+    setDevsLikelihoodFlags(phsDevsS6, likeFlagsDevsS6, debug, cout);
+    
+    if (debug>=dbgAll) cout<<"setDevsLikelihoodFlags() for pDevsLnC"<<endl;
+    setDevsLikelihoodFlags(phsDevsLnC, likeFlagsDevsLnC, debug, cout);
+    
+    if (debug>=dbgAll) cout<<"finished setAllDevsLikelihoodFlags()"<<endl;
 
 //-------------------------------------------------------------------------------------
 FUNCTION void setAllDevs(int debug, ostream& cout)
@@ -7842,7 +8017,7 @@ FUNCTION void updateMPI(int debug, ostream& cout)
     ptrMPI->ptrRec->pRb->setFinalValsFromParamVals(pRb);
     if (debug) cout<<"setting final vals for pDevsLnR"<<endl;
     for (int p=1;p<=ptrMPI->ptrRec->pDevsLnR->getSize();p++) 
-        (*ptrMPI->ptrRec->pDevsLnR)[p]->setFinalValsFromParamVals(pDevsLnR(p));
+        (*ptrMPI->ptrRec->pDevsLnR)[p]->setFinalValsFromParamVals(devsLnR(p));
     if (debug) cout<<"finished recruitment parameters"<<endl;
      
     //natural mortality parameters
@@ -7878,22 +8053,22 @@ FUNCTION void updateMPI(int debug, ostream& cout)
     ptrMPI->ptrSel->pS6->setFinalValsFromParamVals(pS6);
     if (debug) cout<<"setting final vals for pDevsS1"<<endl;
     for (int p=1;p<=ptrMPI->ptrSel->pDevsS1->getSize();p++) 
-        (*ptrMPI->ptrSel->pDevsS1)[p]->setFinalValsFromParamVals(pDevsS1(p));
+        (*ptrMPI->ptrSel->pDevsS1)[p]->setFinalValsFromParamVals(devsS1(p));
     if (debug) cout<<"setting final vals for pDevsS2"<<endl;
     for (int p=1;p<=ptrMPI->ptrSel->pDevsS2->getSize();p++) 
-        (*ptrMPI->ptrSel->pDevsS2)[p]->setFinalValsFromParamVals(pDevsS2(p));
+        (*ptrMPI->ptrSel->pDevsS2)[p]->setFinalValsFromParamVals(devsS2(p));
     if (debug) cout<<"setting final vals for pDevsS3"<<endl;
     for (int p=1;p<=ptrMPI->ptrSel->pDevsS3->getSize();p++) 
-        (*ptrMPI->ptrSel->pDevsS3)[p]->setFinalValsFromParamVals(pDevsS3(p));
+        (*ptrMPI->ptrSel->pDevsS3)[p]->setFinalValsFromParamVals(devsS3(p));
     if (debug) cout<<"setting final vals for pDevsS4"<<endl;
     for (int p=1;p<=ptrMPI->ptrSel->pDevsS4->getSize();p++) 
-        (*ptrMPI->ptrSel->pDevsS4)[p]->setFinalValsFromParamVals(pDevsS4(p));
+        (*ptrMPI->ptrSel->pDevsS4)[p]->setFinalValsFromParamVals(devsS4(p));
     if (debug) cout<<"setting final vals for pDevsS5"<<endl;
     for (int p=1;p<=ptrMPI->ptrSel->pDevsS5->getSize();p++) 
-        (*ptrMPI->ptrSel->pDevsS5)[p]->setFinalValsFromParamVals(pDevsS5(p));
+        (*ptrMPI->ptrSel->pDevsS5)[p]->setFinalValsFromParamVals(devsS5(p));
     if (debug) cout<<"setting final vals for pDevsS6"<<endl;
     for (int p=1;p<=ptrMPI->ptrSel->pDevsS6->getSize();p++) 
-        (*ptrMPI->ptrSel->pDevsS6)[p]->setFinalValsFromParamVals(pDevsS6(p));
+        (*ptrMPI->ptrSel->pDevsS6)[p]->setFinalValsFromParamVals(devsS6(p));
     if (debug) cout<<"setting final vals for pvNPSel"<<endl;
     for (int p=1;p<=ptrMPI->ptrSel->pvNPSel->getSize();p++) 
         (*ptrMPI->ptrSel->pvNPSel)[p]->setFinalValsFromParamVals(pvNPSel(p));
@@ -7909,7 +8084,7 @@ FUNCTION void updateMPI(int debug, ostream& cout)
     ptrMPI->ptrFsh->pDC4->setFinalValsFromParamVals(pDC4);
     if (debug) cout<<"setting final vals for pDevsLnC"<<endl;
     for (int p=1;p<=ptrMPI->ptrFsh->pDevsLnC->getSize();p++) 
-        (*ptrMPI->ptrFsh->pDevsLnC)[p]->setFinalValsFromParamVals(pDevsLnC(p));
+        (*ptrMPI->ptrFsh->pDevsLnC)[p]->setFinalValsFromParamVals(devsLnC(p));
     ptrMPI->ptrFsh->pLnEffX->setFinalValsFromParamVals(pLnEffX);
     ptrMPI->ptrFsh->pLgtRet->setFinalValsFromParamVals(pLgtRet);
     if (debug) cout<<"finished fisheries parameters"<<endl;
@@ -8081,7 +8256,7 @@ FUNCTION void writeParameters(ostream& os,int toR, int willBeActive)
     tcsam::writeParameters(os,pRX, ctg1,ctg2,ptrMPI->ptrRec->pRX, toR,willBeActive);      
     tcsam::writeParameters(os,pRa, ctg1,ctg2,ptrMPI->ptrRec->pRa, toR,willBeActive);      
     tcsam::writeParameters(os,pRb, ctg1,ctg2,ptrMPI->ptrRec->pRb, toR,willBeActive);      
-    tcsam::writeParameters(os,pDevsLnR,ctg1,ctg2,ptrMPI->ptrRec->pDevsLnR,toR,willBeActive);      
+    tcsam::writeParameters(os,devsLnR,ctg1,ctg2,ptrMPI->ptrRec->pDevsLnR,toR,willBeActive);      
     
     //natural mortality parameters
     ctg1="population processes";
@@ -8113,12 +8288,12 @@ FUNCTION void writeParameters(ostream& os,int toR, int willBeActive)
     tcsam::writeParameters(os,pS4,ctg1,ctg2,ptrMPI->ptrSel->pS4,toR,willBeActive);      
     tcsam::writeParameters(os,pS5,ctg1,ctg2,ptrMPI->ptrSel->pS5,toR,willBeActive);      
     tcsam::writeParameters(os,pS6,ctg1,ctg2,ptrMPI->ptrSel->pS6,toR,willBeActive);      
-    tcsam::writeParameters(os,pDevsS1,ctg1,ctg2,ptrMPI->ptrSel->pDevsS1,toR,willBeActive);      
-    tcsam::writeParameters(os,pDevsS2,ctg1,ctg2,ptrMPI->ptrSel->pDevsS2,toR,willBeActive);      
-    tcsam::writeParameters(os,pDevsS3,ctg1,ctg2,ptrMPI->ptrSel->pDevsS3,toR,willBeActive);      
-    tcsam::writeParameters(os,pDevsS4,ctg1,ctg2,ptrMPI->ptrSel->pDevsS4,toR,willBeActive);      
-    tcsam::writeParameters(os,pDevsS5,ctg1,ctg2,ptrMPI->ptrSel->pDevsS5,toR,willBeActive);      
-    tcsam::writeParameters(os,pDevsS6,ctg1,ctg2,ptrMPI->ptrSel->pDevsS6,toR,willBeActive);      
+    tcsam::writeParameters(os,devsS1,ctg1,ctg2,ptrMPI->ptrSel->pDevsS1,toR,willBeActive);      
+    tcsam::writeParameters(os,devsS2,ctg1,ctg2,ptrMPI->ptrSel->pDevsS2,toR,willBeActive);      
+    tcsam::writeParameters(os,devsS3,ctg1,ctg2,ptrMPI->ptrSel->pDevsS3,toR,willBeActive);      
+    tcsam::writeParameters(os,devsS4,ctg1,ctg2,ptrMPI->ptrSel->pDevsS4,toR,willBeActive);      
+    tcsam::writeParameters(os,devsS5,ctg1,ctg2,ptrMPI->ptrSel->pDevsS5,toR,willBeActive);      
+    tcsam::writeParameters(os,devsS6,ctg1,ctg2,ptrMPI->ptrSel->pDevsS6,toR,willBeActive);      
     tcsam::writeParameters(os,pvNPSel,ctg1,ctg2,ptrMPI->ptrSel->pvNPSel,toR,willBeActive);      
     
     //fishery parameters
@@ -8130,7 +8305,7 @@ FUNCTION void writeParameters(ostream& os,int toR, int willBeActive)
     tcsam::writeParameters(os,pDC2,ctg1,ctg2,ptrMPI->ptrFsh->pDC2,toR,willBeActive);      
     tcsam::writeParameters(os,pDC3,ctg1,ctg2,ptrMPI->ptrFsh->pDC3,toR,willBeActive);      
     tcsam::writeParameters(os,pDC4,ctg1,ctg2,ptrMPI->ptrFsh->pDC4,toR,willBeActive);      
-    tcsam::writeParameters(os,pDevsLnC,ctg1,ctg2,ptrMPI->ptrFsh->pDevsLnC,toR,willBeActive);      
+    tcsam::writeParameters(os,devsLnC,ctg1,ctg2,ptrMPI->ptrFsh->pDevsLnC,toR,willBeActive);      
     tcsam::writeParameters(os,pLnEffX, ctg1,ctg2,ptrMPI->ptrFsh->pLnEffX, toR,willBeActive);      
     tcsam::writeParameters(os,pLgtRet, ctg1,ctg2,ptrMPI->ptrFsh->pLgtRet, toR,willBeActive);      
     

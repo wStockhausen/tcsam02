@@ -29,6 +29,52 @@ const adstring EffortData::KW_EFFORT_DATA = "EFFORT_DATA";
 EffortData::~EffortData(){
     delete ptrAvgIB; ptrAvgIB=0;
 }
+/**
+ * Set the maximum year in which to fit the data.
+ * 
+ * @param mxYr - the max year to include data
+ */
+void EffortData::setMaxYear(int mxYr){
+    if (debug) {
+        cout     <<"Starting EffortData::setMaxYear("<<mxYr<<")"<<endl;
+        rpt::echo<<"Starting EffortData::setMaxYear("<<mxYr<<")"<<endl;
+    }
+    //determine number of years to keep
+    int nyp = 0;
+    for (int iy=1;iy<=ny;iy++) {if (yrs(iy)<=mxYr) nyp++;}
+    
+    //re-allocate input array
+    inpEff_yc.deallocate();
+    inpEff_yc.allocate(1,nyp,1,2);
+    int iyp = 0;
+    for (int iy=1;iy<=ny;iy++) {
+        if (yrs(iy)<=mxYr) {
+            iyp++;
+            inpEff_yc(iyp,1) = yrs(iy);
+            inpEff_yc(iyp,2) = eff_y(yrs(iy));
+        }
+    }
+    if (iyp!=nyp){
+        cout<<"Something wrong in EffortData::setMaxYear"<<endl;
+        cout<<"iyp != nyp"<<endl;
+        exit(0);
+    }
+    
+    //copy back to class members
+    ny = nyp;
+    yrs.deallocate();
+    eff_y.deallocate();
+    yrs.allocate(1,ny);
+    yrs = (ivector) column(inpEff_yc,1);
+    int mny = min(yrs);
+    int mxy = max(yrs);
+    eff_y.allocate(mny,mxy); eff_y = 0.0;
+    for (int iy=1;iy<=ny;iy++) eff_y(yrs(iy)) = inpEff_yc(iy,2);
+    if (debug) {
+        cout     <<"Finished EffortData::setMaxYear("<<mxYr<<")"<<endl;
+        rpt::echo<<"Finished EffortData::setMaxYear("<<mxYr<<")"<<endl;
+    }
+}
 /***************************************************************
 *   read.                                                      *
 ***************************************************************/
@@ -134,6 +180,30 @@ CatchData::~CatchData(){
     if (ptrB)   delete ptrB;   ptrB = 0;
     if (ptrZFD) delete ptrZFD; ptrZFD = 0;
 }
+
+/**
+ * Set the maximum year in which to fit the data.
+ * 
+ * @param mxYr - the max year to include data
+ */
+void CatchData::setMaxYear(int mxYr){
+    if (debug) {
+        rpt::echo<<"Starting CatchData::setMaxYear("<<mxYr<<") for fleet data"<<endl;
+        AggregateCatchData::debug=1;
+        SizeFrequencyData::debug=1;
+    }
+    
+    if (ptrN)   ptrN->setMaxYear(mxYr);
+    if (ptrB)   ptrB->setMaxYear(mxYr);
+    if (ptrZFD) ptrZFD->setMaxYear(mxYr);
+    
+    if (debug) {
+        AggregateCatchData::debug=0;
+        SizeFrequencyData::debug=0;
+        rpt::echo<<"Finished CatchData::setMaxYear("<<mxYr<<") for fleet data"<<endl;
+    }
+}
+
 /*************************************************\n
  * Replaces catch data based on newNatZ_yxmsz.
  * 
@@ -395,6 +465,28 @@ FleetData::~FleetData(){
     if (ptrDCD) delete ptrDCD; ptrDCD = 0;
     if (ptrTCD) delete ptrTCD; ptrTCD = 0;
     if (ptrEff) delete ptrEff; ptrEff = 0;
+}
+/**
+ * Set the maximum year in which to fit the data.
+ * 
+ * @param mxYr - the max year to include data
+ */
+void FleetData::setMaxYear(int mxYr){
+    if (debug) {
+        rpt::echo<<"Starting FleetData::setMaxYear("<<mxYr<<") for fleet data"<<endl;
+        CatchData::debug=1;
+    }
+        
+    if (hasICD) ptrICD->setMaxYear(mxYr);
+    if (hasRCD) ptrRCD->setMaxYear(mxYr);
+    if (hasDCD) ptrDCD->setMaxYear(mxYr);
+    if (hasTCD) ptrTCD->setMaxYear(mxYr);
+    if (hasEff) ptrEff->setMaxYear(mxYr);
+    
+    if (debug) {
+        CatchData::debug=0;
+        cout<<"Finished FleetData::setMaxYear("<<mxYr<<") for fleet data"<<endl;
+    }
 }
 /**
  * Replace existing index (survey) catch data with new values.

@@ -211,6 +211,54 @@ ChelaHeightData::ChelaHeightData(){}
  */
 ChelaHeightData::~ChelaHeightData(){}
 /**
+ * Set the maximum year in which to include chela height data.
+ * 
+ * @param mxYr - the max year in which to include chela height data
+ */
+void ChelaHeightData::setMaxYear(int mxYr, const dvector& zCs){
+    if (debug) {
+        cout     <<"start ChelaHeightData::setMaxYear("<<mxYr<<")"<<endl;    
+        rpt::echo<<"start ChelaHeightData::setMaxYear("<<mxYr<<")"<<endl;    
+    }
+    //count data with years <= mxYr
+    int n = 0;
+    for (int i=obsYear_n.indexmin();i<=obsYear_n.indexmax();i++)
+        if (obsYear_n(i)<=mxYr) n++;
+    nObs = n;
+    //revise input data
+    n = 1;
+    dmatrix newData_nc(1,nObs,1,4);
+    for (int i=obsYear_n.indexmin();i<=obsYear_n.indexmax();i++)
+        if (obsYear_n(i)<=mxYr) newData_nc(n++) = inpData_nc(i);
+    
+    inpData_nc.deallocate(); inpData_nc.allocate(1,nObs,1,5);
+    for (int i=1;i<=nObs;i++) inpData_nc(i) = newData_nc(i);
+    
+    obsYear_n.deallocate();         obsYear_n.allocate(1,nObs);
+    obsSize_n.deallocate();         obsSize_n.allocate(1,nObs);
+    obsSS_n.deallocate();           obsSS_n.allocate(1,nObs);
+    obsPrMat_n.deallocate();        obsPrMat_n.allocate(1,nObs);
+    obsSizeBinIndex_n.deallocate(); obsSizeBinIndex_n.allocate(1,nObs);
+   
+    obsYear_n  = wts::to_ivector(column(inpData_nc,1));
+    obsSize_n  = column(inpData_nc,2);
+    obsSS_n    = column(inpData_nc,4);
+    obsPrMat_n = column(inpData_nc,5);
+    obsSizeBinIndex_n = 0;//can't fill this in yet, need to use calcSizeBinIndices(zCs)
+    calcSizeBinIndices(zCs);
+    
+    rpt::echo<<"obsYear_n         = "<<obsYear_n <<endl;
+    rpt::echo<<"obsSize_n         = "<<obsSize_n <<endl;
+    rpt::echo<<"obsSS_n           = "<<obsSS_n   <<endl;
+    rpt::echo<<"obsPrMat_n        = "<<obsPrMat_n<<endl;
+    rpt::echo<<"obsSizeBinIndex_n = "<<obsSizeBinIndex_n<<endl;
+    
+    if (debug) {
+        cout     <<"end ChelaHeightData::setMaxYear("<<mxYr<<")"<<endl;    
+        rpt::echo<<"end ChelaHeightData::setMaxYear("<<mxYr<<")"<<endl;    
+    }
+}
+/**
  * Calculates indices for model size bins corresponding to observed sizes.
  * 
  * @param zCs - model size bin cutpoints

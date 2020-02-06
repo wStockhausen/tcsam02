@@ -529,6 +529,8 @@ class VectorInfo {
         bool resample;
         /* pointer to info for resmapling pdf */
         ModelPDFInfo*  pMPI;
+        /* flag to read phases */
+        int readPhases;
         /* flag to read initial values */
         int readVals;
     protected:
@@ -538,7 +540,7 @@ class VectorInfo {
         double initVal;
         /* final arithmetic-scale value from the associated parameter (for output to R) */
         double finlVal;     
-        /* phase in which to start estimating associated parameter */
+        /* default phase in which to start estimating associated parameter */
         int phase;          
         /* weight to assign to prior probability */
         double priorWgt;
@@ -552,7 +554,9 @@ class VectorInfo {
         adstring idxType;
         /* pointer to IndexBlock defining vector */
         IndexBlock* ptrIB; 
-        /* vector of initial values */
+        /* vector of phases, by vector element */
+        ivector phases;
+        /* vector of initial values, by vector element */
         dvector initVals;
         /* final values (for output to R) */
         dvector finlVals;
@@ -611,11 +615,21 @@ class VectorInfo {
         adstring getScaleType(){return tcsam::getScaleType(scaleType);}
 
         /**
-         * Gets the phase in which parameter estimation is started.
+         * Gets the phase for each element in which parameter estimation is started.
+         * Vector indices run 1:N.
          * 
-         * @return - the phase
+         * @return - ivector of phases, one for each element
          */
-        int getPhase(){return phase;}
+        ivector getPhases(){return phases;}
+        
+        /**
+         * Gets the phase for each element in which parameter estimation is started.
+         * Vector indices run 1:N.
+         * 
+         * @return - ivector of phases, one for each element
+         */
+        void setPhases(const ivector& _phases){phases = _phases;}
+        
         /**
          * Gets the multiplicative weight set on the prior probability in the likelihood.
          * 
@@ -758,6 +772,12 @@ class VectorInfo {
          */
         virtual dvector drawInitVals(random_number_generator& rng, double vif);//draw initial values by resampling prior
         /**
+         * Reads a vector of phases from an input filestream.
+         * 
+         * @param [in] is - the input filestream
+         */
+        virtual void readPhaseVector(cifstream& is){is>>phases;}
+        /**
          * Reads a vector of initial values from an input filestream.
          * 
          * @param [in] is - the input filestream
@@ -790,6 +810,7 @@ class VectorInfo {
          * <ul>
          *  <li> idxType - the index type (as an adstring)
          *  <li> the index block defining the vector indices (which determines N), as an IndexBlock
+         *  <li> readPhases - an adstring flag to subsequently read a vector of phases
          *  <li> readVals - an adstring flag to subsequently read a vector of initial values
          * </ul>
          * 
@@ -1103,7 +1124,7 @@ class BoundedVectorInfo : public VectorInfo {
          * @overrides VectorInfo::writeFinalValsToR(std::ostream & os)
          */
         virtual void writeFinalValsToR(std::ostream & os);
-};
+};//BoundedVectorInfo : VectorInfo
 
 /**
 * DevsVectorInfo : BoundedVectorInfo
@@ -1179,7 +1200,7 @@ class DevsVectorInfo : public BoundedVectorInfo {
          * @return - the random number on the arithmetic scale, or the value of initVal
          */
         virtual dvector jitterInitVals(random_number_generator& rng, double jitFrac);
-};
+};//DevsVectorInfo : BoundedVectorInfo
 
 /**
 * NumberVectorInfo
@@ -1375,7 +1396,7 @@ class NumberVectorInfo {
         virtual void writeFinalValsToR(std::ostream& os);
         friend cifstream& operator >>(cifstream & is, NumberVectorInfo & obj){obj.read(is);return is;}
         friend std::ostream& operator <<(std::ostream & os, NumberVectorInfo & obj){obj.write(os);return os;}
-};
+};//NumberVectorInfo
 
 /**
 * BoundedNumberVectorInfo: NumberVectorInfo
@@ -1455,23 +1476,26 @@ class BoundedNumberVectorInfo: public NumberVectorInfo {
         void read(cifstream & is);
         void write(std::ostream & os);
         void writeToR(std::ostream& os, adstring nm, int indent=0);
-};
+};//BoundedNumberVectorInfo: NumberVectorInfo
 
 /**
 * VectorVectorInfo
 * 
-* Encapsulates parameter info for a param_init_vector_vector as a 1-d array
-* of VectorInfo objects.
+* Encapsulates parameter info as a 1-d array
+* of VectorInfo objects for a param_init_number_vector  object that 
+ * substitutes for a param_init_vector_vector object.
 * 
 * Public fields:
 * <ul>
 * <li> debug - static int flag to print debugging info
-* <li> name - adstring with name of associated param_init_vector_vector object
+* <li> name - adstring with name of associated param_init_number_vector object
 * </ul>
 * 
 * Protected fields:
 * <ul>
-* <li> nVIs - number of elements (parameters) in the associated param_init_vector_vector
+* <li> nVIs - number of parameter vectors represented in the associated param_init_number_vector
+* <li> mnIdxs - ivector of minimum index for each parameter vector 
+* <li> mxIdxs - ivector of maximum index for each parameter vector 
 * <li> ppVIs - pointer to vector of pointers to VectorInfo instances
 * </ul>
 * 
@@ -1485,10 +1509,16 @@ class VectorVectorInfo {
         /** name of vector of associated param_init_vector_vector */
         adstring name;     //
     protected:
-        /** number of parameter vectors in vector */
+        /** number of parameter vectors represented in the VectorVector */
         int nVIs;
         /** ptr to vector of ptrs to VectorInfo instances */
         VectorInfo** ppVIs;
+        /** ivector of minimum index for each parameter vector represented in the VectorVector */
+        ivector mnIdxs;
+        /** ivector of maximum index for each parameter vector represented in the VectorVector */
+        ivector mxIdxs;
+        /** ivector of estimation phases (one for each parameter) */
+        ivector phases;
     public:
         VectorVectorInfo(){this->name="";nVIs=0;ppVIs=0;}
         VectorVectorInfo(adstring& name){this->name=name;nVIs=0;ppVIs=0;}
@@ -1502,8 +1532,18 @@ class VectorVectorInfo {
          * @return - the number of vectors
          */
         int getSize(void){return nVIs;}
-        ivector getMinIndices(void);
-        ivector getMaxIndices(void);
+        /**
+         * Gets the min index in the param_number_vector for each parameter vector represented by the instance.
+         * 
+         * @return - the number of vectors
+         */
+        ivector getMinIndices(void){return mnIdxs;}
+        /**
+         * Gets the max index in the param_number_vector for each parameter vector represented by the instance.
+         * 
+         * @return - the number of vectors
+         */
+        ivector getMaxIndices(void){return mxIdxs;}
         /**
          * Gets the parameter-scale types for each associated parameter vector.
          * 
@@ -1511,10 +1551,18 @@ class VectorVectorInfo {
          */
         adstring_array getScaleTypes(void);
         /**
-         * Gets the estimation phase for each associated parameter vector.
-         * @return 
+         * Gets the estimation phase for each element of the associated param_init_number_vector.
+         * 
+         * Note that the returned ivector is the length of the param_init_number_vector, not
+         * the number of parameter vectors.
+         * 
+         * @return ivector of phases
          */
         ivector getPhases(void);
+        /**
+         * Gets the prior weights for each associated parameter vector.
+         * @return 
+         */
         dvector getPriorWgts(void);
         /**
          * Function to get array of labels corresponding to parameter vectors.
@@ -1523,7 +1571,14 @@ class VectorVectorInfo {
          */
         adstring_array getLabels(void);
 
-        virtual VectorInfo* operator[](int i){if ((ppVIs>0)&&(i<=nVIs)) return ppVIs[i-1]; return 0;}
+        /**
+         * Get a pointer to the ith VectorInfo object
+         * 
+         * @param i - 1's based index
+         * 
+         * @return pointer to the ith VectorInfo object
+         */
+        virtual VectorInfo* operator[](int i){if ((ppVIs)&&(i<=nVIs)) return ppVIs[i-1]; return 0;}
 
         virtual void read(cifstream & is);
         virtual void write(std::ostream & os);
@@ -1532,7 +1587,7 @@ class VectorVectorInfo {
         virtual void writeFinalValsToR(std::ostream& os);
         friend cifstream& operator >>(cifstream & is, VectorVectorInfo & obj){obj.read(is);return is;}
         friend std::ostream& operator <<(std::ostream & os, VectorVectorInfo & obj){obj.write(os);return os;}
-};
+};//VectorVectorInfo
 
 /**
 * BoundedVectorVectorInfo: VectorVectorInfo
@@ -1596,7 +1651,7 @@ class BoundedVectorVectorInfo: public VectorVectorInfo {
          * 
          * @overrides VectorVectorInfo::operator[](int i)
          */
-        virtual BoundedVectorInfo* operator[](int i){if ((ppVIs>0)&&(i<=nVIs)) return static_cast<BoundedVectorInfo*>(ppVIs[i-1]); return 0;}
+        virtual BoundedVectorInfo* operator[](int i){if ((ppVIs)&&(i<=nVIs)) return static_cast<BoundedVectorInfo*>(ppVIs[i-1]); return 0;}
 
         virtual void read(cifstream & is);
         virtual void write(std::ostream & os);
@@ -1604,7 +1659,7 @@ class BoundedVectorVectorInfo: public VectorVectorInfo {
         virtual void writeFinalValsToR(std::ostream& os);
         friend cifstream& operator >>(cifstream & is, BoundedVectorVectorInfo & obj){obj.read(is);return is;}
         friend std::ostream& operator <<(std::ostream & os, BoundedVectorVectorInfo & obj){obj.write(os);return os;}
-};
+};//BoundedVectorVectorInfo: VectorVectorInfo
 
 /**
 * DevsVectorVectorInfo: BoundedVectorVectorInfo
@@ -1650,11 +1705,11 @@ class DevsVectorVectorInfo: public BoundedVectorVectorInfo {
          * 
          * @overrides BoundedVectorVectorInfo::operator[](int i)
          */
-        virtual DevsVectorInfo* operator[](int i){if ((ppVIs>0)&&(i<=nVIs)) return (DevsVectorInfo*) ppVIs[i-1]; return 0;}
+        virtual DevsVectorInfo* operator[](int i){if ((ppVIs)&&(i<=nVIs)) return (DevsVectorInfo*) ppVIs[i-1]; return 0;}
 
         virtual void read(cifstream & is);
         friend cifstream& operator >>(cifstream & is, DevsVectorVectorInfo & obj){obj.read(is);return is;}
         friend std::ostream& operator <<(std::ostream & os, DevsVectorVectorInfo & obj){obj.write(os);return os;}
-};
+};//DevsVectorVectorInfo: BoundedVectorVectorInfo
 
 #endif //MODELPARAMETERINFOTYPES_HPP

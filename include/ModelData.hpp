@@ -83,6 +83,12 @@ class IndexBlock;
         AggregateCatchData(){}
         ~AggregateCatchData(){}
         /**
+         * Set the maximum year in which to fit the data.
+         * 
+         * @param mxYr - the max year to include data
+         */
+        void setMaxYear(int mxYr);
+        /**
          * Replace catch data C_xmsy with new data. 
          * Also modifies inpC_xmsyc to reflect new data.
          * Error-related quantities remain the same.
@@ -154,6 +160,12 @@ class IndexBlock;
          * Destructor.
          */
         ~EffortData();
+        /**
+         * Set the maximum year in which to fit the data.
+         * 
+         * @param mxYr - the max year to include data
+         */
+        void setMaxYear(int mxYr);
         /**
          * Read input data in ADMB format from a file stream
          * 
@@ -244,6 +256,12 @@ class IndexBlock;
          * Destructor.
          */
         ~SizeFrequencyData(){}
+        /**
+         * Set the maximum year in which to fit the data.
+         * 
+         * @param mxYr - the max year to include data
+         */
+        void setMaxYear(int mxYr);
         /**
          * Replace catch-at-size data NatZ_xmsyz with new data. 
          * Also modifies inpNatZ_xmsyc to reflect new data.
@@ -388,6 +406,12 @@ class IndexBlock;
          */
         ~CatchData();
         /**
+         * Set the maximum year in which to fit the data.
+         * 
+         * @param mxYr - the max year to include data
+         */
+        void setMaxYear(int mxYr);
+        /**
          * Replace catch data based on newNatZ_yxmsz.
          * 
          * @param iSeed - flag (!=0) to add random noise
@@ -509,6 +533,12 @@ class IndexBlock;
          * Destructor.
          */
         ~FleetData();
+        /**
+         * Set the maximum year in which to fit the data.
+         * 
+         * @param mxYr - the max year to include data
+         */
+        void setMaxYear(int mxYr);
         /**
          * Replace existing index catch data with new values.
          * 
@@ -702,6 +732,12 @@ class IndexBlock;
          */
         ~ChelaHeightData();
         /**
+         * Set the maximum year in which to include chela height.
+         * 
+         * @param mxYr - the max year in which to include chela height data
+         */
+        void setMaxYear(int mxYr, const dvector& zCs);    
+        /**
          * Calculates indices for model size bins corresponding to observed sizes.
          * 
          * @param zCs - model size bin cutpoints
@@ -794,7 +830,7 @@ class IndexBlock;
          * @param mxYr - the max year in which to include maturity ogive
          */
         void setMaxYear(int mxYr);    
-/**
+        /**
          * Calculates matrix to re-map model size bins maturity ogive size bins.
          * 
          * @param zCs - model size bin cutpoints

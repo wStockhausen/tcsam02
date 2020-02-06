@@ -75,6 +75,8 @@ class ParameterGroupInfo{
         imatrix** ppIdxs;
         /** array of labels, one for each pc */
         adstring_array pcLabels;
+        /** vector of flags (0,1) to include PC in likelihood */
+        dvector includePCinLikelihood;
     public:
         /**
          * Constructor for the class.
@@ -93,6 +95,56 @@ class ParameterGroupInfo{
          * @return pointer to the identified IndexBlockSet
          */
         IndexBlockSet* getIndexBlockSet(adstring type);
+        
+        /**
+         * Get flag to include/exclude (1/0) parameter combination in likelihood.
+         * 
+         * @param pc - the pc in question
+         * 
+         * @return - int 1/0 to include the parameter combination in the likelihood
+         */
+        int isPCinLikelihood(int pc){return includePCinLikelihood(pc);}
+        
+        /**
+         * Set flags to include/excude (1/0) parameter combinations in likelihood
+         * given a set of model years.
+         * 
+         * @param model_years - the model years in question
+         * 
+         * @return - nothing
+         * 
+         * @details Determines results of calls to isPCinLikelihood(pc).
+         */
+        void setLikelihoodFlagsForPCs(const ivector& model_years);
+        
+        /**
+         * Tests whether a given pc year is associated a year.
+         * 
+         * @param pc - the pc in question
+         * @param y - the year in question
+         * 
+         * @return - int 1/0 if the parameter combination is/not associated with the year
+         */
+        int isPCinYearBlock(int pc, const ivector& yb);
+        
+        /**
+         * Tests whether a given year is associated a parameter combination.
+         * 
+         * @param y - the year in question
+         * @param pc - the pc in question
+         * 
+         * @return - int 1/0 if y is/not associated with the parameter combination
+         */
+        int isYearInPC(int y, int pc);
+        
+        /**
+         * Finds number of parameter combinations that correspond to a given year.
+         * 
+         * @param y - the year to find the PC for
+         * 
+         * @return - int the number of corresponding PCs
+         */
+        int getNumPCsForYear(int y);
         
         /**
          * Finds the pc indices that corresponds to a given year.
@@ -249,7 +301,13 @@ class RecruitmentInfo: public ParameterGroupInfo {
          * Class destructor.
          */
         ~RecruitmentInfo();
-        
+        /**
+         * Sets the flags to write estimation phases for vector parameters to file 
+         * when writing parameter info to file.
+         * 
+         * @param flag - true/false to set to write estimation phases to file
+         */
+        void setToWriteVectorEstimationPhases(bool flag);
         /**
          * Sets the flags to write initial values for vector parameters to file 
          * when writing parameter info to file.
@@ -356,12 +414,19 @@ class NaturalMortalityInfo : public ParameterGroupInfo {
          */
         void read(cifstream & is);
         /**
+         * Sets the flags to write estimation phases for vector parameters to file 
+         * when writing parameter info to file.
+         * 
+         * @param flag - true/false to set to write estimation phases to file
+         */
+        void setToWriteVectorEstimationPhases(bool flag){}//does nothing, no vector parameters
+        /**
          * Sets the flags to write initial values for vector parameters to file 
          * when writing parameter info to file.
          * 
          * @param flag - true/false to set to write initial values to file
          */
-        void setToWriteVectorInitialValues(bool flag);
+        void setToWriteVectorInitialValues(bool flag){}//does nothing, no vector parameters
         /**
          * Writes to an output stream in ADMB format.
          * 
@@ -442,12 +507,19 @@ class GrowthInfo : public ParameterGroupInfo {
          */
         void read(cifstream & is);
         /**
+         * Sets the flags to write estimation phases for vector parameters to file 
+         * when writing parameter info to file.
+         * 
+         * @param flag - true/false to set to write estimation phases to file
+         */
+        void setToWriteVectorEstimationPhases(bool flag){}//does nothing, no vector parameters
+        /**
          * Sets the flags to write initial values for vector parameters to file 
          * when writing parameter info to file.
          * 
          * @param flag - true/false to set to write initial values to file
          */
-        void setToWriteVectorInitialValues(bool flag);
+        void setToWriteVectorInitialValues(bool flag){}//does nothing, no vector parameters
         /**
          * Writes to an output stream in ADMB format.
          * 
@@ -518,6 +590,13 @@ class Molt2MaturityInfo: public ParameterGroupInfo {
          * @param is - the input filestream
          */
         void read(cifstream & is);
+        /**
+         * Sets the flags to write estimation phases for vector parameters to file 
+         * when writing parameter info to file.
+         * 
+         * @param flag - true/false to set to write estimation phases to file
+         */
+        void setToWriteVectorEstimationPhases(bool flag);
         /**
          * Sets the flags to write initial values for vector parameters to file 
          * when writing parameter info to file.
@@ -614,6 +693,13 @@ class SelectivityInfo : public ParameterGroupInfo {
          * @param is - the input filestream
          */
         void read(cifstream & is);
+        /**
+         * Sets the flags to write estimation phases for vector parameters to file 
+         * when writing parameter info to file.
+         * 
+         * @param flag - true/false to set to write estimation phases to file
+         */
+        void setToWriteVectorEstimationPhases(bool flag);
         /**
          * Sets the flags to write initial values for vector parameters to file 
          * when writing parameter info to file.
@@ -727,6 +813,13 @@ class FisheriesInfo : public ParameterGroupInfo {
          */
         void read(cifstream & is);
         /**
+         * Sets the flags to write estimation phases for vector parameters to file 
+         * when writing parameter info to file.
+         * 
+         * @param flag - true/false to set to write estimation phases to file
+         */
+        void setToWriteVectorEstimationPhases(bool flag);
+        /**
          * Sets the flags to write initial values for vector parameters to file 
          * when writing parameter info to file.
          * 
@@ -830,12 +923,19 @@ class SurveysInfo : public ParameterGroupInfo {
          */
         void read(cifstream & is);
         /**
+         * Sets the flags to write estimation phases for vector parameters to file 
+         * when writing parameter info to file.
+         * 
+         * @param flag - true/false to set to write estimation phases to file
+         */
+        void setToWriteVectorEstimationPhases(bool flag){}//does nothing, no vector parameters
+        /**
          * Sets the flags to write initial values for vector parameters to file 
          * when writing parameter info to file.
          * 
          * @param flag - true/false to set to write initial values to file
          */
-        void setToWriteVectorInitialValues(bool flag);
+        void setToWriteVectorInitialValues(bool flag){}//does nothing, no vector parameters
         /**
          * Writes to an output stream in ADMB format.
          * 
@@ -911,12 +1011,19 @@ class MSE_Info : public ParameterGroupInfo {
          */
         void read(cifstream & is);
         /**
+         * Sets the flags to write estimation phases for vector parameters to file 
+         * when writing parameter info to file.
+         * 
+         * @param flag - true/false to set to write estimation phases to file
+         */
+        void setToWriteVectorEstimationPhases(bool flag){}//does nothing, no vector parameters
+        /**
          * Sets the flags to write initial values for vector parameters to file 
          * when writing parameter info to file.
          * 
          * @param flag - true/false to set to write initial values to file
          */
-        void setToWriteVectorInitialValues(bool flag);
+        void setToWriteVectorInitialValues(bool flag){}//does nothing, no vector parameters
         /**
          * Writes to an output stream in ADMB format.
          * 
@@ -994,7 +1101,13 @@ class ModelParametersInfo{
          * Class destructor.
          */
         ~ModelParametersInfo();
-        
+        /**
+         * Sets the flags to write estimation phases for vector parameters to file 
+         * when writing parameter info to file.
+         * 
+         * @param flag - true/false to set to write estimation phases to file
+         */
+        void setToWriteVectorEstimationPhases(bool flag);
         /**
          * Sets the flags to write initial values for vector parameters to file 
          * when writing parameter info to file.

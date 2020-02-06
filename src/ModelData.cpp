@@ -68,8 +68,6 @@ void AggregateCatchData::aggregateData(void){
         return;
     }
 
-
-
     //fill in aggregate values, as necessary
     //need to be careful handling values already partially aggregated
     double tC; double vC;
@@ -344,6 +342,90 @@ void AggregateCatchData::addCatchData(int y, d3_array& newC_xms){
     aggregateData();
     
     if (debug) os<<"finished AggregateCatchData::addCatchData(d3_array& newC_xms)"<<std::endl;
+}
+
+/**
+ * Set the maximum year in which to fit the data.
+ * 
+ * @param mxYr - the max year to include data
+ */
+void AggregateCatchData::setMaxYear(int mxYr){
+    if (debug) {
+        cout     <<"Starting AggregateCatchData::setMaxYear("<<mxYr<<")"<<endl;
+        rpt::echo<<"Starting AggregateCatchData::setMaxYear("<<mxYr<<")"<<endl;
+    }
+    //determine number of years to keep
+    int nyp = 0;
+    for (int iy=1;iy<=ny;iy++) {if (yrs(iy)<=mxYr) nyp++;}
+    //allocate temporary arrays
+    ivector new_yrs(1,nyp);
+    d5_array new_inpC_xmsyc(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp,1,3);
+    d4_array new_C_xmsy(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp);
+    d4_array new_cv_xmsy(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp);
+    d4_array new_sd_xmsy(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp);  
+    
+    new_yrs.initialize();
+    new_inpC_xmsyc.initialize();
+    new_C_xmsy.initialize();
+    new_cv_xmsy.initialize();
+    new_sd_xmsy.initialize();
+    
+    int iyp = 0;
+    for (int iy=1;iy<=ny;iy++) {
+        if (yrs(iy)<=mxYr) {
+            iyp++;
+            new_yrs(iyp) = yrs(iy);
+            for (int x=1;x<=tcsam::ALL_SXs;x++){
+                for (int m=1;m<=tcsam::ALL_MSs;m++){
+                    for (int s=1;s<=tcsam::ALL_SCs;s++){
+                        new_inpC_xmsyc(x,m,s,iyp) = inpC_xmsyc(x,m,s,iy);
+                        new_C_xmsy(x,m,s,iyp)     = C_xmsy(x,m,s,iy);
+                        new_cv_xmsy(x,m,s,iyp)    = cv_xmsy(x,m,s,iy);
+                        new_sd_xmsy(x,m,s,iyp)    = sd_xmsy(x,m,s,iy);
+                    }//--s
+                }//--m
+            }//--x
+         }//--if
+    }//--iy
+    if (iyp!=nyp){
+        cout<<"Something wrong in AggregateCatchData::setMaxYear"<<endl;
+        cout<<"iyp != nyp"<<endl;
+        exit(0);
+    }
+    
+    //copy back to class members
+    ny = nyp;
+    yrs.deallocate();
+    inpC_xmsyc.deallocate();
+    C_xmsy.deallocate();
+    cv_xmsy.deallocate();
+    sd_xmsy.deallocate();
+    
+    yrs.allocate(new_yrs);
+    inpC_xmsyc.allocate(new_inpC_xmsyc);
+    C_xmsy.allocate(new_C_xmsy);
+    cv_xmsy.allocate(new_cv_xmsy);
+    sd_xmsy.allocate(new_sd_xmsy);
+    
+    for (int iy=1;iy<=ny;iy++) {
+        yrs(iy) = new_yrs(iy);
+        for (int x=1;x<=tcsam::ALL_SXs;x++){
+            for (int m=1;m<=tcsam::ALL_MSs;m++){
+                for (int s=1;s<=tcsam::ALL_SCs;s++){
+                    inpC_xmsyc(x,m,s,iy) = new_inpC_xmsyc(x,m,s,iy);
+                    C_xmsy(x,m,s,iy)     = new_C_xmsy(x,m,s,iy);
+                    cv_xmsy(x,m,s,iy)    = new_cv_xmsy(x,m,s,iy);
+                    sd_xmsy(x,m,s,iy)    = new_sd_xmsy(x,m,s,iy);
+                }//--s
+            }//--m
+        }//--x
+    }//--iy
+    aggregateData();
+    
+    if (debug) {
+        cout     <<"Finished AggregateCatchData::setMaxYear("<<mxYr<<")"<<endl;
+        rpt::echo<<"Finished AggregateCatchData::setMaxYear("<<mxYr<<")"<<endl;
+    }
 }
 
 /***************************************************************
@@ -810,6 +892,103 @@ void SizeFrequencyData::addSizeFrequencyData(int y, d4_array& newNatZ_xmsz){
     normalize();
     if (debug) os<<"Done reconstituting other arrays"<<endl;
     if (debug) std::cout<<"end SizeFrequencyData::addSizeFrequencyData(...) "<<this<<std::endl;
+}
+
+/**
+ * Set the maximum year in which to fit the data.
+ * 
+ * @param mxYr - the max year to include data
+ */
+void SizeFrequencyData::setMaxYear(int mxYr){
+    if (debug) {
+        cout     <<"Starting SizeFrequencyData::setMaxYear("<<mxYr<<")"<<endl;
+        rpt::echo<<"Starting SizeFrequencyData::setMaxYear("<<mxYr<<")"<<endl;
+    }
+    //determine number of years to keep
+    int nyp = 0;
+    for (int iy=1;iy<=ny;iy++) {if (yrs(iy)<=mxYr) nyp++;}
+    
+    //allocate temporary arrays
+    ivector new_yrs(1,nyp);
+    d4_array new_inpSS_xmsy(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp);
+    d5_array new_NatZ_xmsyz(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp,1,nZCs-1);
+    d5_array new_PatZ_xmsyz(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp,1,nZCs-1);
+    d5_array new_inpNatZ_xmsyc(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp,1,2+(nZCs-1));
+    
+    new_yrs.initialize();
+    new_inpSS_xmsy.initialize();
+    new_NatZ_xmsyz.initialize();
+    new_PatZ_xmsyz.initialize();
+    new_inpNatZ_xmsyc.initialize();
+    
+    //set re-weighting multipliers
+    cumF_xms.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs);
+    cumF_xms.initialize();
+    cumF_xms = 1.0;
+    itrF_xms.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs);
+    itrF_xms.initialize();
+    
+    //working sample sizes
+    d4_array new_ss_xmsy(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp);
+    new_ss_xmsy.initialize();
+    
+    int iyp = 0;
+    for (int iy=1;iy<=ny;iy++) {
+        if (yrs(iy)<=mxYr) {
+            iyp++;
+            new_yrs(iyp) = yrs(iy);
+            for (int x=1;x<=tcsam::ALL_SXs;x++){
+                for (int m=1;m<=tcsam::ALL_MSs;m++){
+                    for (int s=1;s<=tcsam::ALL_SCs;s++){
+                        new_inpSS_xmsy(x,m,s,iyp)    = inpSS_xmsy(x,m,s,iy);
+                        new_NatZ_xmsyz(x,m,s,iyp)    = NatZ_xmsyz(x,m,s,iy);
+                        new_PatZ_xmsyz(x,m,s,iyp)    = PatZ_xmsyz(x,m,s,iy);
+                        new_inpNatZ_xmsyc(x,m,s,iyp) = inpNatZ_xmsyc(x,m,s,iy);
+                    }//--s
+                }//--m
+            }//--x
+         }//--if
+    }//--iy
+    if (iyp!=nyp){
+        cout<<"Something wrong in AggregateCatchData::setMaxYear"<<endl;
+        cout<<"iyp != nyp"<<endl;
+        exit(0);
+    }
+    
+    //copy back to class members
+    ny = nyp;
+    yrs.deallocate();
+    inpSS_xmsy.deallocate();
+    NatZ_xmsyz.deallocate();
+    PatZ_xmsyz.deallocate();
+    inpNatZ_xmsyc.deallocate();
+    
+    yrs.allocate(new_yrs);
+    inpSS_xmsy.allocate(new_inpSS_xmsy);
+    NatZ_xmsyz.allocate(new_NatZ_xmsyz);
+    PatZ_xmsyz.allocate(new_PatZ_xmsyz);
+    inpNatZ_xmsyc.allocate(new_inpNatZ_xmsyc);
+    
+    for (int iy=1;iy<=ny;iy++) {
+        yrs(iy) = yrs(iy);
+        for (int x=1;x<=tcsam::ALL_SXs;x++){
+            for (int m=1;m<=tcsam::ALL_MSs;m++){
+                for (int s=1;s<=tcsam::ALL_SCs;s++){
+                    inpSS_xmsy(x,m,s,iy)    = new_inpSS_xmsy(x,m,s,iy);
+                    NatZ_xmsyz(x,m,s,iy)    = new_NatZ_xmsyz(x,m,s,iy);
+                    PatZ_xmsyz(x,m,s,iy)    = new_PatZ_xmsyz(x,m,s,iy);
+                    inpNatZ_xmsyc(x,m,s,iy) = new_inpNatZ_xmsyc(x,m,s,iy);
+                }//--s
+            }//--m
+        }//--x
+    }//--iy
+    
+    normalize();
+    
+    if (debug) {
+        cout     <<"Finished SizeFrequencyData::setMaxYear("<<mxYr<<")"<<endl;
+        rpt::echo<<"Finished SizeFrequencyData::setMaxYear("<<mxYr<<")"<<endl;
+    }
 }
 
 /*******************************************************\n

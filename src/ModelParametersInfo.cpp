@@ -29,7 +29,7 @@ int FisheriesInfo::debug        = 0;
 int SurveysInfo::debug          = 0;
 int MSE_Info::debug             = 0;
 int ModelParametersInfo::debug  = 0;
-const adstring ModelParametersInfo::version = "2019.02.13";
+const adstring ModelParametersInfo::version = "2020.02.02";
     
 /*----------------------------------------------------------------------------*/
 /**
@@ -101,16 +101,59 @@ ParameterGroupInfo::~ParameterGroupInfo(){
 }
 
 /**
- * Finds the pc indices that corresponds to a given year.
+ * Tests whether a given year is associated a parameter combination.
+ * 
+ * @param y - the year in question
+ * @param pc - the pc in question
+ * 
+ * @return - int 1/0 if y is/not associated with the parameter combination
+ */
+int ParameterGroupInfo::isYearInPC(int y, int pc){
+    if (debug) cout<<"starting ParameterGroupInfo::isYearInPC("<<y<<cc<<pc<<") for "<<name<<endl;
+    IndexBlockSet* pIBS = getIndexBlockSet("YEAR_BLOCK");
+    ivector iv = pIBS->getFwdIndexVector(pc);
+    if (debug) cout<<pc<<": "<<iv<<endl;
+    for (int i=iv.indexmin();i<=iv.indexmax();i++) 
+        if (iv(i)==y) {
+            if (debug) cout<<"year is in pc "<<endl;
+            return(1);
+        }
+    if (debug) cout<<"year is NOT in pc "<<endl;
+    return(0);
+}
+
+/**
+ * Tests whether a given pc year is associated a year.
+ * 
+ * @param pc - the pc in question
+ * @param y - the year in question
+ * 
+ * @return - int 1/0 if the parameter combination is/not associated with the year
+ */
+int ParameterGroupInfo::isPCinYearBlock(int pc, const ivector& yb){
+    if (debug) cout<<"starting ParameterGroupInfo::isPCInYearBlock("<<pc<<cc<<endl<<yb<<") for "<<name<<endl;
+    IndexBlockSet* pIBS = getIndexBlockSet("YEAR_BLOCK");
+    ivector iv = pIBS->getFwdIndexVector(pc);
+    if (debug) cout<<pc<<": "<<iv<<endl;
+    for (int i=iv.indexmin();i<=iv.indexmax();i++) 
+        for (int y=yb.indexmin();y<=yb.indexmax();y++) 
+            if (iv(i)==y) {
+                if (debug) cout<<"pc is in year block "<<endl;
+                return(1);
+            }
+    if (debug) cout<<"pc is NOT in year block "<<endl;
+    return(0);
+}
+
+/**
+ * Finds the number of parameter combinations that correspond to a given year.
  * 
  * @param y - the year to find the PCs for
- * @return - ivector of the corresponding PCs (or unallocated, if no corresponding PC found)
+ * @return - number of corresponding PCs
  */
-ivector ParameterGroupInfo::getPCsForYear(int y){
-    if (debug) cout<<"starting ParameterGroupInfo::getPCforYear("<<y<<") for "<<name<<endl;
+int ParameterGroupInfo::getNumPCsForYear(int y){
+    if (debug) cout<<"starting ParameterGroupInfo::getNumPCsForYear("<<y<<") for "<<name<<endl;
     IndexBlockSet* pIBS = getIndexBlockSet("YEAR_BLOCK");
-    int pcy = 0;
-    int nPCs = pIBS->getSize();
     if (debug) cout<<"nPCs = "<<nPCs<<endl;
     //count pc's that include year
     int k = 0;
@@ -120,10 +163,41 @@ ivector ParameterGroupInfo::getPCsForYear(int y){
         for (int i=iv.indexmin();i<=iv.indexmax();i++) 
             if (iv(i)==y) k++;
     }
-    ivector pcs; 
+    if (debug) cout<<"Found "<<k<<" PCs that include "<<y<<endl;
+    return(k);
+}
+
+/**
+ * Set flags to include/excude (1/0) parameter combinations in likelihood
+ * given a set of model years.
+ * 
+ * @param model_years - the model years in question
+ * 
+ * @return - nothing
+ * 
+ * @details Determines results of calls to isPCinLikelihood(pc).
+ */
+void ParameterGroupInfo::setLikelihoodFlagsForPCs(const ivector& model_years){
+    for (int pc=1;pc<=nPCs;pc++){
+        includePCinLikelihood(pc) = isPCinYearBlock(pc,model_years);
+    }
+}
+
+/**
+ * Finds the pc indices that corresponds to a given year.
+ * 
+ * @param y - the year to find the PCs for
+ * @return - ivector of the corresponding PCs (or unallocated, if no corresponding PC found)
+ */
+ivector ParameterGroupInfo::getPCsForYear(int y){
+    if (debug) cout<<"starting ParameterGroupInfo::getPCforYear("<<y<<") for "<<name<<endl;
+    ivector pcs; //output vector of pc indices
+    int k = getNumPCsForYear(y);//count pc's that include year
+    if (debug) cout<<"nPCs = "<<nPCs<<endl;
     if (debug) cout<<"Found "<<k<<" PCs that include "<<y<<endl;
     if (k) {
-        //now collect the pc's
+        IndexBlockSet* pIBS = getIndexBlockSet("YEAR_BLOCK");
+        //now collect the pc indices
         pcs.allocate(1,k);
         k = 1;//reset counter
         for (int pc=1;pc<=nPCs;pc++){
@@ -447,6 +521,8 @@ void ParameterGroupInfo::read(cifstream& is){
         if (debug) cout<<nPCs<<tb<<"#number of parameter combinations"<<endl;
         rpt::echo<<nPCs<<tb<<"#number of parameter combinations"<<endl;
         if (nPCs>0){
+            includePCinLikelihood.allocate(1,nPCs);
+            includePCinLikelihood = 1;//default  to include all
             if (debug){
                 cout<<"#id  ";
                 for (int i=1;i<=nIVs;i++) cout<<lblIVs(i)<<tb; 
@@ -747,6 +823,21 @@ void RecruitmentInfo::read(cifstream & is){
 }
 
 /**
+ * Sets the flags to write estimation phases for vector parameters to file 
+ * when writing parameter info to file.
+ * 
+ * @param flag - true/false to set to write estimation phases to file
+ */
+void RecruitmentInfo::setToWriteVectorEstimationPhases(bool flag){
+    if (pDevsLnR){
+        for (int i=1;i<=pDevsLnR->getSize();i++){
+            DevsVectorInfo* vi = (*pDevsLnR)[i];
+            vi->readPhases = flag ? INT_TRUE : INT_FALSE;        
+        }
+    }
+}
+
+/**
  * Sets the flags to write initial values for vector parameters to file 
  * when writing parameter info to file.
  * 
@@ -755,8 +846,8 @@ void RecruitmentInfo::read(cifstream & is){
 void RecruitmentInfo::setToWriteVectorInitialValues(bool flag){
     if (pDevsLnR){
         for (int i=1;i<=pDevsLnR->getSize();i++){
-            DevsVectorInfo* dvi = (*pDevsLnR)[i];
-            if (flag) dvi->readVals = INT_TRUE; else dvi->readVals = INT_FALSE;        
+            DevsVectorInfo* vi = (*pDevsLnR)[i];
+            vi->readVals = flag ? INT_TRUE : INT_FALSE;        
         }
     }
 }
@@ -945,16 +1036,6 @@ void NaturalMortalityInfo::read(cifstream & is){
     }
 }
 
-/**
- * Sets the flags to write initial values for vector parameters to file 
- * when writing parameter info to file.
- * 
- * @param flag - true/false to set to write initial values to file
- */
-void NaturalMortalityInfo::setToWriteVectorInitialValues(bool flag){
-    //does nothing: no parameter vectors
-}
-
 void NaturalMortalityInfo::write(std::ostream & os){
     os<<NAME<<tb<<"#process name"<<endl;
     os<<zRef<<tb<<"#reference size for scaling"<<endl;
@@ -1100,16 +1181,6 @@ void GrowthInfo::read(cifstream & is){
     }
 }
 
-/**
- * Sets the flags to write initial values for vector parameters to file 
- * when writing parameter info to file.
- * 
- * @param flag - true/false to set to write initial values to file
- */
-void GrowthInfo::setToWriteVectorInitialValues(bool flag){
-    //does nothing: no parameter vectors
-}
-
 void GrowthInfo::write(std::ostream & os){
     os<<NAME<<tb<<"#process name"<<endl;
      ParameterGroupInfo::write(os);
@@ -1229,6 +1300,21 @@ void Molt2MaturityInfo::read(cifstream & is){
 }
 
 /**
+ * Sets the flags to write estimation phases for vector parameters to file 
+ * when writing parameter info to file.
+ * 
+ * @param flag - true/false to set to write estimation phases to file
+ */
+void Molt2MaturityInfo::setToWriteVectorEstimationPhases(bool flag){
+    if (pvLgtPrM2M){
+        for (int i=1;i<=pvLgtPrM2M->getSize();i++){
+            BoundedVectorInfo* vi = (*pvLgtPrM2M)[i];
+            vi->readPhases = flag ? INT_TRUE : INT_FALSE;        
+        }
+    }
+}
+
+/**
  * Sets the flags to write initial values for vector parameters to file 
  * when writing parameter info to file.
  * 
@@ -1238,7 +1324,7 @@ void Molt2MaturityInfo::setToWriteVectorInitialValues(bool flag){
     if (pvLgtPrM2M){
         for (int i=1;i<=pvLgtPrM2M->getSize();i++){
             BoundedVectorInfo* vi = (*pvLgtPrM2M)[i];
-            if (flag) vi->readVals = INT_TRUE; else vi->readVals = INT_FALSE;        
+            vi->readVals = flag ? INT_TRUE : INT_FALSE;        
         }
     }
 }
@@ -1581,43 +1667,94 @@ void SelectivityInfo::setToWriteVectorInitialValues(bool flag){
     if (pDevsS1){
         for (int i=1;i<=pDevsS1->getSize();i++){
             BoundedVectorInfo* vi = (*pDevsS1)[i];
-            if (flag) vi->readVals = INT_TRUE; else vi->readVals = INT_FALSE;        
+            vi->readVals = flag ? INT_TRUE : INT_FALSE;        
         }
     }
     if (pDevsS2){
         for (int i=1;i<=pDevsS2->getSize();i++){
             BoundedVectorInfo* vi = (*pDevsS2)[i];
-            if (flag) vi->readVals = INT_TRUE; else vi->readVals = INT_FALSE;        
+            vi->readVals = flag ? INT_TRUE : INT_FALSE;        
         }
     }
     if (pDevsS3){
         for (int i=1;i<=pDevsS3->getSize();i++){
             BoundedVectorInfo* vi = (*pDevsS3)[i];
-            if (flag) vi->readVals = INT_TRUE; else vi->readVals = INT_FALSE;        
+            vi->readVals = flag ? INT_TRUE : INT_FALSE;        
         }
     }
     if (pDevsS4){
         for (int i=1;i<=pDevsS4->getSize();i++){
             BoundedVectorInfo* vi = (*pDevsS4)[i];
-            if (flag) vi->readVals = INT_TRUE; else vi->readVals = INT_FALSE;        
+            vi->readVals = flag ? INT_TRUE : INT_FALSE;        
         }
     }
     if (pDevsS5){
         for (int i=1;i<=pDevsS5->getSize();i++){
             BoundedVectorInfo* vi = (*pDevsS5)[i];
-            if (flag) vi->readVals = INT_TRUE; else vi->readVals = INT_FALSE;        
+            vi->readVals = flag ? INT_TRUE : INT_FALSE;        
         }
     }
     if (pDevsS6){
         for (int i=1;i<=pDevsS6->getSize();i++){
             BoundedVectorInfo* vi = (*pDevsS6)[i];
-            if (flag) vi->readVals = INT_TRUE; else vi->readVals = INT_FALSE;        
+            vi->readVals = flag ? INT_TRUE : INT_FALSE;        
         }
     }
     if (pvNPSel){
         for (int i=1;i<=pvNPSel->getSize();i++){
             BoundedVectorInfo* vi = (*pvNPSel)[i];
-            if (flag) vi->readVals = INT_TRUE; else vi->readVals = INT_FALSE;        
+            vi->readVals = flag ? INT_TRUE : INT_FALSE;        
+        }
+    }
+}
+
+/**
+ * Sets the flags to write estimations phases for vector parameters to file 
+ * when writing parameter info to file.
+ * 
+ * @param flag - true/false to set to write estimation phases to file
+ */
+void SelectivityInfo::setToWriteVectorEstimationPhases(bool flag){
+    if (pDevsS1){
+        for (int i=1;i<=pDevsS1->getSize();i++){
+            BoundedVectorInfo* vi = (*pDevsS1)[i];
+            vi->readPhases = flag ? INT_TRUE : INT_FALSE;        
+        }
+    }
+    if (pDevsS2){
+        for (int i=1;i<=pDevsS2->getSize();i++){
+            BoundedVectorInfo* vi = (*pDevsS2)[i];
+            vi->readPhases = flag ? INT_TRUE : INT_FALSE;        
+        }
+    }
+    if (pDevsS3){
+        for (int i=1;i<=pDevsS3->getSize();i++){
+            BoundedVectorInfo* vi = (*pDevsS3)[i];
+            vi->readPhases = flag ? INT_TRUE : INT_FALSE;        
+        }
+    }
+    if (pDevsS4){
+        for (int i=1;i<=pDevsS4->getSize();i++){
+            BoundedVectorInfo* vi = (*pDevsS4)[i];
+            vi->readPhases = flag ? INT_TRUE : INT_FALSE;        
+        }
+    }
+    if (pDevsS5){
+        for (int i=1;i<=pDevsS5->getSize();i++){
+            BoundedVectorInfo* vi = (*pDevsS5)[i];
+            vi->readPhases = flag ? INT_TRUE : INT_FALSE;        
+        }
+    }
+    if (pDevsS6){
+        for (int i=1;i<=pDevsS6->getSize();i++){
+            BoundedVectorInfo* vi = (*pDevsS6)[i];
+            vi->readPhases = flag ? INT_TRUE : INT_FALSE;        
+        }
+    }
+    if (pvNPSel){
+        for (int i=1;i<=pvNPSel->getSize();i++){
+            BoundedVectorInfo* vi = (*pvNPSel)[i];
+            vi->readPhases = flag ? INT_TRUE : INT_FALSE;        
         }
     }
 }
@@ -1923,6 +2060,21 @@ void FisheriesInfo::read(cifstream & is){
 }
 
 /**
+ * Sets the flags to write estimation phases for vector parameters to file 
+ * when writing parameter info to file.
+ * 
+ * @param flag - true/false to set to write estimation phases to file
+ */
+void FisheriesInfo::setToWriteVectorEstimationPhases(bool flag){
+    if (pDevsLnC){
+        for (int i=1;i<=pDevsLnC->getSize();i++){
+            BoundedVectorInfo* vi = (*pDevsLnC)[i];
+            vi->readPhases = flag ? INT_TRUE : INT_FALSE;        
+        }
+    }
+}
+
+/**
  * Sets the flags to write initial values for vector parameters to file 
  * when writing parameter info to file.
  * 
@@ -1932,7 +2084,7 @@ void FisheriesInfo::setToWriteVectorInitialValues(bool flag){
     if (pDevsLnC){
         for (int i=1;i<=pDevsLnC->getSize();i++){
             BoundedVectorInfo* vi = (*pDevsLnC)[i];
-            if (flag) vi->readVals = INT_TRUE; else vi->readVals = INT_FALSE;        
+            vi->readVals = flag ? INT_TRUE : INT_FALSE;        
         }
     }
 }
@@ -2152,16 +2304,6 @@ void SurveysInfo::read(cifstream & is){
     }
 }
 
-/**
- * Sets the flags to write initial values for vector parameters to file 
- * when writing parameter info to file.
- * 
- * @param flag - true/false to set to write initial values to file
- */
-void SurveysInfo::setToWriteVectorInitialValues(bool flag){
-    //do nothing: no parameter vectors defined
-}
-
 void SurveysInfo::write(std::ostream & os){
     os<<NAME<<tb<<"#process name"<<endl;
     ParameterGroupInfo::write(os);
@@ -2304,16 +2446,6 @@ void MSE_Info::read(cifstream & is){
     if (debug) cout<<"finished MSE_Info::read(is)"<<endl;
 }
 
-/**
- * Sets the flags to write initial values for vector parameters to file 
- * when writing parameter info to file.
- * 
- * @param flag - true/false to set to write initial values to file
- */
-void MSE_Info::setToWriteVectorInitialValues(bool flag){
-    //do nothing: no parameter vectors defined
-}
-
 void MSE_Info::write(std::ostream & os){
     os<<NAME<<tb<<"#process name"<<endl;
     ParameterGroupInfo::write(os);
@@ -2367,6 +2499,23 @@ ModelParametersInfo::~ModelParametersInfo(){
     if (ptrFsh) {delete ptrFsh;     ptrFsh  = 0;}
     if (ptrSrv) {delete ptrSrv;     ptrSrv  = 0;}
     if (ptrMSE) {delete ptrMSE;     ptrMSE  = 0;}
+}
+
+/**
+ * Sets the flags to write estimation phases for all vector parameters to file 
+ * when writing parameter info to file.
+ * 
+ * @param flag - true/false to set to write initial values to file
+ */
+void ModelParametersInfo::setToWriteVectorEstimationPhases(bool flag){
+    if (ptrRec) ptrRec->setToWriteVectorEstimationPhases(flag);
+    if (ptrNM)  ptrNM ->setToWriteVectorEstimationPhases(flag);
+    if (ptrGrw) ptrGrw->setToWriteVectorEstimationPhases(flag);
+    if (ptrM2M) ptrM2M->setToWriteVectorEstimationPhases(flag);
+    if (ptrSel) ptrSel->setToWriteVectorEstimationPhases(flag);
+    if (ptrFsh) ptrFsh->setToWriteVectorEstimationPhases(flag);
+    if (ptrSrv) ptrSrv->setToWriteVectorEstimationPhases(flag); //not needed for SurveysInfo
+    if (ptrMSE) ptrMSE->setToWriteVectorEstimationPhases(flag); //not needed for MSE_Info
 }
 
 /**

@@ -29,6 +29,8 @@
  *           reflecting changes to tpl file.
  * 20180902: incremented tcsam::VERSION to "2018.09.02"
  *           reflecting changes to tpl file.
+ * 20200202: incremented tcsam::VERSION to "2020.02.02"
+ *           reflecting changes to tpl file.
  */
 
 #pragma once
@@ -53,7 +55,7 @@ namespace tcsam{
     /* adstring indicating model name */
     const adstring MODEL = "tcsam02";
     /* adstring indicating model version */
-    const adstring VERSION = "2018.09.02";
+    const adstring VERSION = "2020.02.02";
     
     /* minimum debugging level that will print ALL debug info */
     const int dbgAll = 100;

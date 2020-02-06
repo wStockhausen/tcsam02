@@ -22,6 +22,7 @@
  *             2. Added version strings to ModelConfiguration, ModelOptions
  *             3. Updated documentation
  * 2017-02-27: 1. Extracted ModelOptions class to ModelOptions.hpp
+ * 2020-01-29: 1. Added yRetro 
  */
 
 #ifndef MODELCONFIGURATION_HPP
@@ -45,6 +46,8 @@
         static int asYr;//assessment year (final pop numbers given for July 1, asYr)
         /* max model year (mxYr = asYr-1) */
         static int mxYr;//max model year (mxYr = asYr-1)
+        /* number of retrospective years to incorporate */
+        static int yRetro;
         /* number of fisheries */
         static int nFsh;//number of fisheries 
         /* number of surveys */
@@ -113,11 +116,11 @@
         ModelConfiguration& operator =(const ModelConfiguration & rhs);
         
         /**
-         * Set max model year (for retrospective model runs).
+         * Set number of retrospective years to peel off.
          * 
-         * @param yr - new max model year
+         * @param _yRetro - number of retrospective years to peel off
          */
-        void setMaxModelYear(int yr);
+        void setNumRetroYears(int _yRetro){yRetro = _yRetro;}
         /**
          * Tests if mnYr <= yr <= mxYr. 
          * 
