@@ -604,19 +604,39 @@ GLOBALS_SECTION
         #undef PRINT2B1
     #endif
     #define PRINT2B1(o) std::cout<<(o)<<std::endl; rpt::echo<<(o)<<std::endl;
+
     #ifdef PRINT2B2
         #undef PRINT2B2
     #endif
     #define PRINT2B2(t,o) std::cout<<(t)<<(o)<<std::endl; rpt::echo<<(t)<<(o)<<std::endl;
+
+    //macro to print param_init_number_vector object representing devs vectors
     #ifdef PRINTDEVS
         #undef PRINTDEVS
     #endif
     #define PRINTDEVS(s,P) {int ctr = 1; \
-                         for (int p=1;p<=npDevs##P;p++) { \
-                            std::cout<<s<<"["<<p<<"] = "; \
-                            for (int j=mniDevs##P[p];j<=mxiDevs##P[p];j++) std::cout<<pDevs##P[ctr++]<<tb; std::cout<<std::endl; \
-                         }}
+                            for (int p=1;p<=npDevs##P;p++) { \
+                                std::cout<<s<<"["<<p<<"] = "; \
+                                for (int j=mniDevs##P[p];j<=mxiDevs##P[p];j++) std::cout<<pDevs##P[ctr++]<<tb; std::cout<<std::endl; \
+                            } \
+                            ctr = 1; \
+                            for (int p=1;p<=npDevs##P;p++) { \
+                                rpt::echo<<s<<"["<<p<<"] = "; \
+                                for (int j=mniDevs##P[p];j<=mxiDevs##P[p];j++) rpt::echo<<pDevs##P[ctr++]<<tb; rpt::echo<<std::endl; \
+                           }}
 
+    //macro to print param_init_(bounded)_vector_vector objects
+    #ifdef PRINTVV
+        #undef PRINTVV
+    #endif
+    #define PRINTVV(s,P) for (int p=1;p<=np##P;p++) { \
+                            std::cout<<s<<"["<<p<<"] = "<<pv##P[p]<<std::endl; \
+                         } \
+                         for (int p=1;p<=np##P;p++) { \
+                            rpt::echo<<s<<"["<<p<<"] = "<<pv##P[p]<<std::endl; \
+                         }
+    //!!for (int p=1;p<=npLgtPrM2M;p++) cout<<"pvLgtPrM2M["<<p<<"] = "<<pvLgtPrM2M[p]<<endl;
+        
     adstring model  = tcsam::MODEL;
     adstring modVer = tcsam::VERSION; 
     
@@ -1088,17 +1108,28 @@ DATA_SECTION
         ModelParametersInfo::debug=debugModelParamsInfo;
     }
     PRINT2B1("#----finished reading model parameters info---")
-//    rpt::echo<<"#-----------ModelParametersInfo---------------"<<endl;
-//    rpt::echo<<(*ptrMPI)<<endl;
-//    rpt::echo<<"#----finished ModelParametersInfo---"<<endl;
-//    if (debugDATA_SECTION){
-//        cout<<"#------------------ModelParametersInfo-----------------"<<endl;
-//        cout<<(*ptrMPI);
-//        cout<<"#----finished model parameters info---"<<endl;
-//        cout<<"enter 1 to continue : ";
-//        cin>>debugDATA_SECTION;
-//        if (debugDATA_SECTION<0) exit(1);
-//    }
+    //----TESTING-----//
+    PRINT2B1("Testing adjusting phases for retrospective analysis")
+//    PRINT2B1("Growth")
+//    for (int pc=1;pc<=ptrMPI->ptrGrw->nPCs;pc++)
+//        rpt::echo<<tb<<"ptrGrw years for pc "<<pc<<": "<<ptrMPI->ptrGrw->getYearsForPC(pc)<<endl;
+//    ptrMPI->setMaxYear(2018);
+//    rpt::echo<<tb<<"pGrA phases   : "<<ptrMPI->ptrGrw->pGrA->getPhases()<<endl;
+//    rpt::echo<<tb<<"pGrB phases   : "<<ptrMPI->ptrGrw->pGrB->getPhases()<<endl;
+//    rpt::echo<<tb<<"pGrBeta phases: "<<ptrMPI->ptrGrw->pGrBeta->getPhases()<<endl;
+//    exit(0);
+    //----TESTING-----//
+    rpt::echo<<"#-----------ModelParametersInfo---------------"<<endl;
+    rpt::echo<<(*ptrMPI)<<endl;
+    rpt::echo<<"#----finished ModelParametersInfo---"<<endl;
+    if (debugDATA_SECTION){
+        cout<<"#------------------ModelParametersInfo-----------------"<<endl;
+        cout<<(*ptrMPI);
+        cout<<"#----finished model parameters info---"<<endl;
+        cout<<"enter 1 to continue : ";
+        cin>>debugDATA_SECTION;
+        if (debugDATA_SECTION<0) exit(1);
+    }
 //    ptrMPI->project(0);//TODO:testing only!
 //    ofstream ofs; ofs.open("projectedMPI.txt");
 //    ptrMPI->write(ofs);
@@ -1364,6 +1395,8 @@ DATA_SECTION
     ivector mniDevsLnR; ivector mxiDevsLnR; imatrix idxsDevsLnR;
     vector lbDevsLnR;   vector ubDevsLnR;   ivector phsDevsLnR;
     !!tcsam::setParameterInfo(ptrMPI->ptrRec->pDevsLnR,npDevsLnR,nptDevsLnR,mniDevsLnR,mxiDevsLnR,idxsDevsLnR,lbDevsLnR,ubDevsLnR,phsDevsLnR,rpt::echo);
+    !!rpt::echo<<"idxsDevsLnR"<<endl<<idxsDevsLnR<<endl;
+    !!for (int i=1;i<=npDevsLnR;i++) rpt::echo<<"fwdIndices["<<i<<"] = "<<(*(ptrMPI->ptrRec->pDevsLnR))[i]->getFwdIndices()<<endl;
     matrix likeFlagsDevsLnR(1,npDevsLnR,mniDevsLnR,mxiDevsLnR);
  LOCAL_CALCS    
     if (mseOpModMode) {
@@ -1406,12 +1439,12 @@ DATA_SECTION
         
     
     //maturity parameters
-    int npLgtPrMat; ivector mniLgtPrMat; ivector mxiLgtPrMat; imatrix idxsLgtPrMat;
-    vector lbLgtPrMat; vector ubLgtPrMat; ivector phsLgtPrMat;
-    !!tcsam::setParameterInfo(ptrMPI->ptrM2M->pvLgtPrM2M,npLgtPrMat,mniLgtPrMat,mxiLgtPrMat,idxsLgtPrMat,lbLgtPrMat,ubLgtPrMat,phsLgtPrMat,rpt::echo);
+    int npLgtPrM2M; ivector mniLgtPrM2M; ivector mxiLgtPrM2M; imatrix idxsLgtPrM2M;
+    vector lbLgtPrM2M; vector ubLgtPrM2M; ivector phsLgtPrM2M;
+    !!tcsam::setParameterInfo(ptrMPI->ptrM2M->pvLgtPrM2M,npLgtPrM2M,mniLgtPrM2M,mxiLgtPrM2M,idxsLgtPrM2M,lbLgtPrM2M,ubLgtPrM2M,phsLgtPrM2M,rpt::echo);
  LOCAL_CALCS    
     if (mseOpModMode) {
-        phsLgtPrMat = -1;
+        phsLgtPrM2M = -1;
     }
  END_CALCS    
         
@@ -1689,19 +1722,23 @@ PARAMETER_SECTION
  
     //recruitment parameters
     init_bounded_number_vector pLnR(1,npLnR,lbLnR,ubLnR,phsLnR);    //mean ln-scale recruitment
-    !!cout<<"pLnR = "<<pLnR<<endl;
+    !!PRINT2B2("pLnR = ",pLnR)
     init_bounded_number_vector pRCV(1,npRCV,lbRCV,ubRCV,phsRCV);    //ln-scale recruitment cv
-    !!cout<<"pRCV = "<<pRCV<<endl;
+    !!PRINT2B2("pRCV = ",pRCV)
     init_bounded_number_vector pRX(1,npRX,lbRX,ubRX,phsRX);         //logit-scale male sex ratio
-    !!cout<<"pRX = "<<pRX<<endl;
+    !!PRINT2B2("pRX = ",pRX)
     init_bounded_number_vector pRa(1,npRa,lbRa,ubRa,phsRa);         //size distribution parameter
-    !!cout<<"pRa = "<<pRa<<endl;
+    !!PRINT2B2("pRa = ",pRa)
     init_bounded_number_vector pRb(1,npRb,lbRb,ubRb,phsRb);         //size distribution parameter
-    !!cout<<"pRb = "<<pRb<<endl;
+    !!PRINT2B2("pRb = ",pRb)
     init_bounded_number_vector pDevsLnR(1,nptDevsLnR,lbDevsLnR,ubDevsLnR,phsDevsLnR);//ln-scale rec devs
+    !!PRINT2B2("nptDevsLnR = ",nptDevsLnR)
+    !!PRINT2B2("lbDevsLnR  = ",lbDevsLnR)
+    !!PRINT2B2("ubDevsLnR  = ",ubDevsLnR)
+    !!PRINT2B2("phsDevsLnR = ",phsDevsLnR)
     !!PRINTDEVS("pDevsLnR",LnR)
     matrix devsLnR(1,npDevsLnR,mniDevsLnR,mxiDevsLnR);
-    !!cout<<"got past recruitment parameters"<<endl;
+    !!PRINT2B1("got past recruitment parameters")
    
     //natural mortality parameters
     init_bounded_number_vector pM(1,npM,lbM,ubM,phsM);//base ln-scale
@@ -1714,7 +1751,7 @@ PARAMETER_SECTION
     !!cout<<"pDM3 = "<<pDM3<<endl;
     init_bounded_number_vector pDM4(1,npDM4,lbDM4,ubDM4,phsDM4);//offset 4s
     !!cout<<"pDM4 = "<<pDM4<<endl;
-    !!cout<<"got past natural mortality parameters"<<endl;
+    !!PRINT2B1("got past natural mortality parameters")
     
     //growth parameters
     init_bounded_number_vector pGrA(1,npGrA,lbGrA,ubGrA,phsGrA); //ln-scale mean growth coefficient "a"
@@ -1723,12 +1760,18 @@ PARAMETER_SECTION
     !!cout<<"pGrB = "<<pGrB<<endl;
     init_bounded_number_vector pGrBeta(1,npGrBeta,lbGrBeta,ubGrBeta,phsGrBeta);//ln-scale growth scale parameter
     !!cout<<"pGrBeta = "<<pGrBeta<<endl;
-    !!cout<<"got past growth parameters"<<endl;
+    !!PRINT2B1("got past growth parameters")
     
     //maturity parameters
-    init_bounded_vector_vector pvLgtPrM2M(1,npLgtPrMat,mniLgtPrMat,mxiLgtPrMat,lbLgtPrMat,ubLgtPrMat,phsLgtPrMat);//logit-scale maturity ogive parameters
-    !!for (int p=1;p<=npLgtPrMat;p++) cout<<"pvLgtPrM2M["<<p<<"] = "<<pvLgtPrM2M[p]<<endl;
-    !!cout<<"got past maturity parameters"<<endl;
+    init_bounded_vector_vector pvLgtPrM2M(1,npLgtPrM2M,mniLgtPrM2M,mxiLgtPrM2M,lbLgtPrM2M,ubLgtPrM2M,phsLgtPrM2M);//logit-scale maturity ogive parameters
+    !!PRINT2B2("npLgtPrM2M  = ",npLgtPrM2M)
+    !!PRINT2B2("mniLgtPrM2M = ",mniLgtPrM2M)
+    !!PRINT2B2("mxiLgtPrM2M = ",mxiLgtPrM2M)
+    !!PRINT2B2("lbLgtPrM2M  = ",lbLgtPrM2M)
+    !!PRINT2B2("ubLgtPrM2M  = ",ubLgtPrM2M)
+    !!PRINT2B2("phsLgtPrM2M = ",phsLgtPrM2M)
+    !!PRINTVV("pvLgtPrM2M",LgtPrM2M)
+    !!PRINT2B1("got past maturity parameters")
     
     //selectivity parameters
     init_bounded_number_vector pS1(1,npS1,lbS1,ubS1,phsS1);
@@ -1748,8 +1791,11 @@ PARAMETER_SECTION
     !!cout<<nptDevsS1<<tb<<lbDevsS1<<tb<<ubDevsS1<<tb<<phsDevsS1<<endl;
     init_bounded_number_vector pDevsS1(1,nptDevsS1,lbDevsS1,ubDevsS1,phsDevsS1);
     !!cout<<"got past devsS1"<<endl;
+    !!PRINT2B2("nptDevsS1 = ",nptDevsS1)
+    !!PRINT2B2("lbDevsS1  = ",lbDevsS1)
+    !!PRINT2B2("ubDevsS1  = ",ubDevsS1)
+    !!PRINT2B2("phsDevsS1 = ",phsDevsS1)
     !!PRINTDEVS("pDevsS1",S1)
-    !!cout<<"got past PRINTDEVS(devsS1)"<<endl;
     !!cout<<"creating devsS2"<<endl;
     !!cout<<nptDevsS2<<tb<<lbDevsS2<<tb<<ubDevsS2<<tb<<phsDevsS2<<endl;
     init_bounded_number_vector pDevsS2(1,nptDevsS2,lbDevsS2,ubDevsS2,phsDevsS2);
@@ -1773,7 +1819,7 @@ PARAMETER_SECTION
     
     init_bounded_vector_vector pvNPSel(1,npNPSel,mniNPSel,mxiNPSel,lbNPSel,ubNPSel,phsNPSel);
     !!for (int p=1;p<=npNPSel;p++) cout<<"pvNPSel["<<p<<"] = "<<pvNPSel[p]<<endl;
-    !!cout<<"got past selectivity parameters"<<endl;
+    !!PRINT2B1("got past selectivity parameters")
     
     //fishing capture rate parameters
     init_bounded_number_vector pHM(1,npHM,lbHM,ubHM,phsHM);     //handling mortality
@@ -1789,6 +1835,10 @@ PARAMETER_SECTION
     init_bounded_number_vector pDC4(1,npDC4,lbDC4,ubDC4,phsDC4);//ln-offset 4 (e.g., female-immature offsets)
     !!cout<<"pDC4 = "<<pDC4<<endl;
     init_bounded_number_vector pDevsLnC(1,nptDevsLnC,lbDevsLnC,ubDevsLnC,phsDevsLnC);//ln-scale deviations
+    !!PRINT2B2("nptDevsLnC = ",nptDevsLnC)
+    !!PRINT2B2("lbDevsLnC  = ",lbDevsLnC)
+    !!PRINT2B2("ubDevsLnC  = ",ubDevsLnC)
+    !!PRINT2B2("phsDevsLnC = ",phsDevsLnC)
     !!PRINTDEVS("pDevsLnC",LnC)
     !!cout<<npLnEffX<<tb<<lbLnEffX<<tb<<ubLnEffX<<tb<<phsLnEffX<<endl;
     init_bounded_number_vector pLnEffX(1,npLnEffX,lbLnEffX,ubLnEffX,phsLnEffX);//ln-scale effort extrapolation parameters
@@ -1797,7 +1847,7 @@ PARAMETER_SECTION
     init_bounded_number_vector pLgtRet(1,npLgtRet,lbLgtRet,ubLgtRet,phsLgtRet);//lgt-scale retained fraction parameters
     !!cout<<"pLgtRet = "<<pLgtRet<<endl;
     matrix devsLnC(1,npDevsLnC,mniDevsLnC,mxiDevsLnC);
-    !!cout<<"got past capture rate parameters"<<endl;
+    !!PRINT2B1("got past capture rate parameters")
    
     //survey catchability parameters
     init_bounded_number_vector pQ(1,npQ,lbQ,ubQ,phsQ);//base (e.g., mature male)
@@ -1812,12 +1862,12 @@ PARAMETER_SECTION
     !!cout<<"pDQ4 = "<<pDQ4<<endl;
     init_bounded_number_vector pA(1,npA,lbA,ubA,phsA);//max availability
     !!cout<<"pA = "<<pA<<endl;
-    !!cout<<"got past survey catchability parameters"<<endl;
+    !!PRINT2B1("got past survey catchability parameters")
    
     //MSE-related parameters
     init_bounded_number_vector pMSE_LnC(1,npMSE_LnC,lbMSE_LnC,ubMSE_LnC,phsMSE_LnC);//
     !!cout<<"pMSE_LnC = "<<pMSE_LnC<<endl;
-    !!cout<<"got past MSE parameters"<<endl;
+    !!PRINT2B1("got past MSE parameters")
    
     //objective function value
     objective_function_value objFun;
@@ -1922,8 +1972,8 @@ PARAMETER_SECTION
     //objective function penalties
     vector fPenRecDevs(1,npDevsLnR);//recruitment devs penalties
     
-    vector fPenSmoothLgtPrMat(1,npLgtPrMat);//smoothness penalties on pr(mature|z)
-    vector fPenNonDecLgtPrMat(1,npLgtPrMat);//non-decreasing penalties on pr(mature|z)
+    vector fPenSmoothLgtPrM2M(1,npLgtPrM2M);//smoothness penalties on pr(mature|z)
+    vector fPenNonDecLgtPrM2M(1,npLgtPrM2M);//non-decreasing penalties on pr(mature|z)
     
     vector fPenSmoothNPSel(1,npNPSel);//smoothness penalties on nonparametric selectivities
     
@@ -4866,74 +4916,74 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     if (debug>dbgObjFun) cout<<"calculating maturity-related penalties"<<endl;
     if (debug<0) cout<<tb<<"maturity=list("<<endl;//start of maturity penalties list
     //smoothness penalties
-    dvector penWgtSmthLgtPrMat = ptrMOs->wgtPenSmthPrM2M;
+    dvector penWgtSmthLgtPrM2M = ptrMOs->wgtPenSmthPrM2M;
     if (ptrMOs->optPenSmthPrM2M==0){
         if (debug>dbgObjFun) cout<<"--calculating smoothness penalties on parameters"<<endl;
         //smoothness penalties on maturity PARAMETERS (NOT maturity ogives)
-        fPenSmoothLgtPrMat.initialize();
+        fPenSmoothLgtPrM2M.initialize();
         if (debug<0) cout<<tb<<tb<<"smoothness=list(";//start of smoothness penalties list
-        for (int i=1;i<npLgtPrMat;i++){
+        for (int i=1;i<npLgtPrM2M;i++){
             dvar_vector v = 1.0*pvLgtPrM2M(i);
-            fPenSmoothLgtPrMat(i) = 0.5*norm2(calc2ndDiffs(v));
-            objFun += penWgtSmthLgtPrMat(i)*fPenSmoothLgtPrMat(i);
-            if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrMat(i)<<cc<<"pen="<<fPenSmoothLgtPrMat(i)<<cc<<"objfun="<<penWgtSmthLgtPrMat(i)*fPenSmoothLgtPrMat(i)<<"),"<<endl;
+            fPenSmoothLgtPrM2M(i) = 0.5*norm2(calc2ndDiffs(v));
+            objFun += penWgtSmthLgtPrM2M(i)*fPenSmoothLgtPrM2M(i);
+            if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrM2M(i)<<cc<<"pen="<<fPenSmoothLgtPrM2M(i)<<cc<<"objfun="<<penWgtSmthLgtPrM2M(i)*fPenSmoothLgtPrM2M(i)<<"),"<<endl;
         }
         {
-            int i = npLgtPrMat;
+            int i = npLgtPrM2M;
             dvar_vector v = 1.0*pvLgtPrM2M(i);
-            fPenSmoothLgtPrMat(i) = 0.5*norm2(calc2ndDiffs(v));
-            objFun += penWgtSmthLgtPrMat(i)*fPenSmoothLgtPrMat(i);
-            if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrMat(i)<<cc<<"pen="<<fPenSmoothLgtPrMat(i)<<cc<<"objfun="<<penWgtSmthLgtPrMat(i)*fPenSmoothLgtPrMat(i)<<")"<<endl;
+            fPenSmoothLgtPrM2M(i) = 0.5*norm2(calc2ndDiffs(v));
+            objFun += penWgtSmthLgtPrM2M(i)*fPenSmoothLgtPrM2M(i);
+            if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrM2M(i)<<cc<<"pen="<<fPenSmoothLgtPrM2M(i)<<cc<<"objfun="<<penWgtSmthLgtPrM2M(i)*fPenSmoothLgtPrM2M(i)<<")"<<endl;
         }
         if (debug<0) cout<<tb<<tb<<")"<<cc<<"#end of smoothness penalties"<<endl;//end of smoothness penalties list
     } else if (ptrMOs->optPenSmthPrM2M==1){
         //smoothness penalties on maturity OGIVES (NOT maturity parameters)
         if (debug>dbgObjFun) cout<<"calculating smoothness penalties on ogives"<<endl;
-        fPenSmoothLgtPrMat.initialize();
+        fPenSmoothLgtPrM2M.initialize();
         if (debug<0) cout<<tb<<tb<<"smoothness=list(";//start of smoothness penalties list
         for (int i=1;i<ptrMPI->ptrM2M->nPCs;i++){
             dvar_vector v = 1.0*prM2M_cz(i);
-            fPenSmoothLgtPrMat(i) = 0.5*norm2(calc2ndDiffs(v));
-            objFun += penWgtSmthLgtPrMat(i)*fPenSmoothLgtPrMat(i);
-            if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrMat(i)<<cc<<"pen="<<fPenSmoothLgtPrMat(i)<<cc<<"objfun="<<penWgtSmthLgtPrMat(i)*fPenSmoothLgtPrMat(i)<<"),"<<endl;
+            fPenSmoothLgtPrM2M(i) = 0.5*norm2(calc2ndDiffs(v));
+            objFun += penWgtSmthLgtPrM2M(i)*fPenSmoothLgtPrM2M(i);
+            if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrM2M(i)<<cc<<"pen="<<fPenSmoothLgtPrM2M(i)<<cc<<"objfun="<<penWgtSmthLgtPrM2M(i)*fPenSmoothLgtPrM2M(i)<<"),"<<endl;
         }
         {
             int i = ptrMPI->ptrM2M->nPCs;
             dvar_vector v = 1.0*prM2M_cz(i);
-            fPenSmoothLgtPrMat(i) = 0.5*norm2(calc2ndDiffs(v));
-            objFun += penWgtSmthLgtPrMat(i)*fPenSmoothLgtPrMat(i);
-            if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrMat(i)<<cc<<"pen="<<fPenSmoothLgtPrMat(i)<<cc<<"objfun="<<penWgtSmthLgtPrMat(i)*fPenSmoothLgtPrMat(i)<<")"<<endl;
+            fPenSmoothLgtPrM2M(i) = 0.5*norm2(calc2ndDiffs(v));
+            objFun += penWgtSmthLgtPrM2M(i)*fPenSmoothLgtPrM2M(i);
+            if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthLgtPrM2M(i)<<cc<<"pen="<<fPenSmoothLgtPrM2M(i)<<cc<<"objfun="<<penWgtSmthLgtPrM2M(i)*fPenSmoothLgtPrM2M(i)<<")"<<endl;
         }
         if (debug<0) cout<<tb<<tb<<")"<<cc<<"#end of smoothness penalties"<<endl;//end of smoothness penalties list
     }
     //penalties for decreasing maturity parameters/ogives
-    dvector penWgtNonDecLgtPrMat = ptrMOs->wgtPenNonDecPrM2M;
-    fPenNonDecLgtPrMat.initialize();
+    dvector penWgtNonDecLgtPrM2M = ptrMOs->wgtPenNonDecPrM2M;
+    fPenNonDecLgtPrM2M.initialize();
     if (debug<0) cout<<tb<<tb<<"nondecreasing=list(";//start of non-decreasing penalties list
     int np;
-    if (ptrMOs->optPenNonDecPrM2M==0||ptrMOs->optPenNonDecPrM2M==1) np = npLgtPrMat;
+    if (ptrMOs->optPenNonDecPrM2M==0||ptrMOs->optPenNonDecPrM2M==1) np = npLgtPrM2M;
     else if (ptrMOs->optPenNonDecPrM2M==2||ptrMOs->optPenNonDecPrM2M==3) np = ptrMPI->ptrM2M->nPCs;
     for (int i=1;i<np;i++){
         dvar_vector v; 
         if (ptrMOs->optPenNonDecPrM2M==0){
             v = calc1stDiffs(pvLgtPrM2M(i));
             for (int iv=v.indexmin();iv<=v.indexmax();iv++){
-                posfun2(v(iv),1.0E-2,fPenNonDecLgtPrMat(i));
+                posfun2(v(iv),1.0E-2,fPenNonDecLgtPrM2M(i));
             } 
         } else if (ptrMOs->optPenNonDecPrM2M==1){
             v = calc1stDiffs(pvLgtPrM2M(i));
-            fPenNonDecLgtPrMat(i) = sum(mfexp(-10.0*v));
+            fPenNonDecLgtPrM2M(i) = sum(mfexp(-10.0*v));
         } else if (ptrMOs->optPenNonDecPrM2M==2){
             v = calc1stDiffs(prM2M_cz(i));
             for (int iv=v.indexmin();iv<=v.indexmax();iv++){
-                posfun2(v(iv),1.0E-2,fPenNonDecLgtPrMat(i));
+                posfun2(v(iv),1.0E-2,fPenNonDecLgtPrM2M(i));
             } 
         } else if (ptrMOs->optPenNonDecPrM2M==3){
             v = calc1stDiffs(prM2M_cz(i));
-            fPenNonDecLgtPrMat(i) = sum(mfexp(-10.0*v));
+            fPenNonDecLgtPrM2M(i) = sum(mfexp(-10.0*v));
         }
-        objFun += penWgtNonDecLgtPrMat(i)*fPenNonDecLgtPrMat(i);
-        if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtNonDecLgtPrMat(i)<<cc<<"pen="<<fPenNonDecLgtPrMat(i)<<cc<<"objfun="<<penWgtNonDecLgtPrMat(i)*fPenNonDecLgtPrMat(i)<<"),";
+        objFun += penWgtNonDecLgtPrM2M(i)*fPenNonDecLgtPrM2M(i);
+        if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtNonDecLgtPrM2M(i)<<cc<<"pen="<<fPenNonDecLgtPrM2M(i)<<cc<<"objfun="<<penWgtNonDecLgtPrM2M(i)*fPenNonDecLgtPrM2M(i)<<"),";
     }
     {
         int i = np;
@@ -4941,22 +4991,22 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
         if (ptrMOs->optPenNonDecPrM2M==0){
             v = calc1stDiffs(pvLgtPrM2M(i));
             for (int iv=v.indexmin();iv<=v.indexmax();iv++){
-                posfun2(v(iv),1.0E-2,fPenNonDecLgtPrMat(i));
+                posfun2(v(iv),1.0E-2,fPenNonDecLgtPrM2M(i));
             }
         } else if (ptrMOs->optPenNonDecPrM2M==1){
             v = calc1stDiffs(pvLgtPrM2M(i));
-            fPenNonDecLgtPrMat(i) = sum(mfexp(-10.0*v));
+            fPenNonDecLgtPrM2M(i) = sum(mfexp(-10.0*v));
         } else if (ptrMOs->optPenNonDecPrM2M==2){
             v = calc1stDiffs(prM2M_cz(i));
             for (int iv=v.indexmin();iv<=v.indexmax();iv++){
-                posfun2(v(iv),1.0E-2,fPenNonDecLgtPrMat(i));
+                posfun2(v(iv),1.0E-2,fPenNonDecLgtPrM2M(i));
             } 
         } else if (ptrMOs->optPenNonDecPrM2M==3){
             v = calc1stDiffs(prM2M_cz(i));
-            fPenNonDecLgtPrMat(i) = sum(mfexp(-10.0*v));
+            fPenNonDecLgtPrM2M(i) = sum(mfexp(-10.0*v));
         }
-        objFun += penWgtNonDecLgtPrMat(i)*fPenNonDecLgtPrMat(i);
-        if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtNonDecLgtPrMat(i)<<cc<<"pen="<<fPenNonDecLgtPrMat(i)<<cc<<"objfun="<<penWgtNonDecLgtPrMat(i)*fPenNonDecLgtPrMat(i)<<")";
+        objFun += penWgtNonDecLgtPrM2M(i)*fPenNonDecLgtPrM2M(i);
+        if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtNonDecLgtPrM2M(i)<<cc<<"pen="<<fPenNonDecLgtPrM2M(i)<<cc<<"objfun="<<penWgtNonDecLgtPrM2M(i)*fPenNonDecLgtPrM2M(i)<<")";
     }
     if (debug<0) cout<<tb<<tb<<") "<<"#end of non-decreasing penalties"<<endl;//end of non-decreasing penalties list    
     if (debug<0) cout<<tb<<")"<<cc<<"#end of maturity penalties"<<endl;//end of maturity penalties list

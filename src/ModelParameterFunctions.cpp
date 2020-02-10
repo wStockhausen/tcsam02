@@ -5,6 +5,7 @@
 #include "ModelConstants.hpp"
 #include "ModelParameterInfoTypes.hpp"
 #include "ModelParameterFunctions.hpp"
+#include "ModelParametersInfo.hpp"
 
 
 
@@ -750,26 +751,26 @@ void setParameterInfo(BoundedNumberVectorInfo* pBNVI,
  * Sets the info for a param_init_vector_vector from a VectorVectorInfo object.
  * 
  * @param pVVI - pointer to a VectorVectorInfo instance
- * @param npT [out] - size of vector
+ * @param npV [out] - number of vectors represented (size of associated param_init_vector_vector object)
  * @param mns [out] - ivector with minimum indices for each vector
  * @param mxs [out] - ivector with maximum indices for each vector
  * @param phs [out] - ivector of phases for parameters
  * @param os - output stream to write to
  */
 void setParameterInfo(VectorVectorInfo* pVVI,
-                      int& npT,
+                      int& npV,
                       ivector& mns, 
                       ivector& mxs,
                       ivector& phs, 
                       ostream& os){
     int np = pVVI->getSize();
-    if (np){npT = np;} else {npT = 1;}
-    mns.allocate(1,npT);
-    mxs.allocate(1,npT);
-    phs.allocate(1,npT);
-    adstring_array scales(1,npT);
+    if (np){npV = np;} else {npV = 1;}
+    mns.allocate(1,npV);
+    mxs.allocate(1,npV);
+    phs.allocate(1,npV);
+    adstring_array scales(1,npV);
     if (np){
-        for (int i=1;i<=npT;i++) phs = (*pVVI)[i]->getPhases()[1];
+        for (int i=1;i<=npV;i++) phs[i] = (*pVVI)[i]->getPhase();
         mns = pVVI->getMinIndices();
         mxs = pVVI->getMaxIndices();
         scales = pVVI->getScaleTypes();
@@ -788,8 +789,7 @@ void setParameterInfo(VectorVectorInfo* pVVI,
  * Sets the info for a param_init_bounded_vector_vector from a BoundedVectorVectorInfo object.
  * 
  * @param pBVVI - pointer to a BoundedVectorVectorInfo instance
- * @param npT [out] - size of vector
- * @param mns [out] - ivector with minimum indices for each vector
+number of vectors represented (size of associated param_init_vector_vector object) * @param mns [out] - ivector with minimum indices for each vector
  * @param mxs [out] - ivector with maximum indices for each vector
  * @param idxs [out] - imatrix of reverse indices
  * @param lb [out] - dvector of lower bounds
@@ -798,7 +798,7 @@ void setParameterInfo(VectorVectorInfo* pVVI,
  * @param os - output stream to write to
  */
 void setParameterInfo(BoundedVectorVectorInfo* pBVVI,                           
-                      int& npT,
+                      int& npV,
                       ivector& mns, ivector& mxs,
                       imatrix& idxs,
                       dvector& lb, 
@@ -806,15 +806,15 @@ void setParameterInfo(BoundedVectorVectorInfo* pBVVI,
                       ivector& phs, 
                       ostream& os){
     int np = pBVVI->getSize();
-    if (np){npT = np;} else {npT = 1;}
-    mns.allocate(1,npT);
-    mxs.allocate(1,npT);
-    lb.allocate(1,npT);
-    ub.allocate(1,npT);
-    phs.allocate(1,npT);
-    adstring_array scales(1,npT);
+    if (np){npV = np;} else {npV = 1;}
+    mns.allocate(1,npV);
+    mxs.allocate(1,npV);
+    lb.allocate(1,npV);
+    ub.allocate(1,npV);
+    phs.allocate(1,npV);
+    adstring_array scales(1,npV);
     if (np){
-        for (int i=1;i<=npT;i++) phs = (*pBVVI)[i]->getPhases()[1];
+        for (int i=1;i<=npV;i++) phs[i] = (*pBVVI)[i]->getPhase();
         mns = pBVVI->getMinIndices();
         mxs = pBVVI->getMaxIndices();
         lb  = pBVVI->getLowerBoundsOnParamScales();
@@ -824,6 +824,8 @@ void setParameterInfo(BoundedVectorVectorInfo* pBVVI,
         os<<"#mnIdx  mxIdx  lower  upper  phase  scale"<<endl;
         for (int n=1;n<=np;n++) os<<n<<tb<<mns(n)<<tb<<mxs(n)<<tb<<lb(n)<<tb<<ub(n)<<tb<<phs(n)<<tb<<scales(n)<<endl;
         idxs.allocate(1,np);
+        
+        //create reverse indices
         for (int n=1;n<=np;n++) idxs(n) = (*pBVVI)[n]->getRevIndices();
         os<<"Reverse indices:"<<endl;
         int mnc = idxs(1).indexmin(); int mxc = idxs(1).indexmax();
@@ -831,6 +833,7 @@ void setParameterInfo(BoundedVectorVectorInfo* pBVVI,
             mnc = min(mnc,idxs(n).indexmin());
             mxc = max(mxc,idxs(n).indexmax());
         }
+        //check for correctness
         os<<"mnc = "<<mnc<<tb<<"mxc = "<<mxc<<endl;
         imatrix idxps(mnc,mxc,1,np); idxps = -1;
         for (int c=mnc;c<=mxc;c++){
@@ -857,7 +860,7 @@ void setParameterInfo(BoundedVectorVectorInfo* pBVVI,
  * 
  * @param pDVVI - pointer to a DevsVectorVectorInfo instance
  * @param npV [out] - number of devs vectors represented
- * @param npT [out] - total size (number of elements) of NumberVector
+ * @param npT [out] - total size (number of elements) of associated param_init_number_vector
  * @param mns [out] - ivector with minimum indices for each devs vector
  * @param mxs [out] - ivector with maximum indices for each devs vector
  * @param idxs [out] - imatrix of reverse indices
@@ -878,9 +881,12 @@ void setParameterInfo(DevsVectorVectorInfo* pDVVI,
                       ostream& os){
     os<<"tcsam::setParameterInfo(DevsVectorVectorInfo*,...):"<<endl;
     int np = pDVVI->getSize();//number of devs vectors
-    if (np){npV = np;} else {npV = 1; npT=1;}
-    mns.allocate(1,npV);
-    mxs.allocate(1,npV);
+    if (np){npV = np; npT = pDVVI->getNumParameters();} else {npV = 1; npT=1;}
+    mns.deallocate(); mns.allocate(1,npV);
+    mxs.deallocate(); mxs.allocate(1,npV);
+    lb.deallocate();  lb.allocate(1,npT);
+    ub.deallocate();  ub.allocate(1,npT);
+    phs.deallocate(); phs.allocate(1,npT);
     adstring_array scales(1,npV);
     if (np){
         os<<"npV = "<<npV<<endl;
@@ -888,25 +894,20 @@ void setParameterInfo(DevsVectorVectorInfo* pDVVI,
         os<<pDVVI->getMaxIndices()<<endl;
         mns = pDVVI->getMinIndices();//vector of minimum indices
         mxs = pDVVI->getMaxIndices();//vector of maximum indices
-        npT = 0;
-        for (int ip=1;ip<=npV;ip++) npT += mxs(ip)-mns(ip)+1;
         os<<"npT = "<<npT<<endl;
-        lb.allocate(1,npT);
-        ub.allocate(1,npT);
-        phs.allocate(1,npT);
         os<<"parameter vector "<<pDVVI->name<<":"<<endl;
         os<<"#mnIdx  mxIdx  lower  upper  phase  scale"<<endl;
         int ctr = 1;
         for (int ip=1;ip<=np;ip++) {
             double lbv  = (*pDVVI)[ip]->getLowerBoundOnParamScale();
             double ubv  = (*pDVVI)[ip]->getUpperBoundOnParamScale();
-            dvector phsv = (*pDVVI)[ip]->getPhases();
             for (int j=mns(ip);j<=mxs(ip);j++) {
                 lb(ctr)    = lbv;
                 ub(ctr)    = ubv;
-                phs(ctr++) = phsv(j);
+                ctr++;
             }
         }//--ip loop
+        phs = pDVVI->getParameterPhases();
         scales = pDVVI->getScaleTypes();
         ctr = 1;
         for (int ip=1;ip<=np;ip++) {
@@ -915,7 +916,9 @@ void setParameterInfo(DevsVectorVectorInfo* pDVVI,
                 ctr++;
             }
         }
-        idxs.allocate(1,np);
+        
+        //create reverse indices
+        idxs.allocate(1,np);//allocating first index of imatrix idxs
         for (int n=1;n<=np;n++) idxs(n) = (*pDVVI)[n]->getRevIndices();
         os<<"Reverse indices:"<<endl;
         int mnc = idxs(1).indexmin(); int mxc = idxs(1).indexmax();
@@ -923,7 +926,7 @@ void setParameterInfo(DevsVectorVectorInfo* pDVVI,
             mnc = min(mnc,idxs(n).indexmin());
             mxc = max(mxc,idxs(n).indexmax());
         }
-        os<<"mnc = "<<mnc<<tb<<"mxc = "<<mxc<<endl;
+        //check for correctness
         imatrix idxps(mnc,mxc,1,np); idxps = -1;
         for (int c=mnc;c<=mxc;c++){
             for (int n=1;n<=np;n++){
@@ -934,9 +937,6 @@ void setParameterInfo(DevsVectorVectorInfo* pDVVI,
     } else {
         mns =  1;
         mxs =  1;
-        lb.allocate(1,npT);
-        ub.allocate(1,npT);
-        phs.allocate(1,npT);
         phs = -1;
         lb  = -1.0;
         ub  =  1.0;
@@ -945,7 +945,5 @@ void setParameterInfo(DevsVectorVectorInfo* pDVVI,
         os<<"devs vector vector "<<pDVVI->name<<" has no parameter values"<<endl;
     }
 }
-
-
 
 } //namespace tcsam

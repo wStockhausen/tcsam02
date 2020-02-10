@@ -74,6 +74,112 @@ wts::adstring_matrix tcsam::convertPCs(ParameterGroupInfo * pgi){
     //cout<<"finished tcsam::convertPCs for "<<pgi->name<<endl;
     return a;
 }
+
+/**
+ * Adjusts parameter phases to be consistent with maxYr.
+ * 
+ * The phase for any parameter that is originally set to be estimated ONLY in a 
+ * time block later than maxYr is set to negative so it will not be estimated.
+ * 
+ * @param pI - pointer to NumberVectorInfo for vector of parameters of interest
+ * @param pgi - pointer to ParameterGroupInfo for the parameter group of interest
+ * @param pid - index to parameter in ParameterGroupInfo
+ * @param maxYr - max year for estimated parameters
+ * @param debug - flag to print debugging info
+ */
+void tcsam::adjustParamPhase(NumberVectorInfo* pI, ParameterGroupInfo* pgi, int pid, int maxYr, int debug){
+    if (debug) rpt::echo<<"Starting adjustParamPhase(NumberVectorInfo*...) for "<<pI->name<<" for max year "<<maxYr<<" using pid "<<pid<<endl;
+    int np = pI->getSize();//number of parameters
+    ivector phases = pI->getPhases();
+    if (debug) rpt::echo<<"--initial phases: "<<phases<<endl;
+    ivector done(1,np); done=0;
+    for (int p=1;p<=np;p++){ //loop over parameters
+        if (debug) rpt::echo<<"--checking parameter "<<p<<endl;
+        if ((done[p]==0)&&(phases[p]>0)){ //check only parameters that haven't been determined and are set to be estimated
+            int nPCs = pgi->nPCs;//number of parameter combinations in the associated parameter group
+            bool estParam = false; 
+            for (int pc=1;pc<=nPCs;pc++){ //loop over parameter combinations
+                ivector pcids = pgi->getPCIDs(pc);
+                if (debug) rpt::echo<<"checking pc "<<pc<<" for parameter "<<p<<". and pcid = "<<pcids<<endl;
+                int pcid = pcids[pid];//get id (index) of parameter used in this pc
+                if (debug) rpt::echo<<"checking pc "<<pc<<" for parameter "<<p<<" and got pcid "<<pcid<<endl;
+                if (pcid==p){//make check for this parameter, since it's included in this pc
+                    ivector years = pgi->getYearsForPC(pc);
+                    if (debug) rpt::echo<<"----pc = "<<pc<<tb<<"years = "<<years<<endl;
+                    for (int iy=years.indexmin();iy<=years.indexmax();iy++){
+                        if (years[iy]<=maxYr){
+                            //parameter is in pc that pertains to model year interval
+                            estParam=true;//so parameter should be estimated
+                            done[p]=1;//don't need to check further pc's
+                            if (debug) rpt::echo<<"----estParam=TRUE and done=1"<<endl;
+                            break;
+                        }
+                    }//--iy loop
+                    if (estParam) break;
+                }//--pcid==p
+            }//--loop over pc's
+            if (debug && !estParam) rpt::echo<<"----estParam=FALSE"<<endl;
+            phases[p] = estParam ? phases[p] : -phases[p];//set phase to negative if parameter should NOT be estimated
+        }//--(!done[p])&&(phases[p]>0)
+    }//--loop over parameters
+    if (debug) rpt::echo<<"--final phases: "<<phases<<endl;
+    pI->setPhases(phases);
+    if (debug) rpt::echo<<"Finished adjustParamPhase(NumberVectorInfo*...) for "<<pI->name<<" for max year "<<maxYr<<endl<<endl;
+}
+
+/**
+ * Adjusts parameter vector phases to be consistent with maxYr.
+ * 
+ * The phase for any parameter vector that is originally set to be estimated ONLY in a 
+ * time block later than maxYr is set to negative so it will not be estimated.
+ * 
+ * @param pVVI - pointer to VectorVectorInfo for vector of parameters of interest
+ * @param pgi - pointer to ParameterGroupInfo for the parameter group of interest
+ * @param pid - index to parameter vector in ParameterGroupInfo
+ * @param maxYr - max year for estimated parameter vectors
+ * @param debug - flag to print debugging info
+ */
+void tcsam::adjustParamPhase(VectorVectorInfo* pVVI, ParameterGroupInfo* pgi, int pid, int maxYr, int debug){
+    if (debug) rpt::echo<<"Starting adjustParamPhase(VectorVectorInfo*...) for "<<pVVI->name<<" for max year "<<maxYr<<" using pid "<<pid<<endl;
+    int np = pVVI->getSize();//number of parameter vectors
+    ivector done(1,np); done=0;
+    ivector phases(1,np);
+    for (int p=1;p<=np;p++){ //loop over parameters
+        int phase = (*pVVI)[p]->getPhase();
+        if (debug) rpt::echo<<"--checking parameter vector "<<p<<" with phase "<<phase<<endl;
+        if ((done[p]==0)&&(phase>0)){ //check only parameter vectors that haven't been determined and are set to be estimated
+            int nPCs = pgi->nPCs;//number of parameter combinations in the associated parameter group
+            bool estParam = false; 
+            for (int pc=1;pc<=nPCs;pc++){ //loop over parameter combinations
+                ivector pcids = pgi->getPCIDs(pc);
+                if (debug) rpt::echo<<"checking pc "<<pc<<" for parameter vector "<<p<<". and pcid = "<<pcids<<endl;
+                int pcid = pcids[pid];//get id (index) of parameter vector used in this pc
+                if (debug) rpt::echo<<"checking pc "<<pc<<" for parameter vector "<<p<<" and got pcid "<<pcid<<endl;
+                if (pcid==p){//make check for this parameter vector, since it's included in this pc
+                    ivector years = pgi->getYearsForPC(pc);
+                    if (debug) rpt::echo<<"----pc = "<<pc<<tb<<"years = "<<years<<endl;
+                    for (int iy=years.indexmin();iy<=years.indexmax();iy++){
+                        if (years[iy]<=maxYr){
+                            //parameter is in pc that pertains to model year interval
+                            estParam=true;//so parameter should be estimated
+                            done[p]=1;//don't need to check further pc's
+                            if (debug) rpt::echo<<"----estParam=TRUE and done=1"<<endl;
+                            break;
+                        }
+                    }//--iy loop
+                    if (estParam) break;
+                }//--pcid==p
+            }//--loop over pc's
+            if (debug && !estParam) rpt::echo<<"----estParam=FALSE"<<endl;
+            phase = estParam ? phase : -phase;//set phase to negative if parameter should NOT be estimated
+        }//--(!done[p])&&(phase>0)
+        (*pVVI)[p]->setPhase(phase);
+        phases[p] = phase;
+    }//--loop over parameters
+    if (debug) rpt::echo<<"--final phases: "<<phases<<endl;
+    if (debug) rpt::echo<<"Finished adjustParamPhase(VectorVectorInfo*...) for "<<pVVI->name<<" for max year "<<maxYr<<endl<<endl;
+}
+
 /*----------------------------------------------------------------------------\n
  * ParameterGroupInfo\n
  -----------------------------------------------------------------------------*/
@@ -101,7 +207,7 @@ ParameterGroupInfo::~ParameterGroupInfo(){
 }
 
 /**
- * Tests whether a given year is associated a parameter combination.
+ * Tests whether a given year is associated with a parameter combination.
  * 
  * @param y - the year in question
  * @param pc - the pc in question
@@ -215,6 +321,24 @@ ivector ParameterGroupInfo::getPCsForYear(int y){
         cout<<"finished ParameterGroupInfo::getPCforYear("<<y<<") for "<<name<<endl;
     }
     return(pcs);
+}
+
+/**
+ * Finds the years that a parameter combination (PC) is defined for
+ * 
+ * @param pc - the PC of interest
+ * 
+ * @return - ivector the corresponding years (or unallocated, if no corresponding PC found)
+ */
+ivector ParameterGroupInfo::getYearsForPC(int pc){
+    if (debug) cout<<"starting ParameterGroupInfo::getYearsForPC("<<pc<<") for "<<name<<endl;
+    IndexBlockSet* pIBS = ParameterGroupInfo::getIndexBlockSet("YEAR_BLOCK");
+    ivector iv = pIBS->getFwdIndexVector(pc);
+    if (debug) {
+        cout<<"years for pc: "<<iv<<endl;
+        cout<<"Finished ParameterGroupInfo::getYearsForPC("<<pc<<") for "<<name<<endl;
+    }
+    return iv;
 }
 
 /**
@@ -733,6 +857,21 @@ RecruitmentInfo::~RecruitmentInfo(){
 }
 
 /**
+ * Set the maximum year for estimating parameters.
+ * 
+ * @param mxYr - the max year to allow estimated parameters
+ */
+void RecruitmentInfo::setMaxYear(int mxYr){
+    int k = nIVs+1;
+    if (pLnR) tcsam::adjustParamPhase(pLnR,this,k++,mxYr,1);
+    if (pRCV) tcsam::adjustParamPhase(pRCV,this,k++,mxYr,1);
+    if (pRX)  tcsam::adjustParamPhase(pRX, this,k++,mxYr,1);
+    if (pRa)  tcsam::adjustParamPhase(pRa, this,k++,mxYr,1);
+    if (pRb)  tcsam::adjustParamPhase(pRb, this,k++,mxYr,1);
+    //if (pDevsLnR) tcsam::adjustParamPhase(pDevsLnR,this,k++,mxYr,1);
+}
+
+/**
  * update RecruitmentInfo for a 1-year projected scenario.
  * 
  * @param closed - flag indicating whether directed fishery is closed
@@ -972,6 +1111,20 @@ NaturalMortalityInfo::~NaturalMortalityInfo(){
     if (pDM4) delete pDM4;  pDM4 =0;
 }
 
+/**
+ * Set the maximum year for estimating parameters.
+ * 
+ * @param mxYr - the max year to allow estimated parameters
+ */
+void NaturalMortalityInfo::setMaxYear(int mxYr){
+    int k = nIVs+1;
+    if (pM)   tcsam::adjustParamPhase(pM,  this,k++,mxYr,1);
+    if (pDM1) tcsam::adjustParamPhase(pDM1,this,k++,mxYr,1);
+    if (pDM2) tcsam::adjustParamPhase(pDM2,this,k++,mxYr,1);
+    if (pDM3) tcsam::adjustParamPhase(pDM3,this,k++,mxYr,1);
+    if (pDM4) tcsam::adjustParamPhase(pDM4,this,k++,mxYr,1);
+}
+
 void NaturalMortalityInfo::addNextYearToInfo(int closed){
     if (debug) cout<<"starting void NaturalMortalityInfo::project("<<closed<<")"<<endl;
     //find pcs corresponding to mxYr
@@ -1125,6 +1278,18 @@ GrowthInfo::~GrowthInfo(){
     if (pGrBeta) delete pGrBeta; pGrBeta =0;
 }
 
+/**
+ * Set the maximum year for estimating parameters.
+ * 
+ * @param mxYr - the max year to allow estimated parameters
+ */
+void GrowthInfo::setMaxYear(int mxYr){
+    int k = nIVs+1;
+    if (pGrA)    tcsam::adjustParamPhase(pGrA,   this,k++,mxYr,1);
+    if (pGrB)    tcsam::adjustParamPhase(pGrB,   this,k++,mxYr,1);
+    if (pGrBeta) tcsam::adjustParamPhase(pGrBeta,this,k++,mxYr,1);
+}
+
 void GrowthInfo::addNextYearToInfo(int closed){
     if (debug) cout<<"starting void GrowthInfo::project("<<closed<<")"<<endl;
     //find pcs corresponding to mxYr
@@ -1247,6 +1412,16 @@ Molt2MaturityInfo::~Molt2MaturityInfo(){
     if (pvLgtPrM2M) delete pvLgtPrM2M; pvLgtPrM2M = 0;
 }
 
+/**
+ * Set the maximum year for estimating parameters.
+ * 
+ * @param mxYr - the max year to allow estimated parameters
+ */
+void Molt2MaturityInfo::setMaxYear(int mxYr){
+    int k = nIVs+1;
+    if (pvLgtPrM2M) tcsam::adjustParamPhase(pvLgtPrM2M,this,k++,mxYr,1);
+}
+
 void Molt2MaturityInfo::addNextYearToInfo(int closed){
     if (debug) cout<<"starting void Molt2MaturityInfo::project("<<closed<<")"<<endl;
     //find pcs corresponding to mxYr
@@ -1296,21 +1471,6 @@ void Molt2MaturityInfo::read(cifstream & is){
         cout<<"Enter 1 to continue: ";
         cin>>debug;
         if (debug<0) exit(1);
-    }
-}
-
-/**
- * Sets the flags to write estimation phases for vector parameters to file 
- * when writing parameter info to file.
- * 
- * @param flag - true/false to set to write estimation phases to file
- */
-void Molt2MaturityInfo::setToWriteVectorEstimationPhases(bool flag){
-    if (pvLgtPrM2M){
-        for (int i=1;i<=pvLgtPrM2M->getSize();i++){
-            BoundedVectorInfo* vi = (*pvLgtPrM2M)[i];
-            vi->readPhases = flag ? INT_TRUE : INT_FALSE;        
-        }
     }
 }
 
@@ -1717,43 +1877,37 @@ void SelectivityInfo::setToWriteVectorInitialValues(bool flag){
 void SelectivityInfo::setToWriteVectorEstimationPhases(bool flag){
     if (pDevsS1){
         for (int i=1;i<=pDevsS1->getSize();i++){
-            BoundedVectorInfo* vi = (*pDevsS1)[i];
+            DevsVectorInfo* vi = (*pDevsS1)[i];
             vi->readPhases = flag ? INT_TRUE : INT_FALSE;        
         }
     }
     if (pDevsS2){
         for (int i=1;i<=pDevsS2->getSize();i++){
-            BoundedVectorInfo* vi = (*pDevsS2)[i];
+            DevsVectorInfo* vi = (*pDevsS2)[i];
             vi->readPhases = flag ? INT_TRUE : INT_FALSE;        
         }
     }
     if (pDevsS3){
         for (int i=1;i<=pDevsS3->getSize();i++){
-            BoundedVectorInfo* vi = (*pDevsS3)[i];
+            DevsVectorInfo* vi = (*pDevsS3)[i];
             vi->readPhases = flag ? INT_TRUE : INT_FALSE;        
         }
     }
     if (pDevsS4){
         for (int i=1;i<=pDevsS4->getSize();i++){
-            BoundedVectorInfo* vi = (*pDevsS4)[i];
+            DevsVectorInfo* vi = (*pDevsS4)[i];
             vi->readPhases = flag ? INT_TRUE : INT_FALSE;        
         }
     }
     if (pDevsS5){
         for (int i=1;i<=pDevsS5->getSize();i++){
-            BoundedVectorInfo* vi = (*pDevsS5)[i];
+            DevsVectorInfo* vi = (*pDevsS5)[i];
             vi->readPhases = flag ? INT_TRUE : INT_FALSE;        
         }
     }
     if (pDevsS6){
         for (int i=1;i<=pDevsS6->getSize();i++){
-            BoundedVectorInfo* vi = (*pDevsS6)[i];
-            vi->readPhases = flag ? INT_TRUE : INT_FALSE;        
-        }
-    }
-    if (pvNPSel){
-        for (int i=1;i<=pvNPSel->getSize();i++){
-            BoundedVectorInfo* vi = (*pvNPSel)[i];
+            DevsVectorInfo* vi = (*pDevsS6)[i];
             vi->readPhases = flag ? INT_TRUE : INT_FALSE;        
         }
     }
@@ -1939,10 +2093,30 @@ FisheriesInfo::~FisheriesInfo(){
     if (pDC2) delete pDC2;  pDC2=0;
     if (pDC3) delete pDC3;  pDC3=0;
     if (pDC4) delete pDC4;  pDC4=0;
-    if (pDC4) delete pDC4;  pDC4=0;
     if (pDevsLnC) delete pDevsLnC; pDevsLnC=0;
     if (pLnEffX)  delete pLnEffX;  pLnEffX=0;
     if (pLgtRet)  delete pLgtRet;  pLgtRet=0;
+}
+
+/**
+ * Set the maximum year for estimating parameters.
+ * 
+ * @param mxYr - the max year to allow estimated parameters
+ */
+void FisheriesInfo::setMaxYear(int mxYr){
+    int k = nIVs+1;
+    if (pHM)  tcsam::adjustParamPhase(pHM,this,k++,mxYr,1);
+    if (pLnC) tcsam::adjustParamPhase(pLnC,this,k++,mxYr,1);
+    if (pDC1) tcsam::adjustParamPhase(pDC1,this,k++,mxYr,1);
+    if (pDC2) tcsam::adjustParamPhase(pDC2,this,k++,mxYr,1);
+    if (pDC3) tcsam::adjustParamPhase(pDC3,this,k++,mxYr,1);
+    if (pDC4) tcsam::adjustParamPhase(pDC4,this,k++,mxYr,1);
+    //if (pDevsLnC) tcsam::adjustParamPhase(pDevsLnC,this,k++,mxYr,1);
+    k++;
+    if (pLnEffX)  tcsam::adjustParamPhase(pLnEffX,this,k++,mxYr,1);
+    if (pLgtRet)  tcsam::adjustParamPhase(pLgtRet,this,k++,mxYr,1);
+    
+    //need to do something here for selectivity functions
 }
 
 imatrix FisheriesInfo::addNextYear1(int closed){
@@ -2068,7 +2242,7 @@ void FisheriesInfo::read(cifstream & is){
 void FisheriesInfo::setToWriteVectorEstimationPhases(bool flag){
     if (pDevsLnC){
         for (int i=1;i<=pDevsLnC->getSize();i++){
-            BoundedVectorInfo* vi = (*pDevsLnC)[i];
+            DevsVectorInfo* vi = (*pDevsLnC)[i];
             vi->readPhases = flag ? INT_TRUE : INT_FALSE;        
         }
     }
@@ -2224,6 +2398,23 @@ SurveysInfo::~SurveysInfo(){
     if (pDQ3) delete pDQ3; pDQ3 =0;
     if (pDQ4) delete pDQ4; pDQ4 =0;
     if (pA)   delete pA;   pA =0;
+}
+
+/**
+ * Set the maximum year for estimating parameters.
+ * 
+ * @param mxYr - the max year to allow estimated parameters
+ */
+void SurveysInfo::setMaxYear(int mxYr){
+    int k = nIVs+1;
+    if (pQ)   tcsam::adjustParamPhase(pQ,this,k++,mxYr,1);
+    if (pDQ1) tcsam::adjustParamPhase(pDQ1,this,k++,mxYr,1);
+    if (pDQ2) tcsam::adjustParamPhase(pDQ2,this,k++,mxYr,1);
+    if (pDQ3) tcsam::adjustParamPhase(pDQ3,this,k++,mxYr,1);
+    if (pDQ4) tcsam::adjustParamPhase(pDQ4,this,k++,mxYr,1);
+    if (pA)   tcsam::adjustParamPhase(pA,this,k++,mxYr,1);
+    
+    //need to do something here for selectivity functions
 }
 
 imatrix SurveysInfo::addNextYear1(int closed){
@@ -2502,6 +2693,22 @@ ModelParametersInfo::~ModelParametersInfo(){
 }
 
 /**
+ * Set the maximum year for estimating parameters.
+ * 
+ * @param mxYr - the max fishery year to allow estimated parameters
+ */
+void ModelParametersInfo::setMaxYear(int mxYr){
+//    if (ptrRec) ptrRec->setMaxYear(mxYr);
+//    if (ptrNM)  ptrNM ->setMaxYear(mxYr);
+//    if (ptrGrw) ptrGrw->setMaxYear(mxYr+1);
+//    if (ptrM2M) ptrM2M->setMaxYear(mxYr+1);
+    //if (ptrSel) ptrSel->setMaxYear(mxYr); //handled by FisheriesInfo, SurveysInfo
+//    if (ptrFsh) ptrFsh->setMaxYear(mxYr);
+//    if (ptrSrv) ptrSrv->setMaxYear(mxYr+1);
+    //if (ptrMSE) ptrMSE->setMaxYear(mxYr); //not needed for MSE_Info
+}
+
+/**
  * Sets the flags to write estimation phases for all vector parameters to file 
  * when writing parameter info to file.
  * 
@@ -2509,9 +2716,9 @@ ModelParametersInfo::~ModelParametersInfo(){
  */
 void ModelParametersInfo::setToWriteVectorEstimationPhases(bool flag){
     if (ptrRec) ptrRec->setToWriteVectorEstimationPhases(flag);
-    if (ptrNM)  ptrNM ->setToWriteVectorEstimationPhases(flag);
-    if (ptrGrw) ptrGrw->setToWriteVectorEstimationPhases(flag);
-    if (ptrM2M) ptrM2M->setToWriteVectorEstimationPhases(flag);
+    if (ptrNM)  ptrNM ->setToWriteVectorEstimationPhases(flag); //not needed
+    if (ptrGrw) ptrGrw->setToWriteVectorEstimationPhases(flag); //not needed
+    if (ptrM2M) ptrM2M->setToWriteVectorEstimationPhases(flag); //not needed
     if (ptrSel) ptrSel->setToWriteVectorEstimationPhases(flag);
     if (ptrFsh) ptrFsh->setToWriteVectorEstimationPhases(flag);
     if (ptrSrv) ptrSrv->setToWriteVectorEstimationPhases(flag); //not needed for SurveysInfo

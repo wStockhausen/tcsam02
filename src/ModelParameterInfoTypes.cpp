@@ -857,15 +857,12 @@ void VectorInfo::readPart1(cifstream & is){
     is>>(*ptrIB);
     if (debug) rpt::echo<<(*ptrIB)<<tb<<"#index block"<<endl;
     N = ptrIB->getSize();
-    phases.allocate(1,N);
     initVals.allocate(1,N);
-    is>>str; readPhases = wts::getBooleanType(str);
     is>>str; readVals   = wts::getBooleanType(str);
     if (debug) {
         rpt::echo<<"idxType    = "<<idxType<<endl;
         rpt::echo<<"IndexBlock = "<<(*ptrIB)<<endl;
         rpt::echo<<"N          = "<<N<<endl;
-        rpt::echo<<"readPhases = "<<wts::getBooleanType(readPhases)<<endl;
         rpt::echo<<"readVals   = "<<wts::getBooleanType(readVals)<<endl;
         rpt::echo<<"Finished VectorInfo::readPart1(cifstream & is) for "<<name<<endl;
     }
@@ -877,7 +874,6 @@ void VectorInfo::readPart2(cifstream & is){
     is>>initVal; if (debug) rpt::echo<<initVal<<tb<<"#initVal"<<endl;
     is>>str; scaleType=tcsam::getScaleType(str);
     is>>phase;
-    phases = phase;//set default
     is>>str; resample=wts::getOnOffType(str);
     is>>priorWgt;
     is>>priorType;//prior type
@@ -928,14 +924,16 @@ void VectorInfo::readPart2(cifstream & is){
  * @param [in] os - the output stream to write to
  */
 void VectorInfo::write(std::ostream & os){
+    if (debug) cout<<"Starting VectorInfo::write()"<<endl;
     writePart1(os);
     writePart2(os);
+    if (debug) cout<<"Finished VectorInfo::write()"<<endl;
 }
 
 void VectorInfo::writePart1(std::ostream& os){
     os<<idxType<<tb;
     os<<(*ptrIB)<<tb;
-    os<<wts::getBooleanType(readPhases)<<tb;
+//    os<<wts::getBooleanType(readPhases)<<tb;
     os<<wts::getBooleanType(readVals)  <<tb;
 }
 
@@ -963,6 +961,7 @@ void VectorInfo::writePart2(std::ostream& os){
         os<<cNames(cNames.indexmax())<<". ";
     } else {os<<"no prior consts. ";}
 }
+
 /**
  * Writes the parameter info to an output stream as an R list.
  * 
@@ -998,7 +997,6 @@ void VectorInfo::writeToR1(ostream& os){
         adstring_array names=pMPI->getNamesForConsts();
         os<<"consts=list("; for(int n=1;n<N;n++) os<<names(n)<<"="<<priorConsts(n)<<",";os<<names(N)<<"="<<priorConsts(N)<<")"<<cc<<endl;
     } else {os<<"consts=NULL)"<<cc<<endl;}
-    os<<"phases  =";  wts::writeToR(os,phases,  wts::to_qcsv(ptrIB->getFwdIndexVector())); os<<cc<<endl;
     os<<"initVals=";  wts::writeToR(os,initVals,wts::to_qcsv(ptrIB->getFwdIndexVector())); os<<cc<<endl;
     os<<"finalVals="; wts::writeToR(os,finlVals,wts::to_qcsv(ptrIB->getFwdIndexVector()));
 }
@@ -1249,7 +1247,7 @@ dvector BoundedVectorInfo::drawInitVals(random_number_generator& rng, double vif
     if (debug) rpt::echo<<"starting BoundedVectorInfo::drawInitVals(random_number_generator& rng) for "<<name<<endl;
     dvector smpl  = 1.0*initVals;
     if (resample&&(phase>0)&&(pMPI->canSample())) {
-        for (int i=1;i<=N;i++) if (phases(i)) smpl(i) = pMPI->drawSample(rng,priorParams,priorConsts);
+        for (int i=1;i<=N;i++) smpl(i) = pMPI->drawSample(rng,priorParams,priorConsts);
     }
     if (debug) {
         rpt::echo<<phase<<tb<<pMPI->canSample()<<endl;
@@ -1311,7 +1309,7 @@ dvector BoundedVectorInfo::jitterInitVals(random_number_generator& rng, double j
         for (int i=1;i<=N;i++){
             double r = rng.better_rand();
             //vp(i) = min(max(lower+0.0001*d,initVals(i)+wts::min(1.0,jitFrac)*(r-0.5)*d),upper-0.0001*d);
-            if (phases(i)) vp(i) = tcsam::jitterIt(initVals(i), lower, upper, jitFrac, r);
+            vp(i) = tcsam::jitterIt(initVals(i), lower, upper, jitFrac, r);
         }
     }
     return vp;
@@ -1338,6 +1336,8 @@ dvector BoundedVectorInfo::jitterInitVals(random_number_generator& rng, double j
  *  <li> priorConsts
  *  <li> label
  * </ul>
+ * 
+ * This calls VectorInfo::readPart1(...) and VectorInfo::readPart2(...).
  * 
  * @param [in] is - the filestream to read from
  * 
@@ -1416,6 +1416,128 @@ void BoundedVectorInfo::writeFinalValsToR(ostream& os){
 /*------------------------------------------------------------------------------
  *  DevsVectorInfo
  *----------------------------------------------------------------------------*/
+/**
+ * Reads the parameter info from an input filestream.
+ * The read order is:
+ * <ul>
+ *  <li> idxType - the index type (as an adstring)
+ *  <li> the index block defining the vector indices (which determines N), as an IndexBlock
+ *  <li> readPhases - an adstring flag to subsequently read a vector of phases
+ *  <li> readVals - an adstring flag to subsequently read a vector of initial values
+ *  <li> lower bound - the lower bound on the arithmetic scale
+ *  <li> upper bound - the upper bound on the arithmetic scale
+ *  <li> jitter - adstring flag to "jitter" initial values
+ *  <li> scaleType
+ *  <li> initVal
+ *  <li> phase
+ *  <li> resample
+ *  <li> priorWgt
+ *  <li> priorType
+ *  <li> priorParams
+ *  <li> priorConsts
+ *  <li> label
+ * </ul>
+ * 
+ * This calls DevsVectorInfo::readPart1(...) and VectorInfo::readPart2(...).
+ * 
+ * @param [in] is - the filestream to read from
+ * 
+ * @overrides VectorInfo::read(cifstream& is)
+ */
+void DevsVectorInfo::read(cifstream & is){
+    if (debug) {
+        rpt::echo<<"Starting DevsVectorInfo::read(cifstream & is) for "<<name<<endl;
+        VectorInfo::debug = 1;
+    }
+    DevsVectorInfo::readPart1(is);
+    VectorInfo::readPart2(is);
+    phases   = phase;
+    initVals = initVal;
+    if (debug) {
+        VectorInfo::debug = 0;
+        rpt::echo<<"Done DevsVectorInfo::read(cifstream & is) for "<<name<<endl;
+    }
+}
+
+/**
+ * Reads the index type and index block for the VectorInfo.
+ * 
+ * @param is - the stream to read from
+ */
+void DevsVectorInfo::readPart1(cifstream & is){
+    if (debug) rpt::echo<<"Starting DevsVectorInfo::readPart1(cifstream & is) for "<<name<<endl;
+    adstring str;
+    is>>idxType;
+    if (debug) rpt::echo<<idxType<<tb<<"#index type"<<endl;
+    int imn; int imx; 
+    tcsam::getIndexLimits(idxType,imn,imx);
+    ptrIB = new IndexBlock(imn,imx);
+    is>>(*ptrIB);
+    if (debug) rpt::echo<<(*ptrIB)<<tb<<"#index block"<<endl;
+    N = ptrIB->getSize();
+    phases.allocate(1,N);
+    initVals.allocate(1,N);
+    is>>str; readPhases = wts::getBooleanType(str);
+    is>>str; readVals   = wts::getBooleanType(str);
+    if (debug) {
+        rpt::echo<<"idxType    = "<<idxType<<endl;
+        rpt::echo<<"IndexBlock = "<<(*ptrIB)<<endl;
+        rpt::echo<<"N          = "<<N<<endl;
+        rpt::echo<<"readPhases = "<<wts::getBooleanType(readPhases)<<endl;
+        rpt::echo<<"readVals   = "<<wts::getBooleanType(readVals)<<endl;
+    }
+    is>>str; jitter=wts::getOnOffType(str);
+    is>>lower;
+    is>>upper;
+    if (debug){
+        rpt::echo<<wts::getOnOffType(jitter)<<tb<<"#jitter"<<endl;
+        rpt::echo<<lower<<tb<<"#lower"<<endl;
+        rpt::echo<<upper<<tb<<"#upper"<<endl;
+        rpt::echo<<"Finished DevsVectorInfo::readPart1(cifstream & is) for "<<name<<endl;
+    }
+}
+
+/**
+ * Writes the parameter info to an output stream, in ADMB format.
+ * 
+ * @param [in] os - the output stream to write to
+ */
+void DevsVectorInfo::write(std::ostream & os){
+    if (debug) rpt::echo<<"Starting DevsVectorInfo::write()"<<endl;
+    os<<idxType<<tb;
+    os<<(*ptrIB)<<tb;
+    os<<wts::getBooleanType(readPhases)<<tb;
+    os<<wts::getBooleanType(readVals)  <<tb;
+    
+    os<<wts::getOnOffType(jitter)<<tb;
+    os<<lower<<tb;
+    os<<upper<<tb;
+    
+    os<<initVal<<tb;
+    os<<tcsam::getScaleType(scaleType)<<tb;
+    os<<phase<<tb;
+    os<<wts::getOnOffType(resample)<<tb;
+    os<<priorWgt<<tb;
+    os<<priorType<<tb;
+    if (pMPI->getNumParams()) os<<priorParams<<tb<<tb; else os<<"none"<<tb<<tb;
+    if (pMPI->getNumConsts()) os<<priorConsts<<tb<<tb; else os<<"none"<<tb<<tb;
+    os<<label<<tb<<tb;
+    os<<"#";
+    if (pMPI->getNumParams()){
+        os<<"prior params are ";
+        adstring_array pNames = pMPI->getNamesForParams();
+        for (int p=pNames.indexmin();p<=pNames.indexmax()-1;p++) os<<pNames(p)<<cc;
+        os<<pNames(pNames.indexmax())<<". ";
+    } else {os<<"no prior params. ";}
+    if (pMPI->getNumConsts()){
+        os<<"prior consts are ";
+        adstring_array cNames = pMPI->getNamesForConsts();
+        for (int c=cNames.indexmin();c<=cNames.indexmax();c++) os<<cNames(c)<<tb;
+        os<<cNames(cNames.indexmax())<<". ";
+    } else {os<<"no prior consts. ";}
+   if (debug) rpt::echo<<"Finished DevsVectorInfo::write()"<<endl;
+}
+
 /**
  * Set initial values on the arithmetic scale.
  * 
@@ -1525,9 +1647,12 @@ adstring_array NumberVectorInfo::getScaleTypes(void){
     return types;
 }
 
-/***************************************************************
-*   get phase info                                             *
-***************************************************************/
+/**
+ * Gets an ivector of the estimation phase for each parameter in the
+ * associated param_init_number_vector.
+ * 
+ * @return - an ivector
+ */
 ivector NumberVectorInfo::getPhases(void){
     if (debug) rpt::echo<<"starting NumberVectorInfo::getPhases(void) "<<this<<endl;
     ivector phases(1,nNIs);
@@ -1535,6 +1660,20 @@ ivector NumberVectorInfo::getPhases(void){
     if (ppNIs) for (int i=1;i<=nNIs;i++) phases(i) = ppNIs[i-1]->getPhase();
     if (debug) rpt::echo<<"finished NumberVectorInfo::getPhases(void) "<<this<<endl;
     return phases;
+}
+
+/**
+ * Sets an ivector for the estimation phase for each parameter in the
+ * associated param_init_number_vector.
+ * 
+ * @param - an ivector of estimation phases
+ * 
+ * @return - nothing
+ */
+void NumberVectorInfo::setPhases(const ivector& _phases){
+    if (debug) rpt::echo<<"starting NumberVectorInfo::setPhases(...) "<<this<<endl;
+    if (ppNIs) for (int i=1;i<=nNIs;i++) ppNIs[i-1]->setPhase(_phases[i]);
+    if (debug) rpt::echo<<"finished NumberVectorInfo::setPhases(...) "<<this<<endl;
 }
 
 /***************************************************************
@@ -2026,18 +2165,18 @@ void VectorVectorInfo::read(cifstream & is){
         //read vectors for phases and/or initial values, if flagged
         for (int p=0;p<nVIs;p++) {
             VectorInfo* pVI = ppVIs[p];
-            if (pVI->readPhases) {
-                if (debug) rpt::echo<<"Reading phases vector for "<<p+1<<"th vector"<<endl;
-                is>>idx; 
-                if (idx!=p+1){
-                    rpt::echo<<"Error reading initial vector phases for "<<p+1<<"th vector in "<<name<<endl;
-                    rpt::echo<<"Expected idx="<<p+1<<" but got "<<idx<<"."<<endl;
-                    rpt::echo<<"Check MPI file!"<<endl;
-                    exit(0);
-                }
-                pVI->readPhaseVector(is);
-                if (debug) rpt::echo<<pVI->getPhases()<<endl;
-            }
+//            if (pVI->readPhases) {
+//                if (debug) rpt::echo<<"Reading phases vector for "<<p+1<<"th vector"<<endl;
+//                is>>idx; 
+//                if (idx!=p+1){
+//                    rpt::echo<<"Error reading initial vector phases for "<<p+1<<"th vector in "<<name<<endl;
+//                    rpt::echo<<"Expected idx="<<p+1<<" but got "<<idx<<"."<<endl;
+//                    rpt::echo<<"Check MPI file!"<<endl;
+//                    exit(0);
+//                }
+//                pVI->readPhaseVector(is);
+//                if (debug) rpt::echo<<pVI->getPhases()<<endl;
+//            }
             if (pVI->readVals) {
                 if (debug) rpt::echo<<"Reading vector values for "<<p+1<<"th vector"<<endl;
                 is>>idx; 
@@ -2061,15 +2200,15 @@ void VectorVectorInfo::read(cifstream & is){
             mxIdxs[v] = ppVIs[v-1]->getSize();
         }
         
-        //set phases vector
-        int nps = 0;
-        for (int v=1;v<=nVIs;v++) nps += mxIdxs(v)-mnIdxs(v)+1;
-        phases.allocate(1,nps);
-        int ctr = 1;
-        for (int v=1;v<=nVIs;v++) {
-            ivector phsv = ppVIs[v-1]->getPhases();
-            for (int j=phsv.indexmin();j<=phsv.indexmax();j++) phases(ctr++) = phsv(j);
-        }
+//        //set phases vector
+//        int nps = 0;
+//        for (int v=1;v<=nVIs;v++) nps += mxIdxs(v)-mnIdxs(v)+1;
+//        phases.allocate(1,nps);
+//        int ctr = 1;
+//        for (int v=1;v<=nVIs;v++) {
+//            ivector phsv = ppVIs[v-1]->getPhases();
+//            for (int j=phsv.indexmin();j<=phsv.indexmax();j++) phases(ctr++) = phsv(j);
+//        }
         
     }
     if (debug) rpt::echo<<"finished VectorVectorInfo::read(cifstream & is) for "<<name<<endl;
@@ -2080,13 +2219,13 @@ void VectorVectorInfo::read(cifstream & is){
 ***************************************************************/
 void VectorVectorInfo::write(ostream & os){
     os<<tb<<nVIs<<"  #number of parameters"<<endl;
-    os<<"#     index index   read    read  initial  param        resample  prior   prior  prior   prior"<<endl;
-    os<<"#id   type  block  phases  values? value   scale  phase  values?  weight  type   params  consts  label"<<endl;
+    os<<"#     index index   read  initial  param        resample  prior   prior  prior   prior"<<endl;
+    os<<"#id   type  block  values? value   scale  phase  values?  weight  type   params  consts  label"<<endl;
     if (nVIs){
         for (int p=0;p<nVIs;p++) os<<(p+1)<<tb<<(*ppVIs[p])<<endl;
         os<<"#--id + phases and/or id + initial values:";
         for (int p=0;p<nVIs;p++) {
-            if ((ppVIs[p])->readPhases) os<<endl<<p+1<<tb<<(ppVIs[p])->getPhases();
+//            if ((ppVIs[p])->readPhases) os<<endl<<p+1<<tb<<(ppVIs[p])->getPhases();
             if ((ppVIs[p])->readVals)   os<<endl<<p+1<<tb<<(ppVIs[p])->getInitVals();
         }
     }
@@ -2226,18 +2365,18 @@ void BoundedVectorVectorInfo::read(cifstream & is){
         //read vectors for phases and/or initial values, if flagged
         for (int p=0;p<nVIs;p++) {
             BoundedVectorInfo* pVI = static_cast<BoundedVectorInfo*>(ppVIs[p]);
-            if (pVI->readPhases) {
-                if (debug) rpt::echo<<"Reading phases vector for "<<p+1<<"th vector"<<endl;
-                is>>idx; 
-                if (idx!=p+1){
-                    rpt::echo<<"Error reading initial vector phases for "<<p+1<<"th vector in "<<name<<endl;
-                    rpt::echo<<"Expected idx="<<p+1<<" but got "<<idx<<"."<<endl;
-                    rpt::echo<<"Check MPI file!"<<endl;
-                    exit(0);
-                }
-                pVI->readPhaseVector(is);
-                if (debug) rpt::echo<<pVI->getPhases()<<endl;
-            }
+//            if (pVI->readPhases) {
+//                if (debug) rpt::echo<<"Reading phases vector for "<<p+1<<"th vector"<<endl;
+//                is>>idx; 
+//                if (idx!=p+1){
+//                    rpt::echo<<"Error reading initial vector phases for "<<p+1<<"th vector in "<<name<<endl;
+//                    rpt::echo<<"Expected idx="<<p+1<<" but got "<<idx<<"."<<endl;
+//                    rpt::echo<<"Check MPI file!"<<endl;
+//                    exit(0);
+//                }
+//                pVI->readPhaseVector(is);
+//                if (debug) rpt::echo<<pVI->getPhases()<<endl;
+//            }
             if (pVI->readVals) {
                 if (debug) rpt::echo<<"Reading vector values for "<<p+1<<"th vector"<<endl;
                 is>>idx; 
@@ -2261,15 +2400,15 @@ void BoundedVectorVectorInfo::read(cifstream & is){
             mxIdxs[v] = ppVIs[v-1]->getSize();
         }
         
-        //set phases vector
-        int nps = 0;
-        for (int v=1;v<=nVIs;v++) nps += mxIdxs(v)-mnIdxs(v)+1;
-        phases.allocate(1,nps);
-        int ctr = 1;
-        for (int v=1;v<=nVIs;v++) {
-            ivector phsv = ppVIs[v-1]->getPhases();
-            for (int j=phsv.indexmin();j<=phsv.indexmax();j++) phases(ctr++) = phsv(j);
-        }
+//        //set phases vector
+//        int nps = 0;
+//        for (int v=1;v<=nVIs;v++) nps += mxIdxs(v)-mnIdxs(v)+1;
+//        phases.allocate(1,nps);
+//        int ctr = 1;
+//        for (int v=1;v<=nVIs;v++) {
+//            ivector phsv = ppVIs[v-1]->getPhases();
+//            for (int j=phsv.indexmin();j<=phsv.indexmax();j++) phases(ctr++) = phsv(j);
+//        }
         
     }
     if (debug) rpt::echo<<"finished BoundedVectorVectorInfo::read(cifstream & is) "<<name<<endl;
@@ -2280,13 +2419,13 @@ void BoundedVectorVectorInfo::read(cifstream & is){
 ***************************************************************/
 void BoundedVectorVectorInfo::write(ostream & os){
     os<<tb<<nVIs<<"  #number of bounded parameters"<<endl;
-    os<<"#     index index   read    read  initial  param        resample  prior   prior  prior   prior"<<endl;
-    os<<"#id   type  block  phases  values? value   scale  phase  values?  weight  type   params  consts  label"<<endl;
+    os<<"#     index index   read  initial  param        resample  prior   prior  prior   prior"<<endl;
+    os<<"#id   type  block  values? value   scale  phase  values?  weight  type   params  consts  label"<<endl;
     if (nVIs){
         for (int p=0;p<nVIs;p++) os<<(p+1)<<tb<<(*ppVIs[p])<<endl;
         os<<"#--id + phases and/or id + initial values:";
         for (int p=0;p<nVIs;p++) {
-            if ((ppVIs[p])->readPhases) os<<endl<<p+1<<tb<<(ppVIs[p])->getPhases();
+//            if ((ppVIs[p])->readPhases) os<<endl<<p+1<<tb<<(ppVIs[p])->getPhases();
             if ((ppVIs[p])->readVals)   os<<endl<<(p+1)<<tb<<(ppVIs[p])->getInitVals();
         }
     }
@@ -2357,8 +2496,8 @@ void DevsVectorVectorInfo::read(cifstream & is){
         }
         //read vectors for phases and/or initial values, if flagged
         for (int p=0;p<nVIs;p++) {
-            DevsVectorInfo* pVI = static_cast<DevsVectorInfo*>(ppVIs[p]);
-            if (pVI->readPhases) {
+            DevsVectorInfo* pDVI = static_cast<DevsVectorInfo*>(ppVIs[p]);
+            if (pDVI->readPhases) {
                 if (debug) rpt::echo<<"Reading phases vector for "<<p+1<<"th vector"<<endl;
                 is>>idx; 
                 if (idx!=p+1){
@@ -2367,10 +2506,10 @@ void DevsVectorVectorInfo::read(cifstream & is){
                     rpt::echo<<"Check MPI file!"<<endl;
                     exit(0);
                 }
-                pVI->readPhaseVector(is);
-                if (debug) rpt::echo<<pVI->getPhases()<<endl;
+                pDVI->readPhaseVector(is);
+                if (debug) rpt::echo<<pDVI->getPhases()<<endl;
             }
-            if (pVI->readVals) {
+            if (pDVI->readVals) {
                 if (debug) rpt::echo<<"Reading vector values for "<<p+1<<"th vector"<<endl;
                 is>>idx; 
                 if (idx!=p+1){
@@ -2379,8 +2518,8 @@ void DevsVectorVectorInfo::read(cifstream & is){
                     rpt::echo<<"Check MPI file!"<<endl;
                     exit(0);
                 }
-                pVI->readInitVals(is);
-                if (debug) rpt::echo<<pVI->getInitVals()<<endl;
+                pDVI->readInitVals(is);
+                if (debug) rpt::echo<<pDVI->getInitVals()<<endl;
             }
         }
         if (debug) {
@@ -2395,18 +2534,48 @@ void DevsVectorVectorInfo::read(cifstream & is){
             mxIdxs[v] = ppVIs[v-1]->getSize();
         }
         
-        //set phases vector
-        int nps = 0;
-        for (int v=1;v<=nVIs;v++) nps += mxIdxs(v)-mnIdxs(v)+1;
-        phases.allocate(1,nps);
-        int ctr = 1;
-        for (int v=1;v<=nVIs;v++) {
-            ivector phsv = ppVIs[v-1]->getPhases();
-            for (int j=phsv.indexmin();j<=phsv.indexmax();j++) phases(ctr++) = phsv(j);
-        }
-        
+        //determine npT, the total number of parameters
+        npT = 0;//reset to zero, in case otherwise
+        for (int v=1;v<=nVIs;v++) npT += mxIdxs(v)-mnIdxs(v)+1;        
     }
     if (debug) rpt::echo<<"finished DevsVectorVectorInfo::read(cifstream & is) "<<name<<endl;
+}
+
+/** gets the ivector of phases for the associated param_init_number_vector */
+ivector DevsVectorVectorInfo::getParameterPhases(void){
+    ivector phases(1,npT);
+    int ctr = 1;
+    for (int v=1;v<=nVIs;v++) {
+        ivector phsv = (*this)[v]->getPhases();//need to get a DevsVectorInfo* here
+        for (int j=phsv.indexmin();j<=phsv.indexmax();j++) phases(ctr++) = phsv(j);
+    }
+    return phases;
+}
+/** sets the ivector of phases for the associated param_init_number_vector */
+void DevsVectorVectorInfo::setParameterPhases(const ivector& phases){
+    int ctr = 1;
+    for (int v=1;v<=nVIs;v++) {
+        ivector phsv = (*this)[v]->getPhases();//need to get a DevsVectorInfo* here
+        for (int j=phsv.indexmin();j<=phsv.indexmax();j++) phsv(j) = phases(ctr++);
+        (*this)[v]->setPhases(phsv);
+    }
+}
+/***************************************************************
+*   Write to stream.                                           *
+***************************************************************/
+void DevsVectorVectorInfo::write(ostream & os){
+    os<<tb<<nVIs<<"  #number of devs parameter vectors"<<endl;
+    os<<"#     index index   read    read  initial  param        resample  prior   prior  prior   prior"<<endl;
+    os<<"#id   type  block  phases  values? value   scale  phase  values?  weight  type   params  consts  label"<<endl;
+    if (nVIs){
+        for (int p=1;p<=nVIs;p++) os<<p<<tb<<(*(*this)[p])<<endl;
+        os<<"#--id + phases and/or id + initial values:";
+        for (int p=1;p<=nVIs;p++) {
+            //note: need to get DevsVectorInfo* here, so using (*this)[p] to get p'th
+            if ((*this)[p]->readPhases) os<<endl<<p<<tb<<(*this)[p]->getPhases();
+            if ((*this)[p]->readVals)   os<<endl<<p<<tb<<(*this)[p]->getInitVals();
+        }
+    }
 }
 
 ////////////////////////////DevsVectorVectorInfo/////////////////////////////////

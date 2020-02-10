@@ -121,9 +121,15 @@ class NumberInfo {
         /**
          * Gets the phase in which parameter estimation is started.
          * 
-         * @return - the phase
+         * @return - the estimation phase
          */
         int getPhase(){return phase;}
+        /**
+         * Sets the phase in which parameter estimation is started.
+         * 
+         * @param - the new value for the estimation phase
+         */
+        void setPhase(int _phase){phase = _phase;}
         /**
          * Gets the multiplicative weight set on the prior probability in the likelihood.
          * 
@@ -529,8 +535,6 @@ class VectorInfo {
         bool resample;
         /* pointer to info for resmapling pdf */
         ModelPDFInfo*  pMPI;
-        /* flag to read phases */
-        int readPhases;
         /* flag to read initial values */
         int readVals;
     protected:
@@ -540,7 +544,7 @@ class VectorInfo {
         double initVal;
         /* final arithmetic-scale value from the associated parameter (for output to R) */
         double finlVal;     
-        /* default phase in which to start estimating associated parameter */
+        /* default phase in which to start estimating associated parameter vector */
         int phase;          
         /* weight to assign to prior probability */
         double priorWgt;
@@ -554,8 +558,6 @@ class VectorInfo {
         adstring idxType;
         /* pointer to IndexBlock defining vector */
         IndexBlock* ptrIB; 
-        /* vector of phases, by vector element */
-        ivector phases;
         /* vector of initial values, by vector element */
         dvector initVals;
         /* final values (for output to R) */
@@ -615,20 +617,18 @@ class VectorInfo {
         adstring getScaleType(){return tcsam::getScaleType(scaleType);}
 
         /**
-         * Gets the phase for each element in which parameter estimation is started.
-         * Vector indices run 1:N.
+         * Gets the phase for the associated param_init_vector_vector
          * 
-         * @return - ivector of phases, one for each element
+         * @return - estimation phase for the parameter vector
          */
-        ivector getPhases(){return phases;}
+        int getPhase(){return phase;}
         
         /**
-         * Gets the phase for each element in which parameter estimation is started.
-         * Vector indices run 1:N.
+         * Sets the phase for the associated param_init_vector_vector
          * 
-         * @return - ivector of phases, one for each element
+         * @param - value for phase
          */
-        void setPhases(const ivector& _phases){phases = _phases;}
+        void setPhase(int _phase){phase = _phase;}
         
         /**
          * Gets the multiplicative weight set on the prior probability in the likelihood.
@@ -772,12 +772,6 @@ class VectorInfo {
          */
         virtual dvector drawInitVals(random_number_generator& rng, double vif);//draw initial values by resampling prior
         /**
-         * Reads a vector of phases from an input filestream.
-         * 
-         * @param [in] is - the input filestream
-         */
-        virtual void readPhaseVector(cifstream& is){is>>phases;}
-        /**
          * Reads a vector of initial values from an input filestream.
          * 
          * @param [in] is - the input filestream
@@ -810,7 +804,6 @@ class VectorInfo {
          * <ul>
          *  <li> idxType - the index type (as an adstring)
          *  <li> the index block defining the vector indices (which determines N), as an IndexBlock
-         *  <li> readPhases - an adstring flag to subsequently read a vector of phases
          *  <li> readVals - an adstring flag to subsequently read a vector of initial values
          * </ul>
          * 
@@ -1140,6 +1133,10 @@ class BoundedVectorInfo : public VectorInfo {
 class DevsVectorInfo : public BoundedVectorInfo {
     public:
         static int debug;
+        /* flag to read phases */
+        int readPhases;
+        /* vector of phases, by vector element */
+        ivector phases;
     public:
         /**
          * Class constructor.
@@ -1162,6 +1159,72 @@ class DevsVectorInfo : public BoundedVectorInfo {
          */
         ~DevsVectorInfo(){}
 
+        /**
+         * Gets the phase for each element of the associated param_init_number_vector
+         * 
+         * @return - estimation phase for each element of the parameter vector
+         */
+        ivector getPhases(){return phases;}
+        
+        /**
+         * Sets the phases for the associated param_init_vector_vector
+         * 
+         * @param - ivector of phases
+         */
+        void setPhases(const ivector& _phases){phases = _phases;}
+        
+        /**
+         * Reads a vector of phases from an input filestream.
+         * 
+         * @param [in] is - the input filestream
+         */
+        virtual void readPhaseVector(cifstream& is){is>>phases;}
+        
+        /**
+         * Reads the parameter info from an input filestream.
+         * The read order is:
+         * <ul>
+         *  <li> idxType - the index type (as an adstring)
+         *  <li> the index block defining the vector indices (which determines N), as an IndexBlock
+         *  <li> readPhases - an adstring flag to subsequently read a vector of estimation phases
+         *  <li> readVals - an adstring flag to subsequently read a vector of initial values
+         *  <li> initVal
+         *  <li> scaleType
+         *  <li> phase - default phase
+         *  <li> resample
+         *  <li> priorWgt
+         *  <li> priorType
+         *  <li> priorParams
+         *  <li> priorConsts
+         *  <li> label
+         * </ul>
+         * 
+         * This method calls DevsVectorInfo::readPart1 and VectorVectorInfo::readPart2
+         * 
+         * @param [in] is - the filestream to read from
+         */
+        virtual void read(cifstream & is);
+        /**
+         * Reads part of the parameter info from an input filestream.
+         * The read order is:
+         * <ul>
+         *  <li> idxType - the index type (as an adstring)
+         *  <li> the index block defining the vector indices (which determines N), as an IndexBlock
+         *  <li> readPhases - an adstring flag to subsequently read a vector of phases
+         *  <li> readVals - an adstring flag to subsequently read a vector of initial values
+         * </ul>
+         * 
+         * @param [in] is - the filestream to read from
+         */
+        void readPart1(cifstream& is);
+        
+        /**
+         * Writes the parameter info to an output stream, in ADMB format.
+         * 
+         * @param [in] os - the output stream to write to
+         */
+        void write(std::ostream & os);
+        
         /**
          * Sets initial values to 0, no matter what @param x is.
          * @param x
@@ -1281,6 +1344,15 @@ class NumberVectorInfo {
          * @return - an ivector
          */
         ivector getPhases(void);
+        /**
+         * Sets an ivector for the estimation phase for each parameter in the
+         * associated param_init_number_vector.
+         * 
+         * @param - an ivector of estimation phases
+         * 
+         * @return - nothing
+         */
+        void setPhases(const ivector& _phases);
         /**
          * Gets a dvector of the likelihood weight for each parameter in the 
          * associated param_init_number_vector.
@@ -1517,8 +1589,6 @@ class VectorVectorInfo {
         ivector mnIdxs;
         /** ivector of maximum index for each parameter vector represented in the VectorVector */
         ivector mxIdxs;
-        /** ivector of estimation phases (one for each parameter) */
-        ivector phases;
     public:
         VectorVectorInfo(){this->name="";nVIs=0;ppVIs=0;}
         VectorVectorInfo(adstring& name){this->name=name;nVIs=0;ppVIs=0;}
@@ -1550,15 +1620,6 @@ class VectorVectorInfo {
          * @return - an adstring_array
          */
         adstring_array getScaleTypes(void);
-        /**
-         * Gets the estimation phase for each element of the associated param_init_number_vector.
-         * 
-         * Note that the returned ivector is the length of the param_init_number_vector, not
-         * the number of parameter vectors.
-         * 
-         * @return ivector of phases
-         */
-        ivector getPhases(void);
         /**
          * Gets the prior weights for each associated parameter vector.
          * @return 
@@ -1690,11 +1751,15 @@ class BoundedVectorVectorInfo: public VectorVectorInfo {
 */
 class DevsVectorVectorInfo: public BoundedVectorVectorInfo {
     public:
+        /** flag to print debugging info */
         static int debug;
+    protected:
+        /** total number of all parameters (i.e., size of the associated param_init_number_vector) */
+        int npT; 
     public:
-        DevsVectorVectorInfo():BoundedVectorVectorInfo(){}
-        DevsVectorVectorInfo(adstring& name):BoundedVectorVectorInfo(name){}
-        DevsVectorVectorInfo(const char * name):BoundedVectorVectorInfo(name){}
+        DevsVectorVectorInfo():BoundedVectorVectorInfo(){npT=0;}
+        DevsVectorVectorInfo(adstring& name):BoundedVectorVectorInfo(name){npT=0;}
+        DevsVectorVectorInfo(const char * name):BoundedVectorVectorInfo(name){npT=0;}
 
         /**
          * Returns a pointer to the ith (1s-based) DevsVectorInfo instance
@@ -1707,7 +1772,14 @@ class DevsVectorVectorInfo: public BoundedVectorVectorInfo {
          */
         virtual DevsVectorInfo* operator[](int i){if ((ppVIs)&&(i<=nVIs)) return (DevsVectorInfo*) ppVIs[i-1]; return 0;}
 
+        /** gets the total number of parameters */
+        int getNumParameters(void){return npT;}
+        /** gets the ivector of phases for the associated param_init_number_vector */
+        ivector getParameterPhases(void);
+        /** sets the ivector of phases for the associated param_init_number_vector */
+        void setParameterPhases(const ivector& phases);
         virtual void read(cifstream & is);
+        virtual void write(ostream & os);
         friend cifstream& operator >>(cifstream & is, DevsVectorVectorInfo & obj){obj.read(is);return is;}
         friend std::ostream& operator <<(std::ostream & os, DevsVectorVectorInfo & obj){obj.write(os);return os;}
 };//DevsVectorVectorInfo: BoundedVectorVectorInfo

@@ -341,14 +341,14 @@ namespace tcsam {
  * Sets the info for a param_init_vector_vector from a VectorVectorInfo object.
  * 
  * @param pVVI - pointer to a VectorVectorInfo instance
- * @param npT [out] - size of vector
+ * @param npV [out] - number of vectors represented (size of associated param_init_vector_vector object)
  * @param mns [out] - ivector with minimum indices for each vector
  * @param mxs [out] - ivector with maximum indices for each vector
  * @param phs [out] - ivector of phases for parameters
  * @param os - output stream to write to
  */
     void setParameterInfo(VectorVectorInfo* pVVI,   
-                          int& npT,
+                          int& npV,
                           ivector& mns, ivector& mxs,
                           ivector& phs, 
                           ostream& os = std::cout);
@@ -356,8 +356,7 @@ namespace tcsam {
  * Sets the info for a param_init_bounded_vector_vector from a BoundedVectorVectorInfo object.
  * 
  * @param pBVVI - pointer to a BoundedVectorVectorInfo instance
- * @param npT [out] - size of vector
- * @param mns [out] - ivector with minimum indices for each vector
+number of vectors represented (size of associated param_init_vector_vector object) * @param mns [out] - ivector with minimum indices for each vector
  * @param mxs [out] - ivector with maximum indices for each vector
  * @param idxs [out] - imatrix of reverse indices
  * @param lb [out] - dvector of lower bounds
@@ -366,7 +365,7 @@ namespace tcsam {
  * @param os - output stream to write to
  */
     void setParameterInfo(BoundedVectorVectorInfo* pBVVI,                           
-                          int& npT,
+                          int& npV,
                           ivector& mns, ivector& mxs,
                           imatrix& idxs,
                           dvector& lb, dvector& ub,
@@ -377,8 +376,8 @@ namespace tcsam {
  * from a DevsVectorVectorInfo object.
  * 
  * @param pDVVI - pointer to a DevsVectorVectorInfo instance
- * @param npV [out]  - number of devs vectors
- * @param npT [out]  - size of param_init_bounded_number_vector
+ * @param npV [out] - number of devs vectors represented
+ * @param npT [out] - total size (number of elements) of associated param_init_number_vector
  * @param mns [out]  - ivector(1,npV) with minimum indices for each vector
  * @param mxs [out]  - ivector(1,npV) with maximum indices for each vector
  * @param idxs [out] - imatrix of reverse indices

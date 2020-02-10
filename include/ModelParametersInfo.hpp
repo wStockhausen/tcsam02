@@ -156,6 +156,15 @@ class ParameterGroupInfo{
         ivector getPCsForYear(int y);
         
         /**
+         * Finds the years that a parameter combination (PC) is defined for
+         * 
+         * @param pc - the PC of interest
+         * 
+         * @return - ivector the corresponding years (or unallocated, if no corresponding PC found)
+         */
+        ivector getYearsForPC(int pc);
+        
+        /**
          * Add a year to a parameter combination.
          * 
          * @param pc - parameter combination index to add year to
@@ -245,7 +254,7 @@ class ParameterGroupInfo{
         BoundedNumberVectorInfo* read(cifstream& is, adstring& lbl, BoundedNumberVectorInfo* pBNVI);
         BoundedVectorVectorInfo* read(cifstream& is, adstring& lbl, BoundedVectorVectorInfo* pBVVI);
         DevsVectorVectorInfo*    read(cifstream& is, adstring& lbl, DevsVectorVectorInfo* pDVVI);
-};
+};//--ParameterGroupInfo
 
 namespace tcsam{
     /**
@@ -254,6 +263,32 @@ namespace tcsam{
      * @return wts::adstring_matrix
      */
     wts::adstring_matrix convertPCs(ParameterGroupInfo * pgi);
+    /**
+     * Adjusts parameter phases to be consistent with maxYr.
+     * 
+     * The phase for any parameter that is originally set to be estimated ONLY in a 
+     * time block later than maxYr is set to negative so it will not be estimated.
+     * 
+     * @param pI - pointer to NumberVectorInfo for vector of parameters of interest
+     * @param pgi - pointer to ParameterGroupInfo for the parameter group of interest
+     * @param pid - index to parameter in ParameterGroupInfo
+     * @param maxYr - max year for estimated parameters
+     * @param debug - flag to print debugging info
+     */
+    void adjustParamPhase(NumberVectorInfo* pI, ParameterGroupInfo* pgi, int pid, int maxYr, int debug);
+    /**
+     * Adjusts parameter vector phases to be consistent with maxYr.
+     * 
+     * The phase for any parameter vector that is originally set to be estimated ONLY in a 
+     * time block later than maxYr is set to negative so it will not be estimated.
+     * 
+     * @param pI - pointer to VectorVectorInfo for vector of parameters of interest
+     * @param pgi - pointer to ParameterGroupInfo for the parameter group of interest
+     * @param pid - index to parameter vector in ParameterGroupInfo
+     * @param maxYr - max year for estimated parameter vectors
+     * @param debug - flag to print debugging info
+     */
+    void adjustParamPhase(VectorVectorInfo* pI, ParameterGroupInfo* pgi, int pid, int maxYr, int debug);
 }//namespace tcsam
 
 /**
@@ -301,6 +336,12 @@ class RecruitmentInfo: public ParameterGroupInfo {
          * Class destructor.
          */
         ~RecruitmentInfo();
+        /**
+         * Set the maximum year for estimating parameters.
+         * 
+         * @param mxYr - the max year to allow estimated parameters
+         */
+        void setMaxYear(int mxYr);
         /**
          * Sets the flags to write estimation phases for vector parameters to file 
          * when writing parameter info to file.
@@ -406,7 +447,12 @@ class NaturalMortalityInfo : public ParameterGroupInfo {
          * Class destructor
          */
         ~NaturalMortalityInfo();
-        
+        /**
+         * Set the maximum year for estimating parameters.
+         * 
+         * @param mxYr - the max year to allow estimated parameters
+         */
+        void setMaxYear(int mxYr);
         /**
          * Reads the ParameterGroupInfo for natural mortality from an input filestream in ADMB format.
          * 
@@ -419,7 +465,7 @@ class NaturalMortalityInfo : public ParameterGroupInfo {
          * 
          * @param flag - true/false to set to write estimation phases to file
          */
-        void setToWriteVectorEstimationPhases(bool flag){}//does nothing, no vector parameters
+        void setToWriteVectorEstimationPhases(bool flag){}//does nothing, no devs vectors
         /**
          * Sets the flags to write initial values for vector parameters to file 
          * when writing parameter info to file.
@@ -499,7 +545,12 @@ class GrowthInfo : public ParameterGroupInfo {
          * Class destructor.
          */
         ~GrowthInfo();
-        
+        /**
+         * Set the maximum year for estimating parameters.
+         * 
+         * @param mxYr - the max year to allow estimated parameters
+         */
+        void setMaxYear(int mxYr);
         /**
          * Reads the ParameterGroupInfo for growth from an input filestream in ADMB format.
          * 
@@ -512,7 +563,7 @@ class GrowthInfo : public ParameterGroupInfo {
          * 
          * @param flag - true/false to set to write estimation phases to file
          */
-        void setToWriteVectorEstimationPhases(bool flag){}//does nothing, no vector parameters
+        void setToWriteVectorEstimationPhases(bool flag){}//does nothing, no devs vectors
         /**
          * Sets the flags to write initial values for vector parameters to file 
          * when writing parameter info to file.
@@ -583,7 +634,12 @@ class Molt2MaturityInfo: public ParameterGroupInfo {
          * Class destructor.
          */
         ~Molt2MaturityInfo();
-        
+        /**
+         * Set the maximum year for estimating parameters.
+         * 
+         * @param mxYr - the max year to allow estimated parameters
+         */
+        void setMaxYear(int mxYr);
         /**
          * Reads the ParameterGroupInfo for the molt-to-maturity from an input filestream in ADMB format.
          * 
@@ -596,7 +652,7 @@ class Molt2MaturityInfo: public ParameterGroupInfo {
          * 
          * @param flag - true/false to set to write estimation phases to file
          */
-        void setToWriteVectorEstimationPhases(bool flag);
+        void setToWriteVectorEstimationPhases(bool flag){} //does nothing, no devs vectors
         /**
          * Sets the flags to write initial values for vector parameters to file 
          * when writing parameter info to file.
@@ -805,7 +861,12 @@ class FisheriesInfo : public ParameterGroupInfo {
         
         FisheriesInfo();
         ~FisheriesInfo();
-        
+        /**
+         * Set the maximum year for estimating parameters.
+         * 
+         * @param mxYr - the max year to allow estimated parameters
+         */
+        void setMaxYear(int mxYr);
         /**
          * Reads the ParameterGroupInfo for the fisheries from an input filestream in ADMB format.
          * 
@@ -915,7 +976,12 @@ class SurveysInfo : public ParameterGroupInfo {
         
         SurveysInfo();
         ~SurveysInfo();
-        
+        /**
+         * Set the maximum year for estimating parameters.
+         * 
+         * @param mxYr - the max year to allow estimated parameters
+         */
+        void setMaxYear(int mxYr);
         /**
          * Reads the ParameterGroupInfo for the surveys from an input filestream in ADMB format.
          * 
@@ -928,7 +994,7 @@ class SurveysInfo : public ParameterGroupInfo {
          * 
          * @param flag - true/false to set to write estimation phases to file
          */
-        void setToWriteVectorEstimationPhases(bool flag){}//does nothing, no vector parameters
+        void setToWriteVectorEstimationPhases(bool flag){}//does nothing, no devs vectors
         /**
          * Sets the flags to write initial values for vector parameters to file 
          * when writing parameter info to file.
@@ -1016,7 +1082,7 @@ class MSE_Info : public ParameterGroupInfo {
          * 
          * @param flag - true/false to set to write estimation phases to file
          */
-        void setToWriteVectorEstimationPhases(bool flag){}//does nothing, no vector parameters
+        void setToWriteVectorEstimationPhases(bool flag){}//does nothing, no devs vectors
         /**
          * Sets the flags to write initial values for vector parameters to file 
          * when writing parameter info to file.
@@ -1101,6 +1167,12 @@ class ModelParametersInfo{
          * Class destructor.
          */
         ~ModelParametersInfo();
+        /**
+         * Set the maximum year for estimating parameters.
+         * 
+         * @param mxYr - the max year to allow estimated parameters
+         */
+        void setMaxYear(int mxYr);
         /**
          * Sets the flags to write estimation phases for vector parameters to file 
          * when writing parameter info to file.
