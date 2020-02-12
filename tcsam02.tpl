@@ -1056,7 +1056,7 @@ DATA_SECTION
     int nSrv;  //number of surveys
  LOCAL_CALCS
     PRINT2B1("#-----------------------------------")
-    PRINT2B1("#-----------------------------------")
+    PRINT2B1("#--------Model Configuration--------")
     PRINT2B2("#--Reading configuration file ",fnConfigFile)
     ad_comm::change_datafile_name(fnConfigFile);
     ptrMC = new ModelConfiguration();
@@ -1069,17 +1069,10 @@ DATA_SECTION
     if (jitter)   {ptrMC->jitter   = 1;}
     if (resample) {ptrMC->resample = 1;}
     
-    rpt::echo<<"#------------------ModelConfiguration-----------------"<<endl;
+    PRINT2B1("#---------writing Model Configuration as check-----------------")
     rpt::echo<<(*ptrMC);
-    rpt::echo<<"#-----------------------------------"<<endl;
-    rpt::echo<<"#----finished model configuration---"<<endl;
-    rpt::echo<<"#-----------------------------------"<<endl;
+    PRINT2B1("#-----finished writing Model Configuration as check------------")
     if (debugDATA_SECTION){
-        cout<<"#------------------ModelConfiguration-----------------"<<endl;
-        cout<<(*ptrMC);
-        cout<<"#-----------------------------------"<<endl;
-        cout<<"#----finished model configuration---"<<endl;
-        cout<<"#-----------------------------------"<<endl;
         cout<<"enter 1 to continue : ";
         cin>>debugDATA_SECTION;
         if (debugDATA_SECTION<0) exit(1);
@@ -1096,8 +1089,11 @@ DATA_SECTION
     //read model parameters info
  LOCAL_CALCS
     PRINT2B1("#-----------------------------------")
-    PRINT2B2("#Reading parameters info file ",ptrMC->fnMPI)
-    if (debugModelParamsInfo) ModelParametersInfo::debug=1;
+    PRINT2B1("#------Model Parameters Info--------")
+    PRINT2B2("#Reading model parameters info file ",ptrMC->fnMPI)
+    if (debugModelParamsInfo) {
+        ModelParametersInfo::debug=1;
+    }
     ptrMPI = new ModelParametersInfo(*ptrMC);
     ad_comm::change_datafile_name(ptrMC->fnMPI);
     ptrMPI->read(*(ad_comm::global_datafile));
@@ -1108,24 +1104,9 @@ DATA_SECTION
         ModelParametersInfo::debug=debugModelParamsInfo;
     }
     PRINT2B1("#----finished reading model parameters info---")
-    //----TESTING-----//
-    PRINT2B1("Testing adjusting phases for retrospective analysis")
-//    PRINT2B1("Growth")
-//    for (int pc=1;pc<=ptrMPI->ptrGrw->nPCs;pc++)
-//        rpt::echo<<tb<<"ptrGrw years for pc "<<pc<<": "<<ptrMPI->ptrGrw->getYearsForPC(pc)<<endl;
-//    ptrMPI->setMaxYear(2018);
-//    rpt::echo<<tb<<"pGrA phases   : "<<ptrMPI->ptrGrw->pGrA->getPhases()<<endl;
-//    rpt::echo<<tb<<"pGrB phases   : "<<ptrMPI->ptrGrw->pGrB->getPhases()<<endl;
-//    rpt::echo<<tb<<"pGrBeta phases: "<<ptrMPI->ptrGrw->pGrBeta->getPhases()<<endl;
-//    exit(0);
-    //----TESTING-----//
-    rpt::echo<<"#-----------ModelParametersInfo---------------"<<endl;
-    rpt::echo<<(*ptrMPI)<<endl;
-    rpt::echo<<"#----finished ModelParametersInfo---"<<endl;
+    //NOTE:no need to explicitly write ptrMPI to rpt::echo because inputs
+    //     are written out as they are read in
     if (debugDATA_SECTION){
-        cout<<"#------------------ModelParametersInfo-----------------"<<endl;
-        cout<<(*ptrMPI);
-        cout<<"#----finished model parameters info---"<<endl;
         cout<<"enter 1 to continue : ";
         cin>>debugDATA_SECTION;
         if (debugDATA_SECTION<0) exit(1);
@@ -1141,6 +1122,7 @@ DATA_SECTION
     //read model data
  LOCAL_CALCS
     PRINT2B1("#-----------------------------------")
+    PRINT2B1("#----------Model Datasets-----------")
     PRINT2B2("#--Reading datasets file ",ptrMC->fnMDS);
     if (debugModelDatasets) {
         BioData::debug=1;
@@ -1157,70 +1139,10 @@ DATA_SECTION
         BioData::debug=debugModelDatasets;
         FleetData::debug=debugModelDatasets;
     }
-    if (doRetro) {
-        PRINT2B2("doRetro: RESETTING max year on datasets for retrospective analyses to fishery year ",mxYr-yRetro)
-        if (ptrMDS->nFsh){
-            PRINT2B1("doRetro: RESETTING max year on fishery datasets ")
-            for (int i=0;i<ptrMDS->nFsh; i++) {
-                PRINT2B2("#---Resetting mxYr on fishery dataset ",i+1)
-                FleetData::debug=1;
-                ptrMDS->ppFsh[i]->setMaxYear(mxYr-yRetro);
-                FleetData::debug=0;
-                rpt::echo<<(*ptrMDS->ppFsh[i])<<endl;
-                PRINT2B2("#---Finished resetting mxYr on fishery dataset ",i+1)
-            }
-        }
-        if (ptrMDS->nSrv){
-            PRINT2B1("doRetro: RESETTING max year on survey datasets ")
-            for (int i=0;i<ptrMDS->nSrv; i++) {
-                PRINT2B2("#---Resetting mxYr on survey dataset ",i+1)
-                FleetData::debug=1;
-                ptrMDS->ppSrv[i]->setMaxYear(mxYr+1-yRetro);
-                FleetData::debug=0;
-                rpt::echo<<(*ptrMDS->ppSrv[i])<<endl;
-                PRINT2B2("#---Finished resetting mxYr on survey dataset ",i+1)
-            }
-        }
-        if (ptrMDS->nGrw){
-            PRINT2B1("doRetro: RESETTING max year on growth datasets ")
-            for (int i=0;i<ptrMDS->nGrw; i++) {
-                PRINT2B2("#---Resetting mxYr on growth dataset ",i+1)
-                GrowthData::debug=1;
-                ptrMDS->ppGrw[i]->setMaxYear(mxYr+1-yRetro);
-                GrowthData::debug=0;
-                rpt::echo<<(*ptrMDS->ppGrw[i])<<endl;
-                PRINT2B2("#---Finished resetting mxYr on growth dataset ",i+1)
-            }
-        }
-        if (ptrMDS->nCHD){
-            PRINT2B1("doRetro: RESETTING max year on chela height datasets ")
-            for (int i=0;i<ptrMDS->nCHD; i++) {
-                PRINT2B2("#---Resetting mxYr on chela height dataset ",i+1)
-                ChelaHeightData::debug=1;
-                ptrMDS->ppCHD[i]->setMaxYear(mxYr+1-yRetro,ptrMC->zCutPts);
-                ChelaHeightData::debug=0;
-                rpt::echo<<(*ptrMDS->ppCHD[i])<<endl;
-                PRINT2B2("#---Finished resetting mxYr on chela height dataset ",i+1)
-            }
-        }
-        if (ptrMDS->nMOD){
-            PRINT2B1("doRetro: RESETTING max year on maturity ogive datasets ")
-            for (int i=0;i<ptrMDS->nMOD; i++) {
-                PRINT2B2("#---Resetting mxYr on maturity ogive dataset ",i+1)
-                MaturityOgiveData::debug=1;
-                ptrMDS->ppMOD[i]->setMaxYear(mxYr+1-yRetro);
-                MaturityOgiveData::debug=0;
-                rpt::echo<<(*ptrMDS->ppMOD[i])<<endl;
-                PRINT2B2("#---Finished resetting mxYr on maturity ogive dataset ",i+1)
-            }
-        }
-        PRINT2B1("doRetro: finished RESETTING maxYr on datasets for retrospective analyses")
-    }
     PRINT2B1("#----finished model datasets---")
+    //NOTE: don't need to explicitly write ptrMDs to rpt::echo
+    //      because inputs are written out as they are read in
     if (debugDATA_SECTION){
-        cout<<"#------------------ModelDatasets-----------------"<<endl;
-        cout<<(*ptrMDS);
-        cout<<"#----finished model datasets---"<<endl;
         cout<<"enter 1 to continue : ";
         cin>>debugDATA_SECTION;
         if (debugDATA_SECTION<0) exit(1);
@@ -1230,20 +1152,21 @@ DATA_SECTION
     //read model data again to create SimMDS object
  LOCAL_CALCS
     rpt::echo<<"#-----------------------------------"<<endl;
-    rpt::echo<<"#Reading datasets file again to create SimMDS object '"<<ptrMC->fnMDS<<"'"<<endl;
+    rpt::echo<<"#Reading datasets file again (to create SimMDS object): '"<<ptrMC->fnMDS<<"'"<<endl;
     ptrSimMDS = new ModelDatasets(ptrMC);
     ad_comm::change_datafile_name(ptrMC->fnMDS);
     ptrSimMDS->read(*(ad_comm::global_datafile));
-//    rpt::echo<<"---SimMDS object after reading datasets---"<<endl;
-//    rpt::echo<<(*ptrSimMDS);
-//    rpt::echo<<"#finished SimMDS object"<<endl;
+    rpt::echo<<"#--finished creating SimMDS object--"<<endl;
  END_CALCS   
     
     //read model options
  LOCAL_CALCS
     PRINT2B1("#-----------------------------------")
+    PRINT2B1("#------------Model Options----------")
     PRINT2B2("#--Reading model options file ",ptrMC->fnMOs)
-    if (debugModelOptions) ModelOptions::debug=1;
+    if (debugModelOptions) {
+        ModelOptions::debug=1;
+    }
     ptrMOs = new ModelOptions(*ptrMC);
     ad_comm::change_datafile_name(ptrMC->fnMOs);
     ptrMOs->read(*(ad_comm::global_datafile));
@@ -1254,19 +1177,19 @@ DATA_SECTION
         ModelOptions::debug=debugModelOptions;
     }
     PRINT2B1("#--finished reading model options file---")
-    rpt::echo<<"#------------------ModelOptions-----------------"<<endl;
+    PRINT2B1("#--------writing Model Options as check-----------")
     rpt::echo<<(*ptrMOs);
-    rpt::echo<<"#----finished model options---"<<endl;
+    PRINT2B1("#----finished writing Model Options as check------")
     if (debugDATA_SECTION){
-        cout<<"#------------------ModelOptions-----------------"<<endl;
-        cout<<(*ptrMOs);
-        cout<<"#----finished model options---"<<endl;
         cout<<"enter 1 to continue : ";
         cin>>debugDATA_SECTION;
         if (debugDATA_SECTION<0) exit(1);
     }
+    
     //check commandline options for iterative reweighting overrides
     //min phase in which to calculate effective weights for size compositions
+    PRINT2B1("#-------------------------------------------")
+    PRINT2B1("#--------check commandline options----------")
     phsItsRewgt = ptrMOs->phsIterativeReweighting;
     maxItsRewgt  = ptrMOs->maxIterations;
     if ((on=option_match(ad_comm::argc,ad_comm::argv,"-phsIterativeReweighing"))>-1) {
@@ -1281,11 +1204,80 @@ DATA_SECTION
         }
         flg = 1;
     }
-    rpt::echo<<phsItsRewgt<<tb<<"#phsIterativeReweighing"<<endl;
-    rpt::echo<<maxItsRewgt<<tb<<"#maxIterationsReweighting"<<endl;
-    rpt::echo<<"#-------------------------------------------"<<endl;
+    PRINT2B2("phsIterativeReweighing",phsItsRewgt)
+    PRINT2B2("#maxIterationsReweighting",maxItsRewgt)
+    PRINT2B1("#-------------------------------------------")
  END_CALCS
         
+ LOCAL_CALCS
+    //////////////////////////--FOR RETROSPECTIVE ANALYSES--////////////////////
+    if (doRetro&&(yRetro>0)) {
+        PRINT2B1("#-------------------------------------------")
+        PRINT2B2("doRetro: ADJUSTING max year on MPI for retrospective analyses to fishery year ",mxYr-yRetro)
+        ptrMPI->setMaxYear(mxYr-yRetro);
+        PRINT2B1("doRetro: finished ADJUSTING max year on MPI for retrospective analyses")
+        PRINT2B1("#-----------------------")
+        PRINT2B2("doRetro: RESETTING max year on datasets for retrospective analyses to fishery year ",mxYr-yRetro)
+        if (ptrMDS->nFsh){
+            PRINT2B1("doRetro: RESETTING max year on fishery datasets ")
+            for (int i=0;i<ptrMDS->nFsh; i++) {
+                PRINT2B2("#---Resetting mxYr on fishery dataset ",ptrMDS->ppFsh[i]->name)
+                FleetData::debug=1;
+                ptrMDS->ppFsh[i]->setMaxYear(mxYr-yRetro);
+                FleetData::debug=0;
+                rpt::echo<<(*ptrMDS->ppFsh[i])<<endl;
+                PRINT2B2("#---Finished resetting mxYr on fishery dataset ",ptrMDS->ppFsh[i]->name)
+            }
+        }
+        if (ptrMDS->nSrv){
+            PRINT2B1("doRetro: RESETTING max year on survey datasets ")
+            for (int i=0;i<ptrMDS->nSrv; i++) {
+                PRINT2B2("#---Resetting mxYr on survey dataset ",ptrMDS->ppSrv[i]->name)
+                FleetData::debug=1;
+                ptrMDS->ppSrv[i]->setMaxYear(mxYr+1-yRetro);
+                FleetData::debug=0;
+                rpt::echo<<(*ptrMDS->ppSrv[i])<<endl;
+                PRINT2B2("#---Finished resetting mxYr on survey dataset ",ptrMDS->ppSrv[i]->name)
+            }
+        }
+        if (ptrMDS->nGrw){
+            PRINT2B1("doRetro: RESETTING max year on growth datasets ")
+            for (int i=0;i<ptrMDS->nGrw; i++) {
+                PRINT2B2("#---Resetting mxYr on growth dataset ",ptrMDS->ppGrw[i]->name)
+                GrowthData::debug=1;
+                ptrMDS->ppGrw[i]->setMaxYear(mxYr+1-yRetro);
+                GrowthData::debug=0;
+                rpt::echo<<(*ptrMDS->ppGrw[i])<<endl;
+                PRINT2B2("#---Finished resetting mxYr on growth dataset ",ptrMDS->ppGrw[i]->name)
+            }
+        }
+        if (ptrMDS->nCHD){
+            PRINT2B1("doRetro: RESETTING max year on chela height datasets ")
+            for (int i=0;i<ptrMDS->nCHD; i++) {
+                PRINT2B2("#---Resetting mxYr on chela height dataset ",ptrMDS->ppCHD[i]->name)
+                ChelaHeightData::debug=1;
+                ptrMDS->ppCHD[i]->setMaxYear(mxYr+1-yRetro,ptrMC->zCutPts);
+                ChelaHeightData::debug=0;
+                rpt::echo<<(*ptrMDS->ppCHD[i])<<endl;
+                PRINT2B2("#---Finished resetting mxYr on chela height dataset ",ptrMDS->ppCHD[i]->name)
+            }
+        }
+        if (ptrMDS->nMOD){
+            PRINT2B1("doRetro: RESETTING max year on maturity ogive datasets ")
+            for (int i=0;i<ptrMDS->nMOD; i++) {
+                PRINT2B2("#---Resetting mxYr on maturity ogive dataset ",ptrMDS->ppMOD[i]->name)
+                MaturityOgiveData::debug=1;
+                ptrMDS->ppMOD[i]->setMaxYear(mxYr+1-yRetro);
+                MaturityOgiveData::debug=0;
+                rpt::echo<<(*ptrMDS->ppMOD[i])<<endl;
+                PRINT2B2("#---Finished resetting mxYr on maturity ogive dataset ",ptrMDS->ppMOD[i]->name)
+            }
+        }
+        PRINT2B1("doRetro: finished RESETTING maxYr on datasets for retrospective analyses")
+        PRINT2B1("#-------------------------------------------")
+    }
+ END_CALCS
+ 
     //Match up model fisheries with fisheries datasets
     ivector mapD2MFsh(1,nFsh);
     ivector mapM2DFsh(1,nFsh);
@@ -1719,6 +1711,49 @@ INITIALIZATION_SECTION
 // =============================================================================
 PARAMETER_SECTION
     !!PRINT2B1("#Starting PARAMETER_SECTION")
+ LOCAL_CALCS
+    //----Testing Sandbox-------//
+    if (1){
+        PRINT2B1(" ")
+        PRINT2B1("#--Starting sandbox")
+        dvector z(1,32);
+        for (int i=z.indexmin();i<=z.indexmax();i++) z(i) = 27.5+(i-1)*5.0;
+        rpt::echo<<"--Cubic Spline"<<endl;
+        SelFcns::debug=1;
+        dvector x_knts(1,5);
+        x_knts[1]=z[1]; for (int i=1;i<=4;i++) x_knts[i+1] = z[8*i];
+        dvar_vector y_vals = 1.0/(1.0+exp(-(x_knts-100.0)/30.0));
+        dvar_vector params(1,10);
+        params(1,5)           = x_knts;
+        params(6,10).shift(1) = y_vals;
+        rpt::echo<<"inputs:"<<endl;
+        rpt::echo<<"params = "<<params<<endl;
+        rpt::echo<<"x_knts = "<<x_knts<<endl;
+        rpt::echo<<"y_vals = "<<y_vals<<endl<<endl;
+        
+        rpt::echo<<endl<<"----interpolating at knot values--"<<endl;
+        dvar_vector sel1(x_knts.indexmin(),x_knts.indexmax());
+        sel1 = SelFcns::cubic_spline(x_knts, params, 1.0);
+        rpt::echo<<"----interpolated at knot values--"<<endl;
+        rpt::echo<<"params = "<<params<<endl;
+        rpt::echo<<"x_knts = "<<x_knts<<endl;
+        rpt::echo<<"y_vals = "<<y_vals<<endl;
+        rpt::echo<<"sel    = "<<sel1<<endl<<endl;
+        
+        rpt::echo<<endl<<"----interpolating across size bins--"<<endl;
+        dvar_vector sel2 = 1.0*SelFcns::cubic_spline(z, params, 1.0);
+        rpt::echo<<endl<<"----interpolated across size bins--"<<endl;
+        rpt::echo<<"params = "<<params<<endl;
+        rpt::echo<<"x_knts = "<<x_knts<<endl;
+        rpt::echo<<"y_vals = "<<y_vals<<endl;
+        rpt::echo<<"z      = "<<z<<endl;
+        rpt::echo<<"sel    = "<<sel2<<endl<<endl;
+        SelFcns::debug=0;
+        PRINT2B1("#--Finished sandbox")
+        PRINT2B1(" ")
+        exit(0);
+    }
+ END_CALCS
  
     //recruitment parameters
     init_bounded_number_vector pLnR(1,npLnR,lbLnR,ubLnR,phsLnR);    //mean ln-scale recruitment
@@ -5066,7 +5101,6 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
         if (debug>dbgObjFun) {
             rpt::echo<<"pDevsLnR: "<<endl;
             for (int i=1;i<=devsLnR.indexmax();i++) rpt::echo<<tb<<"["<<i<<"]="<<likeFlagsDevsLnR[i]*devsLnR[i]<<endl;//dot product?
-            rpt::echo<<endl;
         }
         if (debug<0) cout<<tb<<tb<<"pDevsLnR=";
         calcDevsPenalties(debug,cout,penWgt,likeFlagsDevsLnR,devsLnR);        
@@ -5075,9 +5109,8 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     //S1 devs
     if (ptrMPI->ptrSel->pDevsS1->getSize()){
         if (debug>dbgObjFun) {
-            rpt::echo<<"pDevsS1: "<<endl;
+            rpt::echo<<endl<<"pDevsS1: "<<endl;
             for (int i=1;i<=devsS1.indexmax();i++) rpt::echo<<tb<<"["<<i<<"]="<<sum(elem_prod(likeFlagsDevsS1[i],devsS1[i]))<<endl;
-            rpt::echo<<endl;
         }
         if (debug<0) cout<<tb<<tb<<"pDevsS1=";
         calcDevsPenalties(debug,cout,penWgt,likeFlagsDevsS1,devsS1);
@@ -5086,9 +5119,8 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     //S2 devs
     if (ptrMPI->ptrSel->pDevsS2->getSize()){
         if (debug>dbgObjFun) {
-            rpt::echo<<"pDevsS2: "<<endl;
+            rpt::echo<<endl<<"pDevsS2: "<<endl;
             for (int i=1;i<=devsS2.indexmax();i++) rpt::echo<<tb<<"["<<i<<"]="<<sum(elem_prod(likeFlagsDevsS2[i],devsS2[i]))<<endl;
-            rpt::echo<<endl;
         }
         if (debug<0) cout<<tb<<tb<<"pDevsS2=";
         calcDevsPenalties(debug,cout,penWgt,likeFlagsDevsS2,devsS2);
@@ -5097,9 +5129,8 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     //S3 devs
     if (ptrMPI->ptrSel->pDevsS3->getSize()){
         if (debug>dbgObjFun) {
-            rpt::echo<<"pDevsS3: "<<endl;
+            rpt::echo<<endl<<"pDevsS3: "<<endl;
             for (int i=1;i<=devsS3.indexmax();i++) rpt::echo<<tb<<"["<<i<<"]="<<sum(elem_prod(likeFlagsDevsS3[i],devsS3[i]))<<endl;
-            rpt::echo<<endl;
         }
         if (debug<0) cout<<tb<<tb<<"pDevsS3=";
         calcDevsPenalties(debug,cout,penWgt,likeFlagsDevsS3,devsS3);
@@ -5108,9 +5139,8 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     //S4 devs
     if (ptrMPI->ptrSel->pDevsS4->getSize()){
         if (debug>dbgObjFun) {
-            rpt::echo<<"pDevsS4: "<<endl;
+            rpt::echo<<endl<<"pDevsS4: "<<endl;
             for (int i=1;i<=devsS4.indexmax();i++) rpt::echo<<tb<<"["<<i<<"]="<<sum(elem_prod(likeFlagsDevsS4[i],devsS4[i]))<<endl;
-            rpt::echo<<endl;
         }
         if (debug<0) cout<<tb<<tb<<"pDevsS4=";
         calcDevsPenalties(debug,cout,penWgt,likeFlagsDevsS4,devsS4);
@@ -5119,9 +5149,8 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     //S5 devs
     if (ptrMPI->ptrSel->pDevsS5->getSize()){
         if (debug>dbgObjFun) {
-            rpt::echo<<"pDevsS5: "<<endl;
+            rpt::echo<<endl<<"pDevsS5: "<<endl;
             for (int i=1;i<=devsS5.indexmax();i++) rpt::echo<<tb<<"["<<i<<"]="<<sum(elem_prod(likeFlagsDevsS5[i],devsS5[i]))<<endl;
-            rpt::echo<<endl;
         }
         if (debug<0) cout<<tb<<tb<<"pDevsS5=";
         calcDevsPenalties(debug,cout,penWgt,likeFlagsDevsS5,devsS5);
@@ -5130,9 +5159,8 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     //S6 devs
     if (ptrMPI->ptrSel->pDevsS6->getSize()){
         if (debug>dbgObjFun) {
-            rpt::echo<<"pDevsS6:"<<endl;
+            rpt::echo<<endl<<"pDevsS6:"<<endl;
             for (int i=1;i<=devsS6.indexmax();i++) rpt::echo<<tb<<"["<<i<<"]="<<sum(elem_prod(likeFlagsDevsS6[i],devsS6[i]))<<endl;
-            rpt::echo<<endl;
         }
         if (debug<0) cout<<tb<<tb<<"pDevsS6=";
         calcDevsPenalties(debug,cout,penWgt,likeFlagsDevsS6,devsS6);
@@ -5141,9 +5169,8 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     //capture rate devs
     if (ptrMPI->ptrFsh->pDevsLnC->getSize()){
         if (debug>dbgObjFun) {
-            rpt::echo<<"pDevsLnC:"<<endl;
+            rpt::echo<<endl<<"pDevsLnC:"<<endl;
             for (int i=1;i<=devsLnC.indexmax();i++) rpt::echo<<tb<<"["<<i<<"]="<<sum(elem_prod(likeFlagsDevsLnC[i],devsLnC[i]))<<endl;
-            rpt::echo<<endl;
         }
         if (debug<0) cout<<tb<<tb<<"pDevsLnC=";
         calcDevsPenalties(debug,cout,penWgt,likeFlagsDevsLnC,devsLnC);

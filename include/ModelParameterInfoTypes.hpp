@@ -1772,11 +1772,26 @@ class DevsVectorVectorInfo: public BoundedVectorVectorInfo {
          */
         virtual DevsVectorInfo* operator[](int i){if ((ppVIs)&&(i<=nVIs)) return (DevsVectorInfo*) ppVIs[i-1]; return 0;}
 
-        /** gets the total number of parameters */
+        /**
+         * Gets the total number of parameters for all associated devs vectors
+         * (i.e., for the associated param_init_number_vector)
+         * 
+         * @return the total number of parameters
+         */
         int getNumParameters(void){return npT;}
-        /** gets the ivector of phases for the associated param_init_number_vector */
+        /**
+         * Gets the ivector of phases for the associated param_init_number_vector (a
+         * concatenation of the phases ivectors for all associated devs vectors).
+         * 
+         * @return ivector(1,npT) of phases for each element of the associated param_init_number_vector
+         */
         ivector getParameterPhases(void);
-        /** sets the ivector of phases for the associated param_init_number_vector */
+        /**
+         * Convenience method to set estimation phases for elements of all associated 
+         * devs vectors (and thus the associated param_init_number_vector).
+         * 
+         * @param phases - ivector(1,npT) to use to set phases
+         */
         void setParameterPhases(const ivector& phases);
         virtual void read(cifstream & is);
         virtual void write(ostream & os);

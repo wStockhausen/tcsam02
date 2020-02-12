@@ -2541,7 +2541,12 @@ void DevsVectorVectorInfo::read(cifstream & is){
     if (debug) rpt::echo<<"finished DevsVectorVectorInfo::read(cifstream & is) "<<name<<endl;
 }
 
-/** gets the ivector of phases for the associated param_init_number_vector */
+/**
+ * Gets the ivector of phases for the associated param_init_number_vector (a
+ * concatenation of the phases ivectors for all associated devs vectors).
+ * 
+ * @return ivector(1,npT) of phases for each element of the associated param_init_number_vector
+ */
 ivector DevsVectorVectorInfo::getParameterPhases(void){
     ivector phases(1,npT);
     int ctr = 1;
@@ -2551,7 +2556,12 @@ ivector DevsVectorVectorInfo::getParameterPhases(void){
     }
     return phases;
 }
-/** sets the ivector of phases for the associated param_init_number_vector */
+/**
+ * Convenience method to set estimation phases for elements of all associated 
+ * devs vectors (and thus the associated param_init_number_vector).
+ * 
+ * @param phases - ivector(1,npT) to use to set phases
+ */
 void DevsVectorVectorInfo::setParameterPhases(const ivector& phases){
     int ctr = 1;
     for (int v=1;v<=nVIs;v++) {

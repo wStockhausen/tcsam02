@@ -661,11 +661,14 @@ dvector tcsam::extractFromYXMSZ(int y, int x, int m, int s, d5_array& n_yxmsz){
  * @return - matrix such that N_finl = mat * N_orig.
  */
 dmatrix tcsam::getRebinMatrix(dvector origCtPts, dvector finlCtPts){
-    rpt::echo<<"Starting tcsam::getRebinMatrix()"<<endl;
+    int debug=0;
+    if (debug) rpt::echo<<"Starting tcsam::getRebinMatrix()"<<endl;
     int nO = origCtPts.size()-1;//no. original (i.e. model) bins
     int nF = finlCtPts.size()-1;//no. final (i.e. data) bins
-    rpt::echo<<"origCtPts = "<<origCtPts<<endl;
-    rpt::echo<<"finlCtPts = "<<finlCtPts<<endl;
+    if (debug){
+        rpt::echo<<"origCtPts = "<<origCtPts<<endl;
+        rpt::echo<<"finlCtPts = "<<finlCtPts<<endl;
+    }
     
     
     dmatrix p_ij(1,nF,1,nO);
@@ -674,75 +677,47 @@ dmatrix tcsam::getRebinMatrix(dvector origCtPts, dvector finlCtPts){
     dvector cms = 1.0*origCtPts;
     dvector cds = 1.0*finlCtPts;
     for (int j=1;j<=nO;j++){  
-        rpt::echo<<"j = "<<j<<tb<<cms[j]<<endl;
+        if (debug) rpt::echo<<"j = "<<j<<tb<<cms[j]<<endl;
         for (int i=1; i<=nF; i++){
-            rpt::echo<<tb<<"i = "<<i<<tb<<cds[i]<<endl;
+            if (debug) rpt::echo<<tb<<"i = "<<i<<tb<<cds[i]<<endl;
             if (cds[i+1]<=cms[j]) {
               p_ij(i,j) = 0;
-              rpt::echo<<tb<<"cds["<<i+1<<"]="<<cds[i+1]<<" <= cms["<<j<<"]="<<cms[j]<<" => p_ij = 0"<<endl;
+              if (debug) rpt::echo<<tb<<"cds["<<i+1<<"]="<<cds[i+1]<<" <= cms["<<j<<"]="<<cms[j]<<" => p_ij = 0"<<endl;
             } else if (cms[j+1]<cds[i]){
               p_ij(i,j) = 0;
-              rpt::echo<<tb<<"cms["<<j+1<<"]="<<cms[j+1]<<" <  cds["<<i<<"]="<<cds[i]<<" => p_ij = 0"<<endl;
+              if (debug) rpt::echo<<tb<<"cms["<<j+1<<"]="<<cms[j+1]<<" <  cds["<<i<<"]="<<cds[i]<<" => p_ij = 0"<<endl;
             } else {
               double del = cms[j+1]-cms[j];
               if ((cds[i]<cms[j])&(cms[j+1]<cds[i+1])) {
                 p_ij(i,j) = 1.0;
-                rpt::echo<<tb<<"cds["<<i<<"]="<<cds[i]<<" < cms["<<j<<"]="<<cms[j]<<endl;
-                rpt::echo<<tb<<"cms["<<j+1<<"]="<<cms[j+1]<<" <= cds["<<i+1<<"]="<<cds[i+1]<<endl;
-                rpt::echo<<tb<<tb<<" => p_ij = "<<p_ij(i,j)<<endl;
+                if (debug) {
+                    rpt::echo<<tb<<"cds["<<i<<"]="<<cds[i]<<" < cms["<<j<<"]="<<cms[j]<<endl;
+                    rpt::echo<<tb<<"cms["<<j+1<<"]="<<cms[j+1]<<" <= cds["<<i+1<<"]="<<cds[i+1]<<endl;
+                    rpt::echo<<tb<<tb<<" => p_ij = "<<p_ij(i,j)<<endl;
+                }
               } else if (cms[j]<=cds[i]) {
                 double delp = cms[j+1]-max(cds[i],cms[j]);
                 p_ij(i,j) = delp/del;
-                rpt::echo<<tb<<"cms["<<j<<"]="<<cms[j]<<" <= cds["<<i<<"]="<<cds[i]<<endl;
-                rpt::echo<<tb<<tb<<cms[j+1]<<tb<<max(cds[i],cms[j])<<tb<<delp<<endl;
-                rpt::echo<<tb<<tb<<" => p_ij = "<<p_ij(i,j)<<endl;
+                if (debug){
+                    rpt::echo<<tb<<"cms["<<j<<"]="<<cms[j]<<" <= cds["<<i<<"]="<<cds[i]<<endl;
+                    rpt::echo<<tb<<tb<<cms[j+1]<<tb<<max(cds[i],cms[j])<<tb<<delp<<endl;
+                    rpt::echo<<tb<<tb<<" => p_ij = "<<p_ij(i,j)<<endl;
+                }
               } else if (cds[i+1]<=cms[j+1]) {
                 double delp = min(cds[i+1],cms[j+1])-cms[j];
                 p_ij(i,j) = delp/del;
-                rpt::echo<<tb<<"cds["<<i+1<<"]="<<cds[i+1]<<" < cms["<<j+1<<"]="<<cms[j+1]<<endl;
-                rpt::echo<<tb<<tb<<min(cds[i+1],cms[j+1])<<tb<<cms[j]<<tb<<delp<<endl;
-                rpt::echo<<tb<<tb<<" => p_ij = "<<p_ij(i,j)<<endl;
+                if (debug){
+                    rpt::echo<<tb<<"cds["<<i+1<<"]="<<cds[i+1]<<" < cms["<<j+1<<"]="<<cms[j+1]<<endl;
+                    rpt::echo<<tb<<tb<<min(cds[i+1],cms[j+1])<<tb<<cms[j]<<tb<<delp<<endl;
+                    rpt::echo<<tb<<tb<<" => p_ij = "<<p_ij(i,j)<<endl;
+                }
               }
             }
         }//--i
     }//--j
-//for (j in 1:cms.n){
-//  cat("\n\n");
-//  cat("cms[",j,"] =",cms[j:(j+1)],"\n")
-//  for (i in 1:cds.n){
-//    cat("cds[",i,"] =",cds[i:(i+1)],"\n")
-//    if (cds[i+1]<=cms[j]) {
-//      p_ij[i,j]<-0;
-//    } else if (cms[j+1]<cds[i]){
-//      p_ij[i,j]<-0;
-//    } else {
-//      del<-cms[j+1]-cms[j];
-//      if ((cds[i]<cms[j])&(cms[j+1]<cds[i+1])) {
-//        cat("cds[",i,"]=",cds[i]," < cms[",j,"]=",cms[j],"\n",sep="");
-//        cat("cms[",j+1,"]=",cms[j+1]," <= cds[",i+1,"]=",cds[i+1],"\n",sep="");
-//        p_ij[i,j]<-1.0;
-//        cat("\t",p_ij[i,j],"\n")
-//        #break;
-//      } else if (cms[j]<=cds[i]) {
-//        cat("cms[",j,"]=",cms[j]," <= cds[",i,"]=",cds[i],"\n",sep="");
-//        delp<-cms[j+1]-max(cds[i],cms[j]);
-//        cat("\t",cms[j+1],max(cds[i],cms[j]),delp,"\n");
-//        p_ij[i,j]<-delp/del;
-//        cat("\t",p_ij[i,j],"\n")
-//        #break;
-//      } else if (cds[i+1]<=cms[j+1]) {
-//        cat("cds[",i+1,"]=",cds[i+1]," < cms[",j+1,"]=",cms[j+1],"\n",sep="");
-//        delp<-min(cds[i+1],cms[j+1])-cms[j];
-//        cat("\t",min(cds[i+1],cms[j+1]),cms[j],delp,"\n");
-//        p_ij[i,j]<-delp/del;
-//        cat("\t",p_ij[i,j],"\n")
-//        #break;
-//      }
-//    }
-//
-//  }#--j
-//}#--i
-    rpt::echo<<"p_ij = "<<endl<<p_ij<<endl;
-    rpt::echo<<"Finished getRebinMatrix"<<endl;
+    if (debug){
+        rpt::echo<<"p_ij = "<<endl<<p_ij<<endl;
+        rpt::echo<<"Finished getRebinMatrix"<<endl;
+    }
     return p_ij;
 }

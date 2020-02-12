@@ -9,6 +9,7 @@
 #include "wtsADMB.hpp"
 #include "ModelConstants.hpp"
 #include "ModelSelectivities.hpp"
+#include "gsm_splines.hpp"
 
 using namespace std;
 
@@ -37,6 +38,7 @@ const adstring SelFcns::STR_DBLNORMAL4         ="dblnormal4";
 const adstring SelFcns::STR_DBLNORMAL6         ="dblnormal6";
 const adstring SelFcns::STR_CONSTANT           ="constant";
 const adstring SelFcns::STR_NONPARAMETRIC      ="nonparametric";
+const adstring SelFcns::STR_CUBICSPLINE        ="cubic_spline";
 
 //--------------------------------------------------------------------------------
 //          SelFcns
@@ -79,6 +81,7 @@ int SelFcns::getSelFcnID(adstring str){
     if (str==STR_DBLNORMAL6)          return ID_DBLNORMAL6;
     if (str==STR_CONSTANT)            return ID_CONSTANT;
     if (str==STR_NONPARAMETRIC)       return ID_NONPARAMETRIC;
+    if (str==STR_CUBICSPLINE)         return ID_CUBICSPLINE;
     cout<<"Error in SelFcns::getSelFcnID(adstring str)"<<endl;
     cout<<"Function name '"<<str<<"' not a valid selectivity function name."<<endl;
     cout<<"Aborting..."<<endl;
@@ -147,6 +150,9 @@ adstring SelFcns::getSelFcnID(int id){
         case ID_NONPARAMETRIC: 
             if (debug) cout<<"SelFcn = "<<STR_NONPARAMETRIC<<endl;
             return STR_NONPARAMETRIC;
+        case ID_CUBICSPLINE: 
+            if (debug) cout<<"SelFcn = "<<STR_CUBICSPLINE<<endl;
+            return STR_CUBICSPLINE;
         default:
         {
             cout<<endl;
@@ -193,6 +199,7 @@ dvar_vector SelFcns::calcSelFcn(int id, dvector& z, dvar_vector& params, double 
         case ID_DBLNORMAL6:          {s=dblnormal6(z,params,fsZ);          break;}
         case ID_CONSTANT:            {s=constant(z);                       break;}
         case ID_NONPARAMETRIC:       {s=nonparametric(z,params,fsZ);       break;}
+        case ID_CUBICSPLINE:         {s=cubic_spline(z,params,fsZ);        break;}
         default:
         {
             cout<<"Invalid id for SelFcns.calcSelFcn(id,...)";
@@ -801,4 +808,39 @@ dvar_vector SelFcns::nonparametric(dvector& z, dvar_vector& params, int idZ){
     return s;
 }       
 
+/**
+ * Calculates an n-parameter cubic spline function parameterized by 
+ *      params[1:n]:    values at knots
+ *      params[n+1:2n]: knots
+ * Inputs:
+ * @param z      - dvector of sizes at which to compute function values
+ * @param params - dvar_vector of function parameters [knots = params(1,np); values = params(np+1,2*np)]
+ * @param fsZ    - size at which function = 1 (i.e., fully-selected size) [double] NOTE: ignored!
+ * 
+ * @return - selectivity function values as dvar_vector
+ */
+dvar_vector SelFcns::cubic_spline(dvector& z, dvar_vector& params, double fsZ){
+//    RETURN_ARRAYS_INCREMENT();
+    if (debug) {
+        rpt::echo<<"Starting SelFcns::cubic_spline(...)"<<endl;
+        rpt::echo<<"iz_min, iz_max = "<<z.indexmin()<<cc<<z.indexmax()<<endl;
+        rpt::echo<<"ip_min, ip_max = "<<params.indexmin()<<cc<<params.indexmax()<<endl;
+    }
+    int np = params.size()/2;
+    dvar_vector knots = params(1,np);     //knot locations
+    dvar_vector yvals = params(np+1,2*np);//function values at knots
+    rpt::echo<<endl<<"initSpline return type   = "<<typeid(gsm::initSpline(yvals,knots)).name()<<endl;
+    dvar_vector yppvals = gsm::initSpline(yvals,knots,debug);            //values of 2nd derivatives at knots
+    rpt::echo<<endl<<"interpSpline return type = "<<typeid(gsm::interpSpline(z,knots,yvals,yppvals)).name()<<endl;
+    dvar_vector s       = gsm::interpSpline(z,knots,yvals,yppvals,debug);//function values interpolated at z locations    
+    if (debug) {
+        rpt::echo<<"knots   = "<<knots<<endl;
+        rpt::echo<<"yvals   = "<<yvals<<endl;
+        rpt::echo<<"yppvals = "<<yppvals<<endl;
+        rpt::echo<<"s       = "<<s<<endl;
+        rpt::echo<<"Finished SelFcns::cubic_spline(...)"<<endl;
+    }
+//    RETURN_ARRAYS_DECREMENT();
+    return s;
+}
 

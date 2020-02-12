@@ -422,13 +422,13 @@ void MaturityOgiveData::setMaxYear(int mxYr){
     obsSS_n    = column(inpData_nc,4);
     obsPrMat_n = column(inpData_nc,5);
     
-    rpt::echo<<"obsYear_n  = "<<obsYear_n <<endl;
-    rpt::echo<<"obsSize_n  = "<<obsSize_n <<endl;
-    rpt::echo<<"obsZBI_n   = "<<obsZBI_n  <<endl;
-    rpt::echo<<"obsSS_n    = "<<obsSS_n   <<endl;
-    rpt::echo<<"obsPrMat_n = "<<obsPrMat_n<<endl;
+    if (debug){
+        rpt::echo<<"obsYear_n  = "<<obsYear_n <<endl;
+        rpt::echo<<"obsSize_n  = "<<obsSize_n <<endl;
+        rpt::echo<<"obsZBI_n   = "<<obsZBI_n  <<endl;
+        rpt::echo<<"obsSS_n    = "<<obsSS_n   <<endl;
+        rpt::echo<<"obsPrMat_n = "<<obsPrMat_n<<endl;
     
-    if (debug) {
         cout     <<"end MaturityOgiveData::setMaxYear("<<mxYr<<")"<<endl;    
         rpt::echo<<"end MaturityOgiveData::setMaxYear("<<mxYr<<")"<<endl;    
     }
@@ -439,12 +439,14 @@ void MaturityOgiveData::setMaxYear(int mxYr){
  * @param zCs - model size bin cutpoints
  */
 void MaturityOgiveData::calcSizeBinRemapper(const dvector& zCs){
-    rpt::echo<<"Starting MaturityOgiveData::calcSizeBinRemapper(zCs)"<<endl;
+    if (debug) rpt::echo<<"Starting MaturityOgiveData::calcSizeBinRemapper(zCs)"<<endl;
     zbRemapper = tcsam::getRebinMatrix(zCs,cutpts);
-    rpt::echo<<"model zCs = "<<zCs<<endl;
-    rpt::echo<<"MO    zCs = "<<cutpts<<endl;
-    rpt::echo<<"sizeBinRemapper: "<<endl; rpt::echo<<zbRemapper<<endl;
-    rpt::echo<<"Finished MaturityOgiveData::calcSizeBinRemapper(zCs)"<<endl;
+    if (debug){
+        rpt::echo<<"model zCs = "<<zCs<<endl;
+        rpt::echo<<"MO    zCs = "<<cutpts<<endl;
+        rpt::echo<<"sizeBinRemapper: "<<endl; rpt::echo<<zbRemapper<<endl;
+        rpt::echo<<"Finished MaturityOgiveData::calcSizeBinRemapper(zCs)"<<endl;
+    }
 }
 /**
  * Read maturity ogive data from input file stream.

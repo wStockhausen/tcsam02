@@ -130,12 +130,14 @@ void tcsam::adjustParamPhase(NumberVectorInfo* pI, ParameterGroupInfo* pgi, int 
 /**
  * Adjusts parameter vector phases to be consistent with maxYr.
  * 
- * The phase for any parameter vector that is originally set to be estimated ONLY in a 
- * time block later than maxYr is set to negative so it will not be estimated.
+ * Estimation phases are defined for each associated parameter vector (not 
+ * each element). The phase for any parameter vector that is originally set to be 
+ * estimated ONLY in a time block later than maxYr is set to negative so it will 
+ * not be estimated.
  * 
- * @param pVVI - pointer to VectorVectorInfo for vector of parameters of interest
- * @param pgi - pointer to ParameterGroupInfo for the parameter group of interest
- * @param pid - index to parameter vector in ParameterGroupInfo
+ * @param pVVI  - pointer to VectorVectorInfo for vector of parameters of interest
+ * @param pgi   - pointer to ParameterGroupInfo for the parameter group of interest
+ * @param pid   - index to parameter vector in ParameterGroupInfo
  * @param maxYr - max year for estimated parameter vectors
  * @param debug - flag to print debugging info
  */
@@ -144,7 +146,7 @@ void tcsam::adjustParamPhase(VectorVectorInfo* pVVI, ParameterGroupInfo* pgi, in
     int np = pVVI->getSize();//number of parameter vectors
     ivector done(1,np); done=0;
     ivector phases(1,np);
-    for (int p=1;p<=np;p++){ //loop over parameters
+    for (int p=1;p<=np;p++){ //loop over parameter vectors
         int phase = (*pVVI)[p]->getPhase();
         if (debug) rpt::echo<<"--checking parameter vector "<<p<<" with phase "<<phase<<endl;
         if ((done[p]==0)&&(phase>0)){ //check only parameter vectors that haven't been determined and are set to be estimated
@@ -175,9 +177,198 @@ void tcsam::adjustParamPhase(VectorVectorInfo* pVVI, ParameterGroupInfo* pgi, in
         }//--(!done[p])&&(phase>0)
         (*pVVI)[p]->setPhase(phase);
         phases[p] = phase;
-    }//--loop over parameters
+    }//--loop over parameter vectors
     if (debug) rpt::echo<<"--final phases: "<<phases<<endl;
     if (debug) rpt::echo<<"Finished adjustParamPhase(VectorVectorInfo*...) for "<<pVVI->name<<" for max year "<<maxYr<<endl<<endl;
+}
+
+/**
+ * Adjusts devs vector phases to be consistent with maxYr.
+ * 
+ * For each devs vector represented by the DevsVectorVectorInfo object,
+ * the phase for each element associated with a year later than maxYr 
+ * is set to negative so it will not be estimated.
+ * 
+ * @param pDVVI - pointer to DevsVectorVectorInfo for the devs vectors of interest
+ * @param maxYr - max year for estimated parameter vectors
+ * @param debug - flag to print debugging info
+ */
+void tcsam::adjustParamPhase(DevsVectorVectorInfo* pDVVI, int maxYr, int debug){
+    if (debug) rpt::echo<<"Starting adjustParamPhase(DevsVectorVectorInfo*...) for "<<pDVVI->name<<" for max year "<<maxYr<<endl;
+    int np = pDVVI->getSize();//number of devs vectors
+    for (int p=1;p<=np;p++){ //loop over devs vectors
+        DevsVectorInfo* pDVI = (*pDVVI)[p];
+        ivector phases = pDVI->getPhases();
+        ivector years  = pDVI->getFwdIndices();
+        if (debug){
+            rpt::echo<<"--p = "<<p<<endl;
+            rpt::echo<<"----original phases = "<<phases<<endl;
+            rpt::echo<<"----years           ="<<years<<endl;
+        }
+        for (int i=years.indexmin();i<=years.indexmax();i++){
+            if (years[i]>maxYr) phases[i] = -abs(phases[i]);//set estimation phase to negative
+        }
+        pDVI->setPhases(phases);
+        if (debug) rpt::echo<<"----final phases: "<<pDVI->getPhases()<<endl;
+    }//--loop over devs vectors
+    if (debug) {
+        rpt::echo<<"--final phases for all parameters: "<<pDVVI->getParameterPhases()<<endl;
+        rpt::echo<<"Finished adjustParamPhase(DevsVectorVectorInfo*...) for "<<pDVVI->name<<" for max year "<<maxYr<<endl<<endl;
+    }
+}
+/**
+ * Adjusts parameter phases to be consistent with maxYr.
+ * 
+ * The phase for any parameter that is originally set to be estimated ONLY in a 
+ * time block later than maxYr is set to negative so it will not be estimated.
+ * 
+ * @param pI - pointer to NumberVectorInfo for vector of parameters of interest
+ * @param pgi - pointer to ParameterGroupInfo for the parameter group of interest
+ * @param pid - index to parameter in ParameterGroupInfo
+ * @param maxYr - max year for estimated parameters
+ * @param sfs - ivector indicating fishery or survey adjustment
+ * @param debug - flag to print debugging info
+ */
+void tcsam::adjustParamPhase(NumberVectorInfo* pI, ParameterGroupInfo* pgi, int pid, int maxYr, const ivector& sfs, int debug){
+    if (debug) rpt::echo<<"Starting adjustParamPhase(NumberVectorInfo*...) for "<<pI->name<<" for max year "<<maxYr<<" using pid "<<pid<<endl;
+    int np = pI->getSize();//number of parameters
+    ivector phases = pI->getPhases();
+    if (debug) rpt::echo<<"--initial phases: "<<phases<<endl;
+    ivector done(1,np); done=0;
+    for (int p=1;p<=np;p++){ //loop over parameters
+        if (debug) rpt::echo<<"--checking parameter "<<p<<endl;
+        if ((done[p]==0)&&(phases[p]>0)){ //check only parameters that haven't been determined and are set to be estimated
+            int nPCs = pgi->nPCs;//number of parameter combinations in the associated parameter group
+            bool estParam = false; 
+            for (int pc=1;pc<=nPCs;pc++){ //loop over parameter combinations
+                ivector pcids = pgi->getPCIDs(pc);
+                if (debug) rpt::echo<<"checking pc "<<pc<<" for parameter "<<p<<". and pcid = "<<pcids<<endl;
+                int pcid = pcids[pid];//get id (index) of parameter used in this pc
+                if (debug) rpt::echo<<"checking pc "<<pc<<" for parameter "<<p<<" and got pcid "<<pcid<<endl;
+                if (pcid==p){//make check for this parameter, since it's included in this pc
+                    ivector years = pgi->getYearsForPC(pc);
+                    if (debug) rpt::echo<<"----pc = "<<pc<<tb<<"years = "<<years<<endl;
+                    for (int iy=years.indexmin();iy<=years.indexmax();iy++){
+                        if (years[iy]<=maxYr+sfs[pc]){//adjust for survey or fishery
+                            //parameter is in pc that pertains to model year interval
+                            estParam=true;//so parameter should be estimated
+                            done[p]=1;//don't need to check further pc's
+                            if (debug) rpt::echo<<"----estParam=TRUE and done=1"<<endl;
+                            break;
+                        }
+                    }//--iy loop
+                    if (estParam) break;
+                }//--pcid==p
+            }//--loop over pc's
+            if (debug && !estParam) rpt::echo<<"----estParam=FALSE"<<endl;
+            phases[p] = estParam ? phases[p] : -phases[p];//set phase to negative if parameter should NOT be estimated
+        }//--(!done[p])&&(phases[p]>0)
+    }//--loop over parameters
+    if (debug) rpt::echo<<"--final phases: "<<phases<<endl;
+    pI->setPhases(phases);
+    if (debug) rpt::echo<<"Finished adjustParamPhase(NumberVectorInfo*...) for "<<pI->name<<" for max year "<<maxYr<<endl<<endl;
+}
+
+/**
+ * Adjusts parameter vector phases to be consistent with maxYr.
+ * 
+ * Estimation phases are defined for each associated parameter vector (not 
+ * each element). The phase for any parameter vector that is originally set to be 
+ * estimated ONLY in a time block later than maxYr is set to negative so it will 
+ * not be estimated.
+ * 
+ * @param pVVI  - pointer to VectorVectorInfo for vector of parameters of interest
+ * @param pgi   - pointer to ParameterGroupInfo for the parameter group of interest
+ * @param pid   - index to parameter vector in ParameterGroupInfo
+ * @param maxYr - max year for estimated parameter vectors
+ * @param sfs - ivector indicating fishery or survey adjustment
+ * @param debug - flag to print debugging info
+ */
+void tcsam::adjustParamPhase(VectorVectorInfo* pVVI, ParameterGroupInfo* pgi, int pid, int maxYr, const ivector& sfs, int debug){
+    if (debug) rpt::echo<<"Starting adjustParamPhase(VectorVectorInfo*...) for "<<pVVI->name<<" for max year "<<maxYr<<" using pid "<<pid<<endl;
+    int np = pVVI->getSize();//number of parameter vectors
+    ivector done(1,np); done=0;
+    ivector phases(1,np);
+    for (int p=1;p<=np;p++){ //loop over parameter vectors
+        int phase = (*pVVI)[p]->getPhase();
+        if (debug) rpt::echo<<"--checking parameter vector "<<p<<" with phase "<<phase<<endl;
+        if ((done[p]==0)&&(phase>0)){ //check only parameter vectors that haven't been determined and are set to be estimated
+            int nPCs = pgi->nPCs;//number of parameter combinations in the associated parameter group
+            bool estParam = false; 
+            for (int pc=1;pc<=nPCs;pc++){ //loop over parameter combinations
+                ivector pcids = pgi->getPCIDs(pc);
+                if (debug) rpt::echo<<"checking pc "<<pc<<" for parameter vector "<<p<<". and pcid = "<<pcids<<endl;
+                int pcid = pcids[pid];//get id (index) of parameter vector used in this pc
+                if (debug) rpt::echo<<"checking pc "<<pc<<" for parameter vector "<<p<<" and got pcid "<<pcid<<endl;
+                if (pcid==p){//make check for this parameter vector, since it's included in this pc
+                    ivector years = pgi->getYearsForPC(pc);
+                    if (debug) rpt::echo<<"----pc = "<<pc<<tb<<"years = "<<years<<endl;
+                    for (int iy=years.indexmin();iy<=years.indexmax();iy++){
+                        if (years[iy]<=maxYr+sfs[pc]){//adjust for survey or fishery
+                            //parameter is in pc that pertains to model year interval
+                            estParam=true;//so parameter should be estimated
+                            done[p]=1;//don't need to check further pc's
+                            if (debug) rpt::echo<<"----estParam=TRUE and done=1"<<endl;
+                            break;
+                        }
+                    }//--iy loop
+                    if (estParam) break;
+                }//--pcid==p
+            }//--loop over pc's
+            if (debug && !estParam) rpt::echo<<"----estParam=FALSE"<<endl;
+            phase = estParam ? phase : -phase;//set phase to negative if parameter should NOT be estimated
+        }//--(!done[p])&&(phase>0)
+        (*pVVI)[p]->setPhase(phase);
+        phases[p] = phase;
+    }//--loop over parameter vectors
+    if (debug) rpt::echo<<"--final phases: "<<phases<<endl;
+    if (debug) rpt::echo<<"Finished adjustParamPhase(VectorVectorInfo*...) for "<<pVVI->name<<" for max year "<<maxYr<<endl<<endl;
+}
+
+/**
+ * Adjusts devs vector phases to be consistent with maxYr.
+ * 
+ * For each devs vector represented by the DevsVectorVectorInfo object,
+ * the phase for each element associated with a year later than maxYr 
+ * is set to negative so it will not be estimated.
+ * 
+ * @param pDVVI - pointer to DevsVectorVectorInfo for the devs vectors of interest
+ * @param maxYr - max year for estimated parameter vectors
+ * @param sfs - ivector indicating fishery or survey adjustment
+ * @param debug - flag to print debugging info
+ */
+void tcsam::adjustParamPhase(DevsVectorVectorInfo* pDVVI, ParameterGroupInfo* pgi, int pid, int maxYr, const ivector& sfs, int debug){
+    if (debug) rpt::echo<<"Starting adjustParamPhase(DevsVectorVectorInfo*...) for "<<pDVVI->name<<" for max year "<<maxYr<<endl;
+    int np = pDVVI->getSize();//number of devs vectors
+    for (int p=1;p<=np;p++){ //loop over devs vectors
+        DevsVectorInfo* pDVI = (*pDVVI)[p];
+        ivector phases = pDVI->getPhases();
+        ivector years  = pDVI->getFwdIndices();
+        if (debug){
+            rpt::echo<<"--p = "<<p<<endl;
+            rpt::echo<<"----original phases = "<<phases<<endl;
+            rpt::echo<<"----years           ="<<years<<endl;
+        }
+        int adj = 0;
+        for (int pc=1;pc<=pgi->nPCs;pc++){
+            if (pgi->getPCIDs(pc)[pid]==p){
+                if (debug) rpt::echo<<"devs vector "<<p<<" is in pc "<<pc<<endl;
+                if (sfs[pc]>0) {
+                    adj=1;//adjustment for surveys
+                    if (debug) rpt::echo<<"--adjusting max year for survey"<<endl;
+                }
+            }
+        }
+        for (int i=years.indexmin();i<=years.indexmax();i++){
+            if (years[i]>maxYr+adj) phases[i] = -abs(phases[i]);//set estimation phase to negative
+        }
+        pDVI->setPhases(phases);
+        if (debug) rpt::echo<<"----final phases: "<<pDVI->getPhases()<<endl;
+    }//--loop over devs vectors
+    if (debug) {
+        rpt::echo<<"--final phases for all parameters: "<<pDVVI->getParameterPhases()<<endl;
+        rpt::echo<<"Finished adjustParamPhase(DevsVectorVectorInfo*...) for "<<pDVVI->name<<" for max year "<<maxYr<<endl<<endl;
+    }
 }
 
 /*----------------------------------------------------------------------------\n
@@ -863,12 +1054,12 @@ RecruitmentInfo::~RecruitmentInfo(){
  */
 void RecruitmentInfo::setMaxYear(int mxYr){
     int k = nIVs+1;
-    if (pLnR) tcsam::adjustParamPhase(pLnR,this,k++,mxYr,1);
-    if (pRCV) tcsam::adjustParamPhase(pRCV,this,k++,mxYr,1);
-    if (pRX)  tcsam::adjustParamPhase(pRX, this,k++,mxYr,1);
-    if (pRa)  tcsam::adjustParamPhase(pRa, this,k++,mxYr,1);
-    if (pRb)  tcsam::adjustParamPhase(pRb, this,k++,mxYr,1);
-    //if (pDevsLnR) tcsam::adjustParamPhase(pDevsLnR,this,k++,mxYr,1);
+    if (pLnR)     tcsam::adjustParamPhase(pLnR,this,k++,mxYr,1);
+    if (pRCV)     tcsam::adjustParamPhase(pRCV,this,k++,mxYr,1);
+    if (pRX)      tcsam::adjustParamPhase(pRX, this,k++,mxYr,1);
+    if (pRa)      tcsam::adjustParamPhase(pRa, this,k++,mxYr,1);
+    if (pRb)      tcsam::adjustParamPhase(pRb, this,k++,mxYr,1);
+    if (pDevsLnR) tcsam::adjustParamPhase(pDevsLnR,mxYr,1);
 }
 
 /**
@@ -1525,12 +1716,19 @@ adstring SelectivityInfo::NAME = "selectivities";
 const int SelectivityInfo::nIVs =  1;
 const int SelectivityInfo::nPVs = 13;
 const int SelectivityInfo::nXIs =  2;
+const int SelectivityInfo::idxS1=SelectivityInfo::nIVs+ 1;//parameter combinations index for pS1
+const int SelectivityInfo::idxS2=SelectivityInfo::nIVs+ 2;//parameter combinations index for pS2
+const int SelectivityInfo::idxS3=SelectivityInfo::nIVs+ 3;//parameter combinations index for pS3
+const int SelectivityInfo::idxS4=SelectivityInfo::nIVs+ 4;//parameter combinations index for pS4
+const int SelectivityInfo::idxS5=SelectivityInfo::nIVs+ 5;//parameter combinations index for pS5
+const int SelectivityInfo::idxS6=SelectivityInfo::nIVs+ 6;//parameter combinations index for pS6
 const int SelectivityInfo::idxDevsS1=SelectivityInfo::nIVs+ 7;//parameter combinations index for pDevsS1
 const int SelectivityInfo::idxDevsS2=SelectivityInfo::nIVs+ 8;//parameter combinations index for pDevsS2
 const int SelectivityInfo::idxDevsS3=SelectivityInfo::nIVs+ 9;//parameter combinations index for pDevsS3
 const int SelectivityInfo::idxDevsS4=SelectivityInfo::nIVs+10;//parameter combinations index for pDevsS4
 const int SelectivityInfo::idxDevsS5=SelectivityInfo::nIVs+11;//parameter combinations index for pDevsS5
 const int SelectivityInfo::idxDevsS6=SelectivityInfo::nIVs+12;//parameter combinations index for pDevsS6
+const int SelectivityInfo::idxNPSel =SelectivityInfo::nIVs+13;//parameter combinations index for pvNPSel
 SelectivityInfo::SelectivityInfo(){
     name = NAME;//assign static NAME to ParameterGroupInfo::name
     
@@ -1598,6 +1796,28 @@ SelectivityInfo::~SelectivityInfo(){
     if (pDevsS5) delete pDevsS5; pDevsS5=0;
     if (pDevsS6) delete pDevsS6; pDevsS6=0;
     if (pvNPSel) delete pvNPSel; pvNPSel=0;
+}
+
+/**
+ * Set max year for selectivity function identified by pc
+ * 
+ * @param mxYr - max year to allow
+ * @param sfs - ivector indicating fishery, survey, or both
+ */
+void SelectivityInfo::setMaxYear(int mxYr, const ivector& sfs){
+    if (pS1) tcsam::adjustParamPhase(pS1,this,idxS1,mxYr,sfs,1);
+    if (pS2) tcsam::adjustParamPhase(pS2,this,idxS2,mxYr,sfs,1);
+    if (pS3) tcsam::adjustParamPhase(pS3,this,idxS3,mxYr,sfs,1);
+    if (pS4) tcsam::adjustParamPhase(pS4,this,idxS4,mxYr,sfs,1);
+    if (pS5) tcsam::adjustParamPhase(pS5,this,idxS5,mxYr,sfs,1);
+    if (pS6) tcsam::adjustParamPhase(pS6,this,idxS6,mxYr,sfs,1);
+    if (pDevsS1) tcsam::adjustParamPhase(pDevsS1,this,idxDevsS1,mxYr,sfs,1);
+    if (pDevsS2) tcsam::adjustParamPhase(pDevsS2,this,idxDevsS2,mxYr,sfs,1);
+    if (pDevsS3) tcsam::adjustParamPhase(pDevsS3,this,idxDevsS3,mxYr,sfs,1);
+    if (pDevsS4) tcsam::adjustParamPhase(pDevsS4,this,idxDevsS4,mxYr,sfs,1);
+    if (pDevsS5) tcsam::adjustParamPhase(pDevsS5,this,idxDevsS5,mxYr,sfs,1);
+    if (pDevsS6) tcsam::adjustParamPhase(pDevsS6,this,idxDevsS6,mxYr,sfs,1);
+    if (pvNPSel) tcsam::adjustParamPhase(pvNPSel,this,idxNPSel,mxYr,sfs,1);
 }
 
 void SelectivityInfo::addNextYear1(adstring flt_type, int y, imatrix& fltpcs){
@@ -2111,12 +2331,9 @@ void FisheriesInfo::setMaxYear(int mxYr){
     if (pDC2) tcsam::adjustParamPhase(pDC2,this,k++,mxYr,1);
     if (pDC3) tcsam::adjustParamPhase(pDC3,this,k++,mxYr,1);
     if (pDC4) tcsam::adjustParamPhase(pDC4,this,k++,mxYr,1);
-    //if (pDevsLnC) tcsam::adjustParamPhase(pDevsLnC,this,k++,mxYr,1);
-    k++;
+    if (pDevsLnC) tcsam::adjustParamPhase(pDevsLnC,mxYr,1); k++;
     if (pLnEffX)  tcsam::adjustParamPhase(pLnEffX,this,k++,mxYr,1);
     if (pLgtRet)  tcsam::adjustParamPhase(pLgtRet,this,k++,mxYr,1);
-    
-    //need to do something here for selectivity functions
 }
 
 imatrix FisheriesInfo::addNextYear1(int closed){
@@ -2698,13 +2915,26 @@ ModelParametersInfo::~ModelParametersInfo(){
  * @param mxYr - the max fishery year to allow estimated parameters
  */
 void ModelParametersInfo::setMaxYear(int mxYr){
-//    if (ptrRec) ptrRec->setMaxYear(mxYr);
-//    if (ptrNM)  ptrNM ->setMaxYear(mxYr);
-//    if (ptrGrw) ptrGrw->setMaxYear(mxYr+1);
-//    if (ptrM2M) ptrM2M->setMaxYear(mxYr+1);
+    if (ptrRec) ptrRec->setMaxYear(mxYr);
+    if (ptrNM)  ptrNM ->setMaxYear(mxYr);
+    if (ptrGrw) ptrGrw->setMaxYear(mxYr+1); //need +1 in case one has growth info from current surveys
+    if (ptrM2M) ptrM2M->setMaxYear(mxYr+1); //need +1 in case one has maturity info from current surveys
+    if (ptrFsh) ptrFsh->setMaxYear(mxYr);
+    if (ptrSrv) ptrSrv->setMaxYear(mxYr+1); //need +1 for current surveys
+    if (ptrSel){
+        int nSelPCs = ptrSel->nPCs;
+        ivector sfs(1,nSelPCs); sfs.initialize();
+        //only need to loop over survey-related sel/avl functions
+        for (int i=1;i<=ptrSrv->nPCs;i++){
+            int selpc = ptrSrv->getPCIDs(i)[SurveysInfo::idxSelFcn];
+            int avlpc = ptrSrv->getPCIDs(i)[SurveysInfo::idxAvlFcn];
+            if (selpc) sfs[selpc] = 1;
+            if (avlpc) sfs[avlpc] = 1;
+        }
+        rpt::echo<<"sfs = "<<sfs<<endl;
+        ptrSel->setMaxYear(mxYr, sfs);
+    }
     //if (ptrSel) ptrSel->setMaxYear(mxYr); //handled by FisheriesInfo, SurveysInfo
-//    if (ptrFsh) ptrFsh->setMaxYear(mxYr);
-//    if (ptrSrv) ptrSrv->setMaxYear(mxYr+1);
     //if (ptrMSE) ptrMSE->setMaxYear(mxYr); //not needed for MSE_Info
 }
 

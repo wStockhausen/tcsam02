@@ -279,16 +279,75 @@ namespace tcsam{
     /**
      * Adjusts parameter vector phases to be consistent with maxYr.
      * 
-     * The phase for any parameter vector that is originally set to be estimated ONLY in a 
-     * time block later than maxYr is set to negative so it will not be estimated.
+     * Estimation phases are defined for each associated parameter vector (not 
+     * each element). The phase for any parameter vector that is originally set to be 
+     * estimated ONLY in a time block later than maxYr is set to negative so it will 
+     * not be estimated.
      * 
-     * @param pI - pointer to VectorVectorInfo for vector of parameters of interest
-     * @param pgi - pointer to ParameterGroupInfo for the parameter group of interest
-     * @param pid - index to parameter vector in ParameterGroupInfo
+     * @param pVVI  - pointer to VectorVectorInfo for vector of parameters of interest
+     * @param pgi   - pointer to ParameterGroupInfo for the parameter group of interest
+     * @param pid   - index to parameter vector in ParameterGroupInfo
      * @param maxYr - max year for estimated parameter vectors
      * @param debug - flag to print debugging info
      */
     void adjustParamPhase(VectorVectorInfo* pI, ParameterGroupInfo* pgi, int pid, int maxYr, int debug);
+    /**
+     * Adjusts devs vector phases to be consistent with maxYr.
+     * 
+     * For each devs vector represented by the DevsVectorVectorInfo object,
+     * the phase for each element associated with a year later than maxYr 
+     * is set to negative so it will not be estimated.
+     * 
+     * @param pDVVI - pointer to DevsVectorVectorInfo for the devs vectors of interest
+     * @param maxYr - max year for estimated parameter vectors
+     * @param debug - flag to print debugging info
+     */
+    void adjustParamPhase(DevsVectorVectorInfo* pI, int maxYr, int debug);
+    /**
+     * Adjusts parameter phases to be consistent with maxYr.
+     * 
+     * The phase for any parameter that is originally set to be estimated ONLY in a 
+     * time block later than maxYr is set to negative so it will not be estimated.
+     * 
+     * @param pI - pointer to NumberVectorInfo for vector of parameters of interest
+     * @param pgi - pointer to ParameterGroupInfo for the parameter group of interest
+     * @param pid - index to parameter in ParameterGroupInfo
+     * @param maxYr - max year for estimated parameters
+     * @param sfs - ivector indicating fishery or survey adjustment
+     * @param debug - flag to print debugging info
+     */
+    void adjustParamPhase(NumberVectorInfo* pI, ParameterGroupInfo* pgi, int pid, int maxYr, const ivector& sfs, int debug);
+    /**
+     * Adjusts parameter vector phases to be consistent with maxYr.
+     * 
+     * Estimation phases are defined for each associated parameter vector (not 
+     * each element). The phase for any parameter vector that is originally set to be 
+     * estimated ONLY in a time block later than maxYr is set to negative so it will 
+     * not be estimated.
+     * 
+     * @param pVVI  - pointer to VectorVectorInfo for vector of parameters of interest
+     * @param pgi   - pointer to ParameterGroupInfo for the parameter group of interest
+     * @param pid   - index to parameter vector in ParameterGroupInfo
+     * @param maxYr - max year for estimated parameter vectors
+     * @param sfs - ivector indicating fishery or survey adjustment
+     * @param debug - flag to print debugging info
+     */
+    void adjustParamPhase(VectorVectorInfo* pI, ParameterGroupInfo* pgi, int pid, int maxYr, const ivector& sfs, int debug);
+    /**
+     * Adjusts devs vector phases to be consistent with maxYr.
+     * 
+     * For each devs vector represented by the DevsVectorVectorInfo object,
+     * the phase for each element associated with a year later than maxYr 
+     * is set to negative so it will not be estimated.
+     * 
+     * @param pDVVI - pointer to DevsVectorVectorInfo for the devs vectors of interest
+     * @param pgi   - pointer to ParameterGroupInfo for the parameter group of interest
+     * @param pid   - index to parameter vector in ParameterGroupInfo
+     * @param maxYr - max year for estimated parameter vectors
+     * @param sfs - ivector indicating fishery or survey adjustment
+     * @param debug - flag to print debugging info
+     */
+    void adjustParamPhase(DevsVectorVectorInfo* pI, ParameterGroupInfo* pgi, int pid, int maxYr, const ivector& sfs, int debug);
 }//namespace tcsam
 
 /**
@@ -717,12 +776,19 @@ class SelectivityInfo : public ParameterGroupInfo {
         const static int nIVs; //number of index variables
         const static int nPVs; //number of parameter variables
         const static int nXIs; //number of "extra" variables
+        const static int idxS1;//parameter combinations index for pS1
+        const static int idxS2;//parameter combinations index for pS2
+        const static int idxS3;//parameter combinations index for pS3
+        const static int idxS4;//parameter combinations index for pS4
+        const static int idxS5;//parameter combinations index for pS5
+        const static int idxS6;//parameter combinations index for pS6
         const static int idxDevsS1;//parameter combinations index for pDevsS1
         const static int idxDevsS2;//parameter combinations index for pDevsS2
         const static int idxDevsS3;//parameter combinations index for pDevsS3
         const static int idxDevsS4;//parameter combinations index for pDevsS4
         const static int idxDevsS5;//parameter combinations index for pDevsS5
         const static int idxDevsS6;//parameter combinations index for pDevsS6
+        const static int idxNPSel;//parameter combinations index for pvNPSel
     protected:
         static adstring NAME;//"selectivities"
     public:
@@ -742,6 +808,14 @@ class SelectivityInfo : public ParameterGroupInfo {
         
         SelectivityInfo();
         ~SelectivityInfo();
+        
+        /**
+         * Set max year for selectivity function identified by pc
+         * 
+         * @param mxYr - max year to allow
+         * @param sfs - ivector indicating fishery, survey, or both
+         */
+        void setMaxYear(int mxYr, const ivector& sfs);
         
         /**
          * Reads the ParameterGroupInfo for selectivity from an input filestream in ADMB format.

@@ -61,6 +61,7 @@
             const static int ID_DBLNORMAL6         =15; const static adstring STR_DBLNORMAL6; 
             const static int ID_CONSTANT           =16; const static adstring STR_CONSTANT; 
             const static int ID_NONPARAMETRIC      =17; const static adstring STR_NONPARAMETRIC; 
+            const static int ID_CUBICSPLINE        =18; const static adstring STR_CUBICSPLINE; 
 
             /**
              * Calculates "constant" selectivity function (= 1 at all sizes).
@@ -294,6 +295,18 @@
              * @return - selectivity function values as dvar_vector
              */
             dvar_vector static dblnormal6(dvector& z, dvar_vector& params, double fsZ);
+            /**
+             * Calculates an n-parameter cubic spline function parameterized by 
+             *      params[1:n]:    values at knots
+             *      params[n+1:2n]: knots
+             * Inputs:
+             * @param z      - dvector of sizes at which to compute function values
+             * @param params - dvar_vector of function parameters
+             * @param fsZ    - size at which function = 1 (i.e., fully-selected size) [double] NOTE: ignored!
+             * 
+             * @return - selectivity function values as dvar_vector
+             */
+            dvar_vector static cubic_spline(dvector& z, dvar_vector& params, double fsZ);
     };
     
 #endif	/* MODELSELECTIVITIES_HPP */

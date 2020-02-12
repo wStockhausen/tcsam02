@@ -671,7 +671,7 @@ void FleetData::read(cifstream & is){
     is>>str; hasEff = wts::getBooleanType(str);//has effort data?
     
     rpt::echo<<name<<tb<<"#fleet source name"<<endl;
-    rpt::echo<<wts::getBooleanType(hasRCD)<<tb<<"#has index catch data?"<<endl;
+    rpt::echo<<wts::getBooleanType(hasICD)<<tb<<"#has index catch data?"<<endl;
     rpt::echo<<wts::getBooleanType(hasRCD)<<tb<<"#has retained catch data?"<<endl;
     rpt::echo<<wts::getBooleanType(hasDCD)<<tb<<"#has observed discard catch data?"<<endl;
     rpt::echo<<wts::getBooleanType(hasTCD)<<tb<<"#has observed total catch data?"<<endl;
