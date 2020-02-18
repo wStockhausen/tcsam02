@@ -548,12 +548,17 @@
 //                  each devs vector was +1 to high [leftover from when devs parameter
 //                  vectors were defined by n-1 parameters, rather than n, with the
 //                  last element defined by the sum-to-zero constraint]) 
-//              5. Added a "read phases?" column to MPI format for VectorVectorInfo
+//              5. Added a "read phases?" column to MPI format for DevsVectorVectorInfo
 //                  class as well as ability to read in a subsequent row of phases
 //              6. Number of associated changes to ModelParameterInfoType classes
 //              7. Model and MPI versions changed to 2020.02.02.
 //-2020-02-05:  1. Added setMaxYear(yr) method to most data-related classes to drop
 //                 data from years > yr in conjunction with a retrospective run.
+//-2020-02-18:  1. Added ability to calculate cubic spline selectivity functions.
+//                  Still need to add them to MPI.
+//              2. Need to add parameter to estimate additional survey uncertainty.
+//              3. Need to fix output to R when conducting retrospective runs--
+//                  years are not written out correctly to rep file.
 //
 // =============================================================================
 // =============================================================================
@@ -1713,13 +1718,13 @@ PARAMETER_SECTION
     !!PRINT2B1("#Starting PARAMETER_SECTION")
  LOCAL_CALCS
     //----Testing Sandbox-------//
-    if (1){
+    if (0){
         PRINT2B1(" ")
         PRINT2B1("#--Starting sandbox")
         dvector z(1,32);
         for (int i=z.indexmin();i<=z.indexmax();i++) z(i) = 27.5+(i-1)*5.0;
         rpt::echo<<"--Cubic Spline"<<endl;
-        SelFcns::debug=1;
+        SelFcns::debug=1;//turn on debugging printouts
         dvector x_knts(1,5);
         x_knts[1]=z[1]; for (int i=1;i<=4;i++) x_knts[i+1] = z[8*i];
         dvar_vector y_vals = 1.0/(1.0+exp(-(x_knts-100.0)/30.0));
@@ -1732,8 +1737,7 @@ PARAMETER_SECTION
         rpt::echo<<"y_vals = "<<y_vals<<endl<<endl;
         
         rpt::echo<<endl<<"----interpolating at knot values--"<<endl;
-        dvar_vector sel1(x_knts.indexmin(),x_knts.indexmax());
-        sel1 = SelFcns::cubic_spline(x_knts, params, 1.0);
+        dvar_vector sel1 = 1.0*SelFcns::cubic_spline(x_knts, params, 1.0);
         rpt::echo<<"----interpolated at knot values--"<<endl;
         rpt::echo<<"params = "<<params<<endl;
         rpt::echo<<"x_knts = "<<x_knts<<endl;

@@ -493,6 +493,8 @@ namespace gsm {
     /**
      * Calculate second derivatives for spline interpolation.
      * 
+     * Indices for _knots, _yvals are assumed to be identical.
+     * 
      * @param _yvals (T) vector of values at knots
      * @param _knots (T1) vector of knots
      * 
@@ -500,16 +502,29 @@ namespace gsm {
      */
     template<typename T, typename T1>
     T initSpline(const T& _yvals, const T1& _knots, int debug=0) {
-        if (debug) rpt::echo<<"--Starting initSpline--"<<endl;
-        T yvals  = (T&)  _yvals;//create shallow, un-const copy
-        T1 knots = (T1&) _knots;//create shallow, un-const copy
-        if (debug){
+        if (debug) {
+            rpt::echo<<"--starting initSpline--"<<endl;
             rpt::echo<<"_knots type   = "<<typeid(_knots).name()<<endl;
             rpt::echo<<"_yvals type   = "<<typeid(_yvals).name()<<endl;
+            rpt::echo<<"_knots("<<_knots.indexmin()<<","<<_knots.indexmax()<<") = "<<_knots<<endl;
+            rpt::echo<<"_yvals("<<_yvals.indexmin()<<","<<_yvals.indexmax()<<") = "<<_yvals<<endl;
+        }
+        //un-const inputs in order to shift indices
+        //--Note:   T& x = (T&) _x "copies" the object reference 
+        //--whereas T  x = (T&) _x would create a [shallow(?)] copy
+        T& yvals  = (T&)  _yvals;
+        T1& knots = (T1&) _knots;
+        //alternative approach: create deep copies (no need to shift indices back at end)
+//        T yvals  = 1.0 * _yvals;
+//        T1 knots = 1.0 * _knots;
+        if (debug){
+            rpt::echo<<"----before yppval calculations"<<endl;
             rpt::echo<<"&knots = "<<&knots<<". &_knots = "<<&_knots<<endl;
-            rpt::echo<<"knots = "<<knots<<endl;
             rpt::echo<<"&yvals = "<<&yvals<<". &_yvals = "<<&_yvals<<endl;
-            rpt::echo<<"yvals = "<<yvals<<endl;
+            rpt::echo<<"_knots("<<_knots.indexmin()<<","<<_knots.indexmax()<<") = "<<_knots<<endl;
+            rpt::echo<<" knots("<< knots.indexmin()<<","<< knots.indexmax()<<") = "<< knots<<endl;
+            rpt::echo<<"_yvals("<<_yvals.indexmin()<<","<<_yvals.indexmax()<<") = "<<_yvals<<endl;
+            rpt::echo<<" yvals("<< yvals.indexmin()<<","<< yvals.indexmax()<<") = "<< yvals<<endl;
         }
 
         //shift arrays to start at 0
@@ -524,21 +539,19 @@ namespace gsm {
         double ybcbeg = 0.0;//boundary condition 
         double ybcend = 0.0;//boundary condition
         T yppvals = spline_cubic_set(yvals, knots, ibcbeg, ybcbeg, ibcend, ybcend);
-        if (debug) {
-            rpt::echo<<"yppvals type = "<<typeid(yppvals).name()<<endl;
-            rpt::echo<<"yppvals      = "<<yppvals<<endl;
-        }
 
         //shift arrays back to start at original lower index
-        knots.shift(lb);//necessity?
-        yvals.shift(lb);//necessity?
+        knots.shift(lb);//necessary only if un-const'ing above
+        yvals.shift(lb);//necessary only if un-const'ing above
         yppvals.shift(lb);
         if (debug) {
-            rpt::echo<<"_knots   = "<<_knots<<endl;
-            rpt::echo<<"_yvals   = "<<_yvals<<endl;
-            rpt::echo<<"knots    = "<<knots<<endl;
-            rpt::echo<<"yvals    = "<<yvals<<endl;
-            rpt::echo<<"yppvals  = "<<yppvals<<endl;
+            rpt::echo<<"----after yppval calculations"<<endl;
+            rpt::echo<<"yppvals type = "<<typeid(yppvals).name()<<endl;
+            rpt::echo<<" yppvals("<< yppvals.indexmin()<<","<< yppvals.indexmax()<<") = "<< yppvals<<endl;
+            rpt::echo<<"_knots("<<_knots.indexmin()<<","<<_knots.indexmax()<<") = "<<_knots<<endl;
+            rpt::echo<<" knots("<< knots.indexmin()<<","<< knots.indexmax()<<") = "<< knots<<endl;
+            rpt::echo<<"_yvals("<<_yvals.indexmin()<<","<<_yvals.indexmax()<<") = "<<_yvals<<endl;
+            rpt::echo<<" yvals("<< yvals.indexmin()<<","<< yvals.indexmax()<<") = "<< yvals<<endl;
             rpt::echo<<"--Finished initSpline--"<<endl;
         }
         return yppvals;
@@ -547,45 +560,64 @@ namespace gsm {
     /**
      * Do spline interpolation at requested locations.
      * 
-     * @param x (T2) vector of values at which to calculate the spline
-     * @param knots (T1) vector of knot locations
-     * @param yvals (T) vector of values at knots
-     * @param yppvals (T) vector of 2nd derivatives at knots
+     * Indices for _knots, _yvals, _yppvals are assumed to be identical.
      * 
-     * @return (T) vector of values interpolated at x locations
+     * @param _x (T2) vector of values at which to calculate the spline
+     * @param _knots (T1) vector of knot locations
+     * @param _yvals (T) vector of values at knots
+     * @param _yppvals (T) vector of 2nd derivatives at knots
+     * 
+     * @return (T) vector of values interpolated at _x locations
      */
     template<typename T, typename T1, typename T2>
     T interpSpline(const T2& _x, const T1& _knots, const T& _yvals, const T& _yppvals, int debug=0) {
-        if (debug)rpt::echo<<"--starting interpSpline--"<<endl;
+        if (debug) {
+            rpt::echo<<"--starting interpSpline--"<<endl;
+            rpt::echo<<"_x type       = "<<typeid(      _x).name()<<endl;
+            rpt::echo<<"_knots type   = "<<typeid(  _knots).name()<<endl;
+            rpt::echo<<"_yvals type   = "<<typeid(  _yvals).name()<<endl;
+            rpt::echo<<"_yppvals type = "<<typeid(_yppvals).name()<<endl;
+            rpt::echo<<"_x("<<_x.indexmin()<<","<<_x.indexmax()<<") = "<<_x<<endl;
+            rpt::echo<<"_knots("<<_knots.indexmin()<<","<<_knots.indexmax()<<") = "<<_knots<<endl;
+            rpt::echo<<"_yvals("<<_yvals.indexmin()<<","<<_yvals.indexmax()<<") = "<<_yvals<<endl;
+            rpt::echo<<"_yppvals("<<_yppvals.indexmin()<<","<<_yppvals.indexmax()<<") = "<<_yppvals<<endl;
+        }
         //need to convert _x from T2 to T
-        T x = _x;
-        if (debug) rpt::echo<<"x = "<<x<<endl;
+        T x = 1.0*_x;
+        
         //number of knots
         int n  = _knots.size();
         int lb = _knots.indexmin();//min index for _knots, _yvals, and _yppvals
-        //copy _t and shift indices to start at 0
-        T1& knots = (T1&)_knots;
+        
+        //un-const _knots, _yvals, _yppvals (not copies!)
+        T1& knots = (T1&)_knots;//un-const _knots 
+        T& yvals = (T&)_yvals;//un-const _knots and shift lower index to 0
+        T& yppvals = (T&)_yppvals;//un-const _knots and shift lower index to 0
+        //alternative approach: create deep copies 
+        //--wouldn't have to shift indices back at end
+//        T1 knots = 1.0*_knots;
+//        T yvals = 1.0*_yvals;
+//        T yppvals = 1.0*_yppvals;
+        
+        //shift lower indices on un-const versions to 0 (shifts indices for inputs, as well!)
         knots.shift(0);
-        //copy _yvals and shift indices to start at 0
-        T2& yvals = (T2&)_yvals;
         yvals.shift(0);
-        //copy _yppvals and shift indices to start at 0
-        T2& yppvals = (T2&)_yppvals;
         yppvals.shift(0);
         if (debug){
-            rpt::echo<<"_x type       = "<<typeid(_x).name()<<endl;
-            rpt::echo<<"_knots type   = "<<typeid(_knots).name()<<endl;
-            rpt::echo<<"_yvals type   = "<<typeid(_yvals).name()<<endl;
-            rpt::echo<<"&knots = "<<&knots<<". &_knots = "<<&_knots<<endl;
-            rpt::echo<<"_knots = "<<_knots<<endl;
-            rpt::echo<<"knots  = "<<knots<<endl;
-            rpt::echo<<"&yvals = "<<&yvals<<". &_yvals = "<<&_yvals<<endl;
-            rpt::echo<<"_yvals = "<<_yvals<<endl;
-            rpt::echo<<"yvals  = "<<yvals<<endl;
+            rpt::echo<<"----before selex calculation----"<<endl;
+            rpt::echo<<" x type       = "<<typeid( x).name()<<endl;
+            rpt::echo<<" knots type   = "<<typeid( knots).name()<<endl;
+            rpt::echo<<" yvals type   = "<<typeid( yvals).name()<<endl;
+            rpt::echo<<"&knots   = "<<&knots  <<". &_knots   = "<<&_knots  <<endl;
+            rpt::echo<<"&yvals   = "<<&yvals  <<". &_yvals   = "<<&_yvals  <<endl;
             rpt::echo<<"&yppvals = "<<&yppvals<<". &_yppvals = "<<&_yppvals<<endl;
-            rpt::echo<<"_yppvals = "<<_yppvals<<endl;
-            rpt::echo<<"yppvals  = "<<yppvals<<endl;
-        }
+            rpt::echo<<"_knots("<<_knots.indexmin()<<","<<_knots.indexmax()<<") = "<<_knots<<endl;
+            rpt::echo<<" knots("<< knots.indexmin()<<","<< knots.indexmax()<<") = "<< knots<<endl;
+            rpt::echo<<"_yvals("<<_yvals.indexmin()<<","<<_yvals.indexmax()<<") = "<<_yvals<<endl;
+            rpt::echo<<" yvals("<< yvals.indexmin()<<","<< yvals.indexmax()<<") = "<< yvals<<endl;
+            rpt::echo<<"_yppvals("<<_yppvals.indexmin()<<","<<_yppvals.indexmax()<<") = "<<_yppvals<<endl;
+            rpt::echo<<" yppvals("<< yppvals.indexmin()<<","<< yppvals.indexmax()<<") = "<< yppvals<<endl;
+       }
         
          // do interpolation at x values
         int xmn = x.indexmin();
@@ -595,16 +627,21 @@ namespace gsm {
             selex(j) = calc_cubic_spline(x(j),knots,yvals,yppvals);
         }
         
+        //shift lower indices back to originals (assumes all had same lower index)
         knots.shift(lb);
         yvals.shift(lb);
         yppvals.shift(lb);
         
         if (debug) {
-            rpt::echo<<"_knots    = "<<_knots<<endl;
-            rpt::echo<<"_yvals    = "<<_yvals<<endl;
-            rpt::echo<<"_yppvals  = "<<_yppvals<<endl;
+            rpt::echo<<"----after selex calculation----"<<endl;
+            rpt::echo<<"_knots("<<_knots.indexmin()<<","<<_knots.indexmax()<<") = "<<_knots<<endl;
+            rpt::echo<<" knots("<< knots.indexmin()<<","<< knots.indexmax()<<") = "<< knots<<endl;
+            rpt::echo<<"_yvals("<<_yvals.indexmin()<<","<<_yvals.indexmax()<<") = "<<_yvals<<endl;
+            rpt::echo<<" yvals("<< yvals.indexmin()<<","<< yvals.indexmax()<<") = "<< yvals<<endl;
+            rpt::echo<<"_yppvals("<<_yppvals.indexmin()<<","<<_yppvals.indexmax()<<") = "<<_yppvals<<endl;
+            rpt::echo<<" yppvals("<< yppvals.indexmin()<<","<< yppvals.indexmax()<<") = "<< yppvals<<endl;
             rpt::echo<<"selex type = "<<typeid(selex).name()<<endl;
-            rpt::echo<<"selex     = "<<selex<<endl;
+            rpt::echo<<"selex("<< selex.indexmin()<<","<< selex.indexmax()<<") = "<<selex<<endl;
             rpt::echo<<"--finished interpSpline--"<<endl;
         }
         return selex;

@@ -820,7 +820,7 @@ dvar_vector SelFcns::nonparametric(dvector& z, dvar_vector& params, int idZ){
  * @return - selectivity function values as dvar_vector
  */
 dvar_vector SelFcns::cubic_spline(dvector& z, dvar_vector& params, double fsZ){
-//    RETURN_ARRAYS_INCREMENT();
+    RETURN_ARRAYS_INCREMENT();
     if (debug) {
         rpt::echo<<"Starting SelFcns::cubic_spline(...)"<<endl;
         rpt::echo<<"iz_min, iz_max = "<<z.indexmin()<<cc<<z.indexmax()<<endl;
@@ -829,10 +829,11 @@ dvar_vector SelFcns::cubic_spline(dvector& z, dvar_vector& params, double fsZ){
     int np = params.size()/2;
     dvar_vector knots = params(1,np);     //knot locations
     dvar_vector yvals = params(np+1,2*np);//function values at knots
+    yvals.shift(1);                       //need to shift starting index to 1, same as knots
     rpt::echo<<endl<<"initSpline return type   = "<<typeid(gsm::initSpline(yvals,knots)).name()<<endl;
-    dvar_vector yppvals = gsm::initSpline(yvals,knots,debug);            //values of 2nd derivatives at knots
+    dvar_vector yppvals = gsm::initSpline<dvar_vector,dvar_vector>(yvals,knots,debug);            //values of 2nd derivatives at knots
     rpt::echo<<endl<<"interpSpline return type = "<<typeid(gsm::interpSpline(z,knots,yvals,yppvals)).name()<<endl;
-    dvar_vector s       = gsm::interpSpline(z,knots,yvals,yppvals,debug);//function values interpolated at z locations    
+    dvar_vector s       = gsm::interpSpline<dvar_vector,dvar_vector,dvector>(z,knots,yvals,yppvals,debug);//function values interpolated at z locations    
     if (debug) {
         rpt::echo<<"knots   = "<<knots<<endl;
         rpt::echo<<"yvals   = "<<yvals<<endl;
@@ -840,7 +841,7 @@ dvar_vector SelFcns::cubic_spline(dvector& z, dvar_vector& params, double fsZ){
         rpt::echo<<"s       = "<<s<<endl;
         rpt::echo<<"Finished SelFcns::cubic_spline(...)"<<endl;
     }
-//    RETURN_ARRAYS_DECREMENT();
+    RETURN_ARRAYS_DECREMENT();
     return s;
 }
 
