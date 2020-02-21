@@ -39,6 +39,13 @@ class EffAvgScenario{
         ~EffAvgScenario();
         
         /**
+         * Sets the max year for the averaging period (for retrospective analysis).
+         * 
+         * @param mxYr - max year for averaging 
+         */
+        void setMaxYearForAveraging(int mxYr);
+        
+        /**
          * Gets the time block for the effort averaging scenario as an R array dimension
          * 
          * @return - an adstring object
@@ -76,6 +83,13 @@ class EffAvgScenarios{
         EffAvgScenarios(ModelConfiguration& mc);
         ~EffAvgScenarios();
         
+        /**
+         * Sets the max year for all averaging periods (for retrospective analysis).
+         * 
+         * @param mxYr - max year for averaging 
+         */
+        void setMaxYearForAveraging(int mxYr);
+        
         void read(cifstream & is);
         void write(std::ostream & os);
         void writeToR(std::ostream & os);
@@ -112,6 +126,13 @@ class CapRateAvgScenario{
         CapRateAvgScenario(ModelConfiguration& mc);
         ~CapRateAvgScenario();
         
+//        /**
+//         * Sets the max year for the averaging period (for retrospective analysis).
+//         * 
+//         * @param mxYr - max year for averaging 
+//         */
+//        void setMaxYearForAveraging(int mxYr);
+        
         void read(cifstream & is);
         void write(std::ostream & os);
         void writeToR(std::ostream & os);
@@ -135,6 +156,13 @@ class CapRateAvgScenarios{
     public:
         CapRateAvgScenarios(ModelConfiguration& mc);
         ~CapRateAvgScenarios();
+        
+//        /**
+//         * Sets the max year for all averaging periods (for retrospective analysis).
+//         * 
+//         * @param mxYr - max year for averaging 
+//         */
+//        void setMaxYearForAveraging(int mxYr);
         
         void read(cifstream & is);
         void write(std::ostream & os);
@@ -170,6 +198,13 @@ class EffXtrapScenarios{
          * Class destructor for effort extrapolation scenarios.
          */
         ~EffXtrapScenarios();
+        
+        /**
+         * Sets the max year for all averaging periods (for retrospective analysis).
+         * 
+         * @param mxYr - max year for averaging 
+         */
+        void setMaxYearForAveraging(int mxYr);
         
         /**
          * Gets the years defining the id'th averaging time period

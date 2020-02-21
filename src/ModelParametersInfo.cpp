@@ -29,7 +29,7 @@ int FisheriesInfo::debug        = 0;
 int SurveysInfo::debug          = 0;
 int MSE_Info::debug             = 0;
 int ModelParametersInfo::debug  = 0;
-const adstring ModelParametersInfo::version = "2020.02.02";
+const adstring ModelParametersInfo::version = "2020.02.18";
     
 /*----------------------------------------------------------------------------*/
 /**
@@ -2545,11 +2545,13 @@ void FisheriesInfo::writeToR(std::ostream & os){
 /*------------------------------------------------------------------------------
  * SurveysInfo\n
  * Encapsulates the following recruitment-related parameters:\n
- *   pQ   : base q (mature males)
- *   pDQ1 : ln-scale offset 1 (e.g., main temporal offset)
- *   pDQ2 : ln-scale offset 1 (e.g., female offsets)
- *   pDQ3 : ln-scale offset 1 (e.g., immature offsets)
- *   pDQ4 : ln-scale offset 1 (e.g., female-immature offsets)
+ *   pQ     : base q (mature males)
+ *   pDQ1   : ln-scale offset 1 (e.g., main temporal offset)
+ *   pDQ2   : ln-scale offset 1 (e.g., female offsets)
+ *   pDQ3   : ln-scale offset 1 (e.g., immature offsets)
+ *   pDQ4   : ln-scale offset 1 (e.g., female-immature offsets)
+ *   pLnXCV : ln-scale extra survey uncertainty
+ *   pA     : ln-scale offset 1 (e.g., female-immature offsets)
  * Notes:
  *  1. index variables for parameters:
  *      a. SURVEY
@@ -2560,7 +2562,7 @@ void FisheriesInfo::writeToR(std::ostream & os){
 *----------------------------------------------------------------------------*/
 const adstring SurveysInfo::NAME = "surveys";
 const int SurveysInfo::nIVs=5;//number of index variables
-const int SurveysInfo::nPVs=6;//number of parameter variables
+const int SurveysInfo::nPVs=7;//number of parameter variables
 const int SurveysInfo::nXIs=2;//number of "extra" variables
 const int SurveysInfo::idxAvlFcn = SurveysInfo::nIVs+SurveysInfo::nPVs+1;
 const int SurveysInfo::idxSelFcn = SurveysInfo::nIVs+SurveysInfo::nPVs+2;
@@ -2586,19 +2588,21 @@ SurveysInfo::SurveysInfo(){
     ParameterGroupInfo::nPVs=SurveysInfo::nPVs;
     lblPVs.allocate(1,nPVs); dscPVs.allocate(1,nPVs);
     k=1;
-    lblPVs(k) = "pQ";   dscPVs(k++) = "base catchability (e.g. mature male crab)";
-    lblPVs(k) = "pDQ1"; dscPVs(k++) = "offset 1 for ln-scale catchability";
-    lblPVs(k) = "pDQ2"; dscPVs(k++) = "offset 2 for ln-scale catchability";
-    lblPVs(k) = "pDQ3"; dscPVs(k++) = "offset 3 for ln-scale catchability";
-    lblPVs(k) = "pDQ4"; dscPVs(k++) = "offset 4 for ln-scale catchability";
-    lblPVs(k) = "pA";   dscPVs(k++) = "max availability";
+    lblPVs(k) = "pQ";     dscPVs(k++) = "base catchability (e.g. mature male crab)";
+    lblPVs(k) = "pDQ1";   dscPVs(k++) = "offset 1 for ln-scale catchability";
+    lblPVs(k) = "pDQ2";   dscPVs(k++) = "offset 2 for ln-scale catchability";
+    lblPVs(k) = "pDQ3";   dscPVs(k++) = "offset 3 for ln-scale catchability";
+    lblPVs(k) = "pDQ4";   dscPVs(k++) = "offset 4 for ln-scale catchability";
+    lblPVs(k) = "pLnXCV"; dscPVs(k++) = "ln-scale cv for extra uncertainty";
+    lblPVs(k) = "pA";     dscPVs(k++) = "max availability";
     k=1;
-    pQ   = new BoundedNumberVectorInfo(lblPVs(k++));
-    pDQ1 = new BoundedNumberVectorInfo(lblPVs(k++));
-    pDQ2 = new BoundedNumberVectorInfo(lblPVs(k++));
-    pDQ3 = new BoundedNumberVectorInfo(lblPVs(k++));
-    pDQ4 = new BoundedNumberVectorInfo(lblPVs(k++));
-    pA   = new BoundedNumberVectorInfo(lblPVs(k++));
+    pQ     = new BoundedNumberVectorInfo(lblPVs(k++));
+    pDQ1   = new BoundedNumberVectorInfo(lblPVs(k++));
+    pDQ2   = new BoundedNumberVectorInfo(lblPVs(k++));
+    pDQ3   = new BoundedNumberVectorInfo(lblPVs(k++));
+    pDQ4   = new BoundedNumberVectorInfo(lblPVs(k++));
+    pLnXCV = new BoundedNumberVectorInfo(lblPVs(k++));
+    pA     = new BoundedNumberVectorInfo(lblPVs(k++));
     
     ParameterGroupInfo::nXIs=SurveysInfo::nXIs;
     lblXIs.allocate(1,nXIs);
@@ -2609,12 +2613,13 @@ SurveysInfo::SurveysInfo(){
 }
 
 SurveysInfo::~SurveysInfo(){
-    if (pQ)   delete pQ;   pQ   =0;
-    if (pDQ1) delete pDQ1; pDQ1 =0;
-    if (pDQ2) delete pDQ2; pDQ2 =0;
-    if (pDQ3) delete pDQ3; pDQ3 =0;
-    if (pDQ4) delete pDQ4; pDQ4 =0;
-    if (pA)   delete pA;   pA =0;
+    if (pQ)     delete pQ;     pQ     =0;
+    if (pDQ1)   delete pDQ1;   pDQ1   =0;
+    if (pDQ2)   delete pDQ2;   pDQ2   =0;
+    if (pDQ3)   delete pDQ3;   pDQ3   =0;
+    if (pDQ4)   delete pDQ4;   pDQ4   =0;
+    if (pLnXCV) delete pLnXCV; pLnXCV =0;
+    if (pA)     delete pA;     pA     =0;
 }
 
 /**
@@ -2624,12 +2629,13 @@ SurveysInfo::~SurveysInfo(){
  */
 void SurveysInfo::setMaxYear(int mxYr){
     int k = nIVs+1;
-    if (pQ)   tcsam::adjustParamPhase(pQ,this,k++,mxYr,1);
-    if (pDQ1) tcsam::adjustParamPhase(pDQ1,this,k++,mxYr,1);
-    if (pDQ2) tcsam::adjustParamPhase(pDQ2,this,k++,mxYr,1);
-    if (pDQ3) tcsam::adjustParamPhase(pDQ3,this,k++,mxYr,1);
-    if (pDQ4) tcsam::adjustParamPhase(pDQ4,this,k++,mxYr,1);
-    if (pA)   tcsam::adjustParamPhase(pA,this,k++,mxYr,1);
+    if (pQ)     tcsam::adjustParamPhase(pQ,    this,k++,mxYr,1);
+    if (pDQ1)   tcsam::adjustParamPhase(pDQ1,  this,k++,mxYr,1);
+    if (pDQ2)   tcsam::adjustParamPhase(pDQ2,  this,k++,mxYr,1);
+    if (pDQ3)   tcsam::adjustParamPhase(pDQ3,  this,k++,mxYr,1);
+    if (pDQ4)   tcsam::adjustParamPhase(pDQ4,  this,k++,mxYr,1);
+    if (pLnXCV) tcsam::adjustParamPhase(pLnXCV,this,k++,mxYr,1);
+    if (pA)     tcsam::adjustParamPhase(pA,    this,k++,mxYr,1);
     
     //need to do something here for selectivity functions
 }
@@ -2693,6 +2699,8 @@ void SurveysInfo::read(cifstream & is){
             rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDQ3)<<endl;  k++;
             pDQ4 = ParameterGroupInfo::read(is,lblPVs(k),pDQ4); 
             rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDQ4)<<endl;  k++;
+            pLnXCV = ParameterGroupInfo::read(is,lblPVs(k),pLnXCV);    
+            rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnXCV)<<endl;  k++;
             pA = ParameterGroupInfo::read(is,lblPVs(k),pA);    
             rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pA)<<endl;  k++;
         } else {
@@ -2731,6 +2739,8 @@ void SurveysInfo::write(std::ostream & os){
         os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
         os<<(*pDQ4)<<endl;
         os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
+        os<<(*pLnXCV)<<endl;
+        os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
         os<<(*pA)<<endl;
     }//nPCs>0
  }
@@ -2742,6 +2752,7 @@ void SurveysInfo::writeToPin(std::ostream & os){
     pDQ2->writeToPin(os);
     pDQ3->writeToPin(os);
     pDQ4->writeToPin(os);
+    pLnXCV->writeToPin(os);
     pA->writeToPin(os);
  }
 
@@ -2751,12 +2762,13 @@ void SurveysInfo::writeToR(std::ostream & os){
         ParameterGroupInfo::writeToR(os);
         if (nPCs>0) {
             os<<cc<<endl;
-            pQ  ->writeToR(os,"pQ",indent++);   os<<cc<<endl;
-            pDQ1->writeToR(os,"pDQ1",indent++); os<<cc<<endl;
-            pDQ2->writeToR(os,"pDQ2",indent++); os<<cc<<endl;
-            pDQ3->writeToR(os,"pDQ3",indent++); os<<cc<<endl;
-            pDQ4->writeToR(os,"pDQ4",indent++); os<<cc<<endl;
-            pA  ->writeToR(os,"pA",indent++);   os<<endl;
+            pQ    ->writeToR(os,"pQ",indent++);     os<<cc<<endl;
+            pDQ1  ->writeToR(os,"pDQ1",indent++);   os<<cc<<endl;
+            pDQ2  ->writeToR(os,"pDQ2",indent++);   os<<cc<<endl;
+            pDQ3  ->writeToR(os,"pDQ3",indent++);   os<<cc<<endl;
+            pDQ4  ->writeToR(os,"pDQ4",indent++);   os<<cc<<endl;
+            pLnXCV->writeToR(os,"pLnXCV",indent++); os<<cc<<endl;
+            pA    ->writeToR(os,"pA",indent++);     os<<endl;
         }
     os<<")";
 }

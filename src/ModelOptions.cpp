@@ -29,6 +29,18 @@ EffAvgScenario::~EffAvgScenario(){
     if (ptrIB) {delete ptrIB; ptrIB=0;}
     ptrMC = 0;
 }
+        
+/**
+ * Sets the max year for the averaging period (for retrospective analysis).
+ * 
+ * @param mxYr - max year for averaging 
+ */
+void EffAvgScenario::setMaxYearForAveraging(int mxYr){
+    if (ptrIB) {
+        ptrIB->checkMaxAndReset(mxYr);
+        rpt::echo<<"years = "<<ptrIB->asString()<<endl;
+    }
+}
 
 void EffAvgScenario::read(cifstream& is){
     if (debug) cout<<"starting EffAvgScenario::read(cifstream& is)"<<endl;
@@ -75,6 +87,17 @@ EffAvgScenarios::~EffAvgScenarios(){
     }
 }
 
+/**
+ * Sets the max year for all averaging periods (for retrospective analysis).
+ * 
+ * @param mxYr - max year for averaging 
+ */
+void EffAvgScenarios::setMaxYearForAveraging(int mxYr){
+    if (ppEASs) {
+        for (int p=0;p<nAvgs;p++) ppEASs[p]->setMaxYearForAveraging(mxYr);
+    }    
+}
+
 void EffAvgScenarios::read(cifstream& is){
     is>>nAvgs;
     if (ppEASs) {
@@ -112,6 +135,15 @@ CapRateAvgScenario::CapRateAvgScenario(ModelConfiguration& mc){
 
 CapRateAvgScenario::~CapRateAvgScenario(){ptrMC = 0;}
 
+///**
+// * Sets the max year for the averaging period (for retrospective analysis).
+// * 
+// * @param mxYr - max year for averaging 
+// */
+//void CapRateAvgScenario::setMaxYearForAveraging(int mxYr){
+//    
+//}
+//
 void CapRateAvgScenario::read(cifstream& is){
     if (debug) cout<<"starting CapRateAvgScenario::read(cifstream& is)"<<endl;
     is>>id;
@@ -174,6 +206,17 @@ CapRateAvgScenarios::~CapRateAvgScenarios(){
     }
 }
 
+///**
+// * Sets the max year for all averaging periods (for retrospective analysis).
+// * 
+// * @param mxYr - max year for averaging 
+// */
+//void CapRateAvgScenarios::setMaxYearForAveraging(int mxYr){
+//    if (ppCRASs) {
+//        for (int p=0;p<nAvgs;p++) ppCRASs[p]->setMaxYearForAveraging(mxYr);
+//    }    
+//}
+//
 void CapRateAvgScenarios::read(cifstream& is){
     is>>nAvgs;
     if (ppCRASs) {
@@ -217,6 +260,16 @@ EffXtrapScenarios::~EffXtrapScenarios(){
     ptrMC = 0;
     if (ptrEffAvgScenarios) {delete ptrEffAvgScenarios; ptrEffAvgScenarios=0;}
     if (ptrCapRateAvgScenarios) {delete ptrCapRateAvgScenarios; ptrCapRateAvgScenarios = 0;}
+}
+        
+/**
+ * Sets the max year for all averaging periods (for retrospective analysis).
+ * 
+ * @param mxYr - max year for averaging 
+ */
+void EffXtrapScenarios::setMaxYearForAveraging(int mxYr){
+    if (ptrEffAvgScenarios)     ptrEffAvgScenarios->setMaxYearForAveraging(mxYr);
+//    if (ptrCapRateAvgScenarios) ptrCapRateAvgScenarios->setMaxYearForAveraging(mxYr);
 }
 
 ivector EffXtrapScenarios::getTimePeriodForCapRateAveraging(int id){

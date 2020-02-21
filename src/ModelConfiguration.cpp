@@ -245,8 +245,9 @@ void ModelConfiguration::writeToR(ostream& os, std::string nm, int indent) {
         os<<"dims=list("<<endl;
         indent++;
         for (int n=0;n<indent;n++) os<<tb;
-            os<<"y=list(n="<<mxYr-mnYr<<cc<<"mny="<<mnYr<<cc<<"asy="<<asYr<<cc<<"mxy="<<mxYr<<cc<<
-                       "yRetro="<<yRetro<<
+            os<<"y=list(n="<<mxYr-mnYr<<cc<<
+                       "mny="<<mnYr<<cc<<"asy="<<asYr<<cc<<
+                       "mxy="<<mxYr<<cc<<"yRetro="<<yRetro<<cc<<
                        "nms=c("<<csvYrsP1<<"),vls="<<mnYr<<":"<<asYr<<"),"<<endl;
         for (int n=0;n<indent;n++) os<<tb;
             os<<"x=list(n="<<tcsam::nSXs<<",nms=c("<<tcsamDims::formatForR(csvSXs)<<"))"<<cc<<endl;

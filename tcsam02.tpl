@@ -555,10 +555,17 @@
 //-2020-02-05:  1. Added setMaxYear(yr) method to most data-related classes to drop
 //                 data from years > yr in conjunction with a retrospective run.
 //-2020-02-18:  1. Added ability to calculate cubic spline selectivity functions.
-//                  Still need to add them to MPI.
-//              2. Need to add parameter to estimate additional survey uncertainty.
+//                  Still need to add ability to specify them in MPI.
+//              2. Need to add parameter/info to estimate additional survey uncertainty.
 //              3. Need to fix output to R when conducting retrospective runs--
 //                  years are not written out correctly to rep file.
+//-2020-02-20:  1. Added parameter/info to estimate additional survey uncertainty.
+//              2. Fixed output to R when conducting retrospective runs--
+//                  effort extrapolation scenarios were not being handled correctly.
+//                  Added checkMaxYear... functions to EffXtrapScenarios and related classes
+//                  to handle retrospective analyses.
+//              3. MPI versions changed to 2020.02.18 for additional survey uncertainty.
+//              4. Still need to add ability to specify cubic splines in MPI.
 //
 // =============================================================================
 // =============================================================================
@@ -1218,6 +1225,11 @@ DATA_SECTION
     //////////////////////////--FOR RETROSPECTIVE ANALYSES--////////////////////
     if (doRetro&&(yRetro>0)) {
         PRINT2B1("#-------------------------------------------")
+        PRINT2B2("doRetro: ADJUSTING max year on Model Options for retrospective analyses to fishery year ",mxYr-yRetro)
+        ptrMOs->ptrEffXtrapScenarios->setMaxYearForAveraging(mxYr-yRetro);
+        rpt::echo<<(*ptrMOs->ptrEffXtrapScenarios)<<endl;
+        PRINT2B1("doRetro: finished ADJUSTING max year on Model Options for retrospective analyses")
+        PRINT2B1("#-------------------------------------------")
         PRINT2B2("doRetro: ADJUSTING max year on MPI for retrospective analyses to fishery year ",mxYr-yRetro)
         ptrMPI->setMaxYear(mxYr-yRetro);
         PRINT2B1("doRetro: finished ADJUSTING max year on MPI for retrospective analyses")
@@ -1596,17 +1608,21 @@ DATA_SECTION
     int npDQ4; ivector phsDQ4; vector lbDQ4; vector ubDQ4;
     !!tcsam::setParameterInfo(ptrMPI->ptrSrv->pDQ4,npDQ4,lbDQ4,ubDQ4,phsDQ4,rpt::echo);
     
+    int npLnXCV; ivector phsLnXCV; vector lbLnXCV; vector ubLnXCV;
+    !!tcsam::setParameterInfo(ptrMPI->ptrSrv->pLnXCV,npLnXCV,lbLnXCV,ubLnXCV,phsLnXCV,rpt::echo);
+    
     int npA; ivector phsA; vector lbA; vector ubA;
     !!tcsam::setParameterInfo(ptrMPI->ptrSrv->pA,npA,lbA,ubA,phsA,rpt::echo);
     
  LOCAL_CALCS    
     if (mseOpModMode) {
-        phsQ = -1;
-        phsDQ1 = -1;
-        phsDQ2 = -1;
-        phsDQ3 = -1;
-        phsDQ4 = -1;
-        phsA   = -1;
+        phsQ     = -1;
+        phsDQ1   = -1;
+        phsDQ2   = -1;
+        phsDQ3   = -1;
+        phsDQ4   = -1;
+        phsLnXCV = -1;
+        phsA     = -1;
     }
  END_CALCS    
          
@@ -1899,6 +1915,8 @@ PARAMETER_SECTION
     !!cout<<"pDQ3 = "<<pDQ3<<endl;
     init_bounded_number_vector pDQ4(1,npDQ4,lbDQ4,ubDQ4,phsDQ4);//ln-offset 4 (e.g., female-immature offsets)
     !!cout<<"pDQ4 = "<<pDQ4<<endl;
+    init_bounded_number_vector pLnXCV(1,npLnXCV,lbLnXCV,ubLnXCV,phsLnXCV);//extra survey uncertainty
+    !!cout<<"pLnXCV = "<<pLnXCV<<endl;
     init_bounded_number_vector pA(1,npA,lbA,ubA,phsA);//max availability
     !!cout<<"pA = "<<pA<<endl;
     !!PRINT2B1("got past survey catchability parameters")
@@ -1984,6 +2002,7 @@ PARAMETER_SECTION
     
     //survey-related quantities
     3darray mb_vyx(1,nSrv,mnYr,mxYr+1,1,nSXs);//mature (spawning) biomass at time of survey
+    matrix  xcv_vy(1,nSrv,mnYr,mxYr+1);        //extra uncertainty in survey v
     5darray a_vyxms(1,nSrv,mnYr,mxYr+1,1,nSXs,1,nMSs,1,nSCs);        //max availability in survey v
     5darray q_vyxms(1,nSrv,mnYr,mxYr+1,1,nSXs,1,nMSs,1,nSCs);        //fully-selected catchability in survey v
     6darray a_vyxmsz(1,nSrv,mnYr,mxYr+1,1,nSXs,1,nMSs,1,nSCs,1,nZBs);//availability functions
@@ -4317,6 +4336,7 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
 //* Returns:
 //*  void
 //* Alters:
+//*  xcv_vy   - extra survey uncertainty by survey/year
 //*  q_vyxms  - fully-selected catchability by survey/year/sex/maturity state/shell condition
 //*  q_vyxmsz - size-specific catchability by survey/year/sex/maturity state/shell condition
 //*  a_vyxms  - max availability by survey/year/sex/maturity state/shell condition
@@ -4327,11 +4347,13 @@ FUNCTION void calcSurveyQs(int debug, ostream& cout)
     
     SurveysInfo* ptrSrv = ptrMPI->ptrSrv;
     
-    dvariable lnA;//ln-scale A's
-    dvariable arA;//arithmetic-scale A's
-    dvariable lnQ;//ln-scale Q's
-    dvariable arQ;//arithmetic-scale Q's
+    dvariable xcv;//ln-scale extra uncertainty
+    dvariable lnA;  //ln-scale A's
+    dvariable arA;  //arithmetic-scale A's
+    dvariable lnQ;  //ln-scale Q's
+    dvariable arQ;  //arithmetic-scale Q's
     
+    xcv_vy.initialize();
     a_vyxms.initialize();
     a_vyxmsz.initialize();
     q_vyxms.initialize();
@@ -4342,6 +4364,7 @@ FUNCTION void calcSurveyQs(int debug, ostream& cout)
     dvar_vector ptA  = ptrSrv->pA->calcArithScaleVals(pA);
     dvar_vector ptQ  = ptrSrv->pQ->calcArithScaleVals(pQ);
     for (int pc=1;pc<=ptrSrv->nPCs;pc++){
+        xcv.initialize();
         lnA.initialize();
         arA.initialize();
         lnQ.initialize();
@@ -4360,6 +4383,9 @@ FUNCTION void calcSurveyQs(int debug, ostream& cout)
         if (pids[k]) {lnQ += pDQ3(pids[k]);} k++;
         //add in ln-scale offset 4            (e.g., for immature females)
         if (pids[k]) {lnQ += pDQ4(pids[k]);} k++; 
+        
+        //get arithmetic-scale extra uncertainty
+        if (pids[k]) {xcv += mfexp(pLnXCV(pids[k]));} k++;
         
         //get log-scale max availability
         if (pids[k]) {lnA += log(ptA(pids[k]));} k++;
@@ -4381,6 +4407,7 @@ FUNCTION void calcSurveyQs(int debug, ostream& cout)
             v = idxs(idx,1);//survey
             y = idxs(idx,2);//year
             if ((mnYr<=y)&&(y<=mxYrp1)){
+                xcv_vy(v,y) = xcv;
                 mnx = mxx = idxs(idx,3);//sex index
                 if (mnx==tcsam::ALL_SXs) {mnx=1; mxx=tcsam::nSXs;}
                 mnm = mxm = idxs(idx,4);//maturity state index
@@ -5702,30 +5729,41 @@ FUNCTION void testNaNs(double v, adstring str)
 
 //-------------------------------------------------------------------------------------
 //Calculate norm2 NLL contribution to objective function
-FUNCTION void calcNorm2NLL(double wgt, dvar_vector& mod, dvector& obs, dvector& stdv, ivector& yrs, int debug, ostream& cout)
+FUNCTION void calcNorm2NLL(double wgt, dvar_vector& mod, dvar_vector& xcv_y, dvector& obs, dvector& sdobs_y, ivector& yrs, int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"Starting calcNorm2NLL()"<<endl;
     int y;
     double rmse = 0.0; int cnt = 0;
     dvariable nll = 0.0;
     dvar_vector zscr(mod.indexmin(),mod.indexmax());
     zscr.initialize();
-    for (int i=1;i<=yrs.size();i++){
-        y = yrs(i);
-        if ((zscr.indexmin()<=y)&&(y<=zscr.indexmax())) {
-            zscr(y) = (obs[i]-mod[y]); cnt++;
+    if (sum(sdobs_y)>0){
+        for (int i=1;i<=yrs.size();i++){
+            y = yrs(i);
+            if ((zscr.indexmin()<=y)&&(y<=zscr.indexmax())) {
+                zscr(y) = (obs[i]-mod[y]); cnt++;
+            }
         }
+        if (cnt>0) {
+            for (int i=1;i<=yrs.size();i++){
+                y = yrs(i);
+                if ((zscr.indexmin()<=y)&&(y<=zscr.indexmax())) 
+                    rmse += square((obs[i]-value(mod[y]))/sdobs_y[i]);
+            }
+            rmse = sqrt(rmse/cnt);
+        }
+        nll += 0.5*norm2(zscr);
     }
-    if (cnt>0) rmse = sqrt(value(norm2(zscr))/cnt);
-    nll += 0.5*norm2(zscr);
     objFun += wgt*nll;
     if ((debug<0)||(debug>=dbgAll)){
         adstring obsyrs = wts::to_qcsv(yrs);
         adstring modyrs = str(mod.indexmin())+":"+str(mod.indexmax());
         if (debug<0){
+            dvector stdv = 1.0+0.0*sdobs_y;//normal sd equivalent for norm2 function
             cout<<"list(nll.type='norm2',wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl; 
             cout<<"obs=";   wts::writeToR(cout,obs,        obsyrs); cout<<cc<<endl;
             cout<<"mod=";   wts::writeToR(cout,value(mod), modyrs); cout<<cc<<endl;
-            cout<<"stdv=";  wts::writeToR(cout,stdv,       obsyrs); cout<<cc<<endl;
+            cout<<"sdobs="; wts::writeToR(cout,sdobs_y,    obsyrs); cout<<cc<<endl;
+            cout<<"stdv="; wts::writeToR(cout,stdv,        obsyrs); cout<<cc<<endl;
             cout<<"zscrs="; wts::writeToR(cout,value(zscr),modyrs); cout<<cc<<endl;
             cout<<"rmse="<<rmse<<")";
         }
@@ -5734,6 +5772,7 @@ FUNCTION void calcNorm2NLL(double wgt, dvar_vector& mod, dvector& obs, dvector& 
             cout<<"obs    = "<<obs<<endl;
             cout<<"modyrs = "<<modyrs<<endl;
             cout<<"mod    = "<<value(mod)<<endl;
+            cout<<"stdv   = "<<sdobs_y<<endl;
             cout<<"zscrs  = "<<value(zscr)<<endl;
             cout<<"rmse   = "<<rmse<<endl;
             cout<<"nll    = "<<value(nll)<<tb<<"objFun = "<<wgt*nll<<endl;
@@ -5743,14 +5782,25 @@ FUNCTION void calcNorm2NLL(double wgt, dvar_vector& mod, dvector& obs, dvector& 
     
 //-------------------------------------------------------------------------------------
 //Calculate normal NLL contribution to objective function
-FUNCTION void calcNormalNLL(double wgt, dvar_vector& mod, dvector& obs, dvector& stdv, ivector& yrs, int debug, ostream& cout)
+FUNCTION void calcNormalNLL(double wgt, dvar_vector& mod, dvar_vector& xcv_y, dvector& obs, dvector& sdobs_y, ivector& yrs, int debug, ostream& cout)
    if (debug>=dbgAll) cout<<"Starting calcNormalNLL()"<<endl;
     int y;
     double rmse = 0.0; int cnt = 0;
     dvariable nll = 0.0;
+    if (debug>=dbgAll) cout<<"sdobs_y("<<sdobs_y.indexmin()<<cc<<sdobs_y.indexmax()<<") = "<<sdobs_y<<endl;    
+    dvar_vector stdv = sdobs_y;  //obs sd, by year;
     dvar_vector zscr(mod.indexmin(),mod.indexmax());
     zscr.initialize();
-    if (sum(stdv)>0){
+    if (sum(sdobs_y)>0){
+        if (xcv_y.size()>0){
+            dvar_vector sd_xtr = elem_prod(xcv_y,mod)(yrs);                      //extra uncertainty sd, by year
+            stdv   = sqrt(elem_prod(sdobs_y,sdobs_y)+elem_prod(sd_xtr,sd_xtr));  //total sd, by year
+            if (debug>=dbgAll) {
+                cout<<"xcv_y  = "<<xcv_y<<endl;
+                cout<<"sd_xtr = "<<sd_xtr<<endl;
+            }
+        }
+        if (debug>=dbgAll) cout<<"stdv   = "<<stdv<<endl;
         for (int i=1;i<=yrs.size();i++){
             y = yrs(i);
             if ((zscr.indexmin()<=y)&&(y<=zscr.indexmax())) {
@@ -5766,10 +5816,11 @@ FUNCTION void calcNormalNLL(double wgt, dvar_vector& mod, dvector& obs, dvector&
         adstring modyrs = str(mod.indexmin())+":"+str(mod.indexmax());
         if (debug<0){
             cout<<"list(nll.type='normal',wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl; 
-            cout<<"obs=";   wts::writeToR(cout,obs,        obsyrs); cout<<cc<<endl;
-            cout<<"mod=";   wts::writeToR(cout,value(mod), modyrs); cout<<cc<<endl;
-            cout<<"stdv=";  wts::writeToR(cout,stdv,       obsyrs); cout<<cc<<endl;
-            cout<<"zscrs="; wts::writeToR(cout,value(zscr),modyrs); cout<<cc<<endl;
+            cout<<"obs=";   wts::writeToR(cout,obs,         obsyrs); cout<<cc<<endl;
+            cout<<"mod=";   wts::writeToR(cout,value(mod),  modyrs); cout<<cc<<endl;
+            cout<<"sdobs="; wts::writeToR(cout,sdobs_y,     obsyrs); cout<<cc<<endl;
+            cout<<"stdv=";  wts::writeToR(cout,value(stdv), obsyrs); cout<<cc<<endl;
+            cout<<"zscrs="; wts::writeToR(cout,value(zscr), modyrs); cout<<cc<<endl;
             cout<<"rmse="<<rmse<<")";
         }
         if (debug>=dbgAll) {
@@ -5786,14 +5837,33 @@ FUNCTION void calcNormalNLL(double wgt, dvar_vector& mod, dvector& obs, dvector&
     
 //-------------------------------------------------------------------------------------
 //Calculate lognormal NLL contribution to objective function
-FUNCTION void calcLognormalNLL(double wgt, dvar_vector& mod, dvector& obs, dvector& stdv, ivector& yrs, int debug, ostream& cout)
+FUNCTION void calcLognormalNLL(double wgt, const dvar_vector& mod, const dvar_vector& xcv_y, const dvector& obs, const dvector& sdobs_y, const ivector& yrs, int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"Starting calcLognormalNLL()"<<endl;
     int y;
     dvariable nll = 0.0;
     double rmse = 0.0; int cnt = 0;
+    if (debug>=dbgAll) cout<<"sdobs_y("<<sdobs_y.indexmin()<<cc<<sdobs_y.indexmax()<<") = "<<sdobs_y<<endl;    
+    dvar_vector stdv = sdobs_y;
     dvar_vector zscr(mod.indexmin(),mod.indexmax());
     zscr.initialize();
-    if (sum(stdv)>0){
+    if (sum(sdobs_y)>0){
+        if (xcv_y.size()>0){
+//            dvar_vector tmp1 = elem_prod(xcv_y,xcv_y);
+//            dvar_vector tmp2 = log(1.0+tmp1);
+            dvar_vector vr_xtr = log(1.0+elem_prod(xcv_y,xcv_y));   //ln-scale extra uncertainty variance, by year
+            stdv = sqrt(elem_prod(sdobs_y,sdobs_y)+vr_xtr);//total sd, by year
+            if (debug>=dbgAll) {
+                cout<<"yrs      = "<<yrs<<endl;
+                cout<<"i(sdobs) = "<<sdobs_y.indexmin()<<":"<<sdobs_y.indexmax()<<endl;
+                cout<<"i(xcv_y) = "<<xcv_y.indexmin()<<":"<<xcv_y.indexmax()<<endl;
+                cout<<"xcv_y    = "<<xcv_y<<endl;
+//                cout<<"tmp1     = "<<tmp1<<endl;
+//                cout<<"tmp2     = "<<tmp2<<endl;
+                cout<<"vr_xtr   = "<<vr_xtr<<endl;
+                cout<<"sd_xtr   = "<<sqrt(vr_xtr)<<endl;
+            }
+        }
+        if (debug>=dbgAll) cout<<"stdv   = "<<stdv<<endl;
         for (int i=1;i<=yrs.size();i++){
             y = yrs(i);
             if ((zscr.indexmin()<=y)&&(y<=zscr.indexmax())) {
@@ -5802,7 +5872,8 @@ FUNCTION void calcLognormalNLL(double wgt, dvar_vector& mod, dvector& obs, dvect
         }
         if (cnt>0) {
             rmse = sqrt(value(norm2(zscr))/cnt);
-            nll = 0.5*norm2(zscr);
+            nll = sum(log(stdv)) + 0.5*norm2(zscr);
+            //if (xcv_y.size()>0) nll += sum(log(stdv));
             objFun += wgt*nll;
         }
     }
@@ -5811,10 +5882,11 @@ FUNCTION void calcLognormalNLL(double wgt, dvar_vector& mod, dvector& obs, dvect
         adstring modyrs = str(mod.indexmin())+":"+str(mod.indexmax());
         if (debug<0){
             cout<<"list(nll.type='lognormal',wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl; 
-            cout<<"obs=";   wts::writeToR(cout,obs,        obsyrs); cout<<cc<<endl;
-            cout<<"mod=";   wts::writeToR(cout,value(mod), modyrs); cout<<cc<<endl;
-            cout<<"stdv=";  wts::writeToR(cout,stdv,       obsyrs); cout<<cc<<endl;
-            cout<<"zscrs="; wts::writeToR(cout,value(zscr),modyrs); cout<<cc<<endl;
+            cout<<"obs=";   wts::writeToR(cout,obs,         obsyrs); cout<<cc<<endl;
+            cout<<"mod=";   wts::writeToR(cout,value(mod),  modyrs); cout<<cc<<endl;
+            cout<<"sdobs="; wts::writeToR(cout,sdobs_y,     obsyrs); cout<<cc<<endl;
+            cout<<"stdv=";  wts::writeToR(cout,value(stdv), obsyrs); cout<<cc<<endl;
+            cout<<"zscrs="; wts::writeToR(cout,value(zscr), modyrs); cout<<cc<<endl;
             cout<<"rmse="<<rmse<<")";
         }
         if (debug>=dbgAll) {
@@ -5831,7 +5903,7 @@ FUNCTION void calcLognormalNLL(double wgt, dvar_vector& mod, dvector& obs, dvect
     
 //-------------------------------------------------------------------------------------
 //Pass-through for no NLL contribution to objective function for aggregated catch
-FUNCTION void calcNoneNLL(double wgt, dvar_vector& mod, dvector& obs, dvector& stdv, ivector& yrs, int debug, ostream& cout)
+FUNCTION void calcNoneNLL_TS(double wgt, dvar_vector& mod, dvar_vector& xcv_y, dvector& obs, dvector& sdobs_y, ivector& yrs, int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"Starting calcNoneNLL(agg catch)"<<endl;
     if (debug<0){
         adstring obsyrs = wts::to_qcsv(yrs);
@@ -5917,7 +5989,7 @@ FUNCTION void calcMultinomialNLL(double wgt, dvar_vector& mod, dvector& obs, dou
  
 //-------------------------------------------------------------------------------------
 //Pass through for no NLL contribution to objective function for size comps
-FUNCTION void calcNoneNLL(double wgt, dvar_vector& mod, dvector& obs, double& ss, int& yr, int debug, ostream& cout)
+FUNCTION void calcNoneNLL_ZC(double wgt, dvar_vector& mod, dvector& obs, double& ss, int& yr, int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"Starting calcNoneNLL(size comps)"<<endl;
     if (debug<0){
         cout<<"list(nll.type='none',yr="<<yr<<cc<<"wgt="<<wgt<<cc<<"nll="<<0.0<<cc<<"objfun="<<0.0<<cc<<"ss="<<0<<cc<<"effN="<<0<<")";
@@ -5926,22 +5998,22 @@ FUNCTION void calcNoneNLL(double wgt, dvar_vector& mod, dvector& obs, double& ss
  
 //-------------------------------------------------------------------------------------
 //Calculate time series contribution to objective function
-FUNCTION void calcNLL(int llType, double wgt, dvar_vector& mod, dvector& obs, dvector& stdv, ivector& yrs, int debug, ostream& cout)
+FUNCTION void calcNLL_TS(int llType, double wgt, dvar_vector& mod, dvar_vector& xcv_y, dvector& obs, dvector& sdobs_y, ivector& yrs, int debug, ostream& cout)
     switch (llType){
         case tcsam::LL_NONE:
-            calcNoneNLL(wgt,mod,obs,stdv,yrs,debug,cout);
+            calcNoneNLL_TS(wgt,mod,xcv_y,obs,sdobs_y,yrs,debug,cout);
             break;
         case tcsam::LL_LOGNORMAL:
-            calcLognormalNLL(wgt,mod,obs,stdv,yrs,debug,cout);
+            calcLognormalNLL(wgt,mod,xcv_y,obs,sdobs_y,yrs,debug,cout);
             break;
         case tcsam::LL_NORMAL:
-            calcNormalNLL(wgt,mod,obs,stdv,yrs,debug,cout);
+            calcNormalNLL(wgt,mod,xcv_y,obs,sdobs_y,yrs,debug,cout);
             break;
         case tcsam::LL_NORM2:
-            calcNorm2NLL(wgt,mod,obs,stdv,yrs,debug,cout);
+            calcNorm2NLL(wgt,mod,xcv_y,obs,sdobs_y,yrs,debug,cout);
             break;
         default:
-            cout<<"Unrecognized likelihood type in calcNLL(1)"<<endl;
+            cout<<"Unrecognized likelihood type in calcNLL_TS"<<endl;
             cout<<"Input type was "<<llType<<endl;
             cout<<"Aborting..."<<endl;
             exit(-1);
@@ -5949,16 +6021,16 @@ FUNCTION void calcNLL(int llType, double wgt, dvar_vector& mod, dvector& obs, dv
 
 //-------------------------------------------------------------------------------------
 //Calculate size frequency contribution to objective function
-FUNCTION void calcNLL(int llType, double wgt, dvar_vector& mod, dvector& obs, double& ss, int& yr, int debug, ostream& cout)
+FUNCTION void calcNLL_ZC(int llType, double wgt, dvar_vector& mod, dvector& obs, double& ss, int& yr, int debug, ostream& cout)
     switch (llType){
         case tcsam::LL_NONE:
-            calcNoneNLL(wgt,mod,obs,ss,yr,debug,cout);
+            calcNoneNLL_ZC(wgt,mod,obs,ss,yr,debug,cout);
             break;
         case tcsam::LL_MULTINOMIAL:
             calcMultinomialNLL(wgt,mod,obs,ss,yr,debug,cout);
             break;
         default:
-            cout<<"Unrecognized likelihood type in calcNLL(2)"<<endl;
+            cout<<"Unrecognized likelihood type in calcNLL_ZC"<<endl;
             cout<<"Input type was "<<llType<<endl;
             cout<<"Aborting..."<<endl;
             exit(-1);
@@ -5971,8 +6043,9 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
     int mny = mA_yxmsz.indexmin();
     int mxy = mA_yxmsz.indexmax();//may NOT be mxYr
     dvar_vector tAB_y(mny,mxy);
+    dvar_vector no_xcvs;//leave unallocated as flag
     int isBio = ptrAB->type==AggregateCatchData::KW_BIOMASS_DATA;
-    if (debug>=dbgAll) cout<<"isBio="<<isBio<<tb<<"type="<<ptrAB->type<<endl;
+    if (debug>=dbgAll) cout<<"isBio="<<isBio<<tb<<"data type="<<ptrAB->type<<tb<<"fit type="<<tcsam::getFitType(ptrAB->optFit)<<endl;
     if (debug<0) cout<<"list(fit.type='"<<tcsam::getFitType(ptrAB->optFit)<<"',fits=list("<<endl;
     if (ptrAB->optFit==tcsam::FIT_BY_TOT){
         tAB_y.initialize();
@@ -5998,7 +6071,7 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
             cout<<"s="<<qt<<tcsam::getShellType(ALL_SCs)   <<qt<<cc;
             cout<<"nll=";
         }
-        calcNLL(ptrAB->llType, ptrAB->llWgt, tAB_y, ptrAB->C_xmsy(ALL_SXs,ALL_MSs,ALL_SCs), ptrAB->sd_xmsy(ALL_SXs,ALL_MSs,ALL_SCs), ptrAB->yrs, debug, cout);                
+        calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, no_xcvs, ptrAB->C_xmsy(ALL_SXs,ALL_MSs,ALL_SCs), ptrAB->sd_xmsy(ALL_SXs,ALL_MSs,ALL_SCs), ptrAB->yrs, debug, cout);                
         if (debug<0) cout<<")";
         if (debug<0) cout<<")";
     } else if (ptrAB->optFit==tcsam::FIT_BY_X){
@@ -6024,7 +6097,7 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
                 cout<<"s="<<qt<<tcsam::getShellType(ALL_SCs)   <<qt<<cc;
                 cout<<"nll=";
             }
-            calcNLL(ptrAB->llType, ptrAB->llWgt, tAB_y, ptrAB->C_xmsy(x,ALL_MSs,ALL_SCs), ptrAB->sd_xmsy(x,ALL_MSs,ALL_SCs), ptrAB->yrs, debug, cout); 
+            calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, no_xcvs, ptrAB->C_xmsy(x,ALL_MSs,ALL_SCs), ptrAB->sd_xmsy(x,ALL_MSs,ALL_SCs), ptrAB->yrs, debug, cout); 
             if (debug<0) cout<<"),"<<endl;
         }//x
         if (debug<0) cout<<"NULL)";
@@ -6051,7 +6124,7 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
                     cout<<"s="<<qt<<tcsam::getShellType(ALL_SCs)<<qt<<cc;
                     cout<<"nll=";
                 }
-                calcNLL(ptrAB->llType, ptrAB->llWgt, tAB_y, ptrAB->C_xmsy(x,m,ALL_SCs), ptrAB->sd_xmsy(x,m,ALL_SCs), ptrAB->yrs, debug, cout); 
+                calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, no_xcvs, ptrAB->C_xmsy(x,m,ALL_SCs), ptrAB->sd_xmsy(x,m,ALL_SCs), ptrAB->yrs, debug, cout); 
                 if (debug<0) cout<<"),"<<endl;
             }//m
         }//x
@@ -6081,7 +6154,7 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
                     cout<<"s="<<qt<<tcsam::getShellType(s)         <<qt<<cc;
                     cout<<"nll=";
                 }
-                calcNLL(ptrAB->llType, ptrAB->llWgt, tAB_y, ptrAB->C_xmsy(x,ALL_MSs,s), ptrAB->sd_xmsy(x,ALL_MSs,s), ptrAB->yrs, debug, cout); 
+                calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, no_xcvs, ptrAB->C_xmsy(x,ALL_MSs,s), ptrAB->sd_xmsy(x,ALL_MSs,s), ptrAB->yrs, debug, cout); 
                 if (debug<0) cout<<"),"<<endl;
             }//s
         }//x
@@ -6104,7 +6177,7 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
                         cout<<"s="<<qt<<tcsam::getShellType(s)   <<qt<<cc;
                         cout<<"nll=";
                     }
-                    calcNLL(ptrAB->llType, ptrAB->llWgt, tAB_y, ptrAB->C_xmsy(x,m,s), ptrAB->sd_xmsy(x,m,s), ptrAB->yrs, debug, cout); 
+                    calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, no_xcvs, ptrAB->C_xmsy(x,m,s), ptrAB->sd_xmsy(x,m,s), ptrAB->yrs, debug, cout); 
                     if (debug<0) cout<<"),"<<endl;
                 }//s
             }//m
@@ -6119,6 +6192,212 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
     if (debug<0) cout<<")";
     if (debug>=dbgAll){
         cout<<"Finished calcNLLs_AggregateCatch()"<<endl;
+    }
+
+//-------------------------------------------------------------------------------------
+//Calculate aggregate catch (abundance or biomass) components to objective function
+//--incudes extra uncertainty xcv_y
+FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA_yxmsz, dvar_vector xcv_y, int debug, ostream& cout)
+    if (debug>=dbgAll) cout<<"Starting calcNLLs_AggregateCatch() with extra cv"<<endl;
+    int mny = mA_yxmsz.indexmin();
+    int mxy = mA_yxmsz.indexmax();//may NOT be mxYr
+    dvar_vector tAB_y(mny,mxy);
+    int isBio = ptrAB->type==AggregateCatchData::KW_BIOMASS_DATA;
+    if (debug>=dbgAll) cout<<"isBio="<<isBio<<tb<<"data type="<<ptrAB->type<<tb<<"fit type="<<tcsam::getFitType(ptrAB->optFit)<<endl;
+    if (debug<0) cout<<"list(fit.type='"<<tcsam::getFitType(ptrAB->optFit)<<"',fits=list("<<endl;
+    if (ptrAB->optFit==tcsam::FIT_BY_TOT){
+        tAB_y.initialize();
+        if (isBio){
+            for (int x=1;x<=nSXs;x++) {
+                for (int m=1;m<=nMSs;m++) {
+                    if (debug>=dbgAll) cout<<"w("<<x<<cc<<m<<") = "<<ptrMDS->ptrBio->wAtZ_xmz(x,m)<<endl;
+                    for (int s=1;s<=nSCs;s++) {
+                        for (int y=mny;y<=mxy;y++) {
+                            tAB_y(y) += mA_yxmsz(y,x,m,s)*ptrMDS->ptrBio->wAtZ_xmz(x,m);
+                        }//y
+                    }//s
+                }//m
+            }//x
+        } else {
+            for (int y=mny;y<=mxy;y++) tAB_y(y) += sum(mA_yxmsz(y));//sum over x,m,s,z
+        }
+        dvector     sd_obs = ptrAB->sd_xmsy(ALL_SXs,ALL_MSs,ALL_SCs);    //sd of observed, by year
+        dvar_vector cv_xtr = xcv_y(mny,mxy);//extra uncertainty sd, by year
+        if (debug>=dbgAll) {
+            cout<<"x = "<<tcsam::getSexType(ALL_SXs)<<tb;
+            cout<<"m = "<<tcsam::getMaturityType(ALL_MSs)<<tb;
+            cout<<"s = "<<tcsam::getShellType(ALL_SCs)<<endl;
+            cout<<"FIT_BY_TOT: "<<tAB_y<<endl;
+            cout<<"sd_obs = "<<sd_obs<<endl;
+            cout<<"cv_xtr = "<<cv_xtr<<endl;
+        }
+        if (debug<0) {
+            cout<<"list(";
+            cout<<"x="<<qt<<tcsam::getSexType(ALL_SXs)     <<qt<<cc;
+            cout<<"m="<<qt<<tcsam::getMaturityType(ALL_MSs)<<qt<<cc;
+            cout<<"s="<<qt<<tcsam::getShellType(ALL_SCs)   <<qt<<cc;
+            cout<<"nll=";
+        }
+        calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, cv_xtr, ptrAB->C_xmsy(ALL_SXs,ALL_MSs,ALL_SCs), sd_obs, ptrAB->yrs, debug, cout);                
+        if (debug<0) cout<<")";
+        if (debug<0) cout<<")";
+    } else if (ptrAB->optFit==tcsam::FIT_BY_X){
+        for (int x=1;x<=nSXs;x++){
+            tAB_y.initialize();
+            if (isBio){
+                for (int m=1;m<=nMSs;m++) {
+                    if (debug>=dbgAll) cout<<"w("<<x<<cc<<m<<") = "<<ptrMDS->ptrBio->wAtZ_xmz(x,m)<<endl;
+                    for (int s=1;s<=nSCs;s++) {
+                        for (int y=mny;y<=mxy;y++) {
+                            tAB_y(y) += mA_yxmsz(y,x,m,s)*ptrMDS->ptrBio->wAtZ_xmz(x,m);
+                        }//y
+                    }//s
+                }//m
+            } else {
+                for (int y=mny;y<=mxy;y++) tAB_y(y) += sum(mA_yxmsz(y,x));//sum over m,s,z
+            }
+            dvector     sd_obs = ptrAB->sd_xmsy(x,ALL_MSs,ALL_SCs); //sd of observed, by year
+            dvar_vector cv_xtr = xcv_y(mny,mxy)(ptrAB->yrs);        //extra uncertainty sd, by year
+            if (debug>=dbgAll) {
+                cout<<"x = "<<tcsam::getSexType(x)<<tb;
+                cout<<"m = "<<tcsam::getMaturityType(ALL_MSs)<<tb;
+                cout<<"s = "<<tcsam::getShellType(ALL_SCs)<<endl;
+                cout<<"FIT_BY_X: "<<tAB_y<<endl;
+                cout<<"sd_obs = "<<sd_obs<<endl;
+                cout<<"cv_xtr = "<<cv_xtr<<endl;
+            }
+            if (debug<0) {
+                cout<<"list(";
+                cout<<"x="<<qt<<tcsam::getSexType(x)           <<qt<<cc;
+                cout<<"m="<<qt<<tcsam::getMaturityType(ALL_MSs)<<qt<<cc;
+                cout<<"s="<<qt<<tcsam::getShellType(ALL_SCs)   <<qt<<cc;
+                cout<<"nll=";
+            }
+            calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, cv_xtr, ptrAB->C_xmsy(x,ALL_MSs,ALL_SCs), sd_obs, ptrAB->yrs, debug, cout); 
+            if (debug<0) cout<<"),"<<endl;
+        }//x
+        if (debug<0) cout<<"NULL)";
+    } else if ((ptrAB->optFit==tcsam::FIT_BY_XM)||(ptrAB->optFit==tcsam::FIT_BY_X_MATONLY)){
+        int mnM = IMMATURE;
+        if (ptrAB->optFit==tcsam::FIT_BY_X_MATONLY) mnM = MATURE;
+        for (int x=1;x<=nSXs;x++){
+            for (int m=mnM;m<=nMSs;m++){
+                tAB_y.initialize();
+                if (isBio){
+                    if (debug>=dbgAll) cout<<"w("<<x<<cc<<m<<") = "<<ptrMDS->ptrBio->wAtZ_xmz(x,m)<<endl;
+                    for (int s=1;s<=nSCs;s++) {
+                        for (int y=mny;y<=mxy;y++) {
+                            tAB_y(y) += mA_yxmsz(y,x,m,s)*ptrMDS->ptrBio->wAtZ_xmz(x,m);
+                        }//y
+                    }//s
+                } else {
+                    for (int y=mny;y<=mxy;y++) tAB_y(y) += sum(mA_yxmsz(y,x,m));//sum over s,z
+                }
+                dvector     sd_obs = ptrAB->sd_xmsy(x,m,ALL_SCs);    //sd of observed, by year
+                dvar_vector cv_xtr = xcv_y(mny,mxy)(ptrAB->yrs);//extra uncertainty sd, by year
+                if (debug>=dbgAll) {
+                    cout<<"x = "<<tcsam::getSexType(x)<<tb;
+                    cout<<"m = "<<tcsam::getMaturityType(m)<<tb;
+                    cout<<"s = "<<tcsam::getShellType(ALL_SCs)<<endl;
+                    cout<<"FIT_BY_XM or X_MAT_ONLY: "<<tAB_y<<endl;
+                    cout<<"sd_obs = "<<sd_obs<<endl;
+                    cout<<"cv_xtr = "<<cv_xtr<<endl;
+                }
+                if (debug<0) {
+                    cout<<"list(";
+                    cout<<"x="<<qt<<tcsam::getSexType(x)        <<qt<<cc;
+                    cout<<"m="<<qt<<tcsam::getMaturityType(m)   <<qt<<cc;
+                    cout<<"s="<<qt<<tcsam::getShellType(ALL_SCs)<<qt<<cc;
+                    cout<<"nll=";
+                }
+                calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, cv_xtr, ptrAB->C_xmsy(x,m,ALL_SCs), sd_obs, ptrAB->yrs, debug, cout); 
+                if (debug<0) cout<<"),"<<endl;
+            }//m
+        }//x
+        if (debug<0) cout<<"NULL)";
+    } else if (ptrAB->optFit==tcsam::FIT_BY_XS){
+        for (int x=1;x<=nSXs;x++){
+            for (int s=1;s<=nSCs;s++){
+                tAB_y.initialize();
+                if (isBio){
+                    for (int m=1;m<=nMSs;m++) {
+                        if (debug>=dbgAll) cout<<"w("<<x<<cc<<m<<") = "<<ptrMDS->ptrBio->wAtZ_xmz(x,m)<<endl;
+                        for (int y=mny;y<=mxy;y++) {
+                            tAB_y(y) += mA_yxmsz(y,x,m,s)*ptrMDS->ptrBio->wAtZ_xmz(x,m);
+                        }//y
+                    }//m
+                } else {
+                    for (int m=1;m<=nMSs;m++) {
+                        for (int y=mny;y<=mxy;y++) {
+                            tAB_y(y) += sum(mA_yxmsz(y,x,m,s));//sum over m,z
+                        }//y
+                    }//m
+                }
+                dvector     sd_obs = ptrAB->sd_xmsy(x,ALL_MSs,s);                //sd of observed, by year
+                dvar_vector cv_xtr = xcv_y(mny,mxy)(ptrAB->yrs);//extra uncertainty sd, by year
+                if (debug>=dbgAll) {
+                    cout<<"x = "<<tcsam::getSexType(x)<<tb;
+                    cout<<"m = "<<tcsam::getMaturityType(ALL_MSs)<<tb;
+                    cout<<"s = "<<tcsam::getShellType(s)<<endl;
+                    cout<<"FIT_BY_XS: "<<tAB_y<<endl;
+                    cout<<"sd_obs = "<<sd_obs<<endl;
+                    cout<<"cv_xtr = "<<cv_xtr<<endl;
+                }
+                if (debug<0) {
+                    cout<<"list(";
+                    cout<<"x="<<qt<<tcsam::getSexType(x)           <<qt<<cc;
+                    cout<<"m="<<qt<<tcsam::getMaturityType(ALL_MSs)<<qt<<cc;
+                    cout<<"s="<<qt<<tcsam::getShellType(s)         <<qt<<cc;
+                    cout<<"nll=";
+                }
+                calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, cv_xtr, ptrAB->C_xmsy(x,ALL_MSs,s), sd_obs, ptrAB->yrs, debug, cout); 
+                if (debug<0) cout<<"),"<<endl;
+            }//s
+        }//x
+        if (debug<0) cout<<"NULL)";
+    } else if (ptrAB->optFit==tcsam::FIT_BY_XMS){
+        for (int x=1;x<=nSXs;x++){
+            for (int m=1;m<=nMSs;m++){
+                for (int s=1;s<=nSCs;s++){
+                    tAB_y.initialize();
+                    if (isBio){
+                        if (debug>=dbgAll) cout<<"w("<<x<<cc<<m<<") = "<<ptrMDS->ptrBio->wAtZ_xmz(x,m)<<endl;
+                        for (int y=mny;y<=mxy;y++) tAB_y(y) += mA_yxmsz(y,x,m,s)*ptrMDS->ptrBio->wAtZ_xmz(x,m);
+                    } else {
+                        for (int y=mny;y<=mxy;y++) tAB_y(y) += sum(mA_yxmsz(y,x,m,s));//sum over z
+                    }
+                    dvector     sd_obs = ptrAB->sd_xmsy(x,m,s);                //sd of observed, by year
+                    dvar_vector cv_xtr = xcv_y(mny,mxy)(ptrAB->yrs);//extra uncertainty sd, by year
+                    if (debug>=dbgAll) {
+                        cout<<"x = "<<tcsam::getSexType(x)<<tb;
+                        cout<<"m = "<<tcsam::getMaturityType(m)<<tb;
+                        cout<<"s = "<<tcsam::getShellType(s)<<endl;
+                        cout<<"FIT_BY_XMS: "<<tAB_y<<endl;
+                        cout<<"sd_obs = "<<sd_obs<<endl;
+                        cout<<"cv_xtr = "<<cv_xtr<<endl;
+                    }
+                    if (debug<0) {
+                        cout<<"list(";
+                        cout<<"x="<<qt<<tcsam::getSexType(x)     <<qt<<cc;
+                        cout<<"m="<<qt<<tcsam::getMaturityType(m)<<qt<<cc;
+                        cout<<"s="<<qt<<tcsam::getShellType(s)   <<qt<<cc;
+                        cout<<"nll=";
+                    }
+                    calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, cv_xtr, ptrAB->C_xmsy(x,m,s), sd_obs, ptrAB->yrs, debug, cout); 
+                    if (debug<0) cout<<"),"<<endl;
+                }//s
+            }//m
+        }//x
+        if (debug<0) cout<<"NULL)";
+    } else {
+        std::cout<<"Calling calcNLLs_AggregateCatch with extra cv with invalid fit option."<<endl;
+        std::cout<<"Invalid fit option was '"<<tcsam::getFitType(ptrAB->optFit)<<qt<<endl;
+        std::cout<<"Aborting..."<<endl;
+        exit(-1);
+    }
+    if (debug<0) cout<<")";
+    if (debug>=dbgAll){
+        cout<<"Finished calcNLLs_AggregateCatch() with extra cv"<<endl;
     }
 
 //-------------------------------------------------------------------------------------
@@ -6181,7 +6460,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                         cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
                         cout<<"fit=";
                     }
-                    calcNLL(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,y,debug,cout);
+                    calcNLL_ZC(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,y,debug,cout);
                     effWgtComps_xmsyn(tcsam::ALL_SXs,tcsam::ALL_MSs,tcsam::ALL_SCs,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
                     if (debug<0) cout<<")"<<cc<<endl;
                 }//value(nT)>0
@@ -6231,7 +6510,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
                             cout<<"fit=";
                         }
-                        calcNLL(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,y,debug,cout);
+                        calcNLL_ZC(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,y,debug,cout);
                         effWgtComps_xmsyn(x,tcsam::ALL_MSs,tcsam::ALL_SCs,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
                         if (debug<0) cout<<")"<<cc<<endl;
                     }//nT>0
@@ -6279,7 +6558,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
                                 cout<<"fit=";
                             }
-                            calcNLL(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,y,debug,cout);
+                            calcNLL_ZC(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,y,debug,cout);
                             effWgtComps_xmsyn(x,m,tcsam::ALL_SCs,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
                             if (debug<0) cout<<")"<<cc<<endl;
                         }//nT>0
@@ -6329,7 +6608,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 cout<<"s='"<<tcsam::getShellType(s)<<"'"<<cc;
                                 cout<<"fit=";
                             }
-                            calcNLL(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,y,debug,cout);
+                            calcNLL_ZC(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,y,debug,cout);
                             effWgtComps_xmsyn(x,tcsam::ALL_MSs,s,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
                             if (debug<0) cout<<")"<<cc<<endl;
                         }//nT>0
@@ -6374,7 +6653,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                     cout<<"s='"<<tcsam::getShellType(s)<<"'"<<cc;
                                     cout<<"fit=";
                                 }
-                                calcNLL(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,y,debug,cout);
+                                calcNLL_ZC(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,y,debug,cout);
                                 effWgtComps_xmsyn(x,m,s,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
                                 if (debug<0) cout<<")"<<cc<<endl;
                             }//nT>0
@@ -6435,7 +6714,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
                             cout<<"fit=";
                         }
-                        calcNLL(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,y,debug,cout);
+                        calcNLL_ZC(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,y,debug,cout);
                         if (debug<0) cout<<")"<<cc<<endl;
                     }//x
                     effWgtComps_xmsyn(tcsam::ALL_SXs,tcsam::ALL_MSs,tcsam::ALL_SCs,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
@@ -6493,7 +6772,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
                                 cout<<"fit=";
                             }
-                            calcNLL(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,y,debug,cout);
+                            calcNLL_ZC(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,y,debug,cout);
                             if (debug<0) cout<<")"<<cc<<endl;
                         }//m
                         effWgtComps_xmsyn(x,tcsam::ALL_MSs,tcsam::ALL_SCs,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
@@ -6552,7 +6831,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 cout<<"s='"<<tcsam::getShellType(s)<<"'"<<cc;
                                 cout<<"fit=";
                             }
-                            calcNLL(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,y,debug,cout);
+                            calcNLL_ZC(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,y,debug,cout);
                             if (debug<0) cout<<")"<<cc<<endl;
                         }//s
                         effWgtComps_xmsyn(x,tcsam::ALL_MSs,tcsam::ALL_SCs,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
@@ -6615,7 +6894,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
                                 cout<<"fit=";
                             }
-                            calcNLL(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,y,debug,cout);
+                            calcNLL_ZC(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,y,debug,cout);
                             if (debug<0) cout<<")"<<cc<<endl;
                         }//m
                     }//x
@@ -6671,7 +6950,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                     cout<<"s='"<<tcsam::getShellType(s)<<"'"<<cc;
                                     cout<<"fit=";
                                 }
-                                calcNLL(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,y,debug,cout);
+                                calcNLL_ZC(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,y,debug,cout);
                                 if (debug<0) cout<<")"<<cc<<endl;
                             }//s
                             effWgtComps_xmsyn(x,m,tcsam::ALL_SCs,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
@@ -6730,7 +7009,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                     cout<<"s='"<<tcsam::getShellType(s)<<"'"<<cc;
                                     cout<<"fit=";
                                 }
-                                calcNLL(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,y,debug,cout);
+                                calcNLL_ZC(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,y,debug,cout);
                                 if (debug<0) cout<<")"<<cc<<endl;
                             }//s
                         }//m
@@ -6933,7 +7212,10 @@ FUNCTION void calcNLLs_Surveys(int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"\n\nStarting calcNLLs_Surveys()"<<endl;
     if (debug<0) cout<<"list("<<endl;
     for (int v=1;v<=nSrv;v++){
-        if (debug>=dbgAll) cout<<"calculating NLLs for survey "<<ptrMC->lblsSrv[v]<<endl;
+        if (debug>=dbgAll) {
+            cout<<"calculating NLLs for survey "<<ptrMC->lblsSrv[v]<<endl;
+            cout<<"--xcv_vy("<<v<<") = "<<xcv_vy(v)<<endl;
+        }
         if (debug<0) cout<<"`"<<ptrMC->lblsSrv[v]<<"`=list("<<endl;
         FleetData* ptrObs = ptrMDS->ppSrv[v-1];
         if (ptrObs->hasICD){//index catch data
@@ -6942,14 +7224,14 @@ FUNCTION void calcNLLs_Surveys(int debug, ostream& cout)
                 if (debug>=dbgAll) cout<<"---index catch abundance"<<endl;
                 if (debug<0) cout<<"abundance="<<endl;
                 smlVal = 0.000001;//match to TCSAM2013
-                calcNLLs_AggregateCatch(ptrObs->ptrICD->ptrN,n_vyxmsz(v),debug,cout);
+                calcNLLs_AggregateCatch(ptrObs->ptrICD->ptrN,n_vyxmsz(v),xcv_vy(v),debug,cout);
                 if (debug<0) cout<<","<<endl;
             }
             if (ptrObs->ptrICD->hasB && ptrObs->ptrICD->ptrB->optFit){
                 if (debug>=dbgAll) cout<<"---index catch biomass"<<endl;
                 if (debug<0) cout<<"biomass="<<endl;
                 smlVal = 0.000001;//match to TCSAM2013
-                calcNLLs_AggregateCatch(ptrObs->ptrICD->ptrB,n_vyxmsz(v),debug,cout);
+                calcNLLs_AggregateCatch(ptrObs->ptrICD->ptrB,n_vyxmsz(v),xcv_vy(v),debug,cout);
                 if (debug<0) cout<<","<<endl;
             }
             if (ptrObs->ptrICD->hasZFD && ptrObs->ptrICD->ptrZFD->optFit){
@@ -7032,12 +7314,13 @@ FUNCTION void calcAllPriors(int debug, ostream& cout)
    
     //survey catchability parameters
     if (debug<0) cout<<tb<<"surveys=list("<<endl;
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pQ,   pQ,   debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pDQ1, pDQ1, debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pDQ2, pDQ2, debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pDQ3, pDQ3, debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pDQ4, pDQ4, debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pA,   pA,   debug,cout); if (debug<0){cout<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pQ,     pQ,     debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pDQ1,   pDQ1,   debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pDQ2,   pDQ2,   debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pDQ3,   pDQ3,   debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pDQ4,   pDQ4,   debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pLnXCV, pLnXCV, debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSrv->pA,     pA,     debug,cout); if (debug<0){cout<<endl;}
     if (debug<0) cout<<tb<<")"<<endl;
     
     if (debug<0) cout<<")"<<endl;
@@ -7097,12 +7380,13 @@ FUNCTION void setInitVals(int debug, ostream& os)
     setInitVals(ptrMPI->ptrFsh->pLgtRet, pLgtRet, usePin, debug, os);
 
     //survey catchability parameters
-    setInitVals(ptrMPI->ptrSrv->pQ,   pQ,   usePin, debug, os);
-    setInitVals(ptrMPI->ptrSrv->pDQ1, pDQ1, usePin, debug, os);
-    setInitVals(ptrMPI->ptrSrv->pDQ2, pDQ2, usePin, debug, os);
-    setInitVals(ptrMPI->ptrSrv->pDQ3, pDQ3, usePin, debug, os);
-    setInitVals(ptrMPI->ptrSrv->pDQ4, pDQ4, usePin, debug, os);
-    setInitVals(ptrMPI->ptrSrv->pA,   pA,   usePin, debug, os);
+    setInitVals(ptrMPI->ptrSrv->pQ,     pQ,     usePin, debug, os);
+    setInitVals(ptrMPI->ptrSrv->pDQ1,   pDQ1,   usePin, debug, os);
+    setInitVals(ptrMPI->ptrSrv->pDQ2,   pDQ2,   usePin, debug, os);
+    setInitVals(ptrMPI->ptrSrv->pDQ3,   pDQ3,   usePin, debug, os);
+    setInitVals(ptrMPI->ptrSrv->pDQ4,   pDQ4,   usePin, debug, os);
+    setInitVals(ptrMPI->ptrSrv->pLnXCV, pLnXCV, usePin, debug, os);
+    setInitVals(ptrMPI->ptrSrv->pA,     pA,     usePin, debug, os);
 
     //MSE parameters    
     setInitVals(ptrMPI->ptrMSE->pMSE_LnC, pMSE_LnC, usePin, debug, os);
@@ -7160,12 +7444,13 @@ FUNCTION int checkParams(int debug, ostream& os)
     res += checkParams(ptrMPI->ptrFsh->pLgtRet, pLgtRet, debug,os);
 
     //survey catchability parameters
-    res += checkParams(ptrMPI->ptrSrv->pQ,   pQ,   debug,os);
-    res += checkParams(ptrMPI->ptrSrv->pDQ1, pDQ1, debug,os);
-    res += checkParams(ptrMPI->ptrSrv->pDQ2, pDQ2, debug,os);
-    res += checkParams(ptrMPI->ptrSrv->pDQ3, pDQ3, debug,os);
-    res += checkParams(ptrMPI->ptrSrv->pDQ4, pDQ4, debug,os);
-    res += checkParams(ptrMPI->ptrSrv->pA,   pA, debug,os);
+    res += checkParams(ptrMPI->ptrSrv->pQ,     pQ,     debug,os);
+    res += checkParams(ptrMPI->ptrSrv->pDQ1,   pDQ1,   debug,os);
+    res += checkParams(ptrMPI->ptrSrv->pDQ2,   pDQ2,   debug,os);
+    res += checkParams(ptrMPI->ptrSrv->pDQ3,   pDQ3,   debug,os);
+    res += checkParams(ptrMPI->ptrSrv->pDQ4,   pDQ4,   debug,os);
+    res += checkParams(ptrMPI->ptrSrv->pLnXCV, pLnXCV, debug,os);
+    res += checkParams(ptrMPI->ptrSrv->pA,     pA,     debug,os);
 
     //MSE parameters
     res += checkParams(ptrMPI->ptrMSE->pMSE_LnC,pMSE_LnC,debug,os);
@@ -7396,12 +7681,13 @@ FUNCTION void writeMCMCtoR(ofstream& mcmc)
         writeMCMCtoR(mcmc,ptrMPI->ptrFsh->pLgtRet);  mcmc<<cc<<endl;
 
         //survey catchability parameters
-        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pQ);    mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ1);  mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ2);  mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ3);  mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ4);  mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pA);    mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pQ);     mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ1);   mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ2);   mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ3);   mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ4);   mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pLnXCV); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pA);     mcmc<<cc<<endl;
     
         //write other quantities
         mcmc<<"R_y="; wts::writeToR(mcmc,value(R_y)); mcmc<<cc<<endl;
@@ -7920,6 +8206,7 @@ FUNCTION void ReportToR_ModelProcesses(ostream& os, int debug, ostream& cout)
             os<<"tmF_fyxmsz="; wts::writeToR(os,            tmF_fyxmsz,fDms,yDms,xDms,mDms,sDms,zbDms); os<<endl;
         os<<")"<<cc<<endl;
         os<<"S_list=list("<<endl;
+            os<<"xcv_vy    ="; wts::writeToR(os,     value(xcv_vy),  vDms,ypDms); os<<cc<<endl;
             os<<"avl_vyxmsz="; wts::writeToR(os,wts::value(a_vyxmsz),vDms,ypDms,xDms,mDms,sDms,zbDms); os<<cc<<endl;
             os<<"sel_vyxmsz="; wts::writeToR(os,wts::value(s_vyxmsz),vDms,ypDms,xDms,mDms,sDms,zbDms); os<<cc<<endl;
             os<<"A_vyxms   ="; wts::writeToR(os,wts::value(a_vyxms), vDms,ypDms,xDms,mDms,sDms);       os<<cc<<endl;
@@ -8177,6 +8464,7 @@ FUNCTION void updateMPI(int debug, ostream& cout)
     ptrMPI->ptrSrv->pDQ2->setFinalValsFromParamVals(pDQ2);
     ptrMPI->ptrSrv->pDQ3->setFinalValsFromParamVals(pDQ3);
     ptrMPI->ptrSrv->pDQ4->setFinalValsFromParamVals(pDQ4);
+    ptrMPI->ptrSrv->pLnXCV->setFinalValsFromParamVals(pLnXCV);
     ptrMPI->ptrSrv->pA->setFinalValsFromParamVals(pA);
     if (debug) cout<<"finished surveys parameters"<<endl;
     
@@ -8393,12 +8681,13 @@ FUNCTION void writeParameters(ostream& os,int toR, int willBeActive)
     //survey parameters
     ctg1="surveys";
     ctg2="surveys";
-    tcsam::writeParameters(os,pQ,  ctg1,ctg2,ptrMPI->ptrSrv->pQ,  toR,willBeActive);      
-    tcsam::writeParameters(os,pDQ1,ctg1,ctg2,ptrMPI->ptrSrv->pDQ1,toR,willBeActive);      
-    tcsam::writeParameters(os,pDQ2,ctg1,ctg2,ptrMPI->ptrSrv->pDQ2,toR,willBeActive);      
-    tcsam::writeParameters(os,pDQ3,ctg1,ctg2,ptrMPI->ptrSrv->pDQ3,toR,willBeActive);      
-    tcsam::writeParameters(os,pDQ4,ctg1,ctg2,ptrMPI->ptrSrv->pDQ4,toR,willBeActive);
-    tcsam::writeParameters(os,pA,  ctg1,ctg2,ptrMPI->ptrSrv->pA,  toR,willBeActive);      
+    tcsam::writeParameters(os,pQ,    ctg1,ctg2,ptrMPI->ptrSrv->pQ,    toR,willBeActive);      
+    tcsam::writeParameters(os,pDQ1,  ctg1,ctg2,ptrMPI->ptrSrv->pDQ1,  toR,willBeActive);      
+    tcsam::writeParameters(os,pDQ2,  ctg1,ctg2,ptrMPI->ptrSrv->pDQ2,  toR,willBeActive);      
+    tcsam::writeParameters(os,pDQ3,  ctg1,ctg2,ptrMPI->ptrSrv->pDQ3,  toR,willBeActive);      
+    tcsam::writeParameters(os,pDQ4,  ctg1,ctg2,ptrMPI->ptrSrv->pDQ4,  toR,willBeActive);
+    tcsam::writeParameters(os,pLnXCV,ctg1,ctg2,ptrMPI->ptrSrv->pLnXCV,toR,willBeActive);
+    tcsam::writeParameters(os,pA,    ctg1,ctg2,ptrMPI->ptrSrv->pA,    toR,willBeActive);      
     
     //MSE directed fishery
     if (mseOpModMode){
@@ -8493,7 +8782,8 @@ BETWEEN_PHASES_SECTION
         projectPopForTAC(mseCapF,0,cout);
     } else {
         if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
-        calcObjFun(dbgObjFun,cout);
+        //calcObjFun(dbgObjFun,cout);
+        calcObjFun(dbgAll,rpt::echo);
         for (int n=1;n<=npLnEffX;n++){
             rpt::echo<<"#----is pLnEffX["<<n<<"] active? "<<active(pLnEffX[n])<<endl;
         }

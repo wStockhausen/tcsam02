@@ -39,6 +39,14 @@ class IndexRange{
         
         int getMax(){return mx;}
         int getMin(){return mn;}
+        
+        /**
+         * Check and reset the current max if it is larger than the input.
+         * 
+         * @param _mx - max allowed
+         */
+        void checkMaxAndReset(int _mx);
+        
         /* 
          * Creates an ivector with elements that span the range.
          * iv[i+1] = min+i for i=0:[max-min]
@@ -98,7 +106,12 @@ class IndexBlock{
     public:
         IndexBlock(int modMn, int modMx){nRCs=0;nIDs=0;ppIRs=0;modMin=modMn;modMax=modMx;}
         ~IndexBlock();
-        
+        /**
+         * Check and reset the current max if it is larger than the input.
+         * 
+         * @param _mx - max allowed
+         */
+        void checkMaxAndReset(int _mx);
         /**
          * Returns size (max index=nIDs) of associated index vector.
          * @return 
@@ -208,7 +221,12 @@ class IndexBlockSet{
         IndexBlockSet(){type=""; nIBs=0;ppIBs=0;modMin=-1;modMax=-1;}
         IndexBlockSet(adstring idxType, int modMn, int modMx){type=idxType; nIBs=0;ppIBs=0;modMin=modMn;modMax=modMx;}
         ~IndexBlockSet();
-        
+        /**
+         * Check and reset the current max if it is larger than the input.
+         * 
+         * @param _mx - max allowed
+         */
+        void checkMaxAndReset(int _mx);
         /**
          * Allocate n IndexBlocks for this IndexBlockSet.
          * @param n

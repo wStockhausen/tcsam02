@@ -20,6 +20,14 @@ IndexRange::IndexRange(int modMn,int modMx){
     modMin = modMn; modMax = modMx;
 }
 /**
+ * Check and reset the current max if it is larger than the input.
+ * 
+ * @param _mx - max allowed
+ */
+void IndexRange::checkMaxAndReset(int _mx){
+    if (_mx<mx) createRangeVector(mn,_mx);//otherwise do nothing
+}
+/**
  * Construct index vector covering actual range from min to max.
  * @param min
  * @param max
@@ -111,6 +119,41 @@ IndexBlock::~IndexBlock(){
     }
 }
 
+/**
+ * Check the index block and reset component ranges 
+ * larger than the input (for retrospective analyses).
+ * 
+ * @param _mx - max allowed
+ */
+void IndexBlock::checkMaxAndReset(int _mx){
+    rpt::echo<<"starting IndexBlock::checkMaxAndReset for "<<_mx<<endl;
+    int ctr = 0;
+    for (int i=0;i<nRCs;i++)  {
+        if (ppIRs[i]->getMin()<=_mx) ctr++;
+    }
+    rpt::echo<<"nRCs = "<<nRCs<<". check = "<<ctr<<endl;
+    IndexRange** ppIRstmp = new IndexRange*[ctr];
+    ctr = 0;
+    for (int i=0;i<nRCs;i++)  {
+        if (ppIRs[i]->getMin()<=_mx) {
+            ppIRs[i]->checkMaxAndReset(_mx);
+            ppIRstmp[ctr++] = ppIRs[i];
+            ppIRs[i] = 0;//set to null
+        } else {
+            rpt::echo<<"deleting ppIRs["<<i<<"]."<<endl;
+            delete ppIRs[i];
+        }
+    }
+    delete ppIRs;
+    rpt::echo<<"deleted ppIRs"<<endl;
+    nRCs = ctr;
+    rpt::echo<<"resetting ppIRs"<<endl;
+    ppIRs = ppIRstmp;
+    write(rpt::echo); rpt::echo<<endl;
+    createIndexVectors();
+    createRDim();
+    rpt::echo<<"finished IndexBlock::checkMaxAndReset for "<<_mx<<endl;
+}
 /**
  * Get the minimum index across the block.
  * 
@@ -273,13 +316,45 @@ adstring IndexBlock::asString(){
 }
 
 /*----------------------------------------------------------------------------*/
+/**
+ * Class destructor
+ */
 IndexBlockSet::~IndexBlockSet(){
     if (ppIBs) {
         for (int i=0;i<nIBs;i++) delete ppIBs[i]; 
         delete ppIBs;
     }
 }
-
+/**
+ * Check the index block set and reset blocks 
+ * larger than the input (for retrospective analyses).
+ * 
+ * @param _mx - max allowed
+ */
+void IndexBlockSet::checkMaxAndReset(int _mx){
+    if (ppIBs) {
+        int ctr = 0;//number of index blocks that will remain valid
+        for (int i=0;i<nIBs;i++) {
+            if (ppIBs[i]->getMin()<=_mx) ctr++;
+        }
+        IndexBlock** ppIBtmp = new IndexBlock*[ctr]; 
+        ctr = 0;
+        for (int i=0;i<nIBs;i++) {
+            if (ppIBs[i]->getMin()<=_mx) {
+                //at least part of time block is valid
+                ppIBs[i]->checkMaxAndReset(_mx);
+                ppIBtmp[ctr++] = ppIBs[i];//save these
+                ppIBs[i] = 0;
+            } else {
+                //time block later than _mx
+                delete ppIBs[i];
+            }
+        }
+        delete ppIBs;
+        nIBs = ctr;
+        ppIBs = ppIBtmp;
+    }
+}
 /**
  * Allocate n IndexBlocks for this IndexBlockSet.
  * @param n

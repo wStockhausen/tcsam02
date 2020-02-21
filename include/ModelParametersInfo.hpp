@@ -1045,6 +1045,8 @@ class SurveysInfo : public ParameterGroupInfo {
         BoundedNumberVectorInfo* pDQ3;
         /** ln-scale offset 4 */
         BoundedNumberVectorInfo* pDQ4;
+        /** ln-scale cv for extra uncertainty  */
+        BoundedNumberVectorInfo* pLnXCV;
         /** max availability parameter */
         BoundedNumberVectorInfo* pA;
         
