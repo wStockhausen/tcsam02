@@ -23,6 +23,7 @@
 #include "ModelConfiguration.hpp"
 #include "ModelIndexBlocks.hpp"
 #include "ModelParameterInfoTypes.hpp"
+#include "ModelParameterVectorInfoTypes.hpp"
 
 /*------------------------------------------------------------------------------\n
  * ParameterGroupInfo\n
@@ -767,8 +768,12 @@ class Molt2MaturityInfo: public ParameterGroupInfo {
  *   pDevsS4  : devs to 4th input to selectivity function
  *   pDevsS5  : devs to 5th input to selectivity function
  *   pDevsS6  : devs to 6th input to selectivity function
+ *   pvNPSel  : nonparametric selectivity curves
+ *   pvCubSplns: cubic spline selectivity curves
  * Notes:
- *  1. no index variables for the parameters
+ *  1. no index variables for the pS. parameters
+ *  2. devs parameters use YEAR blocks as index variables
+ *  3. pvNPSel and pvCubSplns use SIZE blocks as index variables
 *----------------------------------------------------------------------------*/
 class SelectivityInfo : public ParameterGroupInfo {
     public:
@@ -789,6 +794,7 @@ class SelectivityInfo : public ParameterGroupInfo {
         const static int idxDevsS5;//parameter combinations index for pDevsS5
         const static int idxDevsS6;//parameter combinations index for pDevsS6
         const static int idxNPSel;//parameter combinations index for pvNPSel
+        const static int idxCubSplns;//parameter combinations index for pvCubSplns
     protected:
         static adstring NAME;//"selectivities"
     public:
@@ -805,6 +811,7 @@ class SelectivityInfo : public ParameterGroupInfo {
         DevsVectorVectorInfo* pDevsS5;
         DevsVectorVectorInfo* pDevsS6;
         BoundedVectorVectorInfo* pvNPSel;
+        BoundedVectorVectorInfo* pvCubSplns;
         
         SelectivityInfo();
         ~SelectivityInfo();

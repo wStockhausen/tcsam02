@@ -15,6 +15,7 @@
     #include "ModelIndexBlocks.hpp"
     #include "ModelSelectivities.hpp"
     #include "ModelParameterInfoTypes.hpp"
+    #include "ModelParameterVectorInfoTypes.hpp"
     #include "ModelParametersInfo.hpp"
     #include "ModelParameterFunctions.hpp"
     #include "ModelData.hpp"

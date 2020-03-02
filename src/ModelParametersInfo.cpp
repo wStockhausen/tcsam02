@@ -29,7 +29,7 @@ int FisheriesInfo::debug        = 0;
 int SurveysInfo::debug          = 0;
 int MSE_Info::debug             = 0;
 int ModelParametersInfo::debug  = 0;
-const adstring ModelParametersInfo::version = "2020.02.18";
+const adstring ModelParametersInfo::version = "2020.02.29";
     
 /*----------------------------------------------------------------------------*/
 /**
@@ -145,11 +145,12 @@ void tcsam::adjustParamPhase(VectorVectorInfo* pVVI, ParameterGroupInfo* pgi, in
     if (debug) rpt::echo<<"Starting adjustParamPhase(VectorVectorInfo*...) for "<<pVVI->name<<" for max year "<<maxYr<<" using pid "<<pid<<endl;
     int np = pVVI->getSize();//number of parameter vectors
     ivector done(1,np); done=0;
-    ivector phases(1,np);
     for (int p=1;p<=np;p++){ //loop over parameter vectors
-        int phase = (*pVVI)[p]->getPhase();
-        if (debug) rpt::echo<<"--checking parameter vector "<<p<<" with phase "<<phase<<endl;
-        if ((done[p]==0)&&(phase>0)){ //check only parameter vectors that haven't been determined and are set to be estimated
+        ivector phases = (*pVVI)[p]->getPhases();
+        if (debug) rpt::echo<<"--checking parameter vector "<<p<<" with phases: "<<phases<<endl;
+        int chk = 0;
+        for (int i=phases.indexmin();i<=phases.indexmax();i++) chk += phases[i]>0 ? 1 : 0;
+        if ((done[p]==0)&&(chk>0)){ //check only parameter vectors that haven't been determined and are set to be estimated
             int nPCs = pgi->nPCs;//number of parameter combinations in the associated parameter group
             bool estParam = false; 
             for (int pc=1;pc<=nPCs;pc++){ //loop over parameter combinations
@@ -173,12 +174,12 @@ void tcsam::adjustParamPhase(VectorVectorInfo* pVVI, ParameterGroupInfo* pgi, in
                 }//--pcid==p
             }//--loop over pc's
             if (debug && !estParam) rpt::echo<<"----estParam=FALSE"<<endl;
-            phase = estParam ? phase : -phase;//set phase to negative if parameter should NOT be estimated
-        }//--(!done[p])&&(phase>0)
-        (*pVVI)[p]->setPhase(phase);
-        phases[p] = phase;
+            for (int i=phases.indexmin();i<=phases.indexmax();i++) 
+                phases[i] = estParam ? phases[i] : -abs(phases[i]);//set phases to negative if parameter should NOT be estimated
+        }//--(!done[p])&&(chk>0)
+        (*pVVI)[p]->setPhases(phases);
+        if (debug) rpt::echo<<"--final phases for vector "<<p<<": "<<phases<<endl;
     }//--loop over parameter vectors
-    if (debug) rpt::echo<<"--final phases: "<<phases<<endl;
     if (debug) rpt::echo<<"Finished adjustParamPhase(VectorVectorInfo*...) for "<<pVVI->name<<" for max year "<<maxYr<<endl<<endl;
 }
 
@@ -288,11 +289,12 @@ void tcsam::adjustParamPhase(VectorVectorInfo* pVVI, ParameterGroupInfo* pgi, in
     if (debug) rpt::echo<<"Starting adjustParamPhase(VectorVectorInfo*...) for "<<pVVI->name<<" for max year "<<maxYr<<" using pid "<<pid<<endl;
     int np = pVVI->getSize();//number of parameter vectors
     ivector done(1,np); done=0;
-    ivector phases(1,np);
     for (int p=1;p<=np;p++){ //loop over parameter vectors
-        int phase = (*pVVI)[p]->getPhase();
-        if (debug) rpt::echo<<"--checking parameter vector "<<p<<" with phase "<<phase<<endl;
-        if ((done[p]==0)&&(phase>0)){ //check only parameter vectors that haven't been determined and are set to be estimated
+        ivector phases = (*pVVI)[p]->getPhases();
+        if (debug) rpt::echo<<"--checking parameter vector "<<p<<" with phases: "<<phases<<endl;
+        int chk = 0;
+        for (int i=phases.indexmin();i<=phases.indexmax();i++) chk += phases[i]>0 ? 1 : 0;
+        if ((done[p]==0)&&(chk>0)){ //check only parameter vectors that haven't been determined and are set to be estimated
             int nPCs = pgi->nPCs;//number of parameter combinations in the associated parameter group
             bool estParam = false; 
             for (int pc=1;pc<=nPCs;pc++){ //loop over parameter combinations
@@ -316,12 +318,12 @@ void tcsam::adjustParamPhase(VectorVectorInfo* pVVI, ParameterGroupInfo* pgi, in
                 }//--pcid==p
             }//--loop over pc's
             if (debug && !estParam) rpt::echo<<"----estParam=FALSE"<<endl;
-            phase = estParam ? phase : -phase;//set phase to negative if parameter should NOT be estimated
-        }//--(!done[p])&&(phase>0)
-        (*pVVI)[p]->setPhase(phase);
-        phases[p] = phase;
+            for (int i=phases.indexmin();i<=phases.indexmax();i++) 
+                phases[i] = estParam ? phases[i] : -abs(phases[i]);//set phases to negative if parameter should NOT be estimated
+        }//--(!done[p])&&(chk>0)
+        (*pVVI)[p]->setPhases(phases);
+        if (debug) rpt::echo<<"--final phases for vector "<<p<<": "<<phases<<endl;
     }//--loop over parameter vectors
-    if (debug) rpt::echo<<"--final phases: "<<phases<<endl;
     if (debug) rpt::echo<<"Finished adjustParamPhase(VectorVectorInfo*...) for "<<pVVI->name<<" for max year "<<maxYr<<endl<<endl;
 }
 
@@ -1714,7 +1716,7 @@ void Molt2MaturityInfo::writeToR(std::ostream & os){
  -----------------------------------------------------------------------------*/
 adstring SelectivityInfo::NAME = "selectivities";
 const int SelectivityInfo::nIVs =  1;
-const int SelectivityInfo::nPVs = 13;
+const int SelectivityInfo::nPVs = 14;
 const int SelectivityInfo::nXIs =  2;
 const int SelectivityInfo::idxS1=SelectivityInfo::nIVs+ 1;//parameter combinations index for pS1
 const int SelectivityInfo::idxS2=SelectivityInfo::nIVs+ 2;//parameter combinations index for pS2
@@ -1729,6 +1731,7 @@ const int SelectivityInfo::idxDevsS4=SelectivityInfo::nIVs+10;//parameter combin
 const int SelectivityInfo::idxDevsS5=SelectivityInfo::nIVs+11;//parameter combinations index for pDevsS5
 const int SelectivityInfo::idxDevsS6=SelectivityInfo::nIVs+12;//parameter combinations index for pDevsS6
 const int SelectivityInfo::idxNPSel =SelectivityInfo::nIVs+13;//parameter combinations index for pvNPSel
+const int SelectivityInfo::idxCubSplns =SelectivityInfo::nIVs+14;//parameter combinations index for pvCubSplns
 SelectivityInfo::SelectivityInfo(){
     name = NAME;//assign static NAME to ParameterGroupInfo::name
     
@@ -1757,7 +1760,8 @@ SelectivityInfo::SelectivityInfo(){
     lblPVs(k) = "pDevsS4"; dscPVs(k++) = "devs to 4th input to selectivity function";
     lblPVs(k) = "pDevsS5"; dscPVs(k++) = "devs to 5th input to selectivity function";
     lblPVs(k) = "pDevsS6"; dscPVs(k++) = "devs to 6th input to selectivity function";
-    lblPVs(k) = "pvNPSel"; dscPVs(k++) = "non-parametric selectivity functions";
+    lblPVs(k) = "pvNPSel";    dscPVs(k++) = "non-parametric selectivity functions";
+    lblPVs(k) = "pvCubSplns"; dscPVs(k++) = "cubic spline selectivity functions";
     
     k=1;
     pS1 = new BoundedNumberVectorInfo(lblPVs(k++));
@@ -1772,7 +1776,8 @@ SelectivityInfo::SelectivityInfo(){
     pDevsS4 = new DevsVectorVectorInfo(lblPVs(k++));
     pDevsS5 = new DevsVectorVectorInfo(lblPVs(k++));
     pDevsS6 = new DevsVectorVectorInfo(lblPVs(k++));
-    pvNPSel = new BoundedVectorVectorInfo(lblPVs(k++));
+    pvNPSel    = new BoundedVectorVectorInfo(lblPVs(k++));
+    pvCubSplns = new BoundedVectorVectorInfo(lblPVs(k++));
     
     ParameterGroupInfo::nXIs=SelectivityInfo::nXIs;
     lblXIs.allocate(1,nXIs);
@@ -1795,7 +1800,8 @@ SelectivityInfo::~SelectivityInfo(){
     if (pDevsS4) delete pDevsS4; pDevsS4=0;
     if (pDevsS5) delete pDevsS5; pDevsS5=0;
     if (pDevsS6) delete pDevsS6; pDevsS6=0;
-    if (pvNPSel) delete pvNPSel; pvNPSel=0;
+    if (pvNPSel)    delete pvNPSel;    pvNPSel=0;
+    if (pvCubSplns) delete pvCubSplns; pvCubSplns=0;
 }
 
 /**
@@ -1817,7 +1823,8 @@ void SelectivityInfo::setMaxYear(int mxYr, const ivector& sfs){
     if (pDevsS4) tcsam::adjustParamPhase(pDevsS4,this,idxDevsS4,mxYr,sfs,1);
     if (pDevsS5) tcsam::adjustParamPhase(pDevsS5,this,idxDevsS5,mxYr,sfs,1);
     if (pDevsS6) tcsam::adjustParamPhase(pDevsS6,this,idxDevsS6,mxYr,sfs,1);
-    if (pvNPSel) tcsam::adjustParamPhase(pvNPSel,this,idxNPSel,mxYr,sfs,1);
+    if (pvNPSel)    tcsam::adjustParamPhase(pvNPSel,   this,idxNPSel,   mxYr,sfs,1);
+    if (pvCubSplns) tcsam::adjustParamPhase(pvCubSplns,this,idxCubSplns,mxYr,sfs,1);
 }
 
 void SelectivityInfo::addNextYear1(adstring flt_type, int y, imatrix& fltpcs){
@@ -2020,6 +2027,8 @@ void SelectivityInfo::read(cifstream & is){
             rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDevsS6)<<endl;  k++;
             pvNPSel = ParameterGroupInfo::read(is,lblPVs(k),pvNPSel); 
             rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pvNPSel)<<endl;  k++;
+            pvCubSplns = ParameterGroupInfo::read(is,lblPVs(k),pvCubSplns); 
+            rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pvCubSplns)<<endl;  k++;
         } else {
             cout<<"Error reading SelectivityInfo from "<<is.get_file_name()<<endl;
             cout<<"Expected keyword 'PARAMETERS' but got '"<<str<<"'."<<endl;
@@ -2086,6 +2095,12 @@ void SelectivityInfo::setToWriteVectorInitialValues(bool flag){
             vi->readVals = flag ? INT_TRUE : INT_FALSE;        
         }
     }
+    if (pvCubSplns){
+        for (int i=1;i<=pvCubSplns->getSize();i++){
+            BoundedVectorInfo* vi = (*pvCubSplns)[i];
+            vi->readVals = flag ? INT_TRUE : INT_FALSE;        
+        }
+    }
 }
 
 /**
@@ -2131,6 +2146,18 @@ void SelectivityInfo::setToWriteVectorEstimationPhases(bool flag){
             vi->readPhases = flag ? INT_TRUE : INT_FALSE;        
         }
     }
+    if (pvNPSel){
+        for (int i=1;i<=pvNPSel->getSize();i++){
+            BoundedVectorInfo* vi = (*pvNPSel)[i];
+            vi->readPhases = flag ? INT_TRUE : INT_FALSE;        
+        }
+    }
+    if (pvCubSplns){
+        for (int i=1;i<=pvCubSplns->getSize();i++){
+            BoundedVectorInfo* vi = (*pvCubSplns)[i];
+            vi->readPhases = flag ? INT_TRUE : INT_FALSE;        
+        }
+    }
 }
 
 void SelectivityInfo::write(std::ostream & os){
@@ -2169,6 +2196,9 @@ void SelectivityInfo::write(std::ostream & os){
 
         os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
         os<<(*pvNPSel)<<endl;
+
+        os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
+        os<<(*pvCubSplns)<<endl;
     }
  }
 
@@ -2189,6 +2219,8 @@ void SelectivityInfo::writeToPin(std::ostream & os){
     pDevsS6->writeToPin(os);
     
     pvNPSel->writeToPin(os);
+    
+    pvCubSplns->writeToPin(os);
  }
 
 void SelectivityInfo::writeToR(std::ostream & os){
@@ -2210,6 +2242,7 @@ void SelectivityInfo::writeToR(std::ostream & os){
             pDevsS5->writeToR(os,"pDevsS5",indent+1); os<<cc<<endl;
             pDevsS6->writeToR(os,"pDevsS6",indent+1); os<<cc<<endl;
             pvNPSel->writeToR(os,"pvNPSel",indent+1); os<<endl;
+            pvCubSplns->writeToR(os,"pvCubSplns",indent+1); os<<endl;
         }//nPCs>0
     os<<")";
 }
