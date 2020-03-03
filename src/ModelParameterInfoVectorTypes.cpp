@@ -671,10 +671,10 @@ dvector BoundedVectorInfo::calcParamScaleVals(dvector& x){
 void BoundedVectorInfo::setInitVals(double x){
     if (debug) rpt::echo<<"starting BoundedVectorInfo::setInitVals(double x) for "<<name<<endl;
     initVals = x;
-    for (int i=1;i<=N;i++) {
-        if (initVals(i)<=lower) initVals(i) = lower+(upper-lower)/1000000.0; else
-        if (initVals(i)>=upper) initVals(i) = upper-(upper-lower)/1000000.0; 
-    }
+//    for (int i=1;i<=N;i++) {
+//        if (initVals(i)<=lower) initVals(i) = lower+(upper-lower)/1000000.0; else
+//        if (initVals(i)>=upper) initVals(i) = upper-(upper-lower)/1000000.0; 
+//    }
     if (debug) {
         rpt::echo<<"initVals: "<<initVals<<endl<<"vector x: "<<x<<endl;
         rpt::echo<<"finished BoundedVectorInfo::setInitVals(double x) for "<<name<<endl;
@@ -692,10 +692,10 @@ void BoundedVectorInfo::setInitVals(dvector& x){
         rpt::echo<<"initVals index limits: "<<initVals.indexmin()<<cc<<initVals.indexmax()<<endl;
     }
     initVals = 1.0*x;
-    for (int i=1;i<=N;i++) {
-        if (initVals(i)<=lower) initVals(i) = lower+(upper-lower)/1000000.0; else
-        if (initVals(i)>=upper) initVals(i) = upper-(upper-lower)/1000000.0; 
-    }
+//    for (int i=1;i<=N;i++) {
+//        if (initVals(i)<=lower) initVals(i) = lower+(upper-lower)/1000000.0; else
+//        if (initVals(i)>=upper) initVals(i) = upper-(upper-lower)/1000000.0; 
+//    }
     if (debug) {
         rpt::echo<<"initVals: "<<initVals<<endl<<"vector x: "<<x<<endl;
         rpt::echo<<"finished BoundedVectorInfo::setInitVals(dvector& x) for "<<name<<endl;
@@ -709,10 +709,10 @@ void BoundedVectorInfo::setInitVals(dvector& x){
  */
 void BoundedVectorInfo::readInitVals(cifstream & is){
     is>>initVals;
-    for (int i=1;i<=N;i++) {
-        if (initVals(i)<=lower) initVals(i) = lower+(upper-lower)/1000000.0; else
-        if (initVals(i)>=upper) initVals(i) = upper-(upper-lower)/1000000.0; 
-    }
+//    for (int i=1;i<=N;i++) {
+//        if (initVals(i)<=lower) initVals(i) = lower+(upper-lower)/1000000.0; else
+//        if (initVals(i)>=upper) initVals(i) = upper-(upper-lower)/1000000.0; 
+//    }
 }
 
 /**
@@ -1081,6 +1081,7 @@ void VectorVectorInfo::read(cifstream & is){
             is>>idx;
             if ((idx>0)&&(idx<=nVIs)){
                 ppVIs[idx-1] = new VectorInfo();
+                ppVIs[idx-1]->name = name;
                 ppVIs[idx-1]->read(is);
             } else {
                 rpt::echo<<"Error in VectorVectorInfo::read(cifstream & is) for "<<name<<endl;
@@ -1286,7 +1287,10 @@ void BoundedVectorVectorInfo::read(cifstream & is){
             is>>idx;
             if ((idx>0)&&(idx<=nVIs)){
                 BoundedVectorInfo* pBVI = new BoundedVectorInfo();
+                pBVI->name = name;
+                if (debug) BoundedVectorInfo::debug=1;
                 is>>(*pBVI);
+                if (debug) BoundedVectorInfo::debug=0;
                 ppVIs[idx-1] = pBVI;
             } else {
                 rpt::echo<<"Error in BoundedVectorVectorInfo::read(cifstream & is)"<<endl;
@@ -1375,6 +1379,7 @@ void DevsVectorVectorInfo::read(cifstream & is){
             if (debug) rpt::echo<<"reading index "<<idx<<endl;
             if ((idx>0)&&(idx<=nVIs)){
                 DevsVectorInfo* pDVI = new DevsVectorInfo();
+                pDVI->name = name;
                 if (debug) {DevsVectorInfo::debug=1; BoundedVectorInfo::debug=1;}
                 is>>(*pDVI);
                 if (debug) {DevsVectorInfo::debug=0; BoundedVectorInfo::debug=0;}

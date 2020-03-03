@@ -50,19 +50,21 @@ void IndexRange::parse(adstring str){
     int i = str.pos(":");
     if (debug) cout<<"':' located at position "<<i<<endl;
     if (i){
-        mn = ::atoi(str(1,i-1));          
-        if (mn<0){mn=modMin+1+mn;} //else
-        //if (mn<modMin){mn=modMin;} else
-        //if (mn>modMax){mn=modMax;}
+        mn = ::atoi(str(1,i-1));
         mx = ::atoi(str(i+1,str.size())); 
-        if (mx<0){mx=modMax-1-mx;} //else
-        //if (mx<modMin){mx=modMin;} else
-        //if (mx>modMax){mx=modMax;}
+        if ((modMin==0)&&(modMax==0)){
+            modMin = mn;
+            modMax = mx;
+        }
+        if (mn<0){mn=modMin+1+mn;} 
+        if (mx<0){mx=modMax-1-mx;}
     } else {
         mx = ::atoi(str);
-        if (mx<0){mx=modMax-1-mx;}// else
-        //if (mx<modMin){mx=modMin;} else
-        //if (mx>modMax){mx=modMax;}
+        if ((modMin==0)&&(modMax==0)){
+            modMin = mx;
+            modMax = mx;
+        }
+        if (mx<0){mx=modMax-1-mx;}
         mn=mx;
     }
     if (debug) cout<<"mn,mx = "<<mn<<cc<<mx<<endl;
@@ -195,13 +197,24 @@ void IndexBlock::addElement(int e){
  * and from model to block (reverse).\n
  */
 void IndexBlock::createIndexVectors(){
-    int mnM = modMin; 
-    int mxM = modMax;
+    int mnM = modMin; //default, works for most index block types
+    int mxM = modMax; //default, works for most index block types
+    if ((modMin==0)||(modMax==0)){
+        //index block for ARRAY type, so set starting values 
+        //for min very high, for max very low so they are replaced
+        //by actual min, max
+        mnM =  10000;
+        mxM = -10000;
+    }
     nIDs = 0;
     for (int c=0;c<nRCs;c++) {
         mnM = min(mnM,ppIRs[c]->getMin());//need to do these checks
         mxM = max(mxM,ppIRs[c]->getMax());//need to do these checks
         nIDs += ppIRs[c]->getMax()-ppIRs[c]->getMin()+1;
+    }
+    if ((modMin==0)&&(modMax==0)){
+        modMin = mnM;
+        modMax = mxM;
     }
     ivFwd.allocate(1,nIDs);
     ivRev.allocate(mnM,mxM);
@@ -401,6 +414,10 @@ void IndexBlockSet::setType(adstring theType){
         modMin = 1;
         modMax = ModelConfiguration::nSrv;
     } else 
+    if (type==tcsam::STR_ARRAY){
+        modMin = 0;
+        modMax = 0;
+    } else 
     {
         cout<<"WARNING...WARNING...WARNING..."<<endl;
         cout<<"Defining non-standard index type '"<<type<<"'."<<endl;
@@ -456,6 +473,9 @@ void IndexBlockSet::writeToR(std::ostream& os){
  * Function to get index limits for standard types from the ModelConfiguration
  * object or tcsam namespace.
  * 
+ * NOTE: the standard limits for ARRAY types are 0 and 0, since these could really be any
+ * values
+ * 
  * @param idxType - adstring indicating index type (e.g., year, size, sex, etc.) [in]
  * @param mn - minimum index value [out]
  * @param mx - maximum index value [out]
@@ -480,6 +500,10 @@ void tcsam::getIndexLimits(adstring& idxType,int& mn,int& mx){
     if (idxType==tcsam::STR_SHELL_CONDITION) {
         mn = 1;
         mx = tcsam::nSCs;
+    } else
+    if (idxType==tcsam::STR_ARRAY) {
+        mn = 0;//NOTE: arbitrary large negative
+        mx = 0;//NOTE: arbitrary large positive
     } else
     {
         cout<<"Error in tcsam::getIndexLimits("<<idxType<<")"<<endl;

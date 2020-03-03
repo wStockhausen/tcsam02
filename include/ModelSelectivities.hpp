@@ -77,9 +77,10 @@
             /**
              * Calculates "nonparametric" selectivity function with smoothness imposed
              * on the resulting curve by way of penalties in the objective function.
+             * 
              * Inputs:
              * @param z      - dvector of sizes at which to compute function values
-             * @param params - dvar_vector of function parameters, 1 for each size bin
+             * @param params - dvar_vector of logit-scale parameters, 1 for each size bin
              * @param idZ    - index at which function = 1 (i.e., fully-selected size) [int]
              * 
              * @return - selectivity function values as dvar_vector
@@ -297,12 +298,13 @@
             dvar_vector static dblnormal6(dvector& z, dvar_vector& params, double fsZ);
             /**
              * Calculates an n-parameter cubic spline function parameterized by 
-             *      params[1:n]:    values at knots
-             *      params[n+1:2n]: knots
+             *      params[1:n]:    knots
+             *      params[n+1:2n]: logit-scale values at knots
+             * 
              * Inputs:
              * @param z      - dvector of sizes at which to compute function values
-             * @param params - dvar_vector of function parameters
-             * @param fsZ    - size at which function = 1 (i.e., fully-selected size) [double] NOTE: ignored!
+             * @param params - dvar_vector of function parameters (knots + logit-scale values)
+             * @param fsZ    - size at which function = 1 (i.e., fully-selected size) [double] NOTE: ignored unless > 0
              * 
              * @return - selectivity function values as dvar_vector
              */

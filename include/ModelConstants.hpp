@@ -36,7 +36,17 @@
 #pragma once
 #ifndef MODELCONSTANTS_HPP
     #define	MODELCONSTANTS_HPP
-   
+
+    #ifdef PRINT2B1
+        #undef PRINT2B1
+    #endif
+    #define PRINT2B1(o) std::cout<<(o)<<std::endl; rpt::echo<<(o)<<std::endl;
+
+    #ifdef PRINT2B2
+        #undef PRINT2B2
+    #endif
+    #define PRINT2B2(t,o) std::cout<<(t)<<(o)<<std::endl; rpt::echo<<(t)<<(o)<<std::endl;
+
 class rpt{
     public:
         /* Global output filestream */
@@ -81,6 +91,8 @@ namespace tcsam{
     const adstring STR_FISHERY = "FISHERY";
     /* Model dimension name for surveys */
     const adstring STR_SURVEY = "SURVEY";
+    /* Model dimension name for arbitrary arrays */
+    const adstring STR_ARRAY = "ARRAY";
     /* Model flag name for selectivity functions */
     const adstring STR_SELFCN = "selFcn";
     

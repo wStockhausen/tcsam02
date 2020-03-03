@@ -300,6 +300,17 @@ class IndexBlockSet{
 };
 
 namespace tcsam {
+    /**
+     * Function to get index limits for standard types from the ModelConfiguration
+     * object or tcsam namespace.
+     * 
+     * NOTE: the standard limits for ARRAY types are 0 and 0, since these could really be any
+     * values
+     * 
+     * @param idxType - adstring indicating index type (e.g., year, size, sex, etc.) [in]
+     * @param mn - minimum index value [out]
+     * @param mx - maximum index value [out]
+     */
     void getIndexLimits(adstring& idxType,int& mn,int& mx);
 }
 #endif	/* MODELINDEXBLOCKS_HPP */

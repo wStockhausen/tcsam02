@@ -788,10 +788,16 @@ BoundedVectorVectorInfo* ParameterGroupInfo::read(cifstream& is, adstring& lbl, 
     adstring param;
     is>>param;
     if (param==lbl){
-        if (debug) cout<<"Reading "<<lbl<<endl;
+        if (debug) {
+            PRINT2B2("Reading ",lbl)
+            BoundedVectorVectorInfo::debug=1;
+        }
         pBVVI = new BoundedVectorVectorInfo(lbl);
         is>>(*pBVVI);
-        if (debug) cout<<"ptr to "<<lbl<<": "<<pBVVI<<endl<<(*pBVVI)<<endl;
+        if (debug) {
+            cout<<"ptr to "<<lbl<<": "<<pBVVI<<endl<<(*pBVVI)<<endl;
+            BoundedVectorVectorInfo::debug=0;
+        }
     } else {
         tcsam::readError(is,lbl,param);
         exit(-1);

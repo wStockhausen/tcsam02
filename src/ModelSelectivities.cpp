@@ -786,9 +786,10 @@ dvar_vector SelFcns::constant(dvector& z){
 /**
  * Calculates "nonparametric" selectivity function with smoothness imposed
  * on the resulting curve by way of penalties in the objective function.
+ * 
  * Inputs:
  * @param z      - dvector of sizes at which to compute function values
- * @param params - dvar_vector of function parameters, 1 for each size bin
+ * @param params - dvar_vector of logit-scale  parameters, 1 for each size bin
  * @param idZ    - index at which function = 1 (i.e., fully-selected size) [int]
  * 
  * @return - selectivity function values as dvar_vector
@@ -810,12 +811,13 @@ dvar_vector SelFcns::nonparametric(dvector& z, dvar_vector& params, int idZ){
 
 /**
  * Calculates an n-parameter cubic spline function parameterized by 
- *      params[1:n]:    values at knots
- *      params[n+1:2n]: knots
+ *      params[1:n]   :  knots
+ *      params[n+1:2n]:  logit-scale values at knots
+ * 
  * Inputs:
  * @param z      - dvector of sizes at which to compute function values
- * @param params - dvar_vector of function parameters [knots = params(1,np); values = params(np+1,2*np)]
- * @param fsZ    - size at which function = 1 (i.e., fully-selected size) [double] NOTE: ignored!
+ * @param params - dvar_vector of function parameters [knots + logit-scale values]
+ * @param fsZ    - size at which function = 1 (i.e., fully-selected size) [double] NOTE: ignored unless > 0
  * 
  * @return - selectivity function values as dvar_vector
  */
@@ -827,13 +829,18 @@ dvar_vector SelFcns::cubic_spline(dvector& z, dvar_vector& params, double fsZ){
         rpt::echo<<"ip_min, ip_max = "<<params.indexmin()<<cc<<params.indexmax()<<endl;
     }
     int np = params.size()/2;
-    dvar_vector knots = params(1,np);     //knot locations
-    dvar_vector yvals = params(np+1,2*np);//function values at knots
+    dvar_vector knots = params(1,np);                       //knot locations
+    dvar_vector yvals = 1.0/(1.0+mfexp(-params(np+1,2*np)));//function values at knots
     yvals.shift(1);                       //need to shift starting index to 1, same as knots
-    rpt::echo<<endl<<"initSpline return type   = "<<typeid(gsm::initSpline(yvals,knots)).name()<<endl;
+    //rpt::echo<<endl<<"initSpline return type   = "<<typeid(gsm::initSpline(yvals,knots)).name()<<endl;
     dvar_vector yppvals = gsm::initSpline<dvar_vector,dvar_vector>(yvals,knots,debug);            //values of 2nd derivatives at knots
-    rpt::echo<<endl<<"interpSpline return type = "<<typeid(gsm::interpSpline(z,knots,yvals,yppvals)).name()<<endl;
+    //rpt::echo<<endl<<"interpSpline return type = "<<typeid(gsm::interpSpline(z,knots,yvals,yppvals)).name()<<endl;
     dvar_vector s       = gsm::interpSpline<dvar_vector,dvar_vector,dvector>(z,knots,yvals,yppvals,debug);//function values interpolated at z locations    
+    if (fsZ>0){
+        dvector vfsZ(1,1); vfsZ = fsZ;
+        dvar_vector sp = gsm::interpSpline<dvar_vector,dvar_vector,dvector>(vfsZ,knots,yvals,yppvals,debug);//function value interpolated at fsZ
+        s /= sp[1];//normalize to 1 at fsZ
+    }
     if (debug) {
         rpt::echo<<"knots   = "<<knots<<endl;
         rpt::echo<<"yvals   = "<<yvals<<endl;

@@ -571,6 +571,10 @@
 //                   param_init_(bounded)number_vector objects. This required substantial
 //                  revisions of anything to do with vector_vectors.
 //              3. MPI version incremented to 2020.02.29.
+//-2020-03-03:  1. Added "runSandbox" commandline flag.
+//              2. Parameter values for cubic spline functions are now on logit-scale.
+//              3. Cubic splines now working. Added ARRAY index type. May want some
+//                  additional functionality for splines (size bounds, e.g.).
 //
 // =============================================================================
 // =============================================================================
@@ -608,6 +612,7 @@
 //  -debugObjFun
 //  -debugMCMC
 //  -showActiveParams
+//  -runSandbox                    flag to run code in "sandbox" and exit.
 // =============================================================================
 // =============================================================================
 GLOBALS_SECTION
@@ -617,45 +622,43 @@ GLOBALS_SECTION
     #include <admodel.h>
     #include "TCSAM.hpp"
 
-    #ifdef PRINT2B1
-        #undef PRINT2B1
+    //macros to print param_init_number_vector object representing devs vectors
+    #ifdef PRINTDEVSp
+        #undef PRINTDEVSp
     #endif
-    #define PRINT2B1(o) std::cout<<(o)<<std::endl; rpt::echo<<(o)<<std::endl;
-
-    #ifdef PRINT2B2
-        #undef PRINT2B2
-    #endif
-    #define PRINT2B2(t,o) std::cout<<(t)<<(o)<<std::endl; rpt::echo<<(t)<<(o)<<std::endl;
-
-    //macro to print param_init_number_vector object representing devs vectors
+    #define PRINTDEVSp(s,P,os) {int ctr = 1; \
+                                os<<s<<": tot num = "<<npDevs##P<<std::endl; \
+                                os<<"indices = "<<pDevs##P.indexmin()<<tb<<pDevs##P.indexmax()<<std::endl; \
+                                for (int p=1;p<=npDevs##P;p++) { \
+                                  std::cout<<s<<"["<<p<<"] = "; \
+                                  os<<" mni = "<<mniDevs##P[p]<<cc<<" mni = "<<mxiDevs##P[p]<<std::endl; \
+                                  for (int j=mniDevs##P[p];j<=mxiDevs##P[p];j++) std::cout<<pDevs##P[ctr++]<<tb; std::cout<<std::endl; \
+                                } \
+                               }
     #ifdef PRINTDEVS
         #undef PRINTDEVS
     #endif
-    #define PRINTDEVS(s,P) {int ctr = 1; \
-                            for (int p=1;p<=npDevs##P;p++) { \
-                                std::cout<<s<<"["<<p<<"] = "; \
-                                for (int j=mniDevs##P[p];j<=mxiDevs##P[p];j++) std::cout<<pDevs##P[ctr++]<<tb; std::cout<<std::endl; \
-                            } \
-                            ctr = 1; \
-                            for (int p=1;p<=npDevs##P;p++) { \
-                                rpt::echo<<s<<"["<<p<<"] = "; \
-                                for (int j=mniDevs##P[p];j<=mxiDevs##P[p];j++) rpt::echo<<pDevs##P[ctr++]<<tb; rpt::echo<<std::endl; \
-                           }}
+    #define PRINTDEVS(s,P) PRINTDEVSp(s,P,std::cout) \
+                           PRINTDEVSp(s,P,rpt::echo) 
 
-    //macro to print param_init_(bounded)_vector_vector objects
+    //macros to print pseudo-param_init_(bounded)_vector_vector objects
+    #ifdef PRINTVVp
+        #undef PRINTVVp
+    #endif
+    #define PRINTVVp(s,P,os) {int ctr = 1; \
+                                os<<s<<": np = "<<np##P<<std::endl; \
+                                os<<"indices = "<<pv##P.indexmin()<<tb<<pv##P.indexmax()<<std::endl; \
+                                for (int p=1;p<=np##P;p++) { \
+                                    os<<s<<"["<<p<<"] = "<<std::endl; \
+                                    os<<" mni = "<<mni##P[p]<<cc<<" mni = "<<mxi##P[p]<<std::endl; \
+                                    for (int j=mni##P[p];j<=mxi##P[p];j++) os<<pv##P[ctr++]<<tb; os<<std::endl; \
+                                } \
+                             }
     #ifdef PRINTVV
         #undef PRINTVV
     #endif
-    #define PRINTVV(s,P)  {int ctr = 1; \
-                            for (int p=1;p<=np##P;p++) { \
-                                std::cout<<s<<"["<<p<<"] = "; \
-                                for (int j=mni##P[p];j<=mxi##P[p];j++) std::cout<<pv##P[ctr++]<<tb; std::cout<<std::endl; \
-                            } \
-                            ctr = 1; \
-                            for (int p=1;p<=np##P;p++) { \
-                                rpt::echo<<s<<"["<<p<<"] = "; \
-                                for (int j=mni##P[p];j<=mxi##P[p];j++) rpt::echo<<pv##P[ctr++]<<tb; rpt::echo<<std::endl; \
-                           }}
+    #define PRINTVV(s,P)  PRINTVVp(s,P,std::cout) \
+                          PRINTVVp(s,P,rpt::echo)
         
     adstring model  = tcsam::MODEL;
     adstring modVer = tcsam::VERSION; 
@@ -744,6 +747,8 @@ GLOBALS_SECTION
     int debugOFL         = 0;
     int debugMCMC        = 0;
     
+    int runSandbox = 0;
+    
     //note: consider using std::bitset to implement debug functionality
     int dbgCalcProcs = 10;
     int dbgObjFun = 20;
@@ -755,7 +760,7 @@ GLOBALS_SECTION
     int dbgAll    = tcsam::dbgAll;
     
     int phsItsRewgt  = 1000;//min phase to calculate effective weights for size comps
-    int maxItsRewgt = 0;    //maximum number of terations for re-weighting
+    int maxItsRewgt = 0;    //maximum number of iterations for re-weighting
     int numItsRewgt = 0;    //number of re-weighting iterations completed
         
     int nSXs    = tcsam::nSXs;
@@ -901,6 +906,13 @@ DATA_SECTION
     if ((on=option_match(ad_comm::argc,ad_comm::argv,"-ctrDebugParams"))>-1) {
         ctrDebugParams=atoi(ad_comm::argv[on+1]);
         rpt::echo<<"Starting debugParams at counter "<<ctrDebugParams<<endl;
+        rpt::echo<<"#-------------------------------------------"<<endl;
+        flg = 1;
+    }
+    //runSandbox
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-runSandbox"))>-1) {
+        runSandbox=1;
+        rpt::echo<<"Running sandbox for testing."<<endl;
         rpt::echo<<"#-------------------------------------------"<<endl;
         flg = 1;
     }
@@ -1776,40 +1788,63 @@ PARAMETER_SECTION
     !!PRINT2B1("#Starting PARAMETER_SECTION")
  LOCAL_CALCS
     //----Testing Sandbox-------//
-    if (0){
+    if (runSandbox){
         PRINT2B1(" ")
         PRINT2B1("#--Starting sandbox")
         dvector z(1,32);
         for (int i=z.indexmin();i<=z.indexmax();i++) z(i) = 27.5+(i-1)*5.0;
-        rpt::echo<<"--Cubic Spline"<<endl;
+        PRINT2B1("--Cubic Spline")
         SelFcns::debug=1;//turn on debugging printouts
         dvector x_knts(1,5);
         x_knts[1]=z[1]; for (int i=1;i<=4;i++) x_knts[i+1] = z[8*i];
-        dvar_vector y_vals = 1.0/(1.0+exp(-(x_knts-100.0)/30.0));
+        dvar_vector y_vals = (x_knts-100.0)/30.0;
         dvar_vector params(1,10);
         params(1,5)           = x_knts;
         params(6,10).shift(1) = y_vals;
-        rpt::echo<<"inputs:"<<endl;
-        rpt::echo<<"params = "<<params<<endl;
-        rpt::echo<<"x_knts = "<<x_knts<<endl;
-        rpt::echo<<"y_vals = "<<y_vals<<endl<<endl;
+        PRINT2B1("inputs:")
+        PRINT2B2("params = ",params)
+        PRINT2B2("x_knts = ",x_knts)
+        PRINT2B2("y_vals = ",y_vals)
+        PRINT2B1(" ")
         
-        rpt::echo<<endl<<"----interpolating at knot values--"<<endl;
-        dvar_vector sel1 = 1.0*SelFcns::cubic_spline(x_knts, params, 1.0);
-        rpt::echo<<"----interpolated at knot values--"<<endl;
-        rpt::echo<<"params = "<<params<<endl;
-        rpt::echo<<"x_knts = "<<x_knts<<endl;
-        rpt::echo<<"y_vals = "<<y_vals<<endl;
-        rpt::echo<<"sel    = "<<sel1<<endl<<endl;
+        PRINT2B1("----interpolating at knot value without normalization--")
+        dvar_vector sel1 = 1.0*SelFcns::cubic_spline(x_knts, params, 0.0);
+        PRINT2B1("----interpolated at knot values--")
+        PRINT2B2("params = ",params)
+        PRINT2B2("x_knts = ",x_knts)
+        PRINT2B2("y_vals = ",y_vals)
+        PRINT2B2("sel    = ",sel1)
+        PRINT2B1(" ")
         
-        rpt::echo<<endl<<"----interpolating across size bins--"<<endl;
-        dvar_vector sel2 = 1.0*SelFcns::cubic_spline(z, params, 1.0);
-        rpt::echo<<endl<<"----interpolated across size bins--"<<endl;
-        rpt::echo<<"params = "<<params<<endl;
-        rpt::echo<<"x_knts = "<<x_knts<<endl;
-        rpt::echo<<"y_vals = "<<y_vals<<endl;
-        rpt::echo<<"z      = "<<z<<endl;
-        rpt::echo<<"sel    = "<<sel2<<endl<<endl;
+        PRINT2B1("----interpolating across size bins without normalization--")
+        dvar_vector sel2 = 1.0*SelFcns::cubic_spline(z, params, 0.0);
+        PRINT2B1("----interpolated across size bins--")
+        PRINT2B2("params = ",params)
+        PRINT2B2("x_knts = ",x_knts)
+        PRINT2B2("y_vals = ",y_vals)
+        PRINT2B2("z      = ",z)
+        PRINT2B2("sel    = ",sel2)
+        PRINT2B1(" ")
+        
+        PRINT2B1("----interpolating at knot value with normalization at z=100--")
+        sel1 = 1.0*SelFcns::cubic_spline(x_knts, params, 100.0);
+        PRINT2B1("----interpolated at knot values--")
+        PRINT2B2("params = ",params)
+        PRINT2B2("x_knts = ",x_knts)
+        PRINT2B2("y_vals = ",y_vals)
+        PRINT2B2("sel    = ",sel1)
+        PRINT2B1(" ")
+        
+        PRINT2B1("----interpolating across size bins with normalization at z=100--")
+        sel2 = 1.0*SelFcns::cubic_spline(z, params, 100.0);
+        PRINT2B1("----interpolated across size bins--")
+        PRINT2B2("params = ",params)
+        PRINT2B2("x_knts = ",x_knts)
+        PRINT2B2("y_vals = ",y_vals)
+        PRINT2B2("z      = ",z)
+        PRINT2B2("sel    = ",sel2)
+        PRINT2B1(" ")
+                
         SelFcns::debug=0;
         PRINT2B1("#--Finished sandbox")
         PRINT2B1(" ")
@@ -1828,7 +1863,6 @@ PARAMETER_SECTION
     !!PRINT2B2("pRa = ",pRa)
     init_bounded_number_vector pRb(1,npRb,lbRb,ubRb,phsRb);         //size distribution parameter
     !!PRINT2B2("pRb = ",pRb)
-    init_bounded_number_vector pDevsLnR(1,nptDevsLnR,lbDevsLnR,ubDevsLnR,phsDevsLnR);//ln-scale rec devs
  LOCAL_CALCS
     if (ptrMPI->ptrRec->pDevsLnR->getSize()>0){
         PRINT2B2("npDevsLnR  = ",npDevsLnR)
@@ -1838,6 +1872,7 @@ PARAMETER_SECTION
         PRINT2B2("phsDevsLnR = ",phsDevsLnR)
     }
  END_CALCS
+    init_bounded_number_vector pDevsLnR(1,nptDevsLnR,lbDevsLnR,ubDevsLnR,phsDevsLnR);//ln-scale rec devs
     !!PRINTDEVS("pDevsLnR",LnR)
     matrix devsLnR(1,npDevsLnR,mniDevsLnR,mxiDevsLnR);
     !!PRINT2B1("got past recruitment parameters")
@@ -1896,10 +1931,14 @@ PARAMETER_SECTION
     init_bounded_number_vector pDevsS1(1,nptDevsS1,lbDevsS1,ubDevsS1,phsDevsS1);
  LOCAL_CALCS
     if (ptrMPI->ptrSel->pDevsS1->getSize()>0){
+       PRINT2B2("npDevsS1  = ",npDevsS1)
        PRINT2B2("nptDevsS1 = ",nptDevsS1)
+       PRINT2B2("min idxs  = ",pDevsS1.indexmin())
+       PRINT2B2("max idxs  = ",pDevsS1.indexmax())
        PRINT2B2("lbDevsS1  = ",lbDevsS1)
        PRINT2B2("ubDevsS1  = ",ubDevsS1)
        PRINT2B2("phsDevsS1 = ",phsDevsS1)
+       PRINT2B2("pDevsS1 = ",pDevsS1)
     }
  END_CALCS
     !!PRINTDEVS("pDevsS1",S1)
@@ -1920,7 +1959,7 @@ PARAMETER_SECTION
     matrix devsS5(1,npDevsS5,mniDevsS5,mxiDevsS5);
     matrix devsS6(1,npDevsS6,mniDevsS6,mxiDevsS6);
     
-    init_bounded_number_vector pvNPSel(1,npNPSel,lbNPSel,ubNPSel,phsNPSel);
+    init_bounded_number_vector pvNPSel(1,nptNPSel,lbNPSel,ubNPSel,phsNPSel);
  LOCAL_CALCS
     if (ptrMPI->ptrSel->pvNPSel->getSize()>0){
         PRINT2B2("npNPSel = ",npNPSel)
@@ -1930,20 +1969,21 @@ PARAMETER_SECTION
         PRINT2B2("phsNPSel = ",phsNPSel)
     }
  END_CALCS
-    !!PRINTVV("pvNPSel = ",NPSel)
+    !!PRINTVV("pvNPSel",NPSel)
     matrix matNPSel(1,npNPSel,mniNPSel,mxiNPSel);
     
-    init_bounded_number_vector pvCubSplns(1,npCubSplns,lbCubSplns,ubCubSplns,phsCubSplns);
+    init_bounded_number_vector pvCubSplns(1,nptCubSplns,lbCubSplns,ubCubSplns,phsCubSplns);
     !!cout<<"got past pvCubSplns"<<endl;
  LOCAL_CALCS
     if (ptrMPI->ptrSel->pvCubSplns->getSize()>0){
+        PRINT2B2("npCubSplns  = ",npCubSplns)
         PRINT2B2("nptCubSplns = ",nptCubSplns)
         PRINT2B2("lbCubSplns  = ",lbCubSplns)
         PRINT2B2("ubCubSplns  = ",ubCubSplns)
         PRINT2B2("phsCubSplns = ",phsCubSplns)
     }
  END_CALCS
-    !!PRINTVV("pvCubSplns = ",CubSplns)
+    !!PRINTVV("pvCubSplns",CubSplns)
     matrix matCubSplns(1,npCubSplns,mniCubSplns,mxiCubSplns);
     !!PRINT2B1("got past selectivity parameters")
     
@@ -2287,7 +2327,7 @@ PRELIMINARY_CALCS_SECTION
         if (!mcevalOn) {
 //-----------PRELIMINARY_CALCS: "ORDINARY" MODEL RUNS ONLY---------------------- 
             //this section runs for an "ordinary" model run
-            int dbgLevel = 0; //set at dbgCalcProcs+1 to print to terminal 
+            int dbgLevel = 0; //set at dbgCalcProcs+1 to print debugging info 
             PRINT2B1("testing calcRecruitment():")
             calcRecruitment(dbgLevel,rpt::echo);
 
@@ -2301,7 +2341,7 @@ PRELIMINARY_CALCS_SECTION
             calcPrM2M(dbgLevel,rpt::echo);
 
             PRINT2B1("testing calcSelectivities():")
-            calcSelectivities(dbgLevel,rpt::echo);
+            calcSelectivities(dbgCalcProcs+1,rpt::echo);
 
             PRINT2B1("testing calcFisheryFs():")
             calcFisheryFs(dbgLevel,rpt::echo);
@@ -3951,7 +3991,7 @@ FUNCTION void calcSelectivities(int debug, ostream& cout)
             }
         } else if (idSel==SelFcns::ID_NONPARAMETRIC){
             //calculate nonparametric selectivity function
-            int pcNP = pids[ptrSel->nIVs+ptrSel->nPVs];
+            int pcNP = pids[ptrSel->idxNPSel];
             if (debug>dbgCalcProcs) cout<<tb<<"pcNP = "<<pcNP<<endl;
             dvar_vector nonParParams = matNPSel(pcNP);
             if (debug>dbgCalcProcs) cout<<tb<<"nonParParams = "<<pvNPSel(pcNP)<<endl;
@@ -3967,7 +4007,30 @@ FUNCTION void calcSelectivities(int debug, ostream& cout)
                 y = idxs(idx,1);//year
                 if ((mnYr<=y)&&(y<=mxYr+1)) {
                     sel_cyz(pc,y) = npSel_cz(pcNP);
-                    if (debug>dbgCalcProcs) cout<<tb<<"y = "<<y<<endl<<"nonParParams: "<<paramsp<<endl<<"sel: "<<sel_cyz(pc,y)<<endl;
+                    if (debug>dbgCalcProcs) cout<<tb<<"y = "<<y<<tb<<"sel: "<<sel_cyz(pc,y)<<endl;
+                } else {
+                    if (debug>dbgCalcProcs) cout<<tb<<"y = "<<y<<tb<<"y outside model range--skipping year!"<<endl;
+                }
+            }
+        } else if (idSel==SelFcns::ID_CUBICSPLINE){
+            //calculate cubic spline function
+            int pcNP = pids[ptrSel->idxCubSplns];
+            if (debug>dbgCalcProcs) cout<<tb<<"pcNP = "<<pcNP<<endl;
+            dvar_vector cubSplnParams = matCubSplns(pcNP);
+            if (debug>dbgCalcProcs) cout<<tb<<"cubSplnParams = "<<cubSplnParams<<endl;
+            int idZ = (int) fsZ;
+            if (debug>dbgCalcProcs) cout<<tb<<"idZ = "<<idZ<<endl;
+            npSel_cz(pcNP) = SelFcns::calcSelFcn(idSel, zBs, cubSplnParams, idZ);
+            if (debug>dbgCalcProcs) cout<<tb<<"npSel_cz(pcNP) = "<<npSel_cz(pcNP)<<endl;
+            sel_cz(pc)     = npSel_cz(pcNP);
+            if (debug>dbgCalcProcs) cout<<tb<<"pcNP = "<<pcNP<<tb<<"pc = "<<pc<<tb<<"sel_cz: "<<sel_cz(pc)<<endl;
+            //loop over model indices as defined in the index blocks
+            imatrix idxs = ptrSel->getModelIndices(pc);
+            for (int idx=idxs.indexmin();idx<=idxs.indexmax();idx++){
+                y = idxs(idx,1);//year
+                if ((mnYr<=y)&&(y<=mxYr+1)) {
+                    sel_cyz(pc,y) = npSel_cz(pcNP);
+                    if (debug>dbgCalcProcs) cout<<tb<<"y = "<<y<<tb<<"sel: "<<sel_cyz(pc,y)<<endl;
                 } else {
                     if (debug>dbgCalcProcs) cout<<tb<<"y = "<<y<<tb<<"y outside model range--skipping year!"<<endl;
                 }
