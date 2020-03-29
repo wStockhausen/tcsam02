@@ -575,6 +575,10 @@
 //              2. Parameter values for cubic spline functions are now on logit-scale.
 //              3. Cubic splines now working. Added ARRAY index type. May want some
 //                  additional functionality for splines (size bounds, e.g.).
+//-2020-03-29:  1. Changed ability to revise data for retrospective run such that
+//                  data are adjusted now when doRetro in "on" and yRetro=0, as well as
+//                  when yRetro>1. This allows more flexibility setting up retrospective 
+//                  runs.
 //
 // =============================================================================
 // =============================================================================
@@ -1243,7 +1247,7 @@ DATA_SECTION
         
  LOCAL_CALCS
     //////////////////////////--FOR RETROSPECTIVE ANALYSES--////////////////////
-    if (doRetro&&(yRetro>0)) {
+    if (doRetro) {
         PRINT2B1("#-------------------------------------------")
         PRINT2B2("doRetro: ADJUSTING max year on Model Options for retrospective analyses to fishery year ",mxYr-yRetro)
         ptrMOs->ptrEffXtrapScenarios->setMaxYearForAveraging(mxYr-yRetro);
