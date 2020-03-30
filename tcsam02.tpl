@@ -579,6 +579,7 @@
 //                  data are adjusted now when doRetro in "on" and yRetro=0, as well as
 //                  when yRetro>1. This allows more flexibility setting up retrospective 
 //                  runs.
+//              2. Fixed missing commas issues with pvNPSel and pvCubSplns in .rep file.
 //
 // =============================================================================
 // =============================================================================
@@ -7439,8 +7440,8 @@ FUNCTION void calcAllPriors(int debug, ostream& cout)
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSel->pDevsS3,devsS3,debug,cout); if (debug<0){cout<<cc<<endl;}
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSel->pDevsS4,devsS4,debug,cout); if (debug<0){cout<<cc<<endl;}
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSel->pDevsS5,devsS5,debug,cout); if (debug<0){cout<<cc<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSel->pDevsS6,devsS6,debug,cout); if (debug<0){cout<<endl;}
-    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSel->pvNPSel,   matNPSel,   debug,cout); if (debug<0){cout<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSel->pDevsS6,devsS6,debug,cout); if (debug<0){cout<<cc<<endl;}
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSel->pvNPSel,   matNPSel,   debug,cout); if (debug<0){cout<<cc<<endl;}
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSel->pvCubSplns,matCubSplns,debug,cout); if (debug<0){cout<<endl;}
     if (debug<0) cout<<tb<<")"<<cc<<endl;
     

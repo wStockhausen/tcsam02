@@ -2247,7 +2247,7 @@ void SelectivityInfo::writeToR(std::ostream & os){
             pDevsS4->writeToR(os,"pDevsS4",indent+1); os<<cc<<endl;
             pDevsS5->writeToR(os,"pDevsS5",indent+1); os<<cc<<endl;
             pDevsS6->writeToR(os,"pDevsS6",indent+1); os<<cc<<endl;
-            pvNPSel->writeToR(os,"pvNPSel",indent+1); os<<endl;
+            pvNPSel->writeToR(os,"pvNPSel",indent+1); os<<cc<<endl;
             pvCubSplns->writeToR(os,"pvCubSplns",indent+1); os<<endl;
         }//nPCs>0
     os<<")";
