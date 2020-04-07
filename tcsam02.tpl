@@ -580,6 +580,7 @@
 //                  when yRetro>1. This allows more flexibility setting up retrospective 
 //                  runs.
 //              2. Fixed missing commas issues with pvNPSel and pvCubSplns in .rep file.
+//-2020-43-06:  1. Changed calculation of lognormal sd with extra CV to match Gmacs.
 //
 // =============================================================================
 // =============================================================================
@@ -5984,24 +5985,22 @@ FUNCTION void calcLognormalNLL(double wgt, const dvar_vector& mod, const dvar_ve
     dvariable nll = 0.0;
     double rmse = 0.0; int cnt = 0;
     if (debug>=dbgAll) cout<<"sdobs_y("<<sdobs_y.indexmin()<<cc<<sdobs_y.indexmax()<<") = "<<sdobs_y<<endl;    
-    dvar_vector stdv = sdobs_y;
+    dvar_vector stdv = sdobs_y;//ln-scale std deviations of observations
     dvar_vector zscr(mod.indexmin(),mod.indexmax());
     zscr.initialize();
     if (sum(sdobs_y)>0){
         if (xcv_y.size()>0){
-//            dvar_vector tmp1 = elem_prod(xcv_y,xcv_y);
-//            dvar_vector tmp2 = log(1.0+tmp1);
-            dvar_vector vr_xtr = log(1.0+elem_prod(xcv_y,xcv_y));   //ln-scale extra uncertainty variance, by year
-            stdv = sqrt(elem_prod(sdobs_y,sdobs_y)+vr_xtr);//total sd, by year
+            dvar_vector cvsq_obs = mfexp(elem_prod(sdobs_y,sdobs_y))-1.0;//cv-squared for observations
+            dvar_vector cvsq_xtr = elem_prod(xcv_y,xcv_y);               //cv-squared for extra uncertainty
+            stdv = sqrt(log(1.0+cvsq_obs+cvsq_xtr));//total ln-scale sd, by year [see Gmacs function index_likelihood]
             if (debug>=dbgAll) {
                 cout<<"yrs      = "<<yrs<<endl;
                 cout<<"i(sdobs) = "<<sdobs_y.indexmin()<<":"<<sdobs_y.indexmax()<<endl;
                 cout<<"i(xcv_y) = "<<xcv_y.indexmin()<<":"<<xcv_y.indexmax()<<endl;
+                cout<<"sdobs_y  = "<<sdobs_y<<endl;
                 cout<<"xcv_y    = "<<xcv_y<<endl;
-//                cout<<"tmp1     = "<<tmp1<<endl;
-//                cout<<"tmp2     = "<<tmp2<<endl;
-                cout<<"vr_xtr   = "<<vr_xtr<<endl;
-                cout<<"sd_xtr   = "<<sqrt(vr_xtr)<<endl;
+                cout<<"cvsq_obs = "<<cvsq_obs<<endl;
+                cout<<"cvsq_xtr = "<<cvsq_xtr<<endl;
             }
         }
         if (debug>=dbgAll) cout<<"stdv   = "<<stdv<<endl;
@@ -6362,8 +6361,8 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
         } else {
             for (int y=mny;y<=mxy;y++) tAB_y(y) += sum(mA_yxmsz(y));//sum over x,m,s,z
         }
-        dvector     sd_obs = ptrAB->sd_xmsy(ALL_SXs,ALL_MSs,ALL_SCs);    //sd of observed, by year
-        dvar_vector cv_xtr = xcv_y(mny,mxy);//extra uncertainty sd, by year
+        dvector     sd_obs = ptrAB->sd_xmsy(ALL_SXs,ALL_MSs,ALL_SCs); //sd of observed, by year
+        dvar_vector cv_xtr = xcv_y(mny,mxy);                          //extra uncertainty cv, by year
         if (debug>=dbgAll) {
             cout<<"x = "<<tcsam::getSexType(ALL_SXs)<<tb;
             cout<<"m = "<<tcsam::getMaturityType(ALL_MSs)<<tb;
