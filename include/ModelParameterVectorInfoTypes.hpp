@@ -293,7 +293,7 @@ class VectorInfo {
          * 
          * @param [in] x - the value to set
          */
-        virtual void setInitVals(double x){initVals = x;}
+        virtual void setInitVals(double x){finlVals = initVals = x;}
 
         /**
          * Sets the vector of initial values to the input dvector element-by-element.
@@ -309,7 +309,7 @@ class VectorInfo {
          * 
          * @param [in] x - a dvar_vector on the parameter scale. Indices should run 1:N
          */
-        virtual void setInitValsFromParamVals(const dvar_vector& x){initVals=calcArithScaleVals(value(x));}
+        virtual void setInitValsFromParamVals(const dvar_vector& x){finlVals = initVals=calcArithScaleVals(value(x));}
 
         /**
          * Sets the vector of "final values" to the (possibly inverse-transformed to the arithmetic scale)
@@ -349,7 +349,7 @@ class VectorInfo {
          * 
          * @param [in] is - the input filestream
          */
-        virtual void readInitVals(cifstream& is){is>>initVals;}
+        virtual void readInitVals(cifstream& is){is>>initVals; finlVals=initVals;}
 
         /**
          * Reads the parameter info from an input filestream.
@@ -612,7 +612,7 @@ class BoundedVectorInfo : public VectorInfo {
          * 
          * @overrides VectorInfo::setInitValsFromParamVals(dvar_vector& x)
          */
-        virtual void setInitValsFromParamVals(const dvar_vector & x){initVals=calcArithScaleVals(value(x));} 
+        virtual void setInitValsFromParamVals(const dvar_vector & x){finlVals = initVals = calcArithScaleVals(value(x));} 
 
         /**
          * Sets final values for output to R. Input vector is assumed to be
@@ -772,7 +772,7 @@ class DevsVectorInfo : public BoundedVectorInfo {
          * Sets initial values to 0, no matter what @param x is.
          * @param x
          */
-        virtual void setInitVals(double x){initVals = 0.0;}
+        virtual void setInitVals(double x){finlVals = initVals = 0.0;}
 
         /**
          * Sets initVals to the input vector.

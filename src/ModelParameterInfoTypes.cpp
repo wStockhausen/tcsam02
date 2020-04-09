@@ -201,7 +201,7 @@ void NumberInfo::setPriorType(adstring & prior){
 void NumberInfo::read(cifstream & is){
     if (debug) rpt::echo<<"Starting NumberInfo::read(cifstream & is) "<<this<<endl;
     adstring str;
-    is>>initVal;
+    is>>initVal; finlVal=initVal;
     is>>str; scaleType=tcsam::getScaleType(str);
     if (debug) rpt::echo<<name<<tb<<str<<tb<<scaleType<<tb<<tcsam::getScaleType(scaleType)<<endl;
     is>>phase;
@@ -245,18 +245,12 @@ void NumberInfo::read(cifstream & is){
     if (debug) rpt::echo<<"Done NumberInfo::read(cifstream & is) "<<this<<endl;
 }
 
-/***************************************************************
- * Write to ofstream object.\n
- * Write order is:\n
- *   initVal, phase, resample, priorWgt, \n
- *   priorType, priorParams, priorConsts\n
- ***************************************************************/
 /**
  * Writes info to output stream.
  * 
  * Write order is in same sense as the read order:
  * <ul>
- *  <li> initVal
+ *  <li> finlVal
  *  <li> scaleType
  *  <li> phase
  *  <li> resample
@@ -270,7 +264,7 @@ void NumberInfo::read(cifstream & is){
  * @param os - the output stream to write to
  */
 void NumberInfo::write(ostream & os){
-    os<<initVal<<tb;
+    os<<finlVal<<tb;
     os<<tcsam::getScaleType(scaleType)<<tb;
     os<<phase<<tb;
     os<<wts::getOnOffType(resample)<<tb;
@@ -345,6 +339,7 @@ void BoundedNumberInfo::setInitVal(double x){
     if (x<lower) {initVal = lower+(upper-lower)/1000000.0;} else
     if (x>upper) {initVal = upper-(upper-lower)/1000000.0;} else
     {initVal=x;}
+    finlVal=initVal;
     if (debug) rpt::echo<<"finished BoundedNumberInfo::setInitVal(double x)"<<this<<endl;
 }
 
@@ -690,7 +685,7 @@ dvector NumberVectorInfo::getInitValsOnParamScales(){
 
 /**
  * Sets initial values on arithmetic scale from corresponding parameter values, which may
- * not be one the same scale. Primarily used when parameter values are set
+ * not be on the same scale. Primarily used when parameter values are set
  * using a pin file.
  * 
  * @param x - a dvar_vector with the parameter-scale values to set

@@ -187,7 +187,7 @@ class NumberInfo {
          * 
          * @param x - value to set
          */
-        virtual void setInitVal(double x){initVal=x;}
+        virtual void setInitVal(double x){finlVal=initVal=x;}
         /**
          * Sets the value used as the initial value, from the associated parameter.
          * 
@@ -196,7 +196,7 @@ class NumberInfo {
          * 
          * @param x - the associated parameter (an instance of a param_init_number)
          */
-        virtual void setInitValFromParamVal(const prevariable& x){initVal=calcArithScaleVal(value(x));}
+        virtual void setInitValFromParamVal(const prevariable& x){finlVal=initVal=calcArithScaleVal(value(x));}
         /**
          * Draws a random value on the arithmetic scale based on the 
          * specified prior probability distribution.
@@ -417,7 +417,7 @@ class BoundedNumberInfo : public NumberInfo {
          * 
          * @overrides NumberInfo::setInitValFromParamVal(prevariable& x)
          */
-        virtual void setInitValFromParamVal(const prevariable& x){initVal=calcArithScaleVal(value(x));}
+        virtual void setInitValFromParamVal(const prevariable& x){finlVal=initVal=calcArithScaleVal(value(x));}
         /**
          * Set the "final value" on the arithmetic scale, based on a 
          * bounded parameter on a (possibly) non-arithmetic scale.

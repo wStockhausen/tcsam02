@@ -580,7 +580,17 @@
 //                  when yRetro>1. This allows more flexibility setting up retrospective 
 //                  runs.
 //              2. Fixed missing commas issues with pvNPSel and pvCubSplns in .rep file.
-//-2020-43-06:  1. Changed calculation of lognormal sd with extra CV to match Gmacs.
+//-2020-04-06:  1. Changed calculation of lognormal sd with extra CV to match Gmacs.
+//-2020-04-09:  1. Changed intermediate rep files to have extension ".rept".
+//              2. Changed initial sim data file to "ModelData.Sim.init.dat".
+//              3. Changed final sim data file to "ModelData.Sim.dat"
+//              4. Now writing out final MPI file as "MPI.final.dat".
+//              5. Now writing out effective MPI file as "MPI.init.dat".
+//              6. Changed z-scores in calcNorm2NLL, calcNormalNLL, calcLognormalNLL
+//                   to correspond to observed years, not model years.
+//              7. Changed MPI write() functions to write out "final" values, 
+//                   rather than strictly initial values. This allows writing an
+//                   MPI file with final values for input into other model runs.
 //
 // =============================================================================
 // =============================================================================
@@ -2287,14 +2297,14 @@ PRELIMINARY_CALCS_SECTION
 //---------PRELIMINARY_CALCS: NON-MSE MODEL RUNS ONLY---------------------------    
         PRINT2B1("--PRELIMINARY_CALCS: NON-MSE MODEL RUNS ONLY")
         {
-            PRINT2B1("writing effective MPI after setInitVals")
-            ofstream os; os.open("effectiveMPI.dat", ios::trunc);
+            PRINT2B1("writing effective initial MPI after setInitVals in PRELIMINARY_CALCS")
+            ofstream os; os.open("MPI.init.dat", ios::trunc);
             os.precision(12);
             ptrMPI->setToWriteVectorEstimationPhases(true);
             ptrMPI->setToWriteVectorInitialValues(true);
             os<<(*ptrMPI)<<endl;
             os.close();
-            PRINT2B1("finished writing effective MPI after setInitVals")
+            PRINT2B1("finished writing effective initial MPI after setInitVals in PRELIMINARY_CALCS")
         }
 
         PRINT2B1("testing setAllVectorVectors()")
@@ -2310,12 +2320,12 @@ PRELIMINARY_CALCS_SECTION
         }
 
         {
-            PRINT2B1("writing parameters info to R")
-            ofstream os; os.open("ModelParametersInfo.R", ios::trunc);
+            PRINT2B1("writing parameters info to R in PRELIMINARY_CALCS")
+            ofstream os; os.open("ModelParametersInfo.init.R", ios::trunc);
             os.precision(12);
             ptrMPI->writeToR(os);
             os.close();
-            PRINT2B1("finished writing parameters info to R")
+            PRINT2B1("finished writing parameters info to R in PRELIMINARY_CALCS")
 
             //write initial parameter values to csv
             PRINT2B1("writing parameters info to csv")
@@ -2448,7 +2458,7 @@ PRELIMINARY_CALCS_SECTION
             {
                 //write objective function components only
                 PRINT2B1("Writing model fits to R")
-                ofstream os0("tcsam02.ModelFits.init.R", ios::trunc);
+                ofstream os0("ModelFits.init.R", ios::trunc);
                 os0.precision(12);
                 ReportToR_ModelFits(os0,-1.0,0,cout);
                 os0.close();
@@ -2459,7 +2469,7 @@ PRELIMINARY_CALCS_SECTION
                 PRINT2B1("writing model sim data to file")
                 int dbgLevel = 0;
                 createSimData(dbgLevel,rpt::echo,0,ptrSimMDS);//deterministic
-                ofstream echo1; echo1.open("tcsam02.SimData.init.dat", ios::trunc);
+                ofstream echo1; echo1.open("ModelData.Sim.init.dat", ios::trunc);
                 echo1.precision(12);
                 writeSimData(echo1,0,rpt::echo,ptrSimMDS);
                 echo1.close();
@@ -2480,7 +2490,7 @@ PRELIMINARY_CALCS_SECTION
                 //sets fishing mortality to 0 across all fleets
                 //and re-runs population model
                 PRINT2B1("writing initial model report to R")
-                ofstream echo1; echo1.open("tcsam02.init.rep", ios::trunc);
+                ofstream echo1; echo1.open("tcsam02.init.rept", ios::trunc);
                 echo1.precision(12);
                 ReportToR(echo1,-1.0,1,cout);
                 echo1.close();
@@ -2604,7 +2614,7 @@ PROCEDURE_SECTION
         PRINT2B1(msg)
         writeParameters(std::cout,0,1);
         writeParameters(rpt::echo,0,1);
-        adstring fn = "tcsam02.Debug."+str(current_phase())+"."+str(ctrProcCalls)+".rep";
+        adstring fn = "tcsam02.Debug."+str(current_phase())+"."+str(ctrProcCalls)+".rept";
         ofstream os; os.open((char*) fn, ios::trunc);
         os.precision(12);
         PRINT2B1("--writing report to R file for debugging")
@@ -4471,14 +4481,14 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
 //******************************************************************************
 //* Function: void calcSurveyQs(int debug, ostream& cout)
 //* 
-//* Description: Calculates survey catchabilities for all years.
+//* Description: Calculates survey catchabilities for all years mnYr:mxYr+1.
 //* 
 //* Inputs:
 //*  none
 //* Returns:
 //*  void
 //* Alters:
-//*  xcv_vy   - extra survey uncertainty by survey/year
+//*  xcv_vy   - extra survey uncertainty by survey, model year (mnYr:mxYr+1)
 //*  q_vyxms  - fully-selected catchability by survey/year/sex/maturity state/shell condition
 //*  q_vyxmsz - size-specific catchability by survey/year/sex/maturity state/shell condition
 //*  a_vyxms  - max availability by survey/year/sex/maturity state/shell condition
@@ -5853,7 +5863,7 @@ FUNCTION void testNaNs(double v, adstring str)
         cout<<"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"<<endl;
         cout<<"----NaN detected: "<<str<<"---"<<endl;
         cout<<"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"<<endl;
-        ofstream os("NaNReport.rep");
+        ofstream os("NaNReport.rept");
         os.precision(12);
         os<<"#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"<<endl;
         os<<"#----NaN detected: "<<str<<"---"<<endl;
@@ -5876,19 +5886,19 @@ FUNCTION void calcNorm2NLL(double wgt, dvar_vector& mod, dvar_vector& xcv_y, dve
     int y;
     double rmse = 0.0; int cnt = 0;
     dvariable nll = 0.0;
-    dvar_vector zscr(mod.indexmin(),mod.indexmax());
+    dvar_vector zscr(1,yrs.size());//z-scores, with index corresponding to observed years
     zscr.initialize();
     if (sum(sdobs_y)>0){
         for (int i=1;i<=yrs.size();i++){
             y = yrs(i);
-            if ((zscr.indexmin()<=y)&&(y<=zscr.indexmax())) {
-                zscr(y) = (obs[i]-mod[y]); cnt++;
+            if ((mod.indexmin()<=y)&&(y<=mod.indexmax())) {
+                zscr[i] = (obs[i]-mod[y]); cnt++;
             }
         }
         if (cnt>0) {
             for (int i=1;i<=yrs.size();i++){
                 y = yrs(i);
-                if ((zscr.indexmin()<=y)&&(y<=zscr.indexmax())) 
+                if ((mod.indexmin()<=y)&&(y<=mod.indexmax())) 
                     rmse += square((obs[i]-value(mod[y]))/sdobs_y[i]);
             }
             rmse = sqrt(rmse/cnt);
@@ -5906,7 +5916,7 @@ FUNCTION void calcNorm2NLL(double wgt, dvar_vector& mod, dvar_vector& xcv_y, dve
             cout<<"mod=";   wts::writeToR(cout,value(mod), modyrs); cout<<cc<<endl;
             cout<<"sdobs="; wts::writeToR(cout,sdobs_y,    obsyrs); cout<<cc<<endl;
             cout<<"stdv="; wts::writeToR(cout,stdv,        obsyrs); cout<<cc<<endl;
-            cout<<"zscrs="; wts::writeToR(cout,value(zscr),modyrs); cout<<cc<<endl;
+            cout<<"zscrs="; wts::writeToR(cout,value(zscr),obsyrs); cout<<cc<<endl;
             cout<<"rmse="<<rmse<<")";
         }
         if (debug>=dbgAll) {
@@ -5922,21 +5932,34 @@ FUNCTION void calcNorm2NLL(double wgt, dvar_vector& mod, dvar_vector& xcv_y, dve
     }
     if (debug>=dbgAll) cout<<"Finished calcNorm2NLL()"<<endl;
     
-//-------------------------------------------------------------------------------------
-//Calculate normal NLL contribution to objective function
-FUNCTION void calcNormalNLL(double wgt, dvar_vector& mod, dvar_vector& xcv_y, dvector& obs, dvector& sdobs_y, ivector& yrs, int debug, ostream& cout)
+///**
+// * Calculates a time series contribution to objective function using a normal likelihood
+// * 
+// * Modifies the objective function
+// * 
+// * @param wgt - multiplicative likelihood weight
+// * @param mod - dvar_vector with model-predicted aggregated values, by model year range
+// * @param xcv_y - dvar_vector with model-predicted cv's for extra (additional) uncertainty, by model year range
+// * @param obs - dvector of observed values, by index values corresponding to observed years
+// * @param yrs - ivector of observed years
+// * @param debug - flag to print debugging info
+// * @param cout - output stream to print debugging info to
+// * 
+// * @return void
+// */
+FUNCTION void calcNormalNLL(double wgt, const dvar_vector& mod, const dvar_vector& xcv_y, const dvector& obs, const dvector& sdobs_y, const ivector& yrs, int debug, ostream& cout)
    if (debug>=dbgAll) cout<<"Starting calcNormalNLL()"<<endl;
     int y;
     double rmse = 0.0; int cnt = 0;
     dvariable nll = 0.0;
     if (debug>=dbgAll) cout<<"sdobs_y("<<sdobs_y.indexmin()<<cc<<sdobs_y.indexmax()<<") = "<<sdobs_y<<endl;    
-    dvar_vector stdv = sdobs_y;  //obs sd, by year;
-    dvar_vector zscr(mod.indexmin(),mod.indexmax());
+    dvar_vector stdv = sdobs_y;    //obs sd, with index corresponding to observed years;
+    dvar_vector zscr(1,yrs.size());//z-scores, with index corresponding to observed years
     zscr.initialize();
     if (sum(sdobs_y)>0){
-        if (xcv_y.size()>0){
-            dvar_vector sd_xtr = elem_prod(xcv_y,mod)(yrs);                      //extra uncertainty sd, by year
-            stdv   = sqrt(elem_prod(sdobs_y,sdobs_y)+elem_prod(sd_xtr,sd_xtr));  //total sd, by year
+        if (allocated(xcv_y)){
+            dvar_vector sd_xtr = elem_prod(xcv_y,mod)(yrs);                      //extra uncertainty sd, by observed year
+            stdv   = sqrt(elem_prod(sdobs_y,sdobs_y)+elem_prod(sd_xtr,sd_xtr));  //total sd, by observed year
             if (debug>=dbgAll) {
                 cout<<"xcv_y  = "<<xcv_y<<endl;
                 cout<<"sd_xtr = "<<sd_xtr<<endl;
@@ -5946,7 +5969,7 @@ FUNCTION void calcNormalNLL(double wgt, dvar_vector& mod, dvar_vector& xcv_y, dv
         for (int i=1;i<=yrs.size();i++){
             y = yrs(i);
             if ((zscr.indexmin()<=y)&&(y<=zscr.indexmax())) {
-                zscr(y) = (obs[i]-mod[y])/stdv[i]; cnt++;
+                zscr[i] = (obs[i]-mod[y])/stdv[i]; cnt++;
             }
         }
         if (cnt>0) rmse = sqrt(value(norm2(zscr))/cnt);
@@ -5961,8 +5984,9 @@ FUNCTION void calcNormalNLL(double wgt, dvar_vector& mod, dvar_vector& xcv_y, dv
             cout<<"obs=";   wts::writeToR(cout,obs,         obsyrs); cout<<cc<<endl;
             cout<<"mod=";   wts::writeToR(cout,value(mod),  modyrs); cout<<cc<<endl;
             cout<<"sdobs="; wts::writeToR(cout,sdobs_y,     obsyrs); cout<<cc<<endl;
+            if (allocated(xcv_y)) {cout<<"xcv="; wts::writeToR(cout,value(xcv_y)(yrs),obsyrs); cout<<cc<<endl;}
             cout<<"stdv=";  wts::writeToR(cout,value(stdv), obsyrs); cout<<cc<<endl;
-            cout<<"zscrs="; wts::writeToR(cout,value(zscr), modyrs); cout<<cc<<endl;
+            cout<<"zscrs="; wts::writeToR(cout,value(zscr), obsyrs); cout<<cc<<endl;
             cout<<"rmse="<<rmse<<")";
         }
         if (debug>=dbgAll) {
@@ -5977,21 +6001,34 @@ FUNCTION void calcNormalNLL(double wgt, dvar_vector& mod, dvar_vector& xcv_y, dv
     }
     if (debug>=dbgAll) cout<<"Finished calcNormalNLL()"<<endl;
     
-//-------------------------------------------------------------------------------------
-//Calculate lognormal NLL contribution to objective function
+///**
+// * Calculates a time series contribution to objective function using a lognormal likelihood
+// * 
+// * Modifies the objective function
+// * 
+// * @param wgt - multiplicative likelihood weight
+// * @param mod - dvar_vector with model-predicted aggregated values, by model year range
+// * @param xcv_y - dvar_vector with model-predicted cv's for extra (additional) uncertainty, by model year range
+// * @param obs - dvector of observed values, by index values corresponding to observed years
+// * @param yrs - ivector of observed years
+// * @param debug - flag to print debugging info
+// * @param cout - output stream to print debugging info to
+// * 
+// * @return void
+// */
 FUNCTION void calcLognormalNLL(double wgt, const dvar_vector& mod, const dvar_vector& xcv_y, const dvector& obs, const dvector& sdobs_y, const ivector& yrs, int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"Starting calcLognormalNLL()"<<endl;
     int y;
     dvariable nll = 0.0;
     double rmse = 0.0; int cnt = 0;
     if (debug>=dbgAll) cout<<"sdobs_y("<<sdobs_y.indexmin()<<cc<<sdobs_y.indexmax()<<") = "<<sdobs_y<<endl;    
-    dvar_vector stdv = sdobs_y;//ln-scale std deviations of observations
-    dvar_vector zscr(mod.indexmin(),mod.indexmax());
+    dvar_vector stdv = sdobs_y;    //ln-scale std deviations of observations, with index corresponding to observed years
+    dvar_vector zscr(1,yrs.size());//z-scores, with index corresponding to observed years
     zscr.initialize();
     if (sum(sdobs_y)>0){
-        if (xcv_y.size()>0){
+        if (allocated(xcv_y)){
             dvar_vector cvsq_obs = mfexp(elem_prod(sdobs_y,sdobs_y))-1.0;//cv-squared for observations
-            dvar_vector cvsq_xtr = elem_prod(xcv_y,xcv_y);               //cv-squared for extra uncertainty
+            dvar_vector cvsq_xtr = elem_prod(xcv_y,xcv_y)(yrs);          //cv-squared for extra uncertainty at observed years
             stdv = sqrt(log(1.0+cvsq_obs+cvsq_xtr));//total ln-scale sd, by year [see Gmacs function index_likelihood]
             if (debug>=dbgAll) {
                 cout<<"yrs      = "<<yrs<<endl;
@@ -6006,14 +6043,14 @@ FUNCTION void calcLognormalNLL(double wgt, const dvar_vector& mod, const dvar_ve
         if (debug>=dbgAll) cout<<"stdv   = "<<stdv<<endl;
         for (int i=1;i<=yrs.size();i++){
             y = yrs(i);
-            if ((zscr.indexmin()<=y)&&(y<=zscr.indexmax())) {
-                zscr(y) = (log(obs[i]+smlVal)-log(mod[y]+smlVal))/stdv[i]; cnt++;
+            if ((mod.indexmin()<=y)&&(y<=mod.indexmax())) {
+                zscr[i] = (log(obs[i]+smlVal)-log(mod[y]+smlVal))/stdv[i]; cnt++;
             }
         }
         if (cnt>0) {
             rmse = sqrt(value(norm2(zscr))/cnt);
             nll = sum(log(stdv)) + 0.5*norm2(zscr);
-            //if (xcv_y.size()>0) nll += sum(log(stdv));
+            //if (allocated(xcv_y)) nll += sum(log(stdv));
             objFun += wgt*nll;
         }
     }
@@ -6025,8 +6062,9 @@ FUNCTION void calcLognormalNLL(double wgt, const dvar_vector& mod, const dvar_ve
             cout<<"obs=";   wts::writeToR(cout,obs,         obsyrs); cout<<cc<<endl;
             cout<<"mod=";   wts::writeToR(cout,value(mod),  modyrs); cout<<cc<<endl;
             cout<<"sdobs="; wts::writeToR(cout,sdobs_y,     obsyrs); cout<<cc<<endl;
+            if (allocated(xcv_y)) {cout<<"xcv="; wts::writeToR(cout,value(xcv_y)(yrs),obsyrs); cout<<cc<<endl;}
             cout<<"stdv=";  wts::writeToR(cout,value(stdv), obsyrs); cout<<cc<<endl;
-            cout<<"zscrs="; wts::writeToR(cout,value(zscr), modyrs); cout<<cc<<endl;
+            cout<<"zscrs="; wts::writeToR(cout,value(zscr), obsyrs); cout<<cc<<endl;
             cout<<"rmse="<<rmse<<")";
         }
         if (debug>=dbgAll) {
@@ -6136,8 +6174,22 @@ FUNCTION void calcNoneNLL_ZC(double wgt, dvar_vector& mod, dvector& obs, double&
     }
     if (debug>=dbgAll) cout<<"Finished calcNoneNLL(size comps)"<<endl;
  
-//-------------------------------------------------------------------------------------
-//Calculate time series contribution to objective function
+///**
+// * Calculates a time series contribution to objective function
+// * 
+// * Modifies the objective function
+// * 
+// * @param llType - likelihood type
+// * @param wgt - likelihood weight
+// * @param mod - dvar_vector with model-predicted aggregated values, by model year range
+// * @param xcv_y - dvar_vector with model-predicted cv's for extra (additional) uncertainty, by model year range
+// * @param obs - dvector of observed values, by index values corresponding to observed years
+// * @param yrs - ivector of observed years
+// * @param debug - flag to print debugging info
+// * @param cout - output stream to print debugging info to
+// * 
+// * @return void
+// */
 FUNCTION void calcNLL_TS(int llType, double wgt, dvar_vector& mod, dvar_vector& xcv_y, dvector& obs, dvector& sdobs_y, ivector& yrs, int debug, ostream& cout)
     switch (llType){
         case tcsam::LL_NONE:
@@ -6176,8 +6228,25 @@ FUNCTION void calcNLL_ZC(int llType, double wgt, dvar_vector& mod, dvector& obs,
             exit(-1);
     }
    
-//-------------------------------------------------------------------------------------
-//Calculate aggregate catch (abundance or biomass) components to objective function
+///*
+// * Calculate aggregate catch (abundance or biomass) components to objective function.
+// * 
+// * Aggregates model-estimated abundance/biomass at yxmsz to level corresponding to fitting option ptrAB->optFit
+// * and calculates the associated negative log-likelihood corresponding to option ptrAB->llType.
+// * 
+// * Note that this version of the function will be used when additional uncertainty is not estimated.
+// * 
+// * Modifies:
+// *   objFun - the objective function value
+// * 
+// * @param ptrAB - pointer to AggregateCatchData object with observed abundance or biomass time series data
+// * @param mA_yxmsz - dvar5_array with model-estimated  abundance/biomass by model yxmsz corresponding to ptrAB
+// * @param debug - flag to print debugging info
+// * @param cout - output stream to print debugging info to
+// * 
+// * @return - void
+// * 
+// */
 FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA_yxmsz, int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"Starting calcNLLs_AggregateCatch()"<<endl;
     int mny = mA_yxmsz.indexmin();
@@ -6334,14 +6403,31 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
         cout<<"Finished calcNLLs_AggregateCatch()"<<endl;
     }
 
-//-------------------------------------------------------------------------------------
-//Calculate aggregate catch (abundance or biomass) components to objective function
-//--incudes extra uncertainty xcv_y
+///*
+// * Calculate aggregate catch (abundance or biomass) components to objective function, with additional uncertainty estimated.
+// * 
+// * Aggregates model-estimated abundance/biomass at yxmsz to level corresponding to fitting option ptrAB->optFit
+// * and calculates the associated negative log-likelihood corresponding to option ptrAB->llType.
+// * 
+// * Note that this version of the function will be used when additional uncertainty IS estimated.
+// * 
+// * Modifies:
+// *   objFun - the objective function value
+// * 
+// * @param ptrAB - pointer to AggregateCatchData object with observed abundance or biomass time series data
+// * @param mA_yxmsz - dvar5_array with model-estimated  abundance/biomass by model yxmsz corresponding to ptrAB
+// * @param xcv_y - dvar_vector with cv's for extra (additional) uncertainty (y refers to model year)
+// * @param debug - flag to print debugging info
+// * @param cout - output stream to print debugging info to
+// * 
+// * @return - void
+// * 
+// */
 FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA_yxmsz, dvar_vector xcv_y, int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"Starting calcNLLs_AggregateCatch() with extra cv"<<endl;
     int mny = mA_yxmsz.indexmin();
     int mxy = mA_yxmsz.indexmax();//may NOT be mxYr
-    dvar_vector tAB_y(mny,mxy);
+    dvar_vector tAB_y(mny,mxy);   //aggregated mdoel abundance/biomass by model year mny:mxy
     int isBio = ptrAB->type==AggregateCatchData::KW_BIOMASS_DATA;
     if (debug>=dbgAll) cout<<"isBio="<<isBio<<tb<<"data type="<<ptrAB->type<<tb<<"fit type="<<tcsam::getFitType(ptrAB->optFit)<<endl;
     if (debug<0) cout<<"list(fit.type='"<<tcsam::getFitType(ptrAB->optFit)<<"',fits=list("<<endl;
@@ -6361,8 +6447,8 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
         } else {
             for (int y=mny;y<=mxy;y++) tAB_y(y) += sum(mA_yxmsz(y));//sum over x,m,s,z
         }
-        dvector     sd_obs = ptrAB->sd_xmsy(ALL_SXs,ALL_MSs,ALL_SCs); //sd of observed, by year
-        dvar_vector cv_xtr = xcv_y(mny,mxy);                          //extra uncertainty cv, by year
+        dvector     sd_obs = ptrAB->sd_xmsy(ALL_SXs,ALL_MSs,ALL_SCs); //sd of observed, by observed year
+        dvar_vector cv_xtr = xcv_y(mny,mxy);                          //extra uncertainty cv, by model year in mny:mxy
         if (debug>=dbgAll) {
             cout<<"x = "<<tcsam::getSexType(ALL_SXs)<<tb;
             cout<<"m = "<<tcsam::getMaturityType(ALL_MSs)<<tb;
@@ -6396,8 +6482,8 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
             } else {
                 for (int y=mny;y<=mxy;y++) tAB_y(y) += sum(mA_yxmsz(y,x));//sum over m,s,z
             }
-            dvector     sd_obs = ptrAB->sd_xmsy(x,ALL_MSs,ALL_SCs); //sd of observed, by year
-            dvar_vector cv_xtr = xcv_y(mny,mxy)(ptrAB->yrs);        //extra uncertainty sd, by year
+            dvector     sd_obs = ptrAB->sd_xmsy(x,ALL_MSs,ALL_SCs); //sd of observed, by observed year
+            dvar_vector cv_xtr = xcv_y(mny,mxy);                    //extra uncertainty sd, by model year in mny:mxy
             if (debug>=dbgAll) {
                 cout<<"x = "<<tcsam::getSexType(x)<<tb;
                 cout<<"m = "<<tcsam::getMaturityType(ALL_MSs)<<tb;
@@ -6434,7 +6520,7 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
                     for (int y=mny;y<=mxy;y++) tAB_y(y) += sum(mA_yxmsz(y,x,m));//sum over s,z
                 }
                 dvector     sd_obs = ptrAB->sd_xmsy(x,m,ALL_SCs);    //sd of observed, by year
-                dvar_vector cv_xtr = xcv_y(mny,mxy)(ptrAB->yrs);//extra uncertainty sd, by year
+                dvar_vector cv_xtr = xcv_y(mny,mxy);                 //extra uncertainty sd, by model year in mny:mxy
                 if (debug>=dbgAll) {
                     cout<<"x = "<<tcsam::getSexType(x)<<tb;
                     cout<<"m = "<<tcsam::getMaturityType(m)<<tb;
@@ -6473,8 +6559,8 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
                         }//y
                     }//m
                 }
-                dvector     sd_obs = ptrAB->sd_xmsy(x,ALL_MSs,s);                //sd of observed, by year
-                dvar_vector cv_xtr = xcv_y(mny,mxy)(ptrAB->yrs);//extra uncertainty sd, by year
+                dvector     sd_obs = ptrAB->sd_xmsy(x,ALL_MSs,s);  //sd of observed, by observed year
+                dvar_vector cv_xtr = xcv_y(mny,mxy);               //extra uncertainty sd, by model year in mny:mxy
                 if (debug>=dbgAll) {
                     cout<<"x = "<<tcsam::getSexType(x)<<tb;
                     cout<<"m = "<<tcsam::getMaturityType(ALL_MSs)<<tb;
@@ -6506,8 +6592,8 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
                     } else {
                         for (int y=mny;y<=mxy;y++) tAB_y(y) += sum(mA_yxmsz(y,x,m,s));//sum over z
                     }
-                    dvector     sd_obs = ptrAB->sd_xmsy(x,m,s);                //sd of observed, by year
-                    dvar_vector cv_xtr = xcv_y(mny,mxy)(ptrAB->yrs);//extra uncertainty sd, by year
+                    dvector     sd_obs = ptrAB->sd_xmsy(x,m,s); //sd of observed, by observed year
+                    dvar_vector cv_xtr = xcv_y(mny,mxy);         //extra uncertainty sd, by model year in mny:mxy
                     if (debug>=dbgAll) {
                         cout<<"x = "<<tcsam::getSexType(x)<<tb;
                         cout<<"m = "<<tcsam::getMaturityType(m)<<tb;
@@ -8622,7 +8708,7 @@ FUNCTION void ReportToR_OFLResults(ostream& os, int debug, ostream& cout)
     if (debug) cout<<"Finished ReportToR_OFLResults(...)"<<endl;
 
 //-------------------------------------------------------------------------------------
-//Update MPI for current parameter values (mainly for export))
+//Update MPI for current parameter values (mainly for export)
 FUNCTION void updateMPI(int debug, ostream& cout)
     if (debug) cout<<"Starting updateMPI(...)"<<endl;
 
@@ -8761,12 +8847,7 @@ FUNCTION void ReportToR(ostream& os, double maxGrad, int debug, ostream& cout)
         ReportToR_ModelFits(os,maxGrad,debug,cout); os<<","<<endl;
         os<<tb<<"#end of modelfits"<<endl;
         
-        //simulated model data
-//        createSimData(debug, cout, 0, ptrSimMDS);//deterministic
-//        ptrSimMDS->writeToR(os,"sim.data",0); os<<","<<endl;
-//        os<<tb<<"#end of sim.data"<<endl;
-        
-        //cohort projections (recruits in 3 size bins, M+F included, no extra info)
+         //cohort projections (recruits in 3 size bins, M+F included, no extra info)
         ReportToR_CohortProgression(os,3,1,1,0,debug,cout);
         os<<tb<<"#end of cohortprogression"<<endl;
         
@@ -8981,7 +9062,7 @@ REPORT_SECTION
         if (!mseOpModMode){
             //write report as R file
             report.precision(12);
-            ReportToR(report,maxGrad,1,rpt::echo);
+            ReportToR(report,maxGrad,1,rpt::echo);//--writes tcsam02.rep file
             //write parameter values to csv
             ofstream os1("tcsam02.params.all.final.csv", ios::trunc);
             os1.precision(12);
@@ -9683,8 +9764,27 @@ FINAL_SECTION
             PRINT2B2("obj fun = ",objFun)
             PRINT2B1(" ")
             {
+                PRINT2B1("writing parameters info to R")
+                ofstream os; os.open("ModelParametersInfo.R", ios::trunc);
+                os.precision(12);
+                ptrMPI->writeToR(os);
+                os.close();
+                PRINT2B1("finished writing parameters info to R")
+                PRINT2B1("writing final MPI")
+            }
+            {
+                //updateMPI(0, cout);//make sure parameter values are final
+                ofstream os; os.open("MPI.dat", ios::trunc);
+                os.precision(12);
+                ptrMPI->setToWriteVectorEstimationPhases(true);
+                ptrMPI->setToWriteVectorInitialValues(true);
+                os<<(*ptrMPI)<<endl;
+                os.close();
+                PRINT2B1("finished writing final MPI")
+            }
+            {
                 PRINT2B1("#----Writing sim data to file")
-                ofstream echo1; echo1.open("ModelSimData.dat", ios::trunc);
+                ofstream echo1; echo1.open("ModelData.Sim.dat", ios::trunc);
                 echo1.precision(12);
                 writeSimData(echo1,0,cout,ptrSimMDS);
                 PRINT2B2("obj fun = ",objFun)
@@ -9718,6 +9818,7 @@ FINAL_SECTION
 
             PRINT2B1("#----Recalculating final objective function value")
             if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
+            calcObjFun(dbgAll+1,rpt::echo);
             calcObjFun(dbgObjFun,cout);
             PRINT2B2("#--Final obj fun = ",objFun)
                     

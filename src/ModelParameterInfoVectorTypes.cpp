@@ -193,7 +193,7 @@ dvector VectorInfo::calcParamScaleVals(dvector& x){
  * 
  * @param [in] x - a dvector of initial values to set. Indices should run 1:N
  */
-void VectorInfo::setInitVals(dvector& x){initVals=1.0*x;}     
+void VectorInfo::setInitVals(dvector& x){finlVals=initVals=1.0*x;}     
 
 /**
  * Draws initial values based on resampling the prior.
@@ -335,6 +335,7 @@ void VectorInfo::readPart1(cifstream & is){
     N = ptrIB->getSize();
     phases.allocate(1,N);
     initVals.allocate(1,N);
+    finlVals.allocate(1,N);
     is>>str; readPhases = wts::getBooleanType(str);
     is>>str; readVals   = wts::getBooleanType(str);
     if (debug) {
@@ -350,7 +351,7 @@ void VectorInfo::readPart1(cifstream & is){
 void VectorInfo::readPart2(cifstream & is){
     if (debug) rpt::echo<<"Starting VectorInfo::readPart2(cifstream & is) for "<<name<<endl;
     adstring str;
-    is>>initVal; if (debug) rpt::echo<<initVal<<tb<<"#initVal"<<endl;
+    is>>initVal; finlVal= initVal; if (debug) rpt::echo<<initVal<<tb<<"#initVal"<<endl;
     is>>str; scaleType=tcsam::getScaleType(str);
     is>>phase;
     is>>str; resample=wts::getOnOffType(str);
@@ -388,7 +389,7 @@ void VectorInfo::readPart2(cifstream & is){
     }
     is>>label; if (debug) rpt::echo<<label<<tb<<"#label"<<endl;
     phases   = phase;
-    initVals = initVal;//set default
+    finlVals = initVals = initVal;//set default
     if (debug) {
         rpt::echo<<"idxType = "<<idxType<<endl;
         rpt::echo<<"IndexBlock = "<<(*ptrIB)<<endl;
@@ -419,7 +420,7 @@ void VectorInfo::writePart1(std::ostream& os){
 }
 
 void VectorInfo::writePart2(std::ostream& os){
-    os<<initVal<<tb;
+    os<<finlVal<<tb;
     os<<tcsam::getScaleType(scaleType)<<tb;
     os<<phase<<tb;
     os<<wts::getOnOffType(resample)<<tb;
@@ -451,8 +452,8 @@ void VectorInfo::writePart2(std::ostream& os){
 void VectorInfo::writeToR(ostream& os){
     if (debug) rpt::echo<<"VectorInfo::writeToR for "<<this->name<<endl;
     if (!finlVals.allocated()) {
-        finlVals.allocate(initVals.indexmin(),initVals.indexmax()); 
-        finlVals = initVals;
+        std::cout<<"Error in VectorInfo::writeToR: finlVals are not allocated!"<<std::endl;
+        exit(-1);
     }
     os<<"list(";
     writeToR1(os);
@@ -490,8 +491,8 @@ void VectorInfo::writeToR1(ostream& os){
 void VectorInfo::writeFinalValsToR(ostream& os){
     if (debug) rpt::echo<<"VectorInfo::writeFinalValsToR for "<<this->name<<endl;
     if (!finlVals.allocated()) {
-        finlVals.allocate(initVals.indexmin(),initVals.indexmax()); 
-        finlVals = initVals;
+        std::cout<<"Error in VectorInfo::writeFinalValsToR: finlVals are not allocated!"<<std::endl;
+        exit(-1);
     }
     wts::writeToR(os,finlVals,wts::to_qcsv(ptrIB->getFwdIndexVector()));
 }
@@ -675,6 +676,7 @@ void BoundedVectorInfo::setInitVals(double x){
 //        if (initVals(i)<=lower) initVals(i) = lower+(upper-lower)/1000000.0; else
 //        if (initVals(i)>=upper) initVals(i) = upper-(upper-lower)/1000000.0; 
 //    }
+    finlVals = initVals;
     if (debug) {
         rpt::echo<<"initVals: "<<initVals<<endl<<"vector x: "<<x<<endl;
         rpt::echo<<"finished BoundedVectorInfo::setInitVals(double x) for "<<name<<endl;
@@ -696,6 +698,7 @@ void BoundedVectorInfo::setInitVals(dvector& x){
 //        if (initVals(i)<=lower) initVals(i) = lower+(upper-lower)/1000000.0; else
 //        if (initVals(i)>=upper) initVals(i) = upper-(upper-lower)/1000000.0; 
 //    }
+    finlVals = initVals;
     if (debug) {
         rpt::echo<<"initVals: "<<initVals<<endl<<"vector x: "<<x<<endl;
         rpt::echo<<"finished BoundedVectorInfo::setInitVals(dvector& x) for "<<name<<endl;
@@ -713,6 +716,7 @@ void BoundedVectorInfo::readInitVals(cifstream & is){
 //        if (initVals(i)<=lower) initVals(i) = lower+(upper-lower)/1000000.0; else
 //        if (initVals(i)>=upper) initVals(i) = upper-(upper-lower)/1000000.0; 
 //    }
+    finlVals = initVals;
 }
 
 /**
@@ -868,8 +872,8 @@ void BoundedVectorInfo::write(ostream & os){
 void BoundedVectorInfo::writeToR(ostream& os){
     if (debug) rpt::echo<<"BoundedVectorInfo::writeToR for "<<this->name<<endl;
     if (!finlVals.allocated()) {
-        finlVals.allocate(initVals.indexmin(),initVals.indexmax()); 
-        finlVals = initVals;
+        std::cout<<"Error in BoundedVectorInfo::writeToR: finlVals are not allocated!"<<std::endl;
+        exit(-1);
     }
     os<<"list(";
         os<<"jitter='"<<wts::getOnOffType(jitter)<<"',lower="<<lower<<",upper="<<upper<<cc;
@@ -885,8 +889,8 @@ void BoundedVectorInfo::writeToR(ostream& os){
 void BoundedVectorInfo::writeFinalValsToR(ostream& os){
     if (debug) rpt::echo<<"starting BoundedVectorInfo::writeFinalValsToR for "<<this->name<<endl;
     if (!finlVals.allocated()) {
-        finlVals.allocate(initVals.indexmin(),initVals.indexmax()); 
-        finlVals = initVals;
+        std::cout<<"Error in VectorInfo::writeToR: finlVals are not allocated!"<<std::endl;
+        exit(-1);
     }
     wts::writeToR(os,finlVals,wts::to_qcsv(ptrIB->getFwdIndexVector()));
     if (debug) rpt::echo<<"finished BoundedVectorInfo::writeFinalValsToR for "<<this->name<<endl;
@@ -910,6 +914,7 @@ void DevsVectorInfo::setInitVals(dvector& x){
     BoundedVectorInfo::setInitVals(x);
     initVals -= mean(initVals);
     if (max(fabs(initVals))>max(fabs(lower),fabs(upper))) initVals *= max(fabs(lower),fabs(upper))/max(fabs(initVals));
+    finlVals = initVals;
     if (debug) {
         BoundedVectorInfo::debug=0;
         rpt::echo<<"initVals: "<<initVals<<endl<<"vector x: "<<x<<endl;
@@ -1162,7 +1167,7 @@ void VectorVectorInfo::write(ostream & os){
         os<<"#--id + phases and/or id + initial values:";
         for (int p=0;p<nVIs;p++) {
             if ((ppVIs[p])->readPhases) os<<endl<<p+1<<tb<<(ppVIs[p])->getPhases();
-            if ((ppVIs[p])->readVals)   os<<endl<<p+1<<tb<<(ppVIs[p])->getInitVals();
+            if ((ppVIs[p])->readVals)   os<<endl<<p+1<<tb<<(ppVIs[p])->getFinalVals();
         }
     }
 }
@@ -1324,7 +1329,7 @@ void BoundedVectorVectorInfo::write(ostream & os){
         os<<"#--id + phases and/or id + initial values:";
         for (int p=0;p<nVIs;p++) {
             if ((ppVIs[p])->readPhases) os<<endl<<p+1<<tb<<(ppVIs[p])->getPhases();
-            if ((ppVIs[p])->readVals)   os<<endl<<(p+1)<<tb<<(ppVIs[p])->getInitVals();
+            if ((ppVIs[p])->readVals)   os<<endl<<(p+1)<<tb<<(ppVIs[p])->getFinalVals();
         }
     }
 }
