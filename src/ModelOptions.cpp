@@ -16,6 +16,218 @@
 using namespace std;
 
 //--------------------------------------------------------------------------------
+//          EmpiricalSelFcn
+//--------------------------------------------------------------------------------
+int EmpiricalSelFcn::debug = 0;
+EmpiricalSelFcn::EmpiricalSelFcn(ModelConfiguration& mc){
+    ptrMC = &mc;
+}
+
+EmpiricalSelFcn::~EmpiricalSelFcn(){
+    ptrMC = 0;
+}
+        
+void EmpiricalSelFcn::read(cifstream& is){
+    if (debug) cout<<"starting EmpiricalSelFcn::read(cifstream& is)"<<endl;
+    zBs.allocate(1,ptrMC->nZBs);
+    esf.allocate(1,ptrMC->nZBs);
+    is>>id;
+    is>>zBs;
+    is>>esf;
+    
+    if (debug) {
+        cout<<"finished EmpiricalSelFcn::read(cifstream& is)"<<endl;
+    }
+}
+
+void EmpiricalSelFcn::write(std::ostream& os){
+    if (debug) cout<<"starting EmpiricalSelFcn::write(ostream& os)"<<endl;
+    os<<id<<endl;
+    os<<zBs<<endl;
+    os<<esf<<endl;
+    if (debug) cout<<"finished EmpiricalSelFcn::write(ostream& os)"<<endl;
+}
+
+void EmpiricalSelFcn::writeToR(std::ostream& os){
+    os<<"list(id="<<id<<cc;
+    os<<"esf="; wts::writeToR(os,esf,ptrMC->dimZBsToR); os<<")";
+}
+//--------------------------------------------------------------------------------
+//          EmpiricalSelFcns
+//--------------------------------------------------------------------------------
+int EmpiricalSelFcns::debug = 0;
+EmpiricalSelFcns::EmpiricalSelFcns(ModelConfiguration& mc){
+    ptrMC  = &mc;
+    nESFs  = 0;
+    ppESFs = 0;
+}
+
+EmpiricalSelFcns::~EmpiricalSelFcns(){
+    ptrMC = 0;
+    if (ppESFs) {
+        for (int p=0;p<nESFs;p++) delete ppESFs[p];
+        delete ppESFs; ppESFs = 0;
+    }
+}
+
+void EmpiricalSelFcns::read(cifstream& is){
+    is>>nESFs;
+    if (ppESFs) {
+        for (int p=0;p<nESFs;p++) delete ppESFs[p];
+        delete ppESFs; ppESFs = 0;
+    }
+    ppESFs = new EmpiricalSelFcn*[nESFs];
+    for (int p=0;p<nESFs;p++) {
+        ppESFs[p] = new EmpiricalSelFcn(*ptrMC);
+        ppESFs[p]->read(is);
+    }
+}
+
+void EmpiricalSelFcns::write(std::ostream& os){
+    os<<"#------Empirical Selectivity Functions"<<endl;
+    os<<nESFs<<tb<<"#number of empirical selectivity functions"<<endl;
+    os<<"# id  z's  values"<<endl;
+    for (int p=0;p<nESFs;p++) {ppESFs[p]->write(os); os<<endl;}
+}
+
+void EmpiricalSelFcns::writeToR(std::ostream& os){
+    os<<"list("<<"nESFs="<<nESFs<<cc<<endl;
+    for (int n=1;n<nESFs;n++) {os<<"`"<<n<<"`="; ppESFs[n-1]->writeToR(os); os<<","<<endl;}
+    os<<"`"<<nESFs<<"`="; ppESFs[nESFs-1]->writeToR(os); os<<endl;
+    os<<")";
+}
+//--------------------------------------------------------------------------------
+//          EmpiricalSelFcnPrior
+//--------------------------------------------------------------------------------
+int EmpiricalSelFcnPrior::debug = 0;
+/**
+ * Class instantiator
+ * 
+ * @param mc - pointer to model configuration object
+ */
+EmpiricalSelFcnPrior::EmpiricalSelFcnPrior(ModelConfiguration& mc){
+    ptrMC = &mc;
+    pMPI = 0;
+}
+
+/**
+ * Class destructor.
+ */
+EmpiricalSelFcnPrior::~EmpiricalSelFcnPrior(){
+    ptrMC = 0;
+    if (pMPI) delete pMPI; pMPI=0;
+}
+        
+/**
+ * Sets the prior type, based on an adstring value.
+ * 
+ * @param prior - the prior type, as an adstring
+ */
+void EmpiricalSelFcnPrior::setPriorType(adstring & prior){
+    if (debug) rpt::echo<<"starting NumberInfo::setPriorType(adstring prior)"<<this<<endl;
+    if (pMPI) delete pMPI;
+    priorType=prior;
+    pMPI = ModelPDFInfo::getInfo(prior);
+    if (pMPI) {
+        if (pMPI->getNumParams()!=2) {
+            cout<<"Error defining EmpiricalSelFcnPrior."<<endl;
+            cout<<"Number of parameters for prior must be two, but "<<prior<<" requires "<<pMPI->getNumParams()<<endl;
+            cout<<"Please specify another prior in the ModelOptions file."<<endl;
+            exit(-1);
+        }
+        if (pMPI->getNumConsts()>0)  {
+            cout<<"Error defining EmpiricalSelFcnPrior."<<endl;
+            cout<<"Number of constants for prior must be two, but "<<prior<<" requires "<<pMPI->getNumConsts()<<endl;
+            cout<<"Please specify another prior in the ModelOptions file."<<endl;
+            exit(-1);
+        }
+
+    }
+    if (debug) rpt::echo<<"finished NumberInfo::setPriorType(adstring prior)"<<this<<endl;
+}
+
+void EmpiricalSelFcnPrior::read(cifstream& is){
+    if (debug) cout<<"starting EmpiricalSelFcnPrior::read(cifstream& is)"<<endl;
+    is>>id;
+    is>>sel_id;
+    is>>priorWgt;
+    is>>priorType;
+    setPriorType(priorType);
+    zBs.allocate(1,ptrMC->nZBs); zBs.initialize();
+    is>>zBs;
+    p1.allocate(1,ptrMC->nZBs);  p1.initialize();
+    is>>p1;
+    p2.allocate(1,ptrMC->nZBs);  p2.initialize();
+    is>>p2;
+    
+    if (debug) {
+        cout<<"finished EmpiricalSelFcnPrior::read(cifstream& is)"<<endl;
+    }
+}
+
+void EmpiricalSelFcnPrior::write(std::ostream& os){
+    if (debug) cout<<"starting EmpiricalSelFcnPrior::write(ostream& os)"<<endl;
+    os<<id       <<tb<<"#  id for selectivity function prior"<<endl;
+    os<<sel_id   <<tb<<"#  selectivity function id as defined in Model Parameters Info"<<endl;
+    os<<priorWgt <<tb<<"#  multiplicative weight to apply to prior"<<endl;
+    os<<priorType<<tb<<"#name of prior to apply"<<endl;
+    os<<zBs      <<tb<<"#  sizes at which to prior function can be evaluated"<<endl;
+    os<<p1       <<tb<<"#  1st parameter values at which prior can be evaluated"<<endl;
+    os<<p2       <<tb<<"#  2nd parameter values at which prior can be evaluated"<<endl;
+    if (debug) cout<<"finished EmpiricalSelFcnPrior::write(ostream& os)"<<endl;
+}
+
+void EmpiricalSelFcnPrior::writeToR(std::ostream& os){
+    os<<"list(id="<<id<<cc<<"sel_id="<<sel_id<<cc<<"priorWgt="<<priorWgt<<cc<<"priorType='"<<priorType<<"',"<<endl;
+    os<<"p1="; wts::writeToR(os,p1,ptrMC->dimZBsToR); os<<cc<<endl;
+    os<<"p2="; wts::writeToR(os,p2,ptrMC->dimZBsToR); os<<")";
+}
+//--------------------------------------------------------------------------------
+//          EmpiricalSelFcnPriors
+//--------------------------------------------------------------------------------
+int EmpiricalSelFcnPriors::debug = 0;
+EmpiricalSelFcnPriors::EmpiricalSelFcnPriors(ModelConfiguration& mc){
+    ptrMC  = &mc;
+    nESPs  = 0;
+    ppESPs = 0;
+}
+
+EmpiricalSelFcnPriors::~EmpiricalSelFcnPriors(){
+    ptrMC = 0;
+    if (ppESPs) {
+        for (int p=0;p<nESPs;p++) delete ppESPs[p];
+        delete ppESPs; ppESPs = 0;
+    }
+    nESPs=0;
+}
+
+void EmpiricalSelFcnPriors::read(cifstream& is){
+    is>>nESPs;
+    if (ppESPs) {
+        for (int p=0;p<nESPs;p++) delete ppESPs[p];
+        delete ppESPs; ppESPs = 0;
+    }
+    ppESPs = new EmpiricalSelFcnPrior*[nESPs];
+    for (int p=0;p<nESPs;p++) {
+        ppESPs[p] = new EmpiricalSelFcnPrior(*ptrMC);
+        ppESPs[p]->read(is);
+    }
+}
+
+void EmpiricalSelFcnPriors::write(std::ostream& os){
+    os<<"#------Empirical Selectivity Functions"<<endl;
+    os<<nESPs<<tb<<"#number of empirical selectivity functions"<<endl;
+    os<<"# id  z's  values"<<endl;
+    for (int p=0;p<nESPs;p++) {ppESPs[p]->write(os); os<<endl;}
+}
+
+void EmpiricalSelFcnPriors::writeToR(std::ostream& os){
+    os<<"list("<<"nESPs="<<nESPs<<cc<<endl;
+    for (int n=1;n<nESPs;n++) {os<<"`"<<n<<"`="; ppESPs[n-1]->writeToR(os); os<<","<<endl;}
+    os<<"`"<<nESPs<<"`="; ppESPs[nESPs-1]->writeToR(os); os<<endl;
+    os<<")";
+}
+//--------------------------------------------------------------------------------
 //          EffAvgScenario
 //--------------------------------------------------------------------------------
 int EffAvgScenario::debug = 0;
@@ -299,7 +511,7 @@ void EffXtrapScenarios::writeToR(std::ostream& os){
 //          ModelOptions
 //--------------------------------------------------------------------------------
 int ModelOptions::debug = 0;
-const adstring ModelOptions::VERSION = "2019.02.21";
+const adstring ModelOptions::VERSION = "2020.04.12";
 
 ModelOptions::ModelOptions(ModelConfiguration& mc){
     ptrMC=&mc;
@@ -340,6 +552,12 @@ ModelOptions::ModelOptions(ModelConfiguration& mc){
     optsPenSmthNPSel.allocate(0,1);
     optsPenSmthNPSel(0) = "evaluate smoothness using selectivity parameters";
     optsPenSmthNPSel(1) = "evaluate smoothness using selectivity functions";    
+    
+    //empirical selectivity function options
+    ptrEmpiricalSelFcns = new EmpiricalSelFcns(mc);
+    
+    //empirical selectivity function prior options
+    ptrEmpiricalSelFcnPriors = new EmpiricalSelFcnPriors(mc);
     
     //effort extrapolation options
     ptrEffXtrapScenarios = new EffXtrapScenarios(mc);
@@ -438,6 +656,16 @@ void ModelOptions::read(cifstream & is) {
         is>>wgtPenSmthNPSel;
         cout<<wgtPenSmthNPSel<<tb<<"#weights for smoothness penalties on NPSels"<<endl;
     }
+    
+    //Empirical selectivity function options
+    cout<<"##Empirical Selectivity Options:"<<endl;
+    is>>(*ptrEmpiricalSelFcns);
+    cout<<(*ptrEmpiricalSelFcns)<<endl;
+    
+    //Empirical selectivity function priors options
+    cout<<"##Empirical Selectivity Function Priors Options:"<<endl;
+    is>>(*ptrEmpiricalSelFcnPriors);
+    cout<<(*ptrEmpiricalSelFcnPriors)<<endl;
     
     //effort extrapolation options
     cout<<"##Effort extrapolation scenarios:"<<endl;
@@ -614,6 +842,16 @@ void ModelOptions::write(ostream & os) {
     os<<wgtPenSmthNPSel<<tb<<"#weights for smoothness penalties on nonparametric selectivity functions"<<endl;
     os<<endl;
     
+    //empirical selectivity functions options
+    os<<"#----Empirical Selectivity Function Options"<<endl;
+    os<<(*ptrEmpiricalSelFcns);
+    os<<endl;
+
+    //empirical selectivity function priors options
+    os<<"#----Empirical Selectivity Function Priors Options"<<endl;
+    os<<(*ptrEmpiricalSelFcnPriors);
+    os<<endl;
+
     //effort extrapolation options
     os<<"#----Effort Extrapolation Scenarios"<<endl;
     os<<(*ptrEffXtrapScenarios);
@@ -717,6 +955,8 @@ void ModelOptions::writeToR(ostream& os, std::string nm, int indent) {
             os<<"pen.smoothing="; wts::writeToR(os,wgtPenSmthNPSel); os<<"),"<<endl;
         os<<"cvFDevsPen="<<cvFDevsPen<<cc<<"phsDecr="<<phsDecrFDevsPen<<cc<<"phsZero="<<phsZeroFDevsPen<<cc
           <<"wgtLastDevPen="<<wgtSqSumDevsPen<<cc<<"phsLastDevsPen="<<phsSqSumDevsPen<<cc;
+        os<<"empSelFcns="; ptrEmpiricalSelFcns->writeToR(os); os<<"),"<<endl;
+        os<<"empSelFcnPriors="; ptrEmpiricalSelFcnPriors->writeToR(os); os<<"),"<<endl;
         os<<"effXtrapScenarios="; ptrEffXtrapScenarios->writeToR(os); os<<"),"<<endl;
         os<<"oflOptions=list(";
             os<<"optAvgCapRate="; wts::writeToR(os,optOFLAvgCapRate); os<<cc<<endl;

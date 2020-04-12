@@ -591,7 +591,14 @@
 //              7. Changed MPI write() functions to write out "final" values, 
 //                   rather than strictly initial values. This allows writing an
 //                   MPI file with final values for input into other model runs.
-//
+//-2020-04-12:  1. Added EmpiricalSelFcn, EmpiricalSelFcns, 
+//                   EmpiricalSelFcnPrior and EmpiricalSelFcnPriors classes to
+//                   ModelOptions to start implementing use of empirical selectivity 
+//                   functions or priors in the model.
+//              2. Added logic in calcFisheryFs and calcSurveyQs to use EmpricalSelFcns
+//                   identified by abs(idSel), abs(idAvl), or abs(idRet) rather than 
+//                   parameterized sel functions when idSel<0, idAvl<0, idRet<0,
+//                   respectively.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -4301,10 +4308,18 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
                         for (int m=mnm;m<=mxm;m++){
                             cpF_fyxms(f,y,x,m)  = arC; //fully-selected capture rate (independent of shell condition)
                             for (int s=mns;s<=mxs;s++){
-                                sel_fyxmsz(f,y,x,m,s) = sel_cyz(idSel,y);          //selectivity
-                                cpF_fyxmsz(f,y,x,m,s) = cpF_fyxms(f,y,x,m,s)*sel_cyz(idSel,y);//size-specific capture rate
-                                if (idRet){//fishery has retention
-                                    ret_fyxmsz(f,y,x,m,s) = retFrac*sel_cyz(idRet,y);      //retention curves
+                                if (idSel>0){
+                                    sel_fyxmsz(f,y,x,m,s) = sel_cyz(idSel,y);                                    //parameterized selectivity function
+                                } else if (idSel<0){
+                                    sel_fyxmsz(f,y,x,m,s) = ptrMOs->ptrEmpiricalSelFcns->ppESFs[(-idSel)-1]->esf;//empirical selectivity function
+                                }
+                                cpF_fyxmsz(f,y,x,m,s) = cpF_fyxms(f,y,x,m,s)*sel_fyxmsz(f,y,x,m,s);//size-specific capture rate
+                                if (abs(idRet)){//fishery has retention
+                                    if (idRet>0){
+                                        ret_fyxmsz(f,y,x,m,s) = retFrac*sel_cyz(idRet,y);                                    //parameterized retention curves
+                                    } else {
+                                        ret_fyxmsz(f,y,x,m,s) = retFrac*ptrMOs->ptrEmpiricalSelFcns->ppESFs[(-idSel)-1]->esf;//empirical retention function
+                                    }
                                     rmF_fyxmsz(f,y,x,m,s) = elem_prod(ret_fyxmsz(f,y,x,m,s),         cpF_fyxmsz(f,y,x,m,s));//retention mortality rate
                                     dmF_fyxmsz(f,y,x,m,s) = elem_prod(hm*(1.0-ret_fyxmsz(f,y,x,m,s)),cpF_fyxmsz(f,y,x,m,s));//discard mortality rate
                                 } else {//discard only
@@ -4450,10 +4465,18 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
                                     if (idPar)    cout<<f<<tb<<y<<useEX<<tb<<x<<tb<<pLnEffX(idPar)<<avgFc2Eff_nxms(useEX,x,m,s)<<tb<<eff<<tb<<cpF_fyxms(f,y,x,m,s)<<endl;
                                 }
                                 if (!debug) testNaNs(value(cpF_fyxms(f,y,x,m,s)),"calcFisheryFs: 2nd pass");
-                                sel_fyxmsz(f,y,x,m,s) = sel_cyz(idSel,y);
-                                cpF_fyxmsz(f,y,x,m,s) = cpF_fyxms(f,y,x,m,s)*sel_cyz(idSel,y);//size-specific capture rate
+                                if (idSel>0){
+                                    sel_fyxmsz(f,y,x,m,s) = sel_cyz(idSel,y);                                    //parameterized selectivity function
+                                } else if (idSel<0){
+                                    sel_fyxmsz(f,y,x,m,s) = ptrMOs->ptrEmpiricalSelFcns->ppESFs[(-idSel)-1]->esf;//empirical selectivity function
+                                }
+                                cpF_fyxmsz(f,y,x,m,s) = cpF_fyxms(f,y,x,m,s)*sel_fyxmsz(f,y,x,m,s);//size-specific capture rate
                                 if (idRet){//fishery has retention
-                                    ret_fyxmsz(f,y,x,m,s) = retFrac*sel_cyz(idRet,y);
+                                    if (idRet>0){
+                                        ret_fyxmsz(f,y,x,m,s) = retFrac*sel_cyz(idRet,y);                                    //parameterized retention curves
+                                    } else {
+                                        ret_fyxmsz(f,y,x,m,s) = retFrac*ptrMOs->ptrEmpiricalSelFcns->ppESFs[(-idSel)-1]->esf;//empirical retention function
+                                    }
                                     rmF_fyxmsz(f,y,x,m,s) = elem_prod(ret_fyxmsz(f,y,x,m,s),         cpF_fyxmsz(f,y,x,m,s));//retention mortality rate
                                     dmF_fyxmsz(f,y,x,m,s) = elem_prod(hm*(1.0-ret_fyxmsz(f,y,x,m,s)),cpF_fyxmsz(f,y,x,m,s));//discard mortality rate
                                 } else {//discard only
@@ -4572,8 +4595,20 @@ FUNCTION void calcSurveyQs(int debug, ostream& cout)
                         q_vyxms(v,y,x,m) = arQ;//fully-selected catchability
                         for (int s=mns;s<=mxs;s++){
                             a_vyxmsz(v,y,x,m,s) = arA;//default: availability = 1
-                            if (idAvl>0) a_vyxmsz(v,y,x,m,s) = sel_cyz(idAvl,y);
-                            if (idSel>0) s_vyxmsz(v,y,x,m,s) = sel_cyz(idSel,y);
+                            if (abs(idAvl)) {
+                                if (idAvl>0){
+                                    a_vyxmsz(v,y,x,m,s) = sel_cyz(idSel,y);                                    //parameterized selectivity function
+                                } else if (idSel<0){
+                                    a_vyxmsz(v,y,x,m,s) = ptrMOs->ptrEmpiricalSelFcns->ppESFs[(-idSel)-1]->esf;//empirical selectivity function
+                                }
+                            }
+                            if (abs(idSel)){
+                                if (idSel>0){
+                                    s_vyxmsz(v,y,x,m,s) = sel_cyz(idSel,y);                                    //parameterized selectivity function
+                                } else if (idSel<0){
+                                    s_vyxmsz(v,y,x,m,s) = ptrMOs->ptrEmpiricalSelFcns->ppESFs[(-idSel)-1]->esf;//empirical selectivity function
+                                }
+                            }
                             q_vyxmsz(v,y,x,m,s) = arA*arQ*elem_prod(a_vyxmsz(v,y,x,m,s),s_vyxmsz(v,y,x,m,s));
                         }//s
                     }//m

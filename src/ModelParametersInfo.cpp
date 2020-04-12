@@ -2979,8 +2979,8 @@ void ModelParametersInfo::setMaxYear(int mxYr){
         for (int i=1;i<=ptrSrv->nPCs;i++){
             int selpc = ptrSrv->getPCIDs(i)[SurveysInfo::idxSelFcn];
             int avlpc = ptrSrv->getPCIDs(i)[SurveysInfo::idxAvlFcn];
-            if (selpc) sfs[selpc] = 1;
-            if (avlpc) sfs[avlpc] = 1;
+            if (selpc>0) sfs[selpc] = 1;
+            if (avlpc>0) sfs[avlpc] = 1;
         }
         rpt::echo<<"sfs = "<<sfs<<endl;
         ptrSel->setMaxYear(mxYr, sfs);

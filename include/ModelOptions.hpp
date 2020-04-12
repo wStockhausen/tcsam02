@@ -11,6 +11,200 @@
 #include "ModelParameterInfoTypes.hpp"
 
 /**
+ * Class encapsulating information on a single empirical selectivity function
+ * 
+ * This class encapsulates information on a single empirical selectivity function.
+ */
+class EmpiricalSelFcn{
+    public:
+        /** flag to print debugging info */
+        static int debug;
+    private:
+        /** pointer to the global ModelConfiguration object */
+        ModelConfiguration* ptrMC;
+    public:
+        /** id associated with the empirical selectivity function */
+        int id;
+        /* sizes at which the empirical sel function was evaluated */
+        dvector zBs;
+        /** values for empirical sel function */
+        dvector esf;
+    public:
+        /**
+         * Class instantiator
+         * 
+         * @param mc - pointer to the model configuration object
+         */
+        EmpiricalSelFcn(ModelConfiguration& mc);
+        /**
+         * Class destructor
+         */
+        ~EmpiricalSelFcn();
+        
+        /**
+         * Read from portion of ModelOptions input stream
+         * 
+         * @param is - input stream
+         */
+        void read(cifstream & is);
+        /**
+         * Write to stream
+         * 
+         * @param os - output stream
+         */
+        void write(std::ostream & os);
+        /**
+         * Write to stream in R format
+         * 
+         * @param os - output stream
+         */
+        void writeToR(std::ostream & os);
+
+        friend cifstream& operator >>(cifstream & is, EmpiricalSelFcn & obj){obj.read(is); return is;}
+        friend std::ostream& operator <<(std::ostream & os, EmpiricalSelFcn & obj){obj.write(os); return os;}
+};
+
+/**
+ * Class encapsulating information on ALL empirical selectivity functions
+ * 
+ * This class encapsulates information on ALL empirical selectivity functions.
+ */
+class EmpiricalSelFcns{
+    public:
+        /** flag to print debugging info */
+        static int debug;
+    private:
+        /** pointer to the global ModelConfiguration object */
+        ModelConfiguration* ptrMC;
+    public:
+        /** number of empirical selectivity functions */
+        int nESFs; 
+        /** pointer to array of pointers to individual empirical selectivity functions */
+        EmpiricalSelFcn** ppESFs;
+    public:
+        EmpiricalSelFcns(ModelConfiguration& mc);
+        ~EmpiricalSelFcns();
+        
+        void read(cifstream & is);
+        void write(std::ostream & os);
+        void writeToR(std::ostream & os);
+
+        friend cifstream& operator >>(cifstream & is, EmpiricalSelFcns & obj){obj.read(is); return is;}
+        friend std::ostream& operator <<(std::ostream & os, EmpiricalSelFcns & obj){obj.write(os); return os;}
+};
+
+/**
+ * Class encapsulating information on a single empirical selectivity function prior
+ * 
+ * This class encapsulates information on a single empirical selectivity function prior.
+ */
+class EmpiricalSelFcnPrior{
+    public:
+        /** flag to print debugging info */
+        static int debug;
+    private:
+        /** pointer to the global ModelConfiguration object */
+        ModelConfiguration* ptrMC;
+    public:
+        /** id associated with the empirical selectivity function prior */
+        int id;
+        /** id of selectivity function to apply prior to */
+        int sel_id;
+        /* weight to assign to prior probability */
+        double priorWgt;
+        /* pdf type for prior */
+        adstring priorType;
+        /* vector of size bins for likelihood function */
+        dvector zBs;
+        /* vector of first parameter values for likelihood function */
+        dvector p1;
+        /* vector of second parameter values for likelihood function */
+        dvector p2;
+        /* */
+        ModelPDFInfo* pMPI;
+    public:
+        /**
+         * Class instantiator
+         * 
+         * @param mc - pointer to the model configuration object
+         */
+        EmpiricalSelFcnPrior(ModelConfiguration& mc);
+        /**
+         * Class destructor
+         */
+        ~EmpiricalSelFcnPrior();
+        /**
+         * Gets the multiplicative weight set on the prior probability in the likelihood.
+         * 
+         * @return - the weight
+         */
+        double getPriorWgt(){return priorWgt;}
+        /**
+         * Gets the prior type, as an adstring.
+         * 
+         * @return - the prior type, as an adstring object 
+         */
+        adstring getPriorType(){return priorType;}
+        /**
+         * Sets the prior type, based on an adstring value.
+         * 
+         * @param prior - the prior type, as an adstring
+         */
+        void setPriorType(adstring & prior);
+        
+        /**
+         * Read from portion of ModelOptions input stream
+         * 
+         * @param is - input stream
+         */
+        void read(cifstream & is);
+        /**
+         * Write to stream
+         * 
+         * @param os - output stream
+         */
+        void write(std::ostream & os);
+        /**
+         * Write to stream in R format
+         * 
+         * @param os - output stream
+         */
+        void writeToR(std::ostream & os);
+
+        friend cifstream& operator >>(cifstream & is, EmpiricalSelFcnPrior & obj){obj.read(is); return is;}
+        friend std::ostream& operator <<(std::ostream & os, EmpiricalSelFcnPrior & obj){obj.write(os); return os;}
+};
+
+/**
+ * Class encapsulating information on ALL empirical selectivity function priors
+ * 
+ * This class encapsulates information on ALL empirical selectivity function priors.
+ */
+class EmpiricalSelFcnPriors{
+    public:
+        /** flag to print debugging info */
+        static int debug;
+    private:
+        /** pointer to the global ModelConfiguration object */
+        ModelConfiguration* ptrMC;
+    public:
+        /** number of empirical selectivity function priors */
+        int nESPs; 
+        /** pointer to array of pointers to individual empirical selectivity function priors */
+        EmpiricalSelFcnPrior** ppESPs;
+    public:
+        EmpiricalSelFcnPriors(ModelConfiguration& mc);
+        ~EmpiricalSelFcnPriors();
+        
+        void read(cifstream & is);
+        void write(std::ostream & os);
+        void writeToR(std::ostream & os);
+
+        friend cifstream& operator >>(cifstream & is, EmpiricalSelFcnPriors & obj){obj.read(is); return is;}
+        friend std::ostream& operator <<(std::ostream & os, EmpiricalSelFcnPriors & obj){obj.write(os); return os;}
+};
+
+/**
  * Class encapsulating information on a single effort averaging scenario
  * 
  * This class encapsulates information on a single fishery effort averaging scenario 
@@ -286,6 +480,12 @@ class EffXtrapScenarios{
         int optPenSmthNPSel;
         /** weight for smoothing penalties on nonparametric sel functions */
         dvector wgtPenSmthNPSel;      
+        
+        /** pointer to empirical selectivity functions object */
+        EmpiricalSelFcns* ptrEmpiricalSelFcns;
+        
+        /** pointer to empirical selectivity function priors object */
+        EmpiricalSelFcnPriors* ptrEmpiricalSelFcnPriors;
         
         /** pointer to effort extrapolation scenarios object */
         EffXtrapScenarios* ptrEffXtrapScenarios;
