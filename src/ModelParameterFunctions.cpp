@@ -6,6 +6,7 @@
 #include "ModelParameterInfoTypes.hpp"
 #include "ModelParameterFunctions.hpp"
 #include "ModelParametersInfo.hpp"
+#include "ModelOptions.hpp"
 
 
 
@@ -179,12 +180,12 @@ void setBoundedVectorVector(dvar_matrix& mat, param_init_bounded_number_vector& 
 }
 
 /**
- * Calculate ln-scale priors for a param_init_number_vector, based on its associated NumberVectorInfo, 
- * and add the weighted NLL to the objective function.
+ * Calculate ln-scale prior likelihood values for selectivity functions using empirically-determined
+ * selectivity function priors.
  * 
  * @param objFun - the objective function
- * @param ptrVI  - pointer to the NumberVectorInfo object associated with pv
- * @param pv     - the param_init_number_vector
+ * @param ptrESPs  - pointer to the EmpiricalSelFcnPriors object from ModelOptions
+ * @param sel_cz  - dvar_matrix with parameterized selectivity functions by parameter combination "c"
  * @param debug  - debugging level
  * @param cout   - output stream object for debugging info
  * 
@@ -192,29 +193,42 @@ void setBoundedVectorVector(dvar_matrix& mat, param_init_bounded_number_vector& 
  * 
  * @alters - the value of objFun
  */                                      
-void calcPriors(objective_function_value& objFun, NumberVectorInfo* ptrVI, param_init_number_vector& pv, int debug, std::ostream& cout){
-    if (ptrVI->getSize()){
-        dvar_vector tmp = pv*1.0;
-        tmp = ptrVI->calcArithScaleVals(tmp);
-        dvar_vector pri = ptrVI->calcLogPriors(tmp);//ln-scale prior (NOT NLL!)
-        if (debug>=dbgPriors) cout<<"priors("<<ptrVI->name<<") = "<<pri<<std::endl;
-        objFun += -ptrVI->getPriorWgts()*pri;
+void calcPriors(objective_function_value& objFun, EmpiricalSelFcnPriors* ptrESPs, dvar_matrix& sel_cz, int debug, std::ostream& cout){
+    int nESPs = ptrESPs->nESPs;
+    if (nESPs){
+        if (debug<0) cout<<"ESPs=list("<<endl;
+        dvar_vector params(1,2);
+        dvector consts;//leave unallocated
+        ivector sel_ids(1,nESPs);
+        dvar_vector nlls(1,nESPs); nlls.initialize();
+        dvector wgts(1,nESPs);
+        adstring_array types(1,nESPs);
+        for (int i=1;i<=nESPs;i++){
+            EmpiricalSelFcnPrior* ptrESP = ptrESPs->ppESPs[i-1];
+            sel_ids[i] = ptrESP->sel_id;
+            wgts[i]    = ptrESP->priorWgt;
+            types[i]   = ptrESP->priorType;
+            for (int j=ptrESP->p1.indexmin();j<=ptrESP->p1.indexmax();j++) {
+                params[1] = ptrESP->p1[j];
+                params[2] = ptrESP->p2[j];
+                dvariable val = sel_cz(sel_ids[i],j);
+                nlls[i]  -= ptrESP->pMPI->calcLogPDF(val,params,consts);
+            }//--j
+            if (debug>=dbgPriors) cout<<"ESP priors("<<sel_ids[i]<<") = "<<nlls[i]<<std::endl;
+            objFun += wgts[i]*nlls[i];
+        }//--i
         if (debug<0){
-            dvector wts = ptrVI->getPriorWgts();
-            cout<<ptrVI->name<<"=list("<<endl;
-            for (int i=pri.indexmin();i<pri.indexmax();i++){
-                adstring type = (*ptrVI)[i]->getPriorType();
-                cout<<tb<<"'"<<i<<"'=list(type='"<<type<<"'"<<cc<<"wgt="<<wts(i)<<cc<<"nll="<<-pri(i)<<cc<<"objfun="<<-wts(i)*pri(i)<<"),"<<endl;
+            for (int i=1;i<nESPs;i++){
+                cout<<tb<<"'"<<sel_ids[i]<<"'=list(sel_id="<<sel_ids[i]<<cc<<"type='"<<types(i)<<"'"<<cc<<"wgt="<<wgts(i)<<cc<<"nll="<<nlls(i)<<cc<<"objfun="<<wgts(i)*nlls(i)<<")"<<endl;
             }
             {
-                int i=pri.indexmax();
-                adstring type = (*ptrVI)[i]->getPriorType();
-                cout<<tb<<"'"<<i<<"'=list(type='"<<type<<"'"<<cc<<"wgt="<<wts(i)<<cc<<"nll="<<-pri(i)<<cc<<"objfun="<<-wts(i)*pri(i)<<")"<<endl;
+                int i=nESPs;
+                cout<<tb<<"'"<<sel_ids[i]<<"'=list(sel_id="<<sel_ids[i]<<cc<<"type='"<<types(i)<<"'"<<cc<<"wgt="<<wgts(i)<<cc<<"nll="<<nlls(i)<<cc<<"objfun="<<wgts(i)*nlls(i)<<")"<<endl;
             }
             cout<<")";
         }
     } else {
-        if (debug<0) cout<<ptrVI->name<<"=NULL";
+        if (debug<0) cout<<"ESPs=NULL";
     }
 }
 

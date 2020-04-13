@@ -11,6 +11,8 @@
 #include "ModelParameterInfoTypes.hpp"
 #include "ModelParameterVectorInfoTypes.hpp"
 
+class EmpiricalSelFcnPriors;
+
 namespace tcsam {
     /******************************************************************************
     * Set initial values for a param_init_bounded_number_vector.
@@ -94,6 +96,22 @@ namespace tcsam {
      */
     void setBoundedVectorVector(dvar_matrix& mat, param_init_bounded_number_vector& pVals, BoundedVectorVectorInfo* pI, int debug, std::ostream& os);
 
+    /**
+     * Calculate ln-scale prior likelihood values for selectivity functions using empirically-determined
+     * selectivity function priors.
+     * 
+     * @param objFun - the objective function
+     * @param ptrESPs  - pointer to the EmpiricalSelFcnPriors object from ModelOptions
+     * @param sel_cz  - dvar_matrix with parameterized selectivity functions by parameter combination "c"
+     * @param debug  - debugging level
+     * @param cout   - output stream object for debugging info
+     * 
+     * @return - void
+     * 
+     * @alters - the value of objFun
+     */                                      
+    void calcPriors(objective_function_value& objFun, EmpiricalSelFcnPriors* ptrESPs, dvar_matrix& sel_cz, int debug, std::ostream& cout);
+    
     /**
      * Calculate ln-scale priors for a param_init_number_vector, based on its associated NumberVectorInfo, 
      * and add the weighted NLL to the objective function.

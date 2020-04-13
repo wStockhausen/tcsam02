@@ -599,6 +599,9 @@
 //                   identified by abs(idSel), abs(idAvl), or abs(idRet) rather than 
 //                   parameterized sel functions when idSel<0, idAvl<0, idRet<0,
 //                   respectively.
+//-2020-04-13:  1. Added logic to implement calculation of empirical selectivity
+//                   function priors.
+//              2. Incremented ModelOptions version to "2020.04.12" (ok, really did that yesterday).
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -7549,6 +7552,7 @@ FUNCTION void calcAllPriors(int debug, ostream& cout)
     
     //selectivity parameters
     if (debug<0) cout<<tb<<"'selectivity functions'=list("<<endl;
+    if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMOs->ptrEmpiricalSelFcnPriors,sel_cz,debug,cout); if (debug<0){cout<<cc<<endl;}
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSel->pS1,pS1,debug,cout); if (debug<0){cout<<cc<<endl;}
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSel->pS2,pS2,debug,cout); if (debug<0){cout<<cc<<endl;}
     if (debug<0) {cout<<tb;} tcsam::calcPriors(objFun,ptrMPI->ptrSel->pS3,pS3,debug,cout); if (debug<0){cout<<cc<<endl;}
