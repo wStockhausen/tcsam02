@@ -602,6 +602,8 @@
 //-2020-04-13:  1. Added logic to implement calculation of empirical selectivity
 //                   function priors.
 //              2. Incremented ModelOptions version to "2020.04.12" (ok, really did that yesterday).
+//-2020-04-20:  1. Removed indexing in calcSelectivities dealing with cubic spline calculations
+//                  based on indexing in non-parametric sel function calculations
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -4040,22 +4042,18 @@ FUNCTION void calcSelectivities(int debug, ostream& cout)
             }
         } else if (idSel==SelFcns::ID_CUBICSPLINE){
             //calculate cubic spline function
-            int pcNP = pids[ptrSel->idxCubSplns];
-            if (debug>dbgCalcProcs) cout<<tb<<"pcNP = "<<pcNP<<endl;
-            dvar_vector cubSplnParams = matCubSplns(pcNP);
+            int pcCS = pids[ptrSel->idxCubSplns];
+            if (debug>dbgCalcProcs) cout<<tb<<"pcCS = "<<pcCS<<endl;
+            dvar_vector cubSplnParams = matCubSplns(pcCS);
             if (debug>dbgCalcProcs) cout<<tb<<"cubSplnParams = "<<cubSplnParams<<endl;
-            int idZ = (int) fsZ;
-            if (debug>dbgCalcProcs) cout<<tb<<"idZ = "<<idZ<<endl;
-            npSel_cz(pcNP) = SelFcns::calcSelFcn(idSel, zBs, cubSplnParams, idZ);
-            if (debug>dbgCalcProcs) cout<<tb<<"npSel_cz(pcNP) = "<<npSel_cz(pcNP)<<endl;
-            sel_cz(pc)     = npSel_cz(pcNP);
-            if (debug>dbgCalcProcs) cout<<tb<<"pcNP = "<<pcNP<<tb<<"pc = "<<pc<<tb<<"sel_cz: "<<sel_cz(pc)<<endl;
+            sel_cz(pc) = SelFcns::calcSelFcn(idSel, zBs, cubSplnParams, fsZ);
+            if (debug>dbgCalcProcs) cout<<tb<<"pcCS = "<<pcCS<<tb<<"pc = "<<pc<<tb<<"sel_cz: "<<sel_cz(pc)<<endl;
             //loop over model indices as defined in the index blocks
             imatrix idxs = ptrSel->getModelIndices(pc);
             for (int idx=idxs.indexmin();idx<=idxs.indexmax();idx++){
                 y = idxs(idx,1);//year
                 if ((mnYr<=y)&&(y<=mxYr+1)) {
-                    sel_cyz(pc,y) = npSel_cz(pcNP);
+                    sel_cyz(pc,y) = sel_cz(pc);
                     if (debug>dbgCalcProcs) cout<<tb<<"y = "<<y<<tb<<"sel: "<<sel_cyz(pc,y)<<endl;
                 } else {
                     if (debug>dbgCalcProcs) cout<<tb<<"y = "<<y<<tb<<"y outside model range--skipping year!"<<endl;
