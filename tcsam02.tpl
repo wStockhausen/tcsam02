@@ -604,6 +604,9 @@
 //              2. Incremented ModelOptions version to "2020.04.12" (ok, really did that yesterday).
 //-2020-04-20:  1. Removed indexing in calcSelectivities dealing with cubic spline calculations
 //                  based on indexing in non-parametric sel function calculations
+//-2020-04-20:  1. cubic spline interpolation now occurs on logit scale, with
+//                  result transformed back to arithmetic scale before being returned
+//                  from function.
 // =============================================================================
 // =============================================================================
 //--Commandline Options

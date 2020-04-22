@@ -500,8 +500,8 @@ namespace gsm {
      * 
      * @return (T) vector of 2nd derivatives at knot values
      */
-    template<typename T, typename T1>
-    T initSpline(const T& _yvals, const T1& _knots, int debug=0) {
+    template<typename T1, typename T2>
+    T2 initSpline(const T1& _knots, const T2& _yvals, int debug=0) {
         if (debug) {
             rpt::echo<<"--starting initSpline--"<<endl;
             rpt::echo<<"_knots type   = "<<typeid(_knots).name()<<endl;
@@ -512,11 +512,8 @@ namespace gsm {
         //un-const inputs in order to shift indices
         //--Note:   T& x = (T&) _x "copies" the object reference 
         //--whereas T  x = (T&) _x would create a [shallow(?)] copy
-        T& yvals  = (T&)  _yvals;
+        T2& yvals = (T2&) _yvals;
         T1& knots = (T1&) _knots;
-        //alternative approach: create deep copies (no need to shift indices back at end)
-//        T yvals  = 1.0 * _yvals;
-//        T1 knots = 1.0 * _knots;
         if (debug){
             rpt::echo<<"----before yppval calculations"<<endl;
             rpt::echo<<"&knots = "<<&knots<<". &_knots = "<<&_knots<<endl;
@@ -538,7 +535,7 @@ namespace gsm {
         int ibcend = 1;
         double ybcbeg = 0.0;//boundary condition 
         double ybcend = 0.0;//boundary condition
-        T yppvals = spline_cubic_set(yvals, knots, ibcbeg, ybcbeg, ibcend, ybcend);
+        T2 yppvals = spline_cubic_set(yvals, knots, ibcbeg, ybcbeg, ibcend, ybcend);
 
         //shift arrays back to start at original lower index
         knots.shift(lb);//necessary only if un-const'ing above
@@ -570,7 +567,7 @@ namespace gsm {
      * @return (T) vector of values interpolated at _x locations
      */
     template<typename T, typename T1, typename T2>
-    T interpSpline(const T2& _x, const T1& _knots, const T& _yvals, const T& _yppvals, int debug=0) {
+    T2 interpSpline(const T& _x, const T1& _knots, const T2& _yvals, const T2& _yppvals, int debug=0) {
         if (debug) {
             rpt::echo<<"--starting interpSpline--"<<endl;
             rpt::echo<<"_x type       = "<<typeid(      _x).name()<<endl;
@@ -583,21 +580,16 @@ namespace gsm {
             rpt::echo<<"_yppvals("<<_yppvals.indexmin()<<","<<_yppvals.indexmax()<<") = "<<_yppvals<<endl;
         }
         //need to convert _x from T2 to T
-        T x = 1.0*_x;
+        T2 x = 1.0*_x;
         
         //number of knots
         int n  = _knots.size();
         int lb = _knots.indexmin();//min index for _knots, _yvals, and _yppvals
         
         //un-const _knots, _yvals, _yppvals (not copies!)
-        T1& knots = (T1&)_knots;//un-const _knots 
-        T& yvals = (T&)_yvals;//un-const _knots and shift lower index to 0
-        T& yppvals = (T&)_yppvals;//un-const _knots and shift lower index to 0
-        //alternative approach: create deep copies 
-        //--wouldn't have to shift indices back at end
-//        T1 knots = 1.0*_knots;
-//        T yvals = 1.0*_yvals;
-//        T yppvals = 1.0*_yppvals;
+        T1& knots   = (T1&)_knots;  //un-const _knots 
+        T2& yvals   = (T2&)_yvals;  //un-const _knots and shift lower index to 0
+        T2& yppvals = (T2&)_yppvals;//un-const _knots and shift lower index to 0
         
         //shift lower indices on un-const versions to 0 (shifts indices for inputs, as well!)
         knots.shift(0);
@@ -622,7 +614,7 @@ namespace gsm {
          // do interpolation at x values
         int xmn = x.indexmin();
         int xmx = x.indexmax();
-        T selex(xmn,xmx); selex.initialize();
+        T2 selex(xmn,xmx); selex.initialize();
         for (int j=xmn;j<=xmx;j++){
             selex(j) = calc_cubic_spline(x(j),knots,yvals,yppvals);
         }
