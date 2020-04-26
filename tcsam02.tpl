@@ -607,6 +607,7 @@
 //-2020-04-20:  1. cubic spline interpolation now occurs on logit scale, with
 //                  result transformed back to arithmetic scale before being returned
 //                  from function.
+//-2020-04-26:  1. Corrected problems with assigning fixed availability or selectivity curves.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -4599,14 +4600,14 @@ FUNCTION void calcSurveyQs(int debug, ostream& cout)
                         q_vyxms(v,y,x,m) = arQ;//fully-selected catchability
                         for (int s=mns;s<=mxs;s++){
                             a_vyxmsz(v,y,x,m,s) = arA;//default: availability = 1
-                            if (abs(idAvl)) {
+                            if (abs(idAvl)>0) {
                                 if (idAvl>0){
-                                    a_vyxmsz(v,y,x,m,s) = sel_cyz(idSel,y);                                    //parameterized selectivity function
-                                } else if (idSel<0){
-                                    a_vyxmsz(v,y,x,m,s) = ptrMOs->ptrEmpiricalSelFcns->ppESFs[(-idSel)-1]->esf;//empirical selectivity function
+                                    a_vyxmsz(v,y,x,m,s) = sel_cyz(idAvl,y);                                    //parameterized availability function
+                                } else if (idAvl<0){
+                                    a_vyxmsz(v,y,x,m,s) = ptrMOs->ptrEmpiricalSelFcns->ppESFs[(-idAvl)-1]->esf;//empirical availability function
                                 }
                             }
-                            if (abs(idSel)){
+                            if (abs(idSel)>0){
                                 if (idSel>0){
                                     s_vyxmsz(v,y,x,m,s) = sel_cyz(idSel,y);                                    //parameterized selectivity function
                                 } else if (idSel<0){
