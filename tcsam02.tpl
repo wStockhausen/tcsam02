@@ -608,6 +608,10 @@
 //                  result transformed back to arithmetic scale before being returned
 //                  from function.
 //-2020-04-26:  1. Corrected problems with assigning fixed availability or selectivity curves.
+//-2020-04-28:  1. Revised nonparametric selectivity estimation so that the values in 
+//                   all size bins NOT explicitly associated with a parameter are
+//                   set to 0. Can change this by defining fixed values for 
+//                   size bins that should have a fixed, non-zero (e.g., 1) value.
 // =============================================================================
 // =============================================================================
 //--Commandline Options

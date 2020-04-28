@@ -787,6 +787,9 @@ dvar_vector SelFcns::constant(dvector& z){
  * Calculates "nonparametric" selectivity function with smoothness imposed
  * on the resulting curve by way of penalties in the objective function.
  * 
+ * All selectivity values in size bins not explicitly associated 
+ * with a parameter value are set to 0.
+ * 
  * Inputs:
  * @param z      - dvector of sizes at which to compute function values
  * @param params - dvar_vector of logit-scale  parameters, 1 for each size bin
@@ -799,11 +802,12 @@ dvar_vector SelFcns::nonparametric(dvector& z, dvar_vector& params, int idZ){
     if (debug) cout<<"Starting SelFcns::nonparametric(...)"<<endl;
     if (debug) cout<<"iz_min, iz_max = "<<z.indexmin()<<cc<<z.indexmax()<<endl;
     if (debug) cout<<"ip_min, ip_max = "<<params.indexmin()<<cc<<params.indexmax()<<endl;
-    dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
+    dvar_vector s(z.indexmin(),z.indexmax()); 
+    s.initialize();//--all bins are 0 unless explicitly set using params
     s(params.indexmin(),params.indexmax()) = 1.0/(1.0+mfexp(-params));//unnormalized
     if (idZ>0) s *= (1.0+mfexp(-params[idZ]));//normalized to 1
-    if (params.indexmin()>z.indexmin()) s(z.indexmin(),params.indexmin()-1) = 0.0;//set lower to 0
-    if (params.indexmax()<z.indexmax()) s(params.indexmax()+1,z.indexmax()) = 1.0;//set upper to 1
+//    if (params.indexmin()>z.indexmin()) s(z.indexmin(),params.indexmin()-1) = 0.0;//set lower to 0
+//    if (params.indexmax()<z.indexmax()) s(params.indexmax()+1,z.indexmax()) = 1.0;//set upper to 1
     if (debug) cout<<"Finished SelFcns::nonparametric(...)"<<endl;
     RETURN_ARRAYS_DECREMENT();
     return s;
