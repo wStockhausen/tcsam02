@@ -619,6 +619,9 @@
 //              2. Added "phase" info to inputs for writeParameters(...) functions so that 
 //                   active parameters only can be written out in intermediate estimation phases.
 //                   This allows the csv file to match up with the gradients file.
+//-2020-07-08:  1. Added inputs mnYrAvgRec, mxYrOffsetAvgRec to ModelConfiguration to specify time period
+//                   over which to calculate average recruitment for determining OFL.
+//              2. Incremented ModelConfiguration version to 2020.07.08.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -4895,11 +4898,13 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
     //   the model population.
     dvar_vector avgRec_x(1,nSXs);
     if (debug) cout<<"R dims: "<<R_y.indexmin()<<cc<<R_y.indexmax()<<endl;
+    int mnYrAR = ptrMC->mnYrAvgRec;
+    int mxYrAR = yr-ptrMC->mxYrOffsetAvgRec;
     for (int x=1;x<=nSXs;x++) 
-        avgRec_x(x)= mean(elem_prod(R_y(1981,yr),column(R_yx,x)(1981,yr)));
+        avgRec_x(x)= mean(elem_prod(R_y(mnYrAR,mxYrAR),column(R_yx,x)(mnYrAR,mxYrAR)));
     if (debug) {
-        cout<<"R_y(  1981:"<<yr<<")      = "<<R_y(1981,yr)<<endl;
-        cout<<"R_yx((1981:"<<yr<<",MALE) = "<<column(R_yx,MALE)(1981,yr)<<endl;
+        cout<<"R_y(  "<<mnYrAR<<":"<<mxYrAR<<")      = "<<R_y(mnYrAR,mxYrAR)<<endl;
+        cout<<"R_yx(("<<mnYrAR<<":"<<mxYrAR<<",MALE) = "<<column(R_yx,MALE)(mnYrAR,mxYrAR)<<endl;
         cout<<"Average recruitment = "<<avgRec_x<<endl;
     }
 

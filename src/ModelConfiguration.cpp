@@ -9,23 +9,25 @@
 //**********************************************************************
 using namespace std;
 
-const adstring ModelConfiguration::VERSION = "2020.01.31";
+const adstring ModelConfiguration::VERSION = "2020.07.08";
 
 int ModelConfiguration::debug=0;
 //--------------------------------------------------------------------------------
 //          ModelConfiguration
 //--------------------------------------------------------------------------------
-int    ModelConfiguration::mnYr     = -1;//min model year
-int    ModelConfiguration::asYr     = -1;//model assessment year
-int    ModelConfiguration::mxYr     = -1;//max model year
-int    ModelConfiguration::yRetro   =  0;//number of retrospective years
-int    ModelConfiguration::nSrv     = -1;//number of model surveys
-int    ModelConfiguration::nFsh     = -1;//number of model fisheries
-int    ModelConfiguration::nZBs     = -1;//number of model size bins
-int    ModelConfiguration::jitter   = OFF;//flag to jitter initial parameter values
-double ModelConfiguration::jitFrac  = 1.0;//fraction to jitter bounded parameter values
-int    ModelConfiguration::resample = OFF;//flag to resample initial parameter values
-double ModelConfiguration::vif      = 1.0;//variance inflation factor for resampling parameter values
+int    ModelConfiguration::mnYr       = -1;//min model year
+int    ModelConfiguration::asYr       = -1;//model assessment year
+int    ModelConfiguration::mxYr       = -1;//max model year
+int    ModelConfiguration::mnYrAvgRec = -1;//min year to calculate average recruitment for OFL
+int    ModelConfiguration::mxYrOffsetAvgRec = -1;//max year to calculate average recruitment for OFL
+int    ModelConfiguration::yRetro     =  0;//number of retrospective years
+int    ModelConfiguration::nSrv       = -1;//number of model surveys
+int    ModelConfiguration::nFsh       = -1;//number of model fisheries
+int    ModelConfiguration::nZBs       = -1;//number of model size bins
+int    ModelConfiguration::jitter     = OFF;//flag to jitter initial parameter values
+double ModelConfiguration::jitFrac    = 1.0;//fraction to jitter bounded parameter values
+int    ModelConfiguration::resample   = OFF;//flag to resample initial parameter values
+double ModelConfiguration::vif        = 1.0;//variance inflation factor for resampling parameter values
 /***************************************************************
 *   creation                                                   *
 ***************************************************************/
@@ -70,7 +72,7 @@ void ModelConfiguration::read(cifstream & is) {
     adstring parent = wts::getParentFolder(is);
     cout<<"parent folder is '"<<parent<<"'"<<endl;
     adstring ver;
-    is>>ver;
+    is>>ver;//model configuration file version
     if (ver!=ModelConfiguration::VERSION){
         std::cout<<"Reading Model Configuration file."<<endl;
         std::cout<<"Model Configuration version does not match!"<<endl;
@@ -78,15 +80,19 @@ void ModelConfiguration::read(cifstream & is) {
         std::cout<<"Please update '"<<is.get_file_name()<<"'"<<endl;
         exit(-1);
     }
-    is>>cfgName;
+    is>>cfgName;         //model configuration name
     if (debug) cout<<cfgName<<endl;
-    is>>mnYr;      //min model year
-    is>>asYr;      //assessment year
-    mxYr = asYr-1; //max model year
-    is>>nZBs;      //number of model size bins
+    is>>mnYr;            //min model year
+    is>>asYr;            //assessment year
+    mxYr = asYr-1;       //max model year
+    is>>mnYrAvgRec;      //min year to calculate average recruitment for OFL
+    is>>mxYrOffsetAvgRec;//max year to calculate average recruitment for OFL
+    is>>nZBs;            //number of model size bins
     if (debug){
         cout<<mnYr <<tb<<"#model min year"<<endl;
         cout<<mxYr <<tb<<"#model max year"<<endl;
+        cout<<mnYrAvgRec       <<tb<<"#min year for OFL average recruitment calculation"<<endl;
+        cout<<mxYrOffsetAvgRec <<tb<<"#offset from max year for OFL average recruitment calculation"<<endl;
         cout<<nZBs<<tb<<"#number of size bins"<<endl;
     }
     zMidPts.allocate(1,nZBs); 
@@ -204,6 +210,8 @@ void ModelConfiguration::write(ostream & os) {
     os<<cfgName<<tb<<"#Model configuration name"<<endl;
     os<<mnYr<<tb<<"#Min model year"<<endl;
     os<<asYr<<tb<<"#Assessment year"<<endl;
+    os<<mnYrAvgRec<<tb<<"#Min year for OFL average recruitment calculation"<<endl;
+    os<<mxYrOffsetAvgRec<<tb<<"#Offset to maxYr for OFL average recruitment calculation"<<endl;
     os<<nZBs<<tb<<"#Number of model size classes"<<endl;
     os<<"#size bin cut points"<<endl;
     os<<zCutPts <<endl;
@@ -246,8 +254,8 @@ void ModelConfiguration::writeToR(ostream& os, std::string nm, int indent) {
         indent++;
         for (int n=0;n<indent;n++) os<<tb;
             os<<"y=list(n="<<mxYr-mnYr<<cc<<
-                       "mny="<<mnYr<<cc<<"asy="<<asYr<<cc<<
-                       "mxy="<<mxYr<<cc<<"yRetro="<<yRetro<<cc<<
+                       "mny="<<mnYr<<cc<<"asy="<<asYr<<cc<<"mxy="<<mxYr<<cc<<
+                       "mnyAvgRec="<<mnYrAvgRec<<cc<<"mxyOffsetAvgRec="<<mxYrOffsetAvgRec<<cc<<"yRetro="<<yRetro<<cc<<
                        "nms=c("<<csvYrsP1<<"),vls="<<mnYr<<":"<<asYr<<"),"<<endl;
         for (int n=0;n<indent;n++) os<<tb;
             os<<"x=list(n="<<tcsam::nSXs<<",nms=c("<<tcsamDims::formatForR(csvSXs)<<"))"<<cc<<endl;

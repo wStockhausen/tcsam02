@@ -6,7 +6,6 @@
  * 
  * Includes:
  *  class ModelConfiguration
- *  class ModelOptions
  * 
  * History:
  * 2014-10-30: 1. Removed nSXs, nSCs, nMSs as static variables that were set through
@@ -23,6 +22,8 @@
  *             3. Updated documentation
  * 2017-02-27: 1. Extracted ModelOptions class to ModelOptions.hpp
  * 2020-01-29: 1. Added yRetro 
+ * 2020-07-08: 1. Added mnYrAvgRec, mxYrOffsetAvgRec.
+ *             2. Incremented VERSION to '2020.07.08'.
  */
 
 #ifndef MODELCONFIGURATION_HPP
@@ -38,7 +39,7 @@
         
         static int debug;  //flag to print debug info
         
-        /* numbr of size bins */
+        /* number of size bins */
         static int nZBs;//number of size bins 
         /* min model year */
         static int mnYr;//min model year
@@ -46,6 +47,10 @@
         static int asYr;//assessment year (final pop numbers given for July 1, asYr)
         /* max model year (mxYr = asYr-1) */
         static int mxYr;//max model year (mxYr = asYr-1)
+        /* min year for OFL average recruitment calculation */
+        static int mnYrAvgRec;
+        /* offset to max year for OFL average recruitment calculation */
+        static int mxYrOffsetAvgRec;
         /* number of retrospective years to incorporate */
         static int yRetro;
         /* number of fisheries */
