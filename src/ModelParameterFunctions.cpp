@@ -440,6 +440,7 @@ void writeCSVHeaderForParametersFile(ostream& os){
  * @param pI - pointer to associated NumberInfo object
  * @param toR - flag to write to R format (=1) or csv (=0)
  * @param willBeActive - flag to write only if parameter will be active
+ * @param phase - current phase (or 0 to ignore)
  */
 void writeParameter(ostream& os, 
                     param_init_number& p, 
@@ -447,9 +448,11 @@ void writeParameter(ostream& os,
                     adstring& ctg2, 
                     NumberInfo* pI,
                     int toR, 
-                    int willBeActive){
-    if (!willBeActive||(willBeActive&&(p.get_phase_start()>0))){
+                    int willBeActive,
+                    int phase){
+    if (!willBeActive||((p.get_phase_start()>0)&&((phase==0)||(p.get_phase_start()<=phase)))){
         if (toR){
+            //write to R file
             os<<p.get_name()<<"=list("<<"type='param_init_number'"<<cc
                                 <<"ctg1="<<qt<<ctg1<<qt<<cc
                                 <<"ctg2="<<qt<<ctg2<<qt<<cc
@@ -460,6 +463,7 @@ void writeParameter(ostream& os,
                                 <<"pvalue="<<value(p)
                                 <<"),";
         } else {
+            //write to csv file
             os<<1<<cc<<p.get_phase_start()<<cc<<1<<cc<<1<<cc<<pI->getScaleType()<<cc
               <<"-Inf"<<cc<<"Inf"<<cc<<pI->calcArithScaleVal(p)<<cc
               <<"-Inf"<<cc<<"Inf"<<cc<<value(p)                <<cc
@@ -478,6 +482,7 @@ void writeParameter(ostream& os,
  * @param pI - BoundedNumberInfo
  * @param toR - flag to write to R format (=1) or csv (=0)
  * @param willBeActive - flag to write only if parameter will be active
+ * @param phase - current phase (or 0 to ignore)
  */
 void writeParameter(ostream& os, 
                     param_init_bounded_number& p,
@@ -485,11 +490,11 @@ void writeParameter(ostream& os,
                     adstring& ctg2, 
                     BoundedNumberInfo* pI, 
                     int toR, 
-                    int willBeActive){
-    if (!willBeActive||(willBeActive&&(p.get_phase_start()>0))){
-        //std::cout<<p.get_name()<<tb<<p.get_phase_start()<<tb<<p.get_minb()<<tb<<p.get_maxb()<<tb<<p<<endl;
-        //std::cout<<pI->label<<tb<<pI->getLowerBoundOnParamScale()<<tb<<pI->getUpperBoundOnParamScale()<<tb<<pI->getInitVal()<<tb<<pI->calcParamScaleVal(pI->getInitVal())<<endl;
+                    int willBeActive,
+                    int phase){
+    if (!willBeActive||((p.get_phase_start()>0)&&((phase==0)||(p.get_phase_start()<=phase)))){
         if (toR){
+            //write to R file
             os<<p.get_name()<<"=list("<<"type='param_init_bounded_number'"<<cc
                                 <<"ctg1="<<qt<<ctg1<<qt<<cc
                                 <<"ctg2="<<qt<<ctg2<<qt<<cc
@@ -502,6 +507,7 @@ void writeParameter(ostream& os,
                                 <<"pvalue="<<value(p)
                                 <<"),";
         } else {
+            //write to csv file
             os<<1<<cc<<p.get_phase_start()<<cc<<1<<cc<<1<<cc<<pI->getScaleType()<<cc
               <<pI->getLowerBound()<<cc<<pI->getUpperBound()<<cc<<pI->calcArithScaleVal(p)<<cc
               <<p.get_minb()       <<cc<<p.get_maxb()       <<cc<<value(p)                <<cc
@@ -520,6 +526,7 @@ void writeParameter(ostream& os,
  * @param lbl - parameter-specific label
  * @param toR - flag to write to R format (=1) or csv (=0)
  * @param willBeActive - flag to write only if parameter vector will be active
+ * @param phase - current phase (or 0 to ignore)
  */
 void writeParameter(ostream& os, 
                     dvar_vector& p,
@@ -527,15 +534,17 @@ void writeParameter(ostream& os,
                     adstring& ctg2, 
                     VectorInfo* pI, 
                     int toR, 
-                    int willBeActive){
+                    int willBeActive,
+                    int phase){
     int mn = p.indexmin();
     int mx = p.indexmax();
     int est_flag = 0;
     ivector phases = pI->getPhases();
     for (int i=mn;i<=mx;i++) est_flag += 1.0*(phases[i]>0);
-    if (!willBeActive||(willBeActive&&(est_flag))){
+     if (!willBeActive||est_flag){
         dvector vals = pI->calcArithScaleVals(value(p));
         if (toR){
+            //writing to R file
             os<<pI->name<<"=list("<<"type=param_init_vector"<<cc
                                 <<"ctg1="<<qt<<ctg1<<qt<<cc
                                 <<"ctg2="<<qt<<ctg2<<qt<<cc
@@ -548,11 +557,16 @@ void writeParameter(ostream& os,
             os<<"pvalue=c("; for (int i=mn;i<mx;i++) {os<<p(i)   <<cc;} os<<p(mx)   <<")";
             os<<"),";
         } else {
-            for (int i=mn;i<=mx;i++) os<<i<<cc<<phases(i)<<cc<<mn<<cc<<mx<<cc<<pI->getScaleType()<<cc
-                                       <<"-Inf"<<cc<<"Inf"<<cc<<vals(i)<<cc
-                                       <<"-Inf"<<cc<<"Inf"<<cc<<p(i)<<cc
-                                       <<pI->name<<cc<<"\"param_init_vector\",\""
-                                       <<ctg1<<"\",\""<<ctg2<<"\",\""<<pI->label<<"\""<<endl;
+            //writing to csv file
+            for (int i=mn;i<=mx;i++) {
+                if ((!willBeActive)||((phases[i]>0)&&(phases[i]<=phase))){
+                    os<<i<<cc<<phases(i)<<cc<<mn<<cc<<mx<<cc<<pI->getScaleType()<<cc
+                                           <<"-Inf"<<cc<<"Inf"<<cc<<vals(i)<<cc
+                                           <<"-Inf"<<cc<<"Inf"<<cc<<p(i)<<cc
+                                           <<pI->name<<cc<<"\"param_init_vector\",\""
+                                           <<ctg1<<"\",\""<<ctg2<<"\",\""<<pI->label<<"\""<<endl;
+                }
+            }
         }
     }
 }       
@@ -567,6 +581,7 @@ void writeParameter(ostream& os,
  * @param pI - pointer to associated BoundedVectorInfo info object
  * @param toR - flag to write to R format (=1) or csv (=0)
  * @param willBeActive - flag to write only if parameter vector will be active
+ * @param phase - current phase (or 0 to ignore)
  */
 void writeParameter(ostream& os, 
                     dvar_vector& p,
@@ -574,15 +589,17 @@ void writeParameter(ostream& os,
                     adstring& ctg2, 
                     BoundedVectorInfo* pI, 
                     int toR, 
-                    int willBeActive){
+                    int willBeActive,
+                    int phase){
     int mn = p.indexmin();
     int mx = p.indexmax();
     int est_flag = 0;
     ivector phases = pI->getPhases();
     for (int i=mn;i<=mx;i++) est_flag += 1.0*(phases[i]>0);
-    if (!willBeActive||(willBeActive&&(est_flag))){
+    if (!willBeActive||est_flag){
         dvector vals = pI->calcArithScaleVals(value(p));
         if (toR){
+            //writing to R file
             os<<pI->name<<"=list("<<"type=param_init_bounded_vector"<<cc
                                 <<"ctg1="<<qt<<ctg1<<qt<<cc
                                 <<"ctg2="<<qt<<ctg2<<qt<<cc
@@ -597,13 +614,18 @@ void writeParameter(ostream& os,
             os<<"pvalue=c("; for (int i=mn;i<mx;i++) {os<<p(i)   <<cc;} os<<p(mx)   <<")";
                os<<"),";
         } else {
-            for (int i=mn;i<=mx;i++) os<<i<<cc<<phases(i)<<cc<<mn<<cc<<mx<<cc<<pI->getScaleType()<<cc
-                                       <<pI->getLowerBound()<<cc<<pI->getUpperBound()<<cc<<vals(i)<<cc
-                                       <<pI->calcParamScaleVals(pI->getLowerBound())<<cc
-                                       <<pI->calcParamScaleVals(pI->getUpperBound())<<cc
-                                       <<p(i)<<cc
-                                       <<pI->name<<cc<<"\"param_init_bounded_vector\",\""
-                                       <<ctg1<<"\",\""<<ctg2<<"\",\""<<pI->label<<"\""<<endl;
+            //writing to csv file
+            for (int i=mn;i<=mx;i++) {
+                if ((!willBeActive)||((phases[i]>0)&&(phases[i]<=phase))){
+                    os<<i<<cc<<phases(i)<<cc<<mn<<cc<<mx<<cc<<pI->getScaleType()<<cc
+                                           <<pI->getLowerBound()<<cc<<pI->getUpperBound()<<cc<<vals(i)<<cc
+                                           <<pI->calcParamScaleVals(pI->getLowerBound())<<cc
+                                           <<pI->calcParamScaleVals(pI->getUpperBound())<<cc
+                                           <<p(i)<<cc
+                                           <<pI->name<<cc<<"\"param_init_bounded_vector\",\""
+                                           <<ctg1<<"\",\""<<ctg2<<"\",\""<<pI->label<<"\""<<endl;
+                }
+            }
         }
     }
 }
@@ -618,6 +640,7 @@ void writeParameter(ostream& os,
  * @param pI - pointer to associated DevsVectorInfo info object
  * @param toR - flag to write to R format (=1) or csv (=0)
  * @param willBeActive - flag to write only if parameter vector will be active
+ * @param phase - current phase (or 0 to ignore)
  */
 void writeParameter(ostream& os, 
                     dvar_vector& p,
@@ -625,15 +648,17 @@ void writeParameter(ostream& os,
                     adstring& ctg2, 
                     DevsVectorInfo* pI, 
                     int toR, 
-                    int willBeActive){
+                    int willBeActive,
+                    int phase){
     int mn = p.indexmin();
     int mx = p.indexmax();
     int est_flag = 0;
     ivector phases = pI->getPhases();
     for (int i=mn;i<=mx;i++) est_flag += 1.0*(phases[i]>0);
-    if (!willBeActive||(willBeActive&&(est_flag))){
+    if (!willBeActive||est_flag){
         dvector vals = pI->calcArithScaleVals(value(p));
         if (toR){
+            //writing to R file
             os<<pI->name<<"=list("<<"type=param_init_bounded_dev_vector"<<cc
                                 <<"ctg1="<<qt<<ctg1<<qt<<cc
                                 <<"ctg2="<<qt<<ctg2<<qt<<cc
@@ -648,13 +673,18 @@ void writeParameter(ostream& os,
             os<<"pvalue=c("; for (int i=mn;i<mx;i++) {os<<p(i)   <<cc;} os<<p(mx)   <<")";
                os<<"),";
         } else {
-            for (int i=mn;i<=mx;i++) os<<i<<cc<<phases(i)<<cc<<mn<<cc<<mx<<cc<<pI->getScaleType()<<cc
+            //writing to csv file
+            for (int i=mn;i<=mx;i++) {
+                if ((!willBeActive)||((phases[i]>0)&&(phases[i]<=phase))){
+                    os<<i<<cc<<phases(i)<<cc<<mn<<cc<<mx<<cc<<pI->getScaleType()<<cc
                                        <<pI->getLowerBound()<<cc<<pI->getUpperBound()<<cc<<vals(i)<<cc
                                        <<pI->calcParamScaleVals(pI->getLowerBound())<<cc
                                        <<pI->calcParamScaleVals(pI->getUpperBound())<<cc
                                        <<p(i)<<cc
                                        <<pI->name<<cc<<"\"param_init_bounded_dev_vector\",\""
                                        <<ctg1<<"\",\""<<ctg2<<"\",\""<<pI->label<<"\""<<endl;
+                }
+            }
         }
     }
 }    
@@ -669,6 +699,7 @@ void writeParameter(ostream& os,
  * @param pI - pointer to associated NumberVectorInfo info object
  * @param toR - flag to write to R format (=1) or csv (=0)
  * @param willBeActive - flag to write if parameters will be active in some phase
+ * @param phase - current phase (or 0 to ignore)
  */
 void writeParameters(ostream& os, 
                      param_init_number_vector& p, 
@@ -676,10 +707,11 @@ void writeParameters(ostream& os,
                      adstring& ctg2, 
                      NumberVectorInfo* pI,
                      int toR, 
-                     int willBeActive){
+                     int willBeActive,
+                     int phase){
     if (pI->getSize()){
         for (int i=p.indexmin();i<=p.indexmax();i++) {
-            tcsam::writeParameter(os,p[i],ctg1,ctg2,(*pI)[i],toR,willBeActive);
+            tcsam::writeParameter(os,p[i],ctg1,ctg2,(*pI)[i],toR,willBeActive,phase);
         }
     }
 }
@@ -693,7 +725,8 @@ void writeParameters(ostream& os,
  * @param ctg2 - category 2 label
  * @param pI - pointer to associated BoundedNumberVectorInfo info object
  * @param toR - flag to write to R format (=1) or csv (=0)
-* @param willBeActive - flag to write if parameters will be active in some phase
+ * @param willBeActive - flag to write if parameters will be active in some phase
+ * @param phase - current phase (or 0 to ignore)
  */
 void writeParameters(ostream& os, 
                      param_init_bounded_number_vector& p, 
@@ -701,10 +734,11 @@ void writeParameters(ostream& os,
                      adstring& ctg2, 
                      BoundedNumberVectorInfo* pI,
                      int toR, 
-                     int willBeActive){
+                     int willBeActive,
+                     int phase){
     if (pI->getSize()){
         for (int i=p.indexmin();i<=p.indexmax();i++) {
-            tcsam::writeParameter(os,p[i],ctg1,ctg2,(*pI)[i],toR,willBeActive);
+            tcsam::writeParameter(os,p[i],ctg1,ctg2,(*pI)[i],toR,willBeActive,phase);
         }
     }
 }
@@ -719,6 +753,7 @@ void writeParameters(ostream& os,
  * @param pI - pointer to associated VectorVectorInfo info object
  * @param toR - flag to write to R format (=1) or csv (=0)
  * @param willBeActive - flag to write if parameters will be active in some phase
+ * @param phase - current phase (or 0 to ignore)
  */
 void writeParameters(ostream& os, 
                      dvar_matrix& p, 
@@ -726,10 +761,11 @@ void writeParameters(ostream& os,
                      adstring& ctg2, 
                      VectorVectorInfo* pI,
                      int toR, 
-                     int willBeActive){
+                     int willBeActive,
+                     int phase){
     if (pI->getSize()){
         for (int i=p.indexmin();i<=p.indexmax();i++) {
-            tcsam::writeParameter(os,p[i],ctg1,ctg2,(*pI)[i],toR,willBeActive);
+            tcsam::writeParameter(os,p[i],ctg1,ctg2,(*pI)[i],toR,willBeActive,phase);
         }
     }
 }
@@ -744,6 +780,7 @@ void writeParameters(ostream& os,
  * @param pI - pointer to associated BoundedVectorVectorInfo info object
  * @param toR - flag to write to R format (otherwise csv)
  * @param willBeActive - flag to write if parameters will be active in some phase
+ * @param phase - current phase (or 0 to ignore)
  */
 void writeParameters(ostream& os, 
                      dvar_matrix& p, 
@@ -751,10 +788,11 @@ void writeParameters(ostream& os,
                      adstring& ctg2, 
                      BoundedVectorVectorInfo* pI,
                      int toR, 
-                     int willBeActive){
+                     int willBeActive,
+                     int phase){
     if (pI->getSize()){
         for (int i=p.indexmin();i<=p.indexmax();i++) {
-            tcsam::writeParameter(os,p[i],ctg1,ctg2,(*pI)[i],toR,willBeActive);
+            tcsam::writeParameter(os,p[i],ctg1,ctg2,(*pI)[i],toR,willBeActive,phase);
         }
     }
 }
@@ -769,6 +807,7 @@ void writeParameters(ostream& os,
  * @param pI - pointer to associated DevsVectorVectorInfo info object
  * @param toR - flag to write to R format (otherwise csv)
  * @param willBeActive - flag to write if parameters will be active in some phase
+ * @param phase - current phase (or 0 to ignore)
  */
 void writeParameters(ostream& os, 
                      dvar_matrix& p, 
@@ -776,10 +815,11 @@ void writeParameters(ostream& os,
                      adstring& ctg2, 
                      DevsVectorVectorInfo* pI,
                      int toR, 
-                     int willBeActive){
+                     int willBeActive,
+                     int phase){
     if (pI->getSize()){
         for (int i=p.indexmin();i<=p.indexmax();i++) {
-            tcsam::writeParameter(os,p[i],ctg1,ctg2,(*pI)[i],toR,willBeActive);
+            tcsam::writeParameter(os,p[i],ctg1,ctg2,(*pI)[i],toR,willBeActive,phase);
         }
     }
 }

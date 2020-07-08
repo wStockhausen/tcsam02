@@ -576,7 +576,7 @@
 //              3. Cubic splines now working. Added ARRAY index type. May want some
 //                  additional functionality for splines (size bounds, e.g.).
 //-2020-03-29:  1. Changed ability to revise data for retrospective run such that
-//                  data are adjusted now when doRetro in "on" and yRetro=0, as well as
+//                  data are adjusted now when doRetro is "on" and yRetro=0, as well as
 //                  when yRetro>1. This allows more flexibility setting up retrospective 
 //                  runs.
 //              2. Fixed missing commas issues with pvNPSel and pvCubSplns in .rep file.
@@ -612,6 +612,13 @@
 //                   all size bins NOT explicitly associated with a parameter are
 //                   set to 0. Can change this by defining fixed values for 
 //                   size bins that should have a fixed, non-zero (e.g., 1) value.
+//-2020-07-06:  1. Revised retrospective calculations so likelihood for devs include
+//                   all values (estimated AND non-estimated). This is done so that
+//                   the likelihood penalty on summation-to-zero is minimized when
+//                   starting with converged model values from a non-retrospective model run.
+//              2. Added "phase" info to inputs for writeParameters(...) functions so that 
+//                   active parameters only can be written out in intermediate estimation phases.
+//                   This allows the csv file to match up with the gradients file.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -2351,11 +2358,11 @@ PRELIMINARY_CALCS_SECTION
             PRINT2B1("writing parameters info to csv")
             ofstream os1("tcsam02.params.all.init.csv", ios::trunc);
             os1.precision(12);
-            writeParameters(os1,0,0);//all parameters
+            writeParameters(os1,0,0,0);//all parameters
             os1.close();
             ofstream os2("tcsam02.params.active.init.csv", ios::trunc);
             os2.precision(12);
-            writeParameters(os2,0,1);//only parameters that will be active (i.e., phase>0)
+            writeParameters(os2,0,1,0);//only parameters that will be active (i.e., phase>0)
             os2.close();
             PRINT2B1("finished writing parameters info to csv")
         }
@@ -2613,7 +2620,7 @@ PROCEDURE_SECTION
 //    {
 //        adstring fn = "tcsam02.active."+str(current_phase())+"."+str(ctrProcCalls)+".csv";
 //        ofstream os; os.open((char*) fn, ios::trunc);
-//        writeParameters(os,0,1);
+//        writeParameters(os,0,1,current_phase());
 //    }
     
     if (mc_phase()&&(option_match(ad_comm::argc,ad_comm::argv,"-nuts")>0)){
@@ -2624,16 +2631,16 @@ PROCEDURE_SECTION
         msg = "number of active params = "+str(initial_params::nvarcalc())+tb+str(initial_params::num_active_calc());
         PRINT2B1(msg);
         rpt::echo<<"number of active params = "<<initial_params::nvarcalc()<<cc<<initial_params::num_active_calc()<<endl;
-        //writeParameters(std::cout,0,1);
-        writeParameters(rpt::echo,0,1);
+        //writeParameters(std::cout,0,1,current_phase());
+        writeParameters(rpt::echo,0,1,current_phase());
     }
     if (ctrDebugParams&&(ctrProcCalls>=ctrDebugParams)){
         adstring msg;
         PRINT2B1("--writing parameters to file for debugging")
         msg = "---phase="+str(current_phase())+". ctrProcCalls = "+str(ctrProcCalls)+tb+str(ctrProcCallsInPhase);
         PRINT2B1(msg)
-        writeParameters(std::cout,0,1);
-        writeParameters(rpt::echo,0,1);
+        writeParameters(std::cout,0,1,current_phase());
+        writeParameters(rpt::echo,0,1,current_phase());
         adstring fn = "tcsam02.Debug."+str(current_phase())+"."+str(ctrProcCalls)+".rept";
         ofstream os; os.open((char*) fn, ios::trunc);
         os.precision(12);
@@ -2649,8 +2656,8 @@ PROCEDURE_SECTION
         PRINT2B1(msg)
         checkParams(1,std::cout);
         checkParams(1,rpt::echo);
-        writeParameters(std::cout,0,1);
-        writeParameters(rpt::echo,0,1);
+        writeParameters(std::cout,0,1,current_phase());
+        writeParameters(rpt::echo,0,1,current_phase());
         PRINT2B1("--exiting...")
         ad_exit(-1);
     }
@@ -2704,7 +2711,7 @@ PROCEDURE_SECTION
 //     ofstream os1(fn, ios::trunc);
 //     os1.precision(12);
 //     os1<<"objFun = "<<cc<<objFun<<cc<<"phase ="<<cc<<current_phase()<<cc<<"proc calls in phase = "<<cc<<ctrProcCallsInPhase<<endl;
-//     writeParameters(os1,0,0);//all parameters
+//     writeParameters(os1,0,0,0);//all parameters
 //     os1.close();
 //    }
 //
@@ -8439,9 +8446,10 @@ FUNCTION void setDevsLikelihoodFlags(const ivector& phsDevs, dmatrix& likeFlags,
     int ctr = 1;
     cout<<"phsDevs = "<<phsDevs<<endl;
     for (int i=1;i<=np;i++){
-        int mni = likeFlags(i).indexmin();
-        int mxi = likeFlags(i).indexmax();
-        for (int j=mni;j<=mxi;j++) likeFlags(i,j) = 1.0*(phsDevs(ctr++)>0);
+        likeFlags(i) = 1.0;//changed 7-7-20 so fixed devs are included in likelihood
+//        int mni = likeFlags(i).indexmin();
+//        int mxi = likeFlags(i).indexmax();
+//        for (int j=mni;j<=mxi;j++) likeFlags(i,j) = 1.0*(phsDevs(ctr++)>0);
         if (debug>=dbgAll) cout<<tb<<"likeFlags["<<i<<"]"<<" = "<<likeFlags(i)<<endl;
     }
     if (debug>=dbgAll) cout<<"finished setDevsLikelihoodFlags(phsDevs,likeFlags)"<<endl;
@@ -8992,87 +9000,89 @@ FUNCTION void ReportToR_OpModMode(ostream& os, double maxGrad, int debug, ostrea
 
 //----------------------------------------------------------------------
 //Write parameter information to file
-FUNCTION void writeParameters(ostream& os,int toR, int willBeActive)      
+//NOTE: if toR=0, willBeActive>0, and phase=0, all parameters that will be active are written to csv
+//      if toR=0, willBeActive>0, and phase>0, only active parameters are written to csv
+FUNCTION void writeParameters(ostream& os,int toR, int willBeActive, int phase)      
     adstring ctg1, ctg2;
     if (!toR) tcsam::writeCSVHeaderForParametersFile(os);
     //recruitment parameters
     ctg1="population processes";
     ctg2="recruitment";
-    tcsam::writeParameters(os,pLnR,ctg1,ctg2,ptrMPI->ptrRec->pLnR,toR,willBeActive);      
-    tcsam::writeParameters(os,pRCV,ctg1,ctg2,ptrMPI->ptrRec->pRCV,toR,willBeActive);      
-    tcsam::writeParameters(os,pRX, ctg1,ctg2,ptrMPI->ptrRec->pRX, toR,willBeActive);      
-    tcsam::writeParameters(os,pRa, ctg1,ctg2,ptrMPI->ptrRec->pRa, toR,willBeActive);      
-    tcsam::writeParameters(os,pRb, ctg1,ctg2,ptrMPI->ptrRec->pRb, toR,willBeActive);      
-    tcsam::writeParameters(os,devsLnR,ctg1,ctg2,ptrMPI->ptrRec->pDevsLnR,toR,willBeActive);      
+    tcsam::writeParameters(os,pLnR,ctg1,ctg2,ptrMPI->ptrRec->pLnR,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pRCV,ctg1,ctg2,ptrMPI->ptrRec->pRCV,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pRX, ctg1,ctg2,ptrMPI->ptrRec->pRX, toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pRa, ctg1,ctg2,ptrMPI->ptrRec->pRa, toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pRb, ctg1,ctg2,ptrMPI->ptrRec->pRb, toR,willBeActive,phase);      
+    tcsam::writeParameters(os,devsLnR,ctg1,ctg2,ptrMPI->ptrRec->pDevsLnR,toR,willBeActive,phase);      
     
     //natural mortality parameters
     ctg1="population processes";
     ctg2="natural mortality";
-    tcsam::writeParameters(os,pM,ctg1,ctg2,ptrMPI->ptrNM->pM,toR,willBeActive);      
-    tcsam::writeParameters(os,pDM1,ctg1,ctg2,ptrMPI->ptrNM->pDM1,toR,willBeActive);      
-    tcsam::writeParameters(os,pDM2,ctg1,ctg2,ptrMPI->ptrNM->pDM2,toR,willBeActive);      
-    tcsam::writeParameters(os,pDM3,ctg1,ctg2,ptrMPI->ptrNM->pDM3,toR,willBeActive);      
-    tcsam::writeParameters(os,pDM4,ctg1,ctg2,ptrMPI->ptrNM->pDM4,toR,willBeActive);      
+    tcsam::writeParameters(os,pM,ctg1,ctg2,ptrMPI->ptrNM->pM,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pDM1,ctg1,ctg2,ptrMPI->ptrNM->pDM1,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pDM2,ctg1,ctg2,ptrMPI->ptrNM->pDM2,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pDM3,ctg1,ctg2,ptrMPI->ptrNM->pDM3,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pDM4,ctg1,ctg2,ptrMPI->ptrNM->pDM4,toR,willBeActive,phase);      
     
     //growth parameters
     ctg1="population processes";
     ctg2="growth";
-    tcsam::writeParameters(os,pGrA,ctg1,ctg2,ptrMPI->ptrGrw->pGrA,toR,willBeActive);      
-    tcsam::writeParameters(os,pGrB,ctg1,ctg2,ptrMPI->ptrGrw->pGrB,toR,willBeActive);      
-    tcsam::writeParameters(os,pGrBeta,ctg1,ctg2,ptrMPI->ptrGrw->pGrBeta,toR,willBeActive);      
+    tcsam::writeParameters(os,pGrA,ctg1,ctg2,ptrMPI->ptrGrw->pGrA,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pGrB,ctg1,ctg2,ptrMPI->ptrGrw->pGrB,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pGrBeta,ctg1,ctg2,ptrMPI->ptrGrw->pGrBeta,toR,willBeActive,phase);      
     
     //maturity parameters
     ctg1="population processes";
     ctg2="maturity";
-    tcsam::writeParameters(os,matLgtPrM2M,ctg1,ctg2,ptrMPI->ptrM2M->pvLgtPrM2M,toR,willBeActive);      
+    tcsam::writeParameters(os,matLgtPrM2M,ctg1,ctg2,ptrMPI->ptrM2M->pvLgtPrM2M,toR,willBeActive,phase);      
     
     //selectivity parameters
     ctg1="selectivity";
     ctg2="selectivity";
-    tcsam::writeParameters(os,pS1,ctg1,ctg2,ptrMPI->ptrSel->pS1,toR,willBeActive);      
-    tcsam::writeParameters(os,pS2,ctg1,ctg2,ptrMPI->ptrSel->pS2,toR,willBeActive);      
-    tcsam::writeParameters(os,pS3,ctg1,ctg2,ptrMPI->ptrSel->pS3,toR,willBeActive);      
-    tcsam::writeParameters(os,pS4,ctg1,ctg2,ptrMPI->ptrSel->pS4,toR,willBeActive);      
-    tcsam::writeParameters(os,pS5,ctg1,ctg2,ptrMPI->ptrSel->pS5,toR,willBeActive);      
-    tcsam::writeParameters(os,pS6,ctg1,ctg2,ptrMPI->ptrSel->pS6,toR,willBeActive);      
-    tcsam::writeParameters(os,devsS1,ctg1,ctg2,ptrMPI->ptrSel->pDevsS1,toR,willBeActive);      
-    tcsam::writeParameters(os,devsS2,ctg1,ctg2,ptrMPI->ptrSel->pDevsS2,toR,willBeActive);      
-    tcsam::writeParameters(os,devsS3,ctg1,ctg2,ptrMPI->ptrSel->pDevsS3,toR,willBeActive);      
-    tcsam::writeParameters(os,devsS4,ctg1,ctg2,ptrMPI->ptrSel->pDevsS4,toR,willBeActive);      
-    tcsam::writeParameters(os,devsS5,ctg1,ctg2,ptrMPI->ptrSel->pDevsS5,toR,willBeActive);      
-    tcsam::writeParameters(os,devsS6,ctg1,ctg2,ptrMPI->ptrSel->pDevsS6,toR,willBeActive);      
-    tcsam::writeParameters(os,matNPSel,   ctg1,ctg2,ptrMPI->ptrSel->pvNPSel,   toR,willBeActive);      
-    tcsam::writeParameters(os,matCubSplns,ctg1,ctg2,ptrMPI->ptrSel->pvCubSplns,toR,willBeActive);      
+    tcsam::writeParameters(os,pS1,ctg1,ctg2,ptrMPI->ptrSel->pS1,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pS2,ctg1,ctg2,ptrMPI->ptrSel->pS2,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pS3,ctg1,ctg2,ptrMPI->ptrSel->pS3,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pS4,ctg1,ctg2,ptrMPI->ptrSel->pS4,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pS5,ctg1,ctg2,ptrMPI->ptrSel->pS5,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pS6,ctg1,ctg2,ptrMPI->ptrSel->pS6,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,devsS1,ctg1,ctg2,ptrMPI->ptrSel->pDevsS1,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,devsS2,ctg1,ctg2,ptrMPI->ptrSel->pDevsS2,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,devsS3,ctg1,ctg2,ptrMPI->ptrSel->pDevsS3,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,devsS4,ctg1,ctg2,ptrMPI->ptrSel->pDevsS4,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,devsS5,ctg1,ctg2,ptrMPI->ptrSel->pDevsS5,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,devsS6,ctg1,ctg2,ptrMPI->ptrSel->pDevsS6,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,matNPSel,   ctg1,ctg2,ptrMPI->ptrSel->pvNPSel,   toR,willBeActive,phase);      
+    tcsam::writeParameters(os,matCubSplns,ctg1,ctg2,ptrMPI->ptrSel->pvCubSplns,toR,willBeActive,phase);      
     
     //fishery parameters
     ctg1="fisheries";
     ctg2="fisheries";
-    tcsam::writeParameters(os,pHM, ctg1,ctg2,ptrMPI->ptrFsh->pHM, toR,willBeActive);      
-    tcsam::writeParameters(os,pLnC,ctg1,ctg2,ptrMPI->ptrFsh->pLnC,toR,willBeActive);      
-    tcsam::writeParameters(os,pDC1,ctg1,ctg2,ptrMPI->ptrFsh->pDC1,toR,willBeActive);      
-    tcsam::writeParameters(os,pDC2,ctg1,ctg2,ptrMPI->ptrFsh->pDC2,toR,willBeActive);      
-    tcsam::writeParameters(os,pDC3,ctg1,ctg2,ptrMPI->ptrFsh->pDC3,toR,willBeActive);      
-    tcsam::writeParameters(os,pDC4,ctg1,ctg2,ptrMPI->ptrFsh->pDC4,toR,willBeActive);      
-    tcsam::writeParameters(os,devsLnC,ctg1,ctg2,ptrMPI->ptrFsh->pDevsLnC,toR,willBeActive);      
-    tcsam::writeParameters(os,pLnEffX, ctg1,ctg2,ptrMPI->ptrFsh->pLnEffX, toR,willBeActive);      
-    tcsam::writeParameters(os,pLgtRet, ctg1,ctg2,ptrMPI->ptrFsh->pLgtRet, toR,willBeActive);      
+    tcsam::writeParameters(os,pHM, ctg1,ctg2,ptrMPI->ptrFsh->pHM, toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pLnC,ctg1,ctg2,ptrMPI->ptrFsh->pLnC,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pDC1,ctg1,ctg2,ptrMPI->ptrFsh->pDC1,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pDC2,ctg1,ctg2,ptrMPI->ptrFsh->pDC2,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pDC3,ctg1,ctg2,ptrMPI->ptrFsh->pDC3,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pDC4,ctg1,ctg2,ptrMPI->ptrFsh->pDC4,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,devsLnC,ctg1,ctg2,ptrMPI->ptrFsh->pDevsLnC,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pLnEffX, ctg1,ctg2,ptrMPI->ptrFsh->pLnEffX, toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pLgtRet, ctg1,ctg2,ptrMPI->ptrFsh->pLgtRet, toR,willBeActive,phase);      
     
     //survey parameters
     ctg1="surveys";
     ctg2="surveys";
-    tcsam::writeParameters(os,pQ,    ctg1,ctg2,ptrMPI->ptrSrv->pQ,    toR,willBeActive);      
-    tcsam::writeParameters(os,pDQ1,  ctg1,ctg2,ptrMPI->ptrSrv->pDQ1,  toR,willBeActive);      
-    tcsam::writeParameters(os,pDQ2,  ctg1,ctg2,ptrMPI->ptrSrv->pDQ2,  toR,willBeActive);      
-    tcsam::writeParameters(os,pDQ3,  ctg1,ctg2,ptrMPI->ptrSrv->pDQ3,  toR,willBeActive);      
-    tcsam::writeParameters(os,pDQ4,  ctg1,ctg2,ptrMPI->ptrSrv->pDQ4,  toR,willBeActive);
-    tcsam::writeParameters(os,pLnXCV,ctg1,ctg2,ptrMPI->ptrSrv->pLnXCV,toR,willBeActive);
-    tcsam::writeParameters(os,pA,    ctg1,ctg2,ptrMPI->ptrSrv->pA,    toR,willBeActive);      
+    tcsam::writeParameters(os,pQ,    ctg1,ctg2,ptrMPI->ptrSrv->pQ,    toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pDQ1,  ctg1,ctg2,ptrMPI->ptrSrv->pDQ1,  toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pDQ2,  ctg1,ctg2,ptrMPI->ptrSrv->pDQ2,  toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pDQ3,  ctg1,ctg2,ptrMPI->ptrSrv->pDQ3,  toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pDQ4,  ctg1,ctg2,ptrMPI->ptrSrv->pDQ4,  toR,willBeActive,phase);
+    tcsam::writeParameters(os,pLnXCV,ctg1,ctg2,ptrMPI->ptrSrv->pLnXCV,toR,willBeActive,phase);
+    tcsam::writeParameters(os,pA,    ctg1,ctg2,ptrMPI->ptrSrv->pA,    toR,willBeActive,phase);      
     
     //MSE directed fishery
     if (mseOpModMode){
         ctg1="MSE-related";
         ctg2="ln-scale directed fishery capture rate";
-        tcsam::writeParameters(os,pMSE_LnC,ctg1,ctg2,ptrMPI->ptrMSE->pMSE_LnC,toR,willBeActive);
+        tcsam::writeParameters(os,pMSE_LnC,ctg1,ctg2,ptrMPI->ptrMSE->pMSE_LnC,toR,willBeActive,phase);
     }
     
 // =============================================================================
@@ -9111,12 +9121,12 @@ REPORT_SECTION
             //write parameter values to csv
             ofstream os1("tcsam02.params.all.final.csv", ios::trunc);
             os1.precision(12);
-            writeParameters(os1,0,0);
+            writeParameters(os1,0,0,current_phase());
             os1.close();
             //write parameter values to csv
             ofstream os2("tcsam02.params.active.final.csv", ios::trunc);
             os2.precision(12);
-            writeParameters(os2,0,1);
+            writeParameters(os2,0,1,current_phase());
             os2.close();
 
             if (option_match(ad_comm::argc,ad_comm::argv,"-jitter")>-1) {
@@ -9138,12 +9148,12 @@ REPORT_SECTION
             //write parameter values to csv
             ofstream os1("tcsam02.params.all.final.csv", ios::trunc);
             os1.precision(12);
-            writeParameters(os1,0,0);
+            writeParameters(os1,0,0,current_phase());
             os1.close();
             //write parameter values to csv
             ofstream os2("tcsam02.params.active.final.csv", ios::trunc);
             os2.precision(12);
-            writeParameters(os2,0,1);
+            writeParameters(os2,0,1,current_phase());
             os2.close();
         } 
     }
