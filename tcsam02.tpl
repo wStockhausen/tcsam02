@@ -4893,7 +4893,10 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
     //2. set yr back one year to get population rates, etc., 
     //   from year prior to projection year
     yr = yr-1;//don't have pop rates, etc. for projection year
-    if (debug) cout<<"year for pop rates = "<<yr<<endl;
+    if (debug) {
+        cout<<"year for population rates = "<<yr<<endl;
+        cout<<"terminal years to drop    = "<<ptrMC->mxYrOffsetAvgRec<<endl;
+    }
     
     //3. Determine mean recruitment 
     //   1981 here corresponds to 1982 in TCSAM2013, the year recruitment enters
