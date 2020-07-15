@@ -622,6 +622,8 @@
 //-2020-07-08:  1. Added inputs mnYrAvgRec, mxYrOffsetAvgRec to ModelConfiguration to specify time period
 //                   over which to calculate average recruitment for determining OFL.
 //              2. Incremented ModelConfiguration version to 2020.07.08.
+//-2020-07-15:  1. Changed calls to calcOFL from calcOFL(mxYr+1,...) to 
+//                   calcOFL(mxYr+1-yRetro,...) to correctly handle retrospective runs.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -2458,7 +2460,7 @@ PRELIMINARY_CALCS_SECTION
                 ofstream echoOFL; echoOFL.open("calcOFL.init.txt", ios::trunc);
                 echoOFL.precision(12);
                 echoOFL<<"----Testing calcOFL()"<<endl;
-                calcOFL(mxYr+1,debugOFL,echoOFL);//updates ptrOFLResults
+                calcOFL(mxYr+1-yRetro,debugOFL,echoOFL);//updates ptrOFLResults
                 ptrOFLResults->writeCSVHeader(echoOFL); echoOFL<<endl;
                 ptrOFLResults->writeToCSV(echoOFL);     echoOFL<<endl;
                 echoOFL<<"----Finished testing calcOFL()!"<<endl;
@@ -7983,7 +7985,7 @@ FUNCTION void writeMCMCtoR(ofstream& mcmc)
         mcmc<<"MB_xy="; wts::writeToR(mcmc,trans(value(spB_yx)),xDms,yDms); 
         if (doOFL){
             mcmc<<cc<<endl;
-            calcOFL(mxYr+1,0,cout);//updates oflresults
+            calcOFL(mxYr+1-yRetro,0,cout);//updates ptrOFLResults
             ptrOFLResults->writeToR(mcmc,ptrMC,"ptrOFLResults",0);//mcm<<cc<<endl;
         }
         
@@ -8914,7 +8916,7 @@ FUNCTION void ReportToR(ostream& os, double maxGrad, int debug, ostream& cout)
             cout<<"ReportToR: starting OFL calculations"<<endl;
             ofstream echoOFL; echoOFL.open("calcOFL.final.txt", ios::trunc);
             echoOFL.precision(12);
-            calcOFL(mxYr+1,1,echoOFL);//updates ptrOFLResults
+            calcOFL(mxYr+1-yRetro,1,echoOFL);//updates ptrOFLResults
             ptrOFLResults->writeCSVHeader(echoOFL); echoOFL<<endl;
             ptrOFLResults->writeToCSV(echoOFL);     echoOFL<<endl;
             echoOFL.close();
@@ -9905,7 +9907,7 @@ FINAL_SECTION
                 PRINT2B1("#----Starting OFL calculations")
                 ofstream echoOFL; echoOFL.open("calcOFL.final.txt", ios::trunc);
                 echoOFL.precision(12);
-                calcOFL(mxYr+1,1,echoOFL);//updates ptrOFLResults
+                calcOFL(mxYr+1-yRetro,1,echoOFL);//updates ptrOFLResults
                 ptrOFLResults->writeCSVHeader(echoOFL); echoOFL<<endl;
                 ptrOFLResults->writeToCSV(echoOFL);     echoOFL<<endl;
                 echoOFL.close();
@@ -9962,7 +9964,7 @@ FINAL_SECTION
             cout<<"#----Starting OFL calculations"<<endl;
             ofstream echoOFL; echoOFL.open("calcOFL.final.txt", ios::trunc);
             echoOFL.precision(12);
-            calcOFL(mxYr+1,1,echoOFL);//updates ptrOFLResults
+            calcOFL(mxYr+1-yRetro,1,echoOFL);//updates ptrOFLResults
             ptrOFLResults->writeCSVHeader(echoOFL); echoOFL<<endl;
             ptrOFLResults->writeToCSV(echoOFL);     echoOFL<<endl;
             echoOFL.close();
