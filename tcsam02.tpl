@@ -624,6 +624,10 @@
 //              2. Incremented ModelConfiguration version to 2020.07.08.
 //-2020-07-15:  1. Changed calls to calcOFL from calcOFL(mxYr+1,...) to 
 //                   calcOFL(mxYr+1-yRetro,...) to correctly handle retrospective runs.
+//-2020-07-28:  1. Added dblnormal4a selectivity function.
+//              2. Fixed problem writing likeFlags and devs to R in calcDevsPenalties().
+//-2020-07-29:  1. Added likelihood profile variables for average rec, Bmsy, Fmsy, MSY, 
+//                 current B, projected B, and OFL.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -2000,7 +2004,7 @@ PARAMETER_SECTION
     !!PRINTDEVS("pDevsS5",S5)
     init_bounded_number_vector pDevsS6(1,nptDevsS6,lbDevsS6,ubDevsS6,phsDevsS6);
     !!PRINTDEVS("pDevsS6",S6)
-    matrix devsS1(1,npDevsS1,mniDevsS1,mxiDevsS1);//TODO: why +1?
+    matrix devsS1(1,npDevsS1,mniDevsS1,mxiDevsS1);
     matrix devsS2(1,npDevsS2,mniDevsS2,mxiDevsS2);
     matrix devsS3(1,npDevsS3,mniDevsS3,mxiDevsS3);
     matrix devsS4(1,npDevsS4,mniDevsS4,mxiDevsS4);
@@ -2225,6 +2229,14 @@ PARAMETER_SECTION
     likeprof_number lkNMIF;
     likeprof_number lkNMMM; 
     likeprof_number lkNMMF;
+    //--these will only be calculated if OFL is calculated
+    likeprof_number lkAvgRec;
+    likeprof_number lkBmsy;
+    likeprof_number lkFmsy;
+    likeprof_number lkMSY;
+    likeprof_number lkCurB;
+    likeprof_number lkPrjB;
+    likeprof_number lkOFL;
 
     
     !!PRINT2B1("#finished PARAMETER_SECTION")
@@ -2607,6 +2619,15 @@ PRELIMINARY_CALCS_SECTION
              PRINT2B1("PRELIMINARY_CALCS: MSE EstModMode")
         }
     }
+    //--these will be re-calculated if OFL is calculated
+    lkAvgRec = 0.0;
+    lkBmsy   = 0.0;
+    lkFmsy   = 0.0;
+    lkMSY    = 0.0;
+    lkCurB   = 0.0;
+    lkPrjB   = 0.0;
+    lkOFL    = 0.0;
+
     PRINT2B1("#finished PRELIMINARY_CALCS_SECTION")
     PRINT2B1("#----------------------------------")
     
@@ -2702,6 +2723,11 @@ PROCEDURE_SECTION
             for (int y=mnYr; y<=mxYr; y++){
                 sdrSpB_xy(x,y) = spB_yx(y,x);
             }
+        }
+        if (doOFL){
+            PRINT2B1("#----Starting OFL calculations in sd_phase")
+            calcOFL(mxYr+1-yRetro,0,cout);//recalculates ptrOFLResults
+            PRINT2B1("#----Finished OFL calculations in sd_phase")
         }
     }
     
@@ -4383,15 +4409,18 @@ FUNCTION void calcFisheryFs(int debug, ostream& cout)
                     if (debug>dbgCalcProcs)cout<<"capture rate averaging for n="<<n<<"idEAS="<<idEAS<<cc<<" avgEff_n(idEAS)="<<avgEff_n(idEAS)<<cc
                                                <<" f="<<f<<cc<<" x="<<x<<cc<<" m="<<m<<cc<<" s="<<s<<endl;
                     //loop over years to extract "observed" F's and calculate averages
-                    for (int iy=yrsAvgEff_ny(idEAS).indexmin();iy<=yrsAvgEff_ny(idEAS).indexmax();iy++){
+                    int iymin=yrsAvgEff_ny(idEAS).indexmin();
+                    int iymax=yrsAvgEff_ny(idEAS).indexmax();
+                    if (debug>dbgCalcProcs)cout<<"miny: "<<yrsAvgEff_ny(idEAS)(iymin)<<tb<<"max y: "<<yrsAvgEff_ny(idEAS)(iymax)<<endl;
+                    for (int iy=iymin;iy<=iymax;iy++){
                         //cout<<iy<<cc<<yrsAvgEff_ny(idEAS,iy)<<endl;
                         obsFc_nxmsy(n,x,m,s,yrsAvgEff_ny(idEAS,iy)) = cpF_fyxms(f,yrsAvgEff_ny(idEAS,iy),x,m,s);
                     }
-                    avgFc_nxms(n,x,m,s) = sum(obsFc_nxmsy(n,x,m,s))/yrsAvgEff_ny(idEAS).size();
+                    avgFc_nxms(n,x,m,s)     = sum(obsFc_nxmsy(n,x,m,s))/yrsAvgEff_ny(idEAS).size();
                     avgFc2Eff_nxms(n,x,m,s) = avgFc_nxms(n,x,m,s)/avgEff_n(idEAS);
                     
                     //loop over year again to calculate "predicted" F's based on effort
-                    for (int iy=yrsAvgEff_ny(idEAS).indexmin();iy<=yrsAvgEff_ny(idEAS).indexmax();iy++){
+                    for (int iy=iymin;iy<=iymax;iy++){
                         //fully-selected capture rate
                         if (idPar==0){
                             //extrapolation based on effort extrapolation ratio only
@@ -5074,6 +5103,17 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
             }
         }//Tier 3 calculation
     
+    if (sd_phase()){
+        //assign likelihood profile variables
+        lkAvgRec = sum(ptrOFLResults->avgRec_x);
+        lkBmsy   = ptrOFLResults->Bmsy;
+        lkFmsy   = ptrOFLResults->Fmsy;
+        lkMSY    = ptrOFLResults->MSY;
+        lkCurB   = spB_yx(mxYr,MALE);
+        lkPrjB   = ptrOFLResults->curB;
+        lkOFL    = ptrOFLResults->OFL;
+    }
+        
     if (debug) {
         int n = 100;
         MultiYearPopProjector* pMYPPM = new MultiYearPopProjector(pPPM);
@@ -5488,7 +5528,10 @@ FUNCTION void calcDevsPenalties(int debug, ostream& cout, double penWgt, const d
                                               "pen="<<fPen<<cc<<
                                               "objfun="<<penWgt*fPen<<cc<<
                                               "val="<<sum(devs(i))<<cc<<
-                                              "rmse="<<rmse<<"),"<<endl;
+                                              "rmse="<<rmse<<cc<<endl;
+             cout<<"likeFlags="; wts::writeToR(cout,likeFlags(i)); cout<<cc<<endl;
+             cout<<"devs="; wts::writeToR(cout,value(devs(i))); cout<<endl;
+             cout<<"),"<<endl;
          }
     }//--i
     if (!debug)  testNaNs(value(objFun),"in calcDevsPenalties()");

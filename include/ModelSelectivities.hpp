@@ -62,6 +62,7 @@
             const static int ID_CONSTANT           =16; const static adstring STR_CONSTANT; 
             const static int ID_NONPARAMETRIC      =17; const static adstring STR_NONPARAMETRIC; 
             const static int ID_CUBICSPLINE        =18; const static adstring STR_CUBICSPLINE; 
+            const static int ID_DBLNORMAL4A        =19; const static adstring STR_DBLNORMAL4A; 
 
             /**
              * Calculates "constant" selectivity function (= 1 at all sizes).
@@ -309,6 +310,20 @@
              * @return - selectivity function values as dvar_vector
              */
             dvar_vector static cubic_spline(dvector& z, dvar_vector& params, double fsZ);
+            /**
+             * Calculates 4-parameter double normal function parameterized by 
+             *      params[1]: size at which ascending limb reaches 1
+             *      params[2]: width of ascending limb
+             *      params[3]: scaled increment to params[1] at which descending limb departs from 1
+             *      params[4]: width of descending limb
+             * Inputs:
+             * @param z      - dvector of sizes at which to compute function values
+             * @param params - dvar_vector of function parameters
+             * @param fsZ    - max possible size
+             * 
+             * @return - selectivity function values as dvar_vector
+             */
+            dvar_vector static dblnormal4a(dvector& z, dvar_vector& params, double fsZ);
     };
     
 #endif	/* MODELSELECTIVITIES_HPP */

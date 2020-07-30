@@ -39,6 +39,7 @@ const adstring SelFcns::STR_DBLNORMAL6         ="dblnormal6";
 const adstring SelFcns::STR_CONSTANT           ="constant";
 const adstring SelFcns::STR_NONPARAMETRIC      ="nonparametric";
 const adstring SelFcns::STR_CUBICSPLINE        ="cubic_spline";
+const adstring SelFcns::STR_DBLNORMAL4A        ="dblnormal4a";
 
 //--------------------------------------------------------------------------------
 //          SelFcns
@@ -82,6 +83,7 @@ int SelFcns::getSelFcnID(adstring str){
     if (str==STR_CONSTANT)            return ID_CONSTANT;
     if (str==STR_NONPARAMETRIC)       return ID_NONPARAMETRIC;
     if (str==STR_CUBICSPLINE)         return ID_CUBICSPLINE;
+    if (str==STR_DBLNORMAL4A)         return ID_DBLNORMAL4A;
     cout<<"Error in SelFcns::getSelFcnID(adstring str)"<<endl;
     cout<<"Function name '"<<str<<"' not a valid selectivity function name."<<endl;
     cout<<"Aborting..."<<endl;
@@ -153,6 +155,9 @@ adstring SelFcns::getSelFcnID(int id){
         case ID_CUBICSPLINE: 
             if (debug) cout<<"SelFcn = "<<STR_CUBICSPLINE<<endl;
             return STR_CUBICSPLINE;
+        case ID_DBLNORMAL4A: 
+            if (debug) cout<<"SelFcn = "<<STR_DBLNORMAL4A<<endl;
+            return STR_DBLNORMAL4A;
         default:
         {
             cout<<endl;
@@ -200,6 +205,7 @@ dvar_vector SelFcns::calcSelFcn(int id, dvector& z, dvar_vector& params, double 
         case ID_CONSTANT:            {s=constant(z);                       break;}
         case ID_NONPARAMETRIC:       {s=nonparametric(z,params,fsZ);       break;}
         case ID_CUBICSPLINE:         {s=cubic_spline(z,params,fsZ);        break;}
+        case ID_DBLNORMAL4A:         {s=dblnormal4a(z,params,fsZ);         break;}
         default:
         {
             cout<<"Invalid id for SelFcns.calcSelFcn(id,...)";
@@ -721,6 +727,44 @@ dvar_vector SelFcns::dblnormal4(dvector& z, dvar_vector& params, double fsZ){
     dscJ = 1.0/(1.0+mfexp(-slp*(z-(dscMnZ))));
     s = elem_prod(elem_prod(ascJ,ascN)+(1.0-ascJ), elem_prod(dscJ,dscN)+(1.0-dscJ));
     if (debug) cout<<"Finished SelFcns::dblnormal4(...)"<<endl;
+    RETURN_ARRAYS_DECREMENT();
+    return s;
+}
+
+/**
+ * Calculates 4-parameter double normal function parameterized by 
+ *      params[1]: size at which ascending limb reaches 1
+ *      params[2]: width of ascending limb
+ *      params[3]: scaled increment to params[1] at which descending limb departs from 1
+ *      params[4]: width of descending limb
+ * Inputs:
+ * @param z      - dvector of sizes at which to compute function values
+ * @param params - dvar_vector of function parameters
+ * @param fsZ    - max possible size
+ * 
+ * @return - selectivity function values as dvar_vector
+ */
+dvar_vector SelFcns::dblnormal4a(dvector& z, dvar_vector& params, double fsZ){
+    RETURN_ARRAYS_INCREMENT();
+    if (debug) cout<<"Starting SelFcns::dblnormal4a(...)"<<endl;
+    dvariable n; n.initialize();
+    dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
+    dvar_vector ascN(z.indexmin(),z.indexmax()); ascN.initialize();
+    dvar_vector ascJ(z.indexmin(),z.indexmax()); ascJ.initialize();
+    dvar_vector dscN(z.indexmin(),z.indexmax()); dscN.initialize();
+    dvar_vector dscJ(z.indexmin(),z.indexmax()); dscJ.initialize();
+    double slp = 5.0;
+    dvariable ascMnZ = params(1);//size at which ascending limb hits 1
+    dvariable ascWdZ = params(2);//width of ascending limb
+    dvariable sclInc = params(3);//size at which descending limb departs from 1
+    dvariable dscWdZ = params(4);//width of descending limb
+    dvariable dscMnZ = (fsZ-ascMnZ)*sclInc + ascMnZ;
+    ascN = mfexp(-0.5*square((z-ascMnZ)/ascWdZ));
+    ascJ = 1.0/(1.0+mfexp(slp*(z-(ascMnZ))));
+    dscN = mfexp(-0.5*square((z-dscMnZ)/dscWdZ));
+    dscJ = 1.0/(1.0+mfexp(-slp*(z-(dscMnZ))));
+    s = elem_prod(elem_prod(ascJ,ascN)+(1.0-ascJ), elem_prod(dscJ,dscN)+(1.0-dscJ));
+    if (debug) cout<<"Finished SelFcns::dblnormal4a(...)"<<endl;
     RETURN_ARRAYS_DECREMENT();
     return s;
 }
