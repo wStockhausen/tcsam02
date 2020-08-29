@@ -668,7 +668,7 @@ dvar_vector SelFcns::dbllogisticLn50Ln95(dvector& z, dvar_vector& params, double
 /**
  * Calculates ascending normal function parameterized by 
  *      params[1]: size at which ascending limb reaches 1
- *      params[2]: width of ascending limb
+ *      params[2]: width (std. dev) of ascending limb
  * Inputs:
  * @param z      - dvector of sizes at which to compute function values
  * @param params - dvar_vector of function parameters
@@ -698,7 +698,7 @@ dvar_vector SelFcns::ascnormal(dvector& z, dvar_vector& params, double fsZ){
  * Calculates 4-parameter double normal function parameterized by 
  *      params[1]: size at which ascending limb reaches 1
  *      params[2]: width of ascending limb
- *      params[3]: size at which descending limb departs from 1
+ *      params[3]: offset to size at which descending limb departs from 1
  *      params[4]: width of descending limb
  * Inputs:
  * @param z      - dvector of sizes at which to compute function values
@@ -719,7 +719,7 @@ dvar_vector SelFcns::dblnormal4(dvector& z, dvar_vector& params, double fsZ){
     double slp = 5.0;
     dvariable ascMnZ = params(1);//size at which ascending limb hits 1
     dvariable ascWdZ = params(2);//width of ascending limb
-    dvariable dscMnZ = params(3);//size at which descending limb departs from 1
+    dvariable dscMnZ = params(1)+params(3);//size at which descending limb departs from 1
     dvariable dscWdZ = params(4);//width of descending limb
     ascN = mfexp(-0.5*square((z-ascMnZ)/ascWdZ));
     ascJ = 1.0/(1.0+mfexp(slp*(z-(ascMnZ))));

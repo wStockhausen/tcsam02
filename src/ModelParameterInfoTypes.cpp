@@ -408,10 +408,10 @@ dvariable BoundedNumberInfo::calcArithScaleVal(const prevariable& x){
 }
 
 /**
- * Calculate logit-scale value corresponding to given bounded arithmetic-scale value.
+ * Calculate parameter-scale value corresponding to given bounded arithmetic-scale value.
  * 
  * @param x - arithmetic-scale value
- * @return - logit-scale value
+ * @return - parameter-scale value
  */
 double BoundedNumberInfo::calcParamScaleVal(double x){
     if (debug) rpt::echo<<"starting BoundedNumberInfo::calcParamScaleVal(double&) "<<this<<endl;

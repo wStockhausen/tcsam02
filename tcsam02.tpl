@@ -628,6 +628,8 @@
 //              2. Fixed problem writing likeFlags and devs to R in calcDevsPenalties().
 //-2020-07-29:  1. Added likelihood profile variables for average rec, Bmsy, Fmsy, MSY, 
 //                 current B, projected B, and OFL.
+//-2020-08-01:  1. Increased max number of function evaluations in phases 5,6,7 
+//-2020-08-26:  1. Changed parameterization of dblnormal4 selectivity function.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -702,7 +704,7 @@ GLOBALS_SECTION
                                 os<<"indices = "<<pv##P.indexmin()<<tb<<pv##P.indexmax()<<std::endl; \
                                 for (int p=1;p<=np##P;p++) { \
                                     os<<s<<"["<<p<<"] = "<<std::endl; \
-                                    os<<" mni = "<<mni##P[p]<<cc<<" mni = "<<mxi##P[p]<<std::endl; \
+                                    os<<" mni = "<<mni##P[p]<<cc<<" mxi = "<<mxi##P[p]<<std::endl; \
                                     for (int j=mni##P[p];j<=mxi##P[p];j++) os<<pv##P[ctr++]<<tb; os<<std::endl; \
                                 } \
                              }
@@ -10067,7 +10069,7 @@ FINAL_SECTION
 // =============================================================================
 RUNTIME_SECTION
 //one number for each phase, if more phases then uses the last number
-  maximum_function_evaluations 5000,5000,5000,5000,5000,5000,10000
+  maximum_function_evaluations 5000,5000,5000,5000,15000,15000,15000
 //  convergence_criteria 0.1,0.1,.01,.001,.001,.001,1e-3,1e-4
   convergence_criteria 0.5,0.1,.01,.001,1e-4,1e-5,1e-6
 

@@ -285,7 +285,7 @@
              * Calculates 6-parameter double normal function parameterized by 
              *      params[1]: size at which ascending limb reaches 1
              *      params[2]: width of ascending limb
-             *      params[3]: size at which descending limb departs from 1
+             *      params[3]: offset to size at which descending limb departs from 1
              *      params[4]: width of descending limb
              *      params[5]: floor of ascending limb
              *      params[6]: floor of descending limb
