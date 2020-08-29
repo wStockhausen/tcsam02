@@ -1523,7 +1523,7 @@ class VectorVectorInfo {
          */
         adstring_array getLabels(void);
 
-        virtual VectorInfo* operator[](int i){if ((ppVIs>0)&&(i<=nVIs)) return ppVIs[i-1]; return 0;}
+        virtual VectorInfo* operator[](int i){if ((ppVIs)&&(i<=nVIs)) return ppVIs[i-1]; return 0;}
 
         virtual void read(cifstream & is);
         virtual void write(std::ostream & os);
@@ -1596,7 +1596,7 @@ class BoundedVectorVectorInfo: public VectorVectorInfo {
          * 
          * @overrides VectorVectorInfo::operator[](int i)
          */
-        virtual BoundedVectorInfo* operator[](int i){if ((ppVIs>0)&&(i<=nVIs)) return static_cast<BoundedVectorInfo*>(ppVIs[i-1]); return 0;}
+        virtual BoundedVectorInfo* operator[](int i){if ((ppVIs)&&(i<=nVIs)) return static_cast<BoundedVectorInfo*>(ppVIs[i-1]); return 0;}
 
         virtual void read(cifstream & is);
         virtual void write(std::ostream & os);
@@ -1650,7 +1650,7 @@ class DevsVectorVectorInfo: public BoundedVectorVectorInfo {
          * 
          * @overrides BoundedVectorVectorInfo::operator[](int i)
          */
-        virtual DevsVectorInfo* operator[](int i){if ((ppVIs>0)&&(i<=nVIs)) return (DevsVectorInfo*) ppVIs[i-1]; return 0;}
+        virtual DevsVectorInfo* operator[](int i){if ((ppVIs)&&(i<=nVIs)) return (DevsVectorInfo*) ppVIs[i-1]; return 0;}
 
         virtual void read(cifstream & is);
         friend cifstream& operator >>(cifstream & is, DevsVectorVectorInfo & obj){obj.read(is);return is;}

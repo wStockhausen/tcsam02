@@ -8975,5 +8975,6 @@ TOP_OF_MAIN_SECTION
   gradient_structure::set_GRADSTACK_BUFFER_SIZE(40000000); // this may be incorrect in the AUTODIF manual.
   gradient_structure::set_CMPDIF_BUFFER_SIZE(1500000000);
   gradient_structure::set_NUM_DEPENDENT_VARIABLES(7000);
+  gradient_structure::set_MAX_DLINKS(20000);
   time(&start);
 
