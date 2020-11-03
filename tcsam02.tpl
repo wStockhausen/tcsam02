@@ -631,6 +631,13 @@
 //-2020-08-01:  1. Increased max number of function evaluations in phases 5,6,7 
 //-2020-08-26:  1. Changed parameterization of dblnormal4 selectivity function.
 //-2020-10-01:  1. Added ascnormal3 function
+//-2020-11-03:  1. Changed jittering so one can now jitter when using a pin file.
+//                  The pin file values are first assigned, then "centered" jittering
+//                  is done based on these values (rather than on the values defined
+//                  in the MPI file). Makes it a bit easier to test convergence from
+//                  a "converged" par file (would previously have had to use the MPI.dat
+//                  file from the converged run because jittering was not done when using
+//                  a pin file).
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -8109,24 +8116,23 @@ FUNCTION void setInitVals(NumberVectorInfo* pI, param_init_number_vector& p, int
             afvls = 1.0*pI->getInitVals();
             os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
             for (int i=1;i<=np;i++) os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
-        } else {
-            //use values from pI as initial values
-            for (int i=1;i<=np;i++) {
-                p(i) = povls(i);  //assign original initial value from parameter info
-                NumberInfo* ptrI = (*pI)[i];
-                if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
-                    //assign final initial value based on resampling prior pdf
-                    os<<"Using resampling to set initial values for "<<p(i).label()<<endl;
-                    afvls(i) = ptrI->drawInitVal(rng,ptrMC->vif); //get resampled initial value on arithmetic scale
-                    p(i) = ptrI->calcParamScaleVal(afvls(i));     //calc initial parameter value
-                    ptrI->setInitVal(afvls(i));                  //update ptrI
-                    os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
-                    os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
-                } else {
-                    os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
-                    os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
-                    os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
-                }
+        }
+        //use values from pI as initial values
+        for (int i=1;i<=np;i++) {
+            p(i) = povls(i);  //assign original initial value from parameter info
+            NumberInfo* ptrI = (*pI)[i];
+            if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
+                //assign final initial value based on resampling prior pdf
+                os<<"Using resampling to set initial values for "<<p(i).label()<<endl;
+                afvls(i) = ptrI->drawInitVal(rng,ptrMC->vif); //get resampled initial value on arithmetic scale
+                p(i) = ptrI->calcParamScaleVal(afvls(i));     //calc initial parameter value
+                ptrI->setInitVal(afvls(i));                  //update ptrI
+                os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
+                os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
+            } else {
+                os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
+                os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
+                os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
             }
         }
     } else {
@@ -8144,7 +8150,7 @@ FUNCTION void setInitVals(NumberVectorInfo* pI, param_init_number_vector& p, int
 //******************************************************************************
 //* Function: void setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p, int usePin, int debug, ostream& os)
 //* 
-//* Sets initial values for a vecotr of bounded parameters fro the associated BoundedNumberVectorInfo object.
+//* Sets initial values for a vector of bounded parameters fro the associated BoundedNumberVectorInfo object.
 //*
 //* Note: this function MUST be declared/defined as a FUNCTION in the tpl code
 //*     because the parameter assignment is a private method but the model_parameters 
@@ -8175,33 +8181,32 @@ FUNCTION void setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number
             afvls = 1.0*pI->getInitVals();
             os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
             for (int i=1;i<=np;i++) os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
-        } else {
-            //use values from pI as initial values
-            for (int i=1;i<=np;i++) {
-                p(i) = povls(i);  //assign original initial value from parameter info
-                BoundedNumberInfo* ptrI = (*pI)[i];
-                if ((p(i).get_phase_start()>0)&&(ptrMC->jitter)&&(ptrI->jitter)){
-                    //assign final initial value based on jittering
-                    os<<"Using jittering to set initial values for "<<p(i).label()<<endl;
-                    afvls(i) = ptrI->jitterInitVal(rng,ptrMC->jitFrac);//get jittered initial value on arithmetic scale
-                    p(i) = ptrI->calcParamScaleVal(afvls(i));          //calc initial parameter value
-                    ptrI->setInitVal(afvls(i));                       //update ptrI
-                    os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
-                    os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
-                } else 
-                if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
-                    //assign final initial value based on resampling prior pdf
-                    os<<"Using resampling to set initial values for "<<p(i).label()<<endl;
-                    afvls(i) = ptrI->drawInitVal(rng,ptrMC->vif); //get resampled initial value on arithmetic scale
-                    p(i) = ptrI->calcParamScaleVal(afvls(i));     //calc initial parameter value
-                    ptrI->setInitVal(afvls(i));                  //update ptrI
-                    os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
-                    os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
-                } else {
-                    os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
-                    os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
-                    os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
-                }
+        }
+        //use values from pI as initial values
+        for (int i=1;i<=np;i++) {
+            p(i) = povls(i);  //assign original initial value from parameter info
+            BoundedNumberInfo* ptrI = (*pI)[i];
+            if ((p(i).get_phase_start()>0)&&(ptrMC->jitter)&&(ptrI->jitter)){
+                //assign final initial value based on jittering
+                os<<"Using jittering to set initial values for "<<p(i).label()<<endl;
+                afvls(i) = ptrI->jitterInitVal(rng,ptrMC->jitFrac);//get jittered initial value on arithmetic scale
+                p(i) = ptrI->calcParamScaleVal(afvls(i));          //calc initial parameter value
+                ptrI->setInitVal(afvls(i));                        //update ptrI
+                os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
+                os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
+            } else 
+            if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
+                //assign final initial value based on resampling prior pdf
+                os<<"Using resampling to set initial values for "<<p(i).label()<<endl;
+                afvls(i) = ptrI->drawInitVal(rng,ptrMC->vif); //get resampled initial value on arithmetic scale
+                p(i) = ptrI->calcParamScaleVal(afvls(i));     //calc initial parameter value
+                ptrI->setInitVal(afvls(i));                  //update ptrI
+                os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
+                os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
+            } else {
+                os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
+                os<<"param  aovalue   povalue    afvalue   pfvalue"<<endl;
+                os<<tb<<p(i).label()<<": "<<aovls(i)<<tb<<povls(i)<<tb<<afvls(i)<<tb<<value(p(i))<<endl;
             }
         }
     } else {
@@ -8214,89 +8219,6 @@ FUNCTION void setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number
         if (np<0) exit(-1);
         std::cout<<"Finished setInitVals(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
     }
-
-////******************************************************************************
-////* Function: void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int usePin, int debug, ostream& os)
-////* 
-////* Sets initial values for a vector of parameter vectors.
-////*
-////* Note: this function MUST be declared/defined as a FUNCTION in the tpl code
-////*     because the parameter assignment is a private method but the model_parameters 
-////*     class has friend access.
-////* 
-////* Inputs:
-////*  @param pI - pointer to BoundedNumberVectorInfo object
-////*  @param p - reference to a param_init_bounded_vector_vector
-////*  @param usePin - flag to use values 
-////*  @param debug - flag to print debugging info
-////*  @param os - stream for debugging output
-////* 
-////*  @alters pI - if usePin=1 or jittering or resampling occurs, then the initial values will be updated 
-////*  @alters p - if usePin=0, the initial values will be updated 
-////******************************************************************************
-//FUNCTION void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int usePin, int debug, ostream& os)
-//    //debug=dbgAll;
-//    if (debug>=dbgAll) os<<"Starting setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
-//    int np = pI->getSize();
-//    if (np){
-//        if (usePin){
-//            //use values from pinfile assigned to p as initial values
-//            for (int i=1;i<=np;i++) {
-//                os<<"Using pin file to set initial values for "<<p(i).label()<<endl;
-//                BoundedVectorInfo* ptrI = (*pI)[i];
-//                dvector pnvls = value(p(i));                       //original initial values on parameter scale from pin file
-//                dvector aovls = 1.0*ptrI->getInitVals();            //original initial values on arithmetic scale from parameter info
-//                dvector povls = 1.0*ptrI->getInitValsOnParamScale();//original initial values on parameter scale from parameter info
-//                ptrI->setInitValsFromParamVals(p(i));               //set final initial values on arithmetic scale for parameter info
-//                os<<tb<<"pinfile    inits : "<<pnvls<<endl;
-//                os<<tb<<"orig arith inits : "<<aovls<<endl;
-//                os<<tb<<"orig param inits : "<<povls<<endl;
-//                os<<tb<<"final arith inits: "<<ptrI->getInitVals()<<endl;//final initial values on arithmetic scale from parameter info
-//                os<<tb<<"final param inits: "<<value(p(i))<<endl;        //final initial values on parameter scale from parameter info
-//            }
-//        } else {
-//            //use values based on pI as initial values for p
-//            for (int i=1;i<=np;i++) {
-//                os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
-//                dvector pnvls = value(p(i));                            //original initial values on parameter scale from pin file
-//                if (debug>=dbgAll) os<<"pc "<<i<<" :"<<tb<<p(i).indexmin()<<tb<<p(i).indexmax()<<tb<<pnvls.indexmin()<<tb<<pnvls.indexmax()<<endl;
-//                os<<tb<<"pinfile    inits : "<<pnvls<<endl;
-//                BoundedVectorInfo* ptrI = static_cast<DevsVectorInfo*>((*pI)[i]);
-//                dvector aovls = 1.0*ptrI->getInitVals();            //initial values on arithmetic scale from parameter info
-//                os<<tb<<"orig arith inits : "<<aovls<<endl;
-//                dvector povls = 1.0*ptrI->getInitValsOnParamScale();//initial values on parameter scales from parameter info
-//                os<<tb<<"orig param inits : "<<povls<<endl;
-//                p(i)=povls;//set initial values on parameter scales from parameter info
-//                if ((p(i).get_phase_start()>0)&&(ptrMC->jitter)&&(ptrI->jitter)){
-//                    os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
-//                    if (debug>=dbgAll) os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
-//                    dvector afvls = ptrI->jitterInitVals(rng,ptrMC->jitFrac);//get jittered values on arithmetic scale
-//                    ptrI->setInitVals(afvls);                               //set jittered values as initial values on arithmetic scale
-//                    p(i)=ptrI->getInitValsOnParamScale();                   //get jittered values on param scale as initial parameter values
-//                } else
-//                if ((p(i).get_phase_start()>0)&&(ptrMC->resample)&&(ptrI->resample)){
-//                    os<<"Using resampling to set initial values for "<<p(i).label()<<" : "<<endl;
-//                    if (debug>=dbgAll) os<<"Using resampling to set initial values for "<<p(i).label()<<" : "<<endl;
-//                    dvector afvls = ptrI->drawInitVals(rng,ptrMC->vif);//get resampled values on arithmetic scale
-//                    ptrI->setInitVals(afvls);                          //set resampled values as initial values on arithmetic scale
-//                    p(i)=ptrI->getInitValsOnParamScale();              //get resampled values on param scale as initial parameter values
-//                } else {
-//                    os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
-//                }
-//                os<<tb<<"final arith inits: "<<ptrI->getInitVals()<<endl;//final initial values on arithmetic scale from parameter info
-//                os<<tb<<"final param inits: "<<value(p(i))<<endl;        //final initial values on parameter scale from parameter info
-//            }
-//        }
-//    } else {
-//        os<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
-//    }
-//    
-//    if (debug>=dbgAll) {
-//        std::cout<<"Enter 1 to continue >>";
-//        std::cin>>np;
-//        if (np<0) exit(-1);
-//        os<<"Finished setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p) for "<<p(1).label()<<endl; 
-//    }
 
 //******************************************************************************
 //* Function: void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_number_vector& p, int usePin, int debug, ostream& os)
@@ -8342,48 +8264,47 @@ FUNCTION void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_number
                 ctr=ctr-(mxi(i)-mni(i)+1);//reset counter to start of current devs vector
                 os<<tb<<"final param inits: "; for (int j=mni(i);j<=mxi(i);j++) os<<p(ctr++)<<tb; os<<endl;//final initial values on parameter scale from parameter info
             }
-        } else {
-            //use values based on pI (jittered, resampled, or original) as initial values for p
-            int ctr = 1;
-            for (int i=1;i<=np;i++) {
-                dvector pnvls(mni(i),mxi(i));                                  //initial values on parameter scale from pin file
-                for (int j=mni(i);j<=mxi(i);j++) pnvls(j) = value(p(ctr++));   //get pin values from parameter values
-                BoundedVectorInfo* ptrI = static_cast<BoundedVectorInfo*>((*pI)[i]);
-                dvector aovls = 1.0*ptrI->getInitVals();                       //original initial values on arithmetic scale from parameter info
-                dvector povls = 1.0*ptrI->getInitValsOnParamScale();           //original initial values on parameter scale from parameter info
-                dvector afvls;                                                 //final initial values on arithmetic scale from parameter info
-                dvector pfvls;                                                 //final initial values on parameter scale from parameter info
-                if ((ptrMC->jitter)&&(ptrI->jitter)){
-                    os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
-                    if (debug>=dbgAll) os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
-                    afvls = ptrI->jitterInitVals(rng,ptrMC->jitFrac);//get jittered values on arithmetic scale
-                    ptrI->setInitVals(afvls);                                //set jittered values as initial values on arithmetic scale
-                    pfvls = ptrI->getInitValsOnParamScale();         //get jittered values on param scale as initial parameter values
-                } else
-                if ((ptrMC->resample)&&(ptrI->resample)){
-                    os<<"Using resampling to set initial values for "<<p(i).label()<<" : "<<endl;
-                    if (debug>=dbgAll) os<<"Using resampling to set initial values for "<<p(i).label()<<" : "<<endl;
-                    afvls = ptrI->drawInitVals(rng,ptrMC->vif);          //get resampled values on arithmetic scale
-                    ptrI->setInitVals(afvls);                            //set resampled values as initial values on arithmetic scale
-                    pfvls = ptrI->getInitValsOnParamScale();            //get resampled values on param scale as initial parameter values
-                } else {
-                    os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
-                    if (debug>=dbgAll) os<<"Using MPI to set initial values for "<<p(i).label()<<" : "<<endl;
-                    afvls = aovls;
-                    pfvls = povls;
-                }
-                ctr=ctr-(mxi(i)-mni(i)+1);//reset counter to start of current devs vector
-                for (int j=mni(i);j<=mxi(i);j++) p(ctr++)= pfvls(j);     //set jittered initial values on parameter scales from parameter info
+        }
+        //use values based on pI (jittered, resampled, or original) as initial values for p
+        int ctr = 1;
+        for (int i=1;i<=np;i++) {
+            dvector pnvls(mni(i),mxi(i));                                  //initial values on parameter scale from pin file
+            for (int j=mni(i);j<=mxi(i);j++) pnvls(j) = value(p(ctr++));   //get pin values from parameter values
+            BoundedVectorInfo* ptrI = static_cast<BoundedVectorInfo*>((*pI)[i]);
+            dvector aovls = 1.0*ptrI->getInitVals();                       //original initial values on arithmetic scale from parameter info
+            dvector povls = 1.0*ptrI->getInitValsOnParamScale();           //original initial values on parameter scale from parameter info
+            dvector afvls;                                                 //final initial values on arithmetic scale from parameter info
+            dvector pfvls;                                                 //final initial values on parameter scale from parameter info
+            if ((ptrMC->jitter)&&(ptrI->jitter)){
+                os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
+                if (debug>=dbgAll) os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
+                afvls = ptrI->jitterInitVals(rng,ptrMC->jitFrac);//get jittered values on arithmetic scale
+                ptrI->setInitVals(afvls);                                //set jittered values as initial values on arithmetic scale
+                pfvls = ptrI->getInitValsOnParamScale();         //get jittered values on param scale as initial parameter values
+            } else
+            if ((ptrMC->resample)&&(ptrI->resample)){
+                os<<"Using resampling to set initial values for "<<p(i).label()<<" : "<<endl;
+                if (debug>=dbgAll) os<<"Using resampling to set initial values for "<<p(i).label()<<" : "<<endl;
+                afvls = ptrI->drawInitVals(rng,ptrMC->vif);          //get resampled values on arithmetic scale
+                ptrI->setInitVals(afvls);                            //set resampled values as initial values on arithmetic scale
+                pfvls = ptrI->getInitValsOnParamScale();            //get resampled values on param scale as initial parameter values
+            } else {
+                os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
+                if (debug>=dbgAll) os<<"Using MPI to set initial values for "<<p(i).label()<<" : "<<endl;
+                afvls = aovls;
+                pfvls = povls;
+            }
+            ctr=ctr-(mxi(i)-mni(i)+1);//reset counter to start of current devs vector
+            for (int j=mni(i);j<=mxi(i);j++) p(ctr++)= pfvls(j);     //set jittered initial values on parameter scales from parameter info
 
-                os<<tb<<"pinfile    inits : "<<pnvls<<endl;//pin values
-                os<<tb<<"orig arith inits : "<<aovls<<endl;//original initial values on arithmetic scale
-                os<<tb<<"orig param inits : "<<povls<<endl;//original initial values on parameter scale
-                os<<tb<<"final arith inits: "<<afvls<<endl;//final initial values on arithmetic scale
-                os<<tb<<"final param inits: "<<pfvls<<endl;//final initial values on parameter scale
-                ctr=ctr-(mxi(i)-mni(i)+1);//reset counter to start of current devs vector
-                os<<tb<<"final param inits: "; for (int j=mni(i);j<=mxi(i);j++) os<<p(ctr++)<<tb; os<<endl;//final initial parameter values
-            }//--i loop
-        }//--if(!usePin)
+            os<<tb<<"pinfile    inits : "<<pnvls<<endl;//pin values
+            os<<tb<<"orig arith inits : "<<aovls<<endl;//original initial values on arithmetic scale
+            os<<tb<<"orig param inits : "<<povls<<endl;//original initial values on parameter scale
+            os<<tb<<"final arith inits: "<<afvls<<endl;//final initial values on arithmetic scale
+            os<<tb<<"final param inits: "<<pfvls<<endl;//final initial values on parameter scale
+            ctr=ctr-(mxi(i)-mni(i)+1);//reset counter to start of current devs vector
+            os<<tb<<"final param inits: "; for (int j=mni(i);j<=mxi(i);j++) os<<p(ctr++)<<tb; os<<endl;//final initial parameter values
+        }//--i loop
     } else {
         os<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
     }
@@ -8439,48 +8360,47 @@ FUNCTION void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_number_ve
                 ctr=ctr-(mxi(i)-mni(i)+1);//reset counter to start of current devs vector
                 os<<tb<<"final param inits: "; for (int j=mni(i);j<=mxi(i);j++) os<<p(ctr++)<<tb; os<<endl;//final initial values on parameter scale from parameter info
             }
-        } else {
-            //use values based on pI (jittered, resampled, or original) as initial values for p
-            int ctr = 1;
-            for (int i=1;i<=np;i++) {
-                dvector pnvls(mni(i),mxi(i));                                  //initial values on parameter scale from pin file
-                for (int j=mni(i);j<=mxi(i);j++) pnvls(j) = value(p(ctr++));   //get pin values from paramter values
-                DevsVectorInfo* ptrI = static_cast<DevsVectorInfo*>((*pI)[i]);
-                dvector aovls = 1.0*ptrI->getInitVals();                       //original initial values on arithmetic scale from parameter info
-                dvector povls = 1.0*ptrI->getInitValsOnParamScale();           //original initial values on parameter scale from parameter info
-                dvector afvls;                                                 //final initial values on arithmetic scale from parameter info
-                dvector pfvls;                                                 //final initial values on parameter scale from parameter info
-                if ((ptrMC->jitter)&&(ptrI->jitter)){
-                    os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
-                    if (debug>=dbgAll) os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
-                    afvls = ptrI->jitterInitVals(rng,ptrMC->jitFrac);//get jittered values on arithmetic scale
-                    ptrI->setInitVals(afvls);                                //set jittered values as initial values on arithmetic scale
-                    pfvls = ptrI->getInitValsOnParamScale();         //get jittered values on param scale as initial parameter values
-                } else
-                if ((ptrMC->resample)&&(ptrI->resample)){
-                    os<<"Using resampling to set initial values for "<<p(i).label()<<" : "<<endl;
-                    if (debug>=dbgAll) os<<"Using resampling to set initial values for "<<p(i).label()<<" : "<<endl;
-                    afvls = ptrI->drawInitVals(rng,ptrMC->vif);          //get resampled values on arithmetic scale
-                    ptrI->setInitVals(afvls);                            //set resampled values as initial values on arithmetic scale
-                    pfvls = ptrI->getInitValsOnParamScale();            //get resampled values on param scale as initial parameter values
-                } else {
-                    os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
-                    if (debug>=dbgAll) os<<"Using MPI to set initial values for "<<p(i).label()<<" : "<<endl;
-                    afvls = aovls;
-                    pfvls = povls;
-                }
-                ctr=ctr-(mxi(i)-mni(i)+1);//reset counter to start of current devs vector
-                for (int j=mni(i);j<=mxi(i);j++) p(ctr++)= pfvls(j);     //set jittered initial values on parameter scales from parameter info
+        }
+        //use values based on pI (jittered, resampled, or original) as initial values for p
+        int ctr = 1;
+        for (int i=1;i<=np;i++) {
+            dvector pnvls(mni(i),mxi(i));                                  //initial values on parameter scale from pin file
+            for (int j=mni(i);j<=mxi(i);j++) pnvls(j) = value(p(ctr++));   //get pin values from paramter values
+            DevsVectorInfo* ptrI = static_cast<DevsVectorInfo*>((*pI)[i]);
+            dvector aovls = 1.0*ptrI->getInitVals();                       //original initial values on arithmetic scale from parameter info
+            dvector povls = 1.0*ptrI->getInitValsOnParamScale();           //original initial values on parameter scale from parameter info
+            dvector afvls;                                                 //final initial values on arithmetic scale from parameter info
+            dvector pfvls;                                                 //final initial values on parameter scale from parameter info
+            if ((ptrMC->jitter)&&(ptrI->jitter)){
+                os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
+                if (debug>=dbgAll) os<<"Using jittering to set initial values for "<<p(i).label()<<" : "<<endl;
+                afvls = ptrI->jitterInitVals(rng,ptrMC->jitFrac);//get jittered values on arithmetic scale
+                ptrI->setInitVals(afvls);                                //set jittered values as initial values on arithmetic scale
+                pfvls = ptrI->getInitValsOnParamScale();         //get jittered values on param scale as initial parameter values
+            } else
+            if ((ptrMC->resample)&&(ptrI->resample)){
+                os<<"Using resampling to set initial values for "<<p(i).label()<<" : "<<endl;
+                if (debug>=dbgAll) os<<"Using resampling to set initial values for "<<p(i).label()<<" : "<<endl;
+                afvls = ptrI->drawInitVals(rng,ptrMC->vif);          //get resampled values on arithmetic scale
+                ptrI->setInitVals(afvls);                            //set resampled values as initial values on arithmetic scale
+                pfvls = ptrI->getInitValsOnParamScale();            //get resampled values on param scale as initial parameter values
+            } else {
+                os<<"Using MPI to set initial values for "<<p(i).label()<<endl;
+                if (debug>=dbgAll) os<<"Using MPI to set initial values for "<<p(i).label()<<" : "<<endl;
+                afvls = aovls;
+                pfvls = povls;
+            }
+            ctr=ctr-(mxi(i)-mni(i)+1);//reset counter to start of current devs vector
+            for (int j=mni(i);j<=mxi(i);j++) p(ctr++)= pfvls(j);     //set jittered initial values on parameter scales from parameter info
 
-                os<<tb<<"pinfile    inits : "<<pnvls<<endl;//pin values
-                os<<tb<<"orig arith inits : "<<aovls<<endl;//original initial values on arithmetic scale
-                os<<tb<<"orig param inits : "<<povls<<endl;//original initial values on parameter scale
-                os<<tb<<"final arith inits: "<<afvls<<endl;//final initial values on arithmetic scale
-                os<<tb<<"final param inits: "<<pfvls<<endl;//final initial values on parameter scale
-                ctr=ctr-(mxi(i)-mni(i)+1);//reset counter to start of current devs vector
-                os<<tb<<"final param inits: "; for (int j=mni(i);j<=mxi(i);j++) os<<p(ctr++)<<tb; os<<endl;//final initial parameter values
-            }//--i loop
-        }//--if(!usePin)
+            os<<tb<<"pinfile    inits : "<<pnvls<<endl;//pin values
+            os<<tb<<"orig arith inits : "<<aovls<<endl;//original initial values on arithmetic scale
+            os<<tb<<"orig param inits : "<<povls<<endl;//original initial values on parameter scale
+            os<<tb<<"final arith inits: "<<afvls<<endl;//final initial values on arithmetic scale
+            os<<tb<<"final param inits: "<<pfvls<<endl;//final initial values on parameter scale
+            ctr=ctr-(mxi(i)-mni(i)+1);//reset counter to start of current devs vector
+            os<<tb<<"final param inits: "; for (int j=mni(i);j<=mxi(i);j++) os<<p(ctr++)<<tb; os<<endl;//final initial parameter values
+        }//--i loop
     } else {
         os<<"InitVals for "<<p(1).label()<<" not defined because np = "<<np<<endl;
     }
