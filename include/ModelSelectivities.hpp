@@ -9,6 +9,7 @@
  * 2016-11-15: 1. Added asclogisticLn50 and dbllogisticLn50 functions to match TCSAM2013
  * 2017-08-03: 1. Added asclogistic5099 function
  * 2017-08-23: 1. Added asclogistic95Ln50 function
+ * 2020-10-01: 1. Added ascnormal3 function
  */
 
 #ifndef MODELSELECTIVITIES_HPP
@@ -63,6 +64,7 @@
             const static int ID_NONPARAMETRIC      =17; const static adstring STR_NONPARAMETRIC; 
             const static int ID_CUBICSPLINE        =18; const static adstring STR_CUBICSPLINE; 
             const static int ID_DBLNORMAL4A        =19; const static adstring STR_DBLNORMAL4A; 
+            const static int ID_ASCNORMAL3         =20; const static adstring STR_ASCNORMAL3; 
 
             /**
              * Calculates "constant" selectivity function (= 1 at all sizes).
@@ -267,6 +269,19 @@
              * @return - selectivity function values as dvar_vector
              */
             dvar_vector static ascnormal(dvector& z, dvar_vector& params, double fsZ);
+            /**
+             * Calculates ascending normal function parameterized by 
+             *      params[1]: delta from max possible size (fsZ) at which ascending limb reaches 1
+             *      params[2]: selectivity at size=params[3]
+             *      params[3]: size at which function reaches params[2] [this SHOULD NOT be estimated!)
+             * Inputs:
+             * @param z      - dvector of sizes at which to compute function values
+             * @param params - dvar_vector of function parameters
+             * @param fsZ    - max size at which function might reach 1
+             * 
+             * @return - selectivity function values as dvar_vector
+             */
+            dvar_vector static ascnormal3(dvector& z, dvar_vector& params, double fsZ);
             /**
              * Calculates 4-parameter double normal function parameterized by 
              *      params[1]: size at which ascending limb reaches 1

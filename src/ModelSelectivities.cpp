@@ -40,6 +40,7 @@ const adstring SelFcns::STR_CONSTANT           ="constant";
 const adstring SelFcns::STR_NONPARAMETRIC      ="nonparametric";
 const adstring SelFcns::STR_CUBICSPLINE        ="cubic_spline";
 const adstring SelFcns::STR_DBLNORMAL4A        ="dblnormal4a";
+const adstring SelFcns::STR_ASCNORMAL3         ="ascnormal3";
 
 //--------------------------------------------------------------------------------
 //          SelFcns
@@ -84,6 +85,7 @@ int SelFcns::getSelFcnID(adstring str){
     if (str==STR_NONPARAMETRIC)       return ID_NONPARAMETRIC;
     if (str==STR_CUBICSPLINE)         return ID_CUBICSPLINE;
     if (str==STR_DBLNORMAL4A)         return ID_DBLNORMAL4A;
+    if (str==STR_ASCNORMAL3)         return ID_ASCNORMAL3;
     cout<<"Error in SelFcns::getSelFcnID(adstring str)"<<endl;
     cout<<"Function name '"<<str<<"' not a valid selectivity function name."<<endl;
     cout<<"Aborting..."<<endl;
@@ -158,6 +160,9 @@ adstring SelFcns::getSelFcnID(int id){
         case ID_DBLNORMAL4A: 
             if (debug) cout<<"SelFcn = "<<STR_DBLNORMAL4A<<endl;
             return STR_DBLNORMAL4A;
+        case ID_ASCNORMAL3: 
+            if (debug) cout<<"SelFcn = "<<STR_ASCNORMAL3<<endl;
+            return STR_ASCNORMAL3;
         default:
         {
             cout<<endl;
@@ -206,6 +211,7 @@ dvar_vector SelFcns::calcSelFcn(int id, dvector& z, dvar_vector& params, double 
         case ID_NONPARAMETRIC:       {s=nonparametric(z,params,fsZ);       break;}
         case ID_CUBICSPLINE:         {s=cubic_spline(z,params,fsZ);        break;}
         case ID_DBLNORMAL4A:         {s=dblnormal4a(z,params,fsZ);         break;}
+        case ID_ASCNORMAL3:          {s=ascnormal3(z,params,fsZ);          break;}
         default:
         {
             cout<<"Invalid id for SelFcns.calcSelFcn(id,...)";
@@ -695,6 +701,37 @@ dvar_vector SelFcns::ascnormal(dvector& z, dvar_vector& params, double fsZ){
 }
 
 /**
+ * Calculates ascending normal function parameterized by 
+ *      params[1]: delta from max possible size (fsZ) at which ascending limb reaches 1
+ *      params[2]: selectivity at size=params[3]
+ *      params[3]: size at which function reaches params[2] [this SHOULD NOT be estimated!)
+ * Inputs:
+ * @param z      - dvector of sizes at which to compute function values
+ * @param params - dvar_vector of function parameters
+ * @param fsZ    - max size at which function might reach 1
+ * 
+ * @return - selectivity function values as dvar_vector
+ */
+dvar_vector SelFcns::ascnormal3(dvector& z, dvar_vector& params, double fsZ){
+    RETURN_ARRAYS_INCREMENT();
+    if (debug) cout<<"Starting SelFcns::ascnormal3(...)"<<endl;
+    dvariable n; n.initialize();
+    dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
+    dvar_vector ascN(z.indexmin(),z.indexmax()); ascN.initialize();
+    dvar_vector ascJ(z.indexmin(),z.indexmax()); ascJ.initialize();
+    double slp = 5.0;
+    dvariable ascZ1   = fsZ-params(1);//size at which ascending limb hits 1
+    dvariable ascSref = params(2);    //selectivity at ascZref
+    dvariable ascZref = params(3);    //size at which selectivity reaches ascSref
+    ascN = mfexp(log(ascSref)*square((z-ascZ1)/(ascZref-ascZ1)));
+    ascJ = 1.0/(1.0+mfexp(slp*(z-(ascZ1))));
+    s = elem_prod(ascJ,ascN)+(1.0-ascJ);
+    if (debug) cout<<"Finished SelFcns::ascnormal3(...)"<<endl;
+    RETURN_ARRAYS_DECREMENT();
+    return s;
+}
+
+/**
  * Calculates 4-parameter double normal function parameterized by 
  *      params[1]: size at which ascending limb reaches 1
  *      params[2]: width of ascending limb
@@ -756,7 +793,7 @@ dvar_vector SelFcns::dblnormal4a(dvector& z, dvar_vector& params, double fsZ){
     double slp = 5.0;
     dvariable ascMnZ = params(1);//size at which ascending limb hits 1
     dvariable ascWdZ = params(2);//width of ascending limb
-    dvariable sclInc = params(3);//size at which descending limb departs from 1
+    dvariable sclInc = params(3);//scaled size at which descending limb departs from 1
     dvariable dscWdZ = params(4);//width of descending limb
     dvariable dscMnZ = (fsZ-ascMnZ)*sclInc + ascMnZ;
     ascN = mfexp(-0.5*square((z-ascMnZ)/ascWdZ));

@@ -630,6 +630,7 @@
 //                 current B, projected B, and OFL.
 //-2020-08-01:  1. Increased max number of function evaluations in phases 5,6,7 
 //-2020-08-26:  1. Changed parameterization of dblnormal4 selectivity function.
+//-2020-10-01:  1. Added ascnormal3 function
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -5155,6 +5156,7 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     dvar_vector ptGrB = ptrGrw->pGrB->calcArithScaleVals(pGrB);
     //loop over parameter combinations
     dvariable grA, grB;
+    double zGrA, zGrB;
     dvector zBsp(1,nZBs+2);
     dvar_vector dZ(1,nZBs+2);
     zBsp(1,nZBs) = zBs;
@@ -5171,10 +5173,12 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
         dZ.initialize();
         if (ptrMOs->optGrowthParam==0){
             dZ = mfexp(grA+grB*log(zBsp)) - zBsp;
+            zGrA = 0.0;
+            zGrB = 0.0;
         } else if (ptrMOs->optGrowthParam==1){
             dvector pXDs = ptrGrw->getPCXDs(pc);
-            double zGrA = pXDs[1];
-            double zGrB = pXDs[2];
+            zGrA = pXDs[1];
+            zGrB = pXDs[2];
             dZ = grA*mfexp(log(grB/grA)/log(zGrB/zGrA)*log(zBsp/zGrA)) - zBsp;
         } else if (ptrMOs->optGrowthParam==2){
             dvector pXDs = ptrGrw->getPCXDs(pc);
@@ -5185,7 +5189,8 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
         posfun(dZ,ptrMOs->epsNegGrowth,pen);
         if (pen>0.0){
             rpt::echo<<"--Growth Increments Approaching 0 for pc = "<<pc<<". pen = "<<pen<<endl;
-            rpt::echo<<"params = "<<grA<<cc<<grB<<endl;
+            rpt::echo<<"params = "<<grA <<cc<<grB <<endl;
+            rpt::echo<<"consts = "<<zGrA<<cc<<zGrB<<endl;
             rpt::echo<<"zBsp = "<<zBsp<<endl;
             rpt::echo<<"dZ   = "<<dZ<<endl;
             rpt::echo<<"--------"<<endl;
@@ -5930,8 +5935,8 @@ FUNCTION void calcNLLs_GrowthData(int debug, ostream& cout)
                         os<<"year  grA   zGrA    grB    zGrB   zpre_n  zpst_n  mnZ_n   incZ   mnInc  ibeta_n alpha_n nll_n  zscr"<<endl;
                         for (int n=1;n<=nObs;n++){
                             os<<year_n(n)<<tb<<
-                                    grA_xy(x)(year_n(n))<<tb<<grB_xy(x)(year_n(n))<<tb<<
-                                    zGrA_xy(x)(year_n(n))<<tb<<zGrB_xy(x)(year_n(n))<<tb<<
+                                    grA_xy(x)(year_n(n))<<tb<<zGrA_xy(x)(year_n(n))<<tb<<
+                                    grB_xy(x)(year_n(n))<<tb<<zGrB_xy(x)(year_n(n))<<tb<<
                                     zpre_n(n)<<tb<<zpst_n(n)<<tb<<mnZ_n(n)<<tb<<
                                     zpst_n(n)-zpre_n(n)<<tb<<mnZ_n(n)-zpre_n(n)<<tb<<
                                     ibeta_n(n)<<tb<<alpha_n(n)<<tb<<nlls_n(n)<<tb<<zscrs(n)<<endl;
