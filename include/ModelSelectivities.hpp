@@ -65,6 +65,9 @@
             const static int ID_CUBICSPLINE        =18; const static adstring STR_CUBICSPLINE; 
             const static int ID_DBLNORMAL4A        =19; const static adstring STR_DBLNORMAL4A; 
             const static int ID_ASCNORMAL3         =20; const static adstring STR_ASCNORMAL3; 
+            const static int ID_ASCNORMAL2         =21; const static adstring STR_ASCNORMAL2; 
+            const static int ID_ASCNORMAL2A        =22; const static adstring STR_ASCNORMAL2A; 
+            const static int ID_ASCNORMAL2B        =23; const static adstring STR_ASCNORMAL2B; 
 
             /**
              * Calculates "constant" selectivity function (= 1 at all sizes).
@@ -269,6 +272,42 @@
              * @return - selectivity function values as dvar_vector
              */
             dvar_vector static ascnormal(dvector& z, dvar_vector& params, double fsZ);
+            /**
+             * Calculates ascending normal function parameterized by 
+             *      params[1]: size at which ascending limb reaches 1
+             *      params[2]: selectivity at size=fsz
+             * Inputs:
+             * @param z      - dvector of sizes at which to compute function values
+             * @param params - dvar_vector of function parameters
+             * @param fsZ    - size at which function reaches params[2]
+             * 
+             * @return - selectivity function values as dvar_vector
+             */
+            dvar_vector static ascnormal2(dvector& z, dvar_vector& params, double fsZ);
+            /**
+             * Calculates ascending normal function parameterized by 
+             *      params[1]: size at which ascending limb reaches 1
+             *      params[2]: size at which selectivity=fsz
+             * Inputs:
+             * @param z      - dvector of sizes at which to compute function values
+             * @param params - dvar_vector of function parameters
+             * @param fsZ    - selectivity at params[2]
+             * 
+             * @return - selectivity function values as dvar_vector
+             */
+            dvar_vector static ascnormal2a(dvector& z, dvar_vector& params, double fsZ);
+            /**
+             * Calculates ascending normal function parameterized by 
+             *      params[1]: size at which ascending limb reaches 1
+             *      params[2]: delta from size at which selectivity=fsz
+             * Inputs:
+             * @param z      - dvector of sizes at which to compute function values
+             * @param params - dvar_vector of function parameters
+             * @param fsZ    - selectivity at params[1] - params[2]
+             * 
+             * @return - selectivity function values as dvar_vector
+             */
+            dvar_vector static ascnormal2b(dvector& z, dvar_vector& params, double fsZ);
             /**
              * Calculates ascending normal function parameterized by 
              *      params[1]: delta from max possible size (fsZ) at which ascending limb reaches 1

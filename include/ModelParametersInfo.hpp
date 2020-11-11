@@ -488,7 +488,7 @@ class NaturalMortalityInfo : public ParameterGroupInfo {
     public:
         /* reference size for size-specific mortality */
         double zRef;
-        /* info for base (immature male) natural mortality rates */
+        /* info for base (e.g., immature male) natural mortality rates */
         BoundedNumberVectorInfo* pM;
         /* info for offset 1 */
         BoundedNumberVectorInfo* pDM1;

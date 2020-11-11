@@ -41,6 +41,9 @@ const adstring SelFcns::STR_NONPARAMETRIC      ="nonparametric";
 const adstring SelFcns::STR_CUBICSPLINE        ="cubic_spline";
 const adstring SelFcns::STR_DBLNORMAL4A        ="dblnormal4a";
 const adstring SelFcns::STR_ASCNORMAL3         ="ascnormal3";
+const adstring SelFcns::STR_ASCNORMAL2         ="ascnormal2";
+const adstring SelFcns::STR_ASCNORMAL2A        ="ascnormal2a";
+const adstring SelFcns::STR_ASCNORMAL2B        ="ascnormal2b";
 
 //--------------------------------------------------------------------------------
 //          SelFcns
@@ -85,7 +88,10 @@ int SelFcns::getSelFcnID(adstring str){
     if (str==STR_NONPARAMETRIC)       return ID_NONPARAMETRIC;
     if (str==STR_CUBICSPLINE)         return ID_CUBICSPLINE;
     if (str==STR_DBLNORMAL4A)         return ID_DBLNORMAL4A;
-    if (str==STR_ASCNORMAL3)         return ID_ASCNORMAL3;
+    if (str==STR_ASCNORMAL3)          return ID_ASCNORMAL3;
+    if (str==STR_ASCNORMAL2)          return ID_ASCNORMAL2;
+    if (str==STR_ASCNORMAL2A)         return ID_ASCNORMAL2A;
+    if (str==STR_ASCNORMAL2B)         return ID_ASCNORMAL2B;
     cout<<"Error in SelFcns::getSelFcnID(adstring str)"<<endl;
     cout<<"Function name '"<<str<<"' not a valid selectivity function name."<<endl;
     cout<<"Aborting..."<<endl;
@@ -163,6 +169,15 @@ adstring SelFcns::getSelFcnID(int id){
         case ID_ASCNORMAL3: 
             if (debug) cout<<"SelFcn = "<<STR_ASCNORMAL3<<endl;
             return STR_ASCNORMAL3;
+        case ID_ASCNORMAL2: 
+            if (debug) cout<<"SelFcn = "<<STR_ASCNORMAL2<<endl;
+            return STR_ASCNORMAL2;
+        case ID_ASCNORMAL2A: 
+            if (debug) cout<<"SelFcn = "<<STR_ASCNORMAL2A<<endl;
+            return STR_ASCNORMAL2A;
+        case ID_ASCNORMAL2B: 
+            if (debug) cout<<"SelFcn = "<<STR_ASCNORMAL2B<<endl;
+            return STR_ASCNORMAL2B;
         default:
         {
             cout<<endl;
@@ -212,6 +227,9 @@ dvar_vector SelFcns::calcSelFcn(int id, dvector& z, dvar_vector& params, double 
         case ID_CUBICSPLINE:         {s=cubic_spline(z,params,fsZ);        break;}
         case ID_DBLNORMAL4A:         {s=dblnormal4a(z,params,fsZ);         break;}
         case ID_ASCNORMAL3:          {s=ascnormal3(z,params,fsZ);          break;}
+        case ID_ASCNORMAL2:          {s=ascnormal2(z,params,fsZ);          break;}
+        case ID_ASCNORMAL2A:         {s=ascnormal2a(z,params,fsZ);         break;}
+        case ID_ASCNORMAL2B:         {s=ascnormal2b(z,params,fsZ);         break;}
         default:
         {
             cout<<"Invalid id for SelFcns.calcSelFcn(id,...)";
@@ -696,6 +714,96 @@ dvar_vector SelFcns::ascnormal(dvector& z, dvar_vector& params, double fsZ){
     ascJ = 1.0/(1.0+mfexp(slp*(z-(ascMnZ))));
     s = elem_prod(ascJ,ascN)+(1.0-ascJ);
     if (debug) cout<<"Finished SelFcns::ascnormal(...)"<<endl;
+    RETURN_ARRAYS_DECREMENT();
+    return s;
+}
+
+/**
+ * Calculates ascending normal function parameterized by 
+ *      params[1]: size at which ascending limb reaches 1
+ *      params[2]: selectivity at size=fsZ
+ * Inputs:
+ * @param z      - dvector of sizes at which to compute function values
+ * @param params - dvar_vector of function parameters
+ * @param fsZ    - size at which function reaches params[2]
+ * 
+ * @return - selectivity function values as dvar_vector
+ */
+dvar_vector SelFcns::ascnormal2(dvector& z, dvar_vector& params, double fsZ){
+    RETURN_ARRAYS_INCREMENT();
+    if (debug) cout<<"Starting SelFcns::ascnormal2(...)"<<endl;
+    dvariable n; n.initialize();
+    dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
+    dvar_vector ascN(z.indexmin(),z.indexmax()); ascN.initialize();
+    dvar_vector ascJ(z.indexmin(),z.indexmax()); ascJ.initialize();
+    double slp = 5.0;
+    dvariable ascZ1   = params(1);//size at which ascending limb hits 1
+    dvariable ascSref = params(2);//selectivity at ascZref
+    double    ascZref = fsZ;      //size at which selectivity reaches ascSref
+    ascN = mfexp(log(ascSref)*square((z-ascZ1)/(ascZref-ascZ1)));
+    ascJ = 1.0/(1.0+mfexp(slp*(z-(ascZ1))));
+    s = elem_prod(ascJ,ascN)+(1.0-ascJ);
+    if (debug) cout<<"Finished SelFcns::ascnormal2(...)"<<endl;
+    RETURN_ARRAYS_DECREMENT();
+    return s;
+}
+
+/**
+ * Calculates ascending normal function parameterized by 
+ *      params[1]: size at which ascending limb reaches 1
+ *      params[2]: size at which selectivity=fsZ
+ * Inputs:
+ * @param z      - dvector of sizes at which to compute function values
+ * @param params - dvar_vector of function parameters
+ * @param fsZ    - selectivity at size given by params[2]
+ * 
+ * @return - selectivity function values as dvar_vector
+ */
+dvar_vector SelFcns::ascnormal2a(dvector& z, dvar_vector& params, double fsZ){
+    RETURN_ARRAYS_INCREMENT();
+    if (debug) cout<<"Starting SelFcns::ascnormal2a(...)"<<endl;
+    dvariable n; n.initialize();
+    dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
+    dvar_vector ascN(z.indexmin(),z.indexmax()); ascN.initialize();
+    dvar_vector ascJ(z.indexmin(),z.indexmax()); ascJ.initialize();
+    double slp = 5.0;
+    dvariable ascZ1    = params(1);//size at which ascending limb hits 1
+    double    ascSref  = fsZ;      //selectivity at ascZref
+    dvariable ascZref  = params(2);//size at which selectivity reaches ascSref
+    ascN = mfexp(log(ascSref)*square((z-ascZ1)/(ascZref-ascZ1)));
+    ascJ = 1.0/(1.0+mfexp(slp*(z-(ascZ1))));
+    s = elem_prod(ascJ,ascN)+(1.0-ascJ);
+    if (debug) cout<<"Finished SelFcns::ascnormal2a(...)"<<endl;
+    RETURN_ARRAYS_DECREMENT();
+    return s;
+}
+
+/**
+ * Calculates ascending normal function parameterized by 
+ *      params[1]: size at which ascending limb reaches 1
+ *      params[2]: delta from size at 1 to size at which selectivity=fsZ
+ * Inputs:
+ * @param z      - dvector of sizes at which to compute function values
+ * @param params - dvar_vector of function parameters
+ * @param fsZ    - selectivity at params[1]-params[2]
+ * 
+ * @return - selectivity function values as dvar_vector
+ */
+dvar_vector SelFcns::ascnormal2b(dvector& z, dvar_vector& params, double fsZ){
+    RETURN_ARRAYS_INCREMENT();
+    if (debug) cout<<"Starting SelFcns::ascnormal2b(...)"<<endl;
+    dvariable n; n.initialize();
+    dvar_vector s(z.indexmin(),z.indexmax()); s.initialize();
+    dvar_vector ascN(z.indexmin(),z.indexmax()); ascN.initialize();
+    dvar_vector ascJ(z.indexmin(),z.indexmax()); ascJ.initialize();
+    double slp = 5.0;
+    dvariable ascZ1    = params(1);//size at which ascending limb hits 1
+    double    ascSref  = fsZ;      //selectivity at ascZref
+    dvariable ascZref  = params(1)-params(2);//size at which selectivity reaches ascSref
+    ascN = mfexp(log(ascSref)*square((z-ascZ1)/(ascZref-ascZ1)));
+    ascJ = 1.0/(1.0+mfexp(slp*(z-(ascZ1))));
+    s = elem_prod(ascJ,ascN)+(1.0-ascJ);
+    if (debug) cout<<"Finished SelFcns::ascnormal2b(...)"<<endl;
     RETURN_ARRAYS_DECREMENT();
     return s;
 }

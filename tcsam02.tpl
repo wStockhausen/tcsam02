@@ -640,6 +640,7 @@
 //                  a pin file).
 //-2020-11-04:  1. revised setInitVals code for VectorVector and DevsVector objects to
 //                  work correctly.
+//-2020-11-10:  1. Added ascnormal2, ascnormal2a, ascnormal2b selectivity functions
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -2401,7 +2402,7 @@ PRELIMINARY_CALCS_SECTION
             //this section runs for an "ordinary" model run
             int dbgLevel = 0; //set at dbgCalcProcs+1 to print debugging info 
             PRINT2B1("testing calcRecruitment():")
-            calcRecruitment(dbgLevel,rpt::echo);
+            calcRecruitment(dbgLevel+100,rpt::echo);
 
             PRINT2B1("testing calcNatMort():")
             calcNatMort(dbgLevel,rpt::echo);
@@ -5596,8 +5597,11 @@ FUNCTION void calcNLLs_Recruitment(int debug, ostream& cout)
         nllRecDevs += nDevsLnR_c(pc)*log(stdvDevsLnR_c(pc));
         objFun += nllWgtRecDevs*nllRecDevs;
         if (debug>dbgObjFun) {
-            cout<<"pc    nll        objfun"<<endl;
-            cout<<pc<<": "<<nllRecDevs<<tb<<nllWgtRecDevs*nllRecDevs<<endl;
+            double rmse = sqrt(value(norm2(devsLnR_cy(pc)))/nDevsLnR_c(pc));
+            cout<<"pc    nll        objfun     rmse      sigmaR"<<endl;
+            cout<<pc<<": "<<nllRecDevs<<tb<<nllWgtRecDevs*nllRecDevs<<tb<<rmse<<tb<<stdvDevsLnR_c(pc)<<endl;
+            cout<<"pLnR="<<value(pLnR(pc))<<endl;
+            cout<<"devs="<<value(devsLnR_cy(pc))<<endl;
         }
         if (debug<0){
             double rmse = sqrt(value(norm2(devsLnR_cy(pc)))/nDevsLnR_c(pc));
@@ -5616,8 +5620,11 @@ FUNCTION void calcNLLs_Recruitment(int debug, ostream& cout)
         nllRecDevs += nDevsLnR_c(pc)*log(stdvDevsLnR_c(pc));
         objFun += nllWgtRecDevs*nllRecDevs;
         if (debug>dbgObjFun) {
-            cout<<"pc    nll        objfun"<<endl;
-            cout<<pc<<": "<<nllRecDevs<<tb<<nllWgtRecDevs*nllRecDevs<<endl;
+            double rmse = sqrt(value(norm2(devsLnR_cy(pc)))/nDevsLnR_c(pc));
+            cout<<"pc    nll        objfun     rmse      sigmaR"<<endl;
+            cout<<pc<<": "<<nllRecDevs<<tb<<nllWgtRecDevs*nllRecDevs<<tb<<rmse<<tb<<stdvDevsLnR_c(pc)<<endl;
+            cout<<"pLnR="<<value(pLnR(pc))<<endl;
+            cout<<"devs="<<value(devsLnR_cy(pc))<<endl;
         }
         if (debug<0){
             double rmse = sqrt(value(norm2(devsLnR_cy(pc)))/nDevsLnR_c(pc));
