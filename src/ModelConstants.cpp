@@ -9,6 +9,7 @@
  * 20150302: 1. Added tcsamDims::formatForR(adstring).
  *           2. Revised getDDsForR(...) functions (DD=SX,SC,MS) to use formatForR(...)
  * 20171024: 1. Added transform types
+ * 20201117: 1. Added LL_MULINOMIALP, LL_DIRICHLET, LL_DIRICHLETP
 */
 
 using namespace tcsam;
@@ -386,13 +387,16 @@ double tcsam::getConversionMultiplier(adstring from,adstring to){
  */
 adstring tcsam::getLikelihoodType(int llType){
     adstring type = STR_LL_NONE;
-    if (llType==LL_BINOMIAL)    return STR_LL_BINOMIAL;
-    if (llType==LL_GAMMA)       return STR_LL_GAMMA;
-    if (llType==LL_LOGNORMAL)   return STR_LL_LOGNORMAL;
-    if (llType==LL_MULTINOMIAL) return STR_LL_MULTINOMIAL;
-    if (llType==LL_NONE)        return STR_LL_NONE;
-    if (llType==LL_NORM2)       return STR_LL_NORM2;
-    if (llType==LL_NORMAL)      return STR_LL_NORMAL;
+    if (llType==LL_BINOMIAL)     return STR_LL_BINOMIAL;
+    if (llType==LL_GAMMA)        return STR_LL_GAMMA;
+    if (llType==LL_LOGNORMAL)    return STR_LL_LOGNORMAL;
+    if (llType==LL_MULTINOMIAL)  return STR_LL_MULTINOMIAL;
+    if (llType==LL_MULTINOMIALP) return STR_LL_MULTINOMIALP;
+    if (llType==LL_DIRICHLET)    return STR_LL_DIRICHLET;
+    if (llType==LL_DIRICHLETP)   return STR_LL_DIRICHLETP;
+    if (llType==LL_NONE)         return STR_LL_NONE;
+    if (llType==LL_NORM2)        return STR_LL_NORM2;
+    if (llType==LL_NORMAL)       return STR_LL_NORMAL;
     std::cout<<"Likelihood type integer '"<<llType<<"' not recognized."<<std::endl;
     std::cout<<"Aborting..."<<std::endl;
     exit(-1);
@@ -407,13 +411,16 @@ adstring tcsam::getLikelihoodType(int llType){
  */
 int tcsam::getLikelihoodType(adstring llType){
     int type = 0;
-    if (llType==STR_LL_BINOMIAL)    return LL_BINOMIAL;
-    if (llType==STR_LL_GAMMA)       return LL_GAMMA;
-    if (llType==STR_LL_LOGNORMAL)   return LL_LOGNORMAL;
-    if (llType==STR_LL_MULTINOMIAL) return LL_MULTINOMIAL;
-    if (llType==STR_LL_NONE)        return LL_NONE;
-    if (llType==STR_LL_NORM2)       return LL_NORM2;
-    if (llType==STR_LL_NORMAL)      return LL_NORMAL;
+    if (llType==STR_LL_BINOMIAL)     return LL_BINOMIAL;
+    if (llType==STR_LL_GAMMA)        return LL_GAMMA;
+    if (llType==STR_LL_LOGNORMAL)    return LL_LOGNORMAL;
+    if (llType==STR_LL_MULTINOMIAL)  return LL_MULTINOMIAL;
+    if (llType==STR_LL_MULTINOMIALP) return LL_MULTINOMIALP;
+    if (llType==STR_LL_DIRICHLET)    return LL_DIRICHLET;
+    if (llType==STR_LL_DIRICHLETP)   return LL_DIRICHLETP;
+    if (llType==STR_LL_NONE)         return LL_NONE;
+    if (llType==STR_LL_NORM2)        return LL_NORM2;
+    if (llType==STR_LL_NORMAL)       return LL_NORMAL;
     std::cout<<"Likelihood type keyword '"<<llType<<"' not recognized."<<std::endl;
     std::cout<<"Aborting..."<<std::endl;
     exit(-1);

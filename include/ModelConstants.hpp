@@ -31,6 +31,9 @@
  *           reflecting changes to tpl file.
  * 20200202: incremented tcsam::VERSION to "2020.02.02"
  *           reflecting changes to tpl file.
+ * 20201116: Added LL_MULTINOMIALP.
+ * 20201117: Added LL_DIRICHLET and LL_DIRICHLETP.
+ *           Incremented tcsam::VERSION to "2020.11.16" reflecting changes to tpl file.
  */
 
 #pragma once
@@ -65,7 +68,7 @@ namespace tcsam{
     /* adstring indicating model name */
     const adstring MODEL = "tcsam02";
     /* adstring indicating model version */
-    const adstring VERSION = "2020.02.02";
+    const adstring VERSION = "2020.11.17";
     
     /* minimum debugging level that will print ALL debug info */
     const int dbgAll = 100;
@@ -168,6 +171,12 @@ namespace tcsam{
     const adstring STR_LL_LOGNORMAL   = "LOGNORMAL";
     /** adstring constant indicating likelihood type 'MULTINOMIAL' */
     const adstring STR_LL_MULTINOMIAL = "MULTINOMIAL";
+    /** integer constant indicating likelihood type 'MULTINOMIALP' */
+    const adstring STR_LL_MULTINOMIALP    = "MULTINOMIALP";
+    /** adstring constant indicating likelihood type 'DIRICHLET' */
+    const adstring STR_LL_DIRICHLET = "DIRICHLET";
+    /** adstring constant indicating likelihood type 'DIRICHLETP' */
+    const adstring STR_LL_DIRICHLETP = "DIRICHLETP";
     /** adstring constant indicating likelihood type 'BINOMIAL' */
     const adstring STR_LL_BINOMIAL    = "BINOMIAL";
     /** adstring constant indicating likelihood type 'GAMMA' */
@@ -182,10 +191,16 @@ namespace tcsam{
     const int LL_LOGNORMAL   = 3;
     /** integer constant indicating likelihood type 'MULTINOMIAL' */
     const int LL_MULTINOMIAL = 4;
+    /** integer constant indicating likelihood type 'MULTINOMIALP' */
+    const int LL_MULTINOMIALP = 5;
+    /** integer constant indicating likelihood type 'DIRICHLET' */
+    const int LL_DIRICHLET = 6;
+    /** integer constant indicating likelihood type 'DIRICHLET' */
+    const int LL_DIRICHLETP = 7;
     /** integer constant indicating likelihood type 'BINOMIAL' */
-    const int LL_BINOMIAL    = 5;
+    const int LL_BINOMIAL = 8;
     /** integer constant indicating likelihood type 'GAMMA' */
-    const int LL_GAMMA    = 6;
+    const int LL_GAMMA = 9;
     
     //Stock-recruit function types
     const adstring STR_CONSTANT = "CONSTANT";

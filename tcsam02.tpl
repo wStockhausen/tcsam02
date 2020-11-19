@@ -641,6 +641,10 @@
 //-2020-11-04:  1. revised setInitVals code for VectorVector and DevsVector objects to
 //                  work correctly.
 //-2020-11-10:  1. Added ascnormal2, ascnormal2a, ascnormal2b selectivity functions
+//-2020-11-16:  1. Added calcMultinomialPNLL function and associated model constants.
+//                   Updated model version to 2020.11.16.
+//              2. Corrected output format for effectiveWeights.R file.
+//-2020-11-19:  1. Added calcDirichletNLL function stub, but need to fully implement.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -2540,6 +2544,16 @@ PRELIMINARY_CALCS_SECTION
                 ReportToR_CohortProgression(echo1,1,1,1,1,0,cout);
                 echo1.close();
                 PRINT2B1("finished writing cohort progression to file")
+            }
+            
+            {
+                //create effectiveWeights.R file
+                //this will be written to and closed in the FINAL_SECTION
+                //it will also be written to in the BETWEEN_PHASES_SECTION if reweighting is requested.
+                ofstream os; 
+                os.open("effectiveWeights.R", ios::trunc);
+                os<<"effWgts=list("<<endl;//note: list will be closed in FINAL_SECTION
+                os.close();
             }
             
             {
@@ -6251,46 +6265,81 @@ FUNCTION void calcMultinomialNLL(double wgt, dvar_vector& mod, dvector& obs, dou
     if (debug>=dbgAll) cout<<"Finished calcMultinomialNLL()"<<endl;
  
 //-------------------------------------------------------------------------------------
+//Calculate multinomialP NLL contribution to objective function
+FUNCTION void calcMultinomialPNLL(double wgt, dvar_vector& mod, dvector& obs, ivector& idx, double& ss, int& yr, int debug, ostream& cout)
+    if (debug>=dbgAll) cout<<"Starting calcMultinomialPNLL()"<<endl;
+    dvariable nll = 0.0;
+    for (int i=idx.indexmin();i<=idx.indexmax();i++) nll += -ss*(obs[idx[i]]*(log(mod[idx[i]])-log(obs[idx[i]])));
+    objFun += wgt*nll;
+    if ((debug<0)||(debug>=dbgAll)){
+        dvector vmod = value(mod);
+        dvector nlls = 0.0*vmod;
+        dvector zscrs = 0.0*vmod;
+        for (int i=idx.indexmin();i<=idx.indexmax();i++) nlls[idx[i]]  = -ss*obs[idx[i]]*(log(vmod[idx[i]])-log(obs[idx[i]]));
+        for (int i=idx.indexmin();i<=idx.indexmax();i++) zscrs[idx[i]] = (obs[idx[i]]-vmod[idx[i]])/sqrt(vmod[idx[i]]*(1.0-vmod[idx[i]])/ss);//pearson residuals
+        double effN = 0.0;
+        if ((ss>0)&&(norm2(obs-vmod)>0)) effN = (vmod*(1.0-vmod))/norm2(obs-vmod);
+        if (debug<0){
+            cout<<"list(nll.type='multinomialp',yr="<<yr<<cc<<"wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<"ss="<<ss<<cc<<"effN="<<effN<<cc<<endl; 
+            adstring dzbs = "size=c("+ptrMC->csvZBs+")";
+            cout<<"nlls=";  wts::writeToR(cout,nlls, dzbs); cout<<cc<<endl;
+            cout<<"obs=";   wts::writeToR(cout,obs,  dzbs); cout<<cc<<endl;
+            cout<<"mod=";   wts::writeToR(cout,vmod, dzbs); cout<<cc<<endl;
+            cout<<"zscrs="; wts::writeToR(cout,zscrs,dzbs); cout<<endl;
+            cout<<")";
+        }
+        if (debug>=dbgAll) {
+             cout<<"yr = "    <<yr<<tb<<"ss = "<<ss<<endl;
+             cout<<"obs    = "<<obs <<endl;
+             cout<<"mod    = "<<vmod<<endl;
+             cout<<"zscrs  = "<<zscrs<<endl;
+             cout<<"nlls   = "<<nlls<<endl;
+             cout<<"effN   = "<<effN<<endl;
+             cout<<"nll    = "<<nll<<tb<<"objFun = "<<wgt*nll<<endl;
+         }
+    }
+    if (debug>=dbgAll) cout<<"Finished calcMultinomialPNLL()"<<endl;
+ 
+//-------------------------------------------------------------------------------------
 ////Calculate Dirichlet NLL contribution to objective function
-//FUNCTION void calcDirichletNLL(double wgt, dvar_vector& mod, dvector& obs, double& ss, int& yr, int debug, ostream& cout)
-//    if (debug>=dbgAll) cout<<"Starting calcDirichletNLL()"<<endl;
-//    dvariable nll = -ss*(obs*(log(mod+smlVal)-log(obs+smlVal)));//note dot-product sums
-//    objFun += wgt*nll;
-//    
-//    dvector o = obs/sum(obs);
-//    int c1 = o.indexmin();
-//    int c2 = o.indexmax();
-//    dvar_vector p = mod;
-//    dvariable vn = ???;
-//    
-//    dvariable lmnB = 0.0;
-//    dvariable sj = 0.0;
-//    dvariable alpha0 = 0.0;
-//    dvar_vector alpha = vn * p/sum(p);
-//    for ( int j = c1; j <= c2; j++ ) {
-//        aj = alpha(j);
-//        alpha0 += aj;
-//        lmnB += gammln(aj);
-//        sj += (aj - 1.0) * log(1e-10 + obs(j));
-//    }
-//    lmnB -= gammln(alpha0);
-//    nll -= sj - lmnB;
-//    
-//    if (debug<0){
-//        dvector vmod = value(mod);
-//        dvector nlls = -ss*(elem_prod(obs,log(vmod+smlVal)-log(obs+smlVal)));
-//        dvector zscrs = elem_div(obs-vmod,sqrt(elem_prod((vmod+smlVal),1.0-(vmod+smlVal))/ss));//pearson residuals
-//        double effN = 0.0;
-//        if (ss>0) effN = (vmod*(1.0-vmod))/norm2(obs-vmod);
-//        cout<<"list(nll.type='Dirichlet',yr="<<yr<<cc<<"wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<"ss="<<ss<<cc<<"effN="<<effN<<cc<<endl; 
-//        adstring dzbs = "size=c("+ptrMC->csvZBs+")";
-//        cout<<"nlls=";  wts::writeToR(cout,nlls, dzbs); cout<<cc<<endl;
-//        cout<<"obs=";   wts::writeToR(cout,obs,  dzbs); cout<<cc<<endl;
-//        cout<<"mod=";   wts::writeToR(cout,vmod, dzbs); cout<<cc<<endl;
-//        cout<<"zscrs="; wts::writeToR(cout,zscrs,dzbs); cout<<endl;
-//        cout<<")";
-//    }
-//    if (debug>=dbgAll) cout<<"Finished calcDirchletNLL()"<<endl;
+FUNCTION void calcDirichletNLL(dvariable& vn, double wgt, dvar_vector& mod, dvector& obs, double& ss, int& yr, int debug, ostream& cout)
+    if (debug>=dbgAll) cout<<"Starting calcDirichletNLL()"<<endl;
+    dvariable nll = -ss*(obs*(log(mod+smlVal)-log(obs+smlVal)));//note dot-product sums
+    objFun += wgt*nll;
+    
+    dvector o = obs/sum(obs);
+    int c1 = o.indexmin();
+    int c2 = o.indexmax();
+    dvar_vector p = mod;
+    
+    dvariable lmnB = 0.0;
+    dvariable sj = 0.0;
+    dvariable alpha0 = 0.0;
+    dvar_vector alpha = vn * p/sum(p);
+    for ( int j = c1; j <= c2; j++ ) {
+        dvariable aj = alpha(j);
+        alpha0 += aj;
+        lmnB += gammln(aj);
+        sj += (aj - 1.0) * log(1e-10 + obs(j));
+    }
+    lmnB -= gammln(alpha0);
+    nll -= sj - lmnB;
+    
+    if (debug<0){
+        dvector vmod = value(mod);
+        dvector nlls = -ss*(elem_prod(obs,log(vmod+smlVal)-log(obs+smlVal)));
+        dvector zscrs = elem_div(obs-vmod,sqrt(elem_prod((vmod+smlVal),1.0-(vmod+smlVal))/ss));//pearson residuals
+        double effN = 0.0;
+        if (ss>0) effN = (vmod*(1.0-vmod))/norm2(obs-vmod);
+        cout<<"list(nll.type='Dirichlet',yr="<<yr<<cc<<"wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<"ss="<<ss<<cc<<"effN="<<effN<<cc<<endl; 
+        adstring dzbs = "size=c("+ptrMC->csvZBs+")";
+        cout<<"nlls=";  wts::writeToR(cout,nlls, dzbs); cout<<cc<<endl;
+        cout<<"obs=";   wts::writeToR(cout,obs,  dzbs); cout<<cc<<endl;
+        cout<<"mod=";   wts::writeToR(cout,vmod, dzbs); cout<<cc<<endl;
+        cout<<"zscrs="; wts::writeToR(cout,zscrs,dzbs); cout<<endl;
+        cout<<")";
+    }
+    if (debug>=dbgAll) cout<<"Finished calcDirchletNLL()"<<endl;
  
 //-------------------------------------------------------------------------------------
 //Pass through for no NLL contribution to objective function for size comps
@@ -6347,6 +6396,18 @@ FUNCTION void calcNLL_ZC(int llType, double wgt, dvar_vector& mod, dvector& obs,
             break;
         case tcsam::LL_MULTINOMIAL:
             calcMultinomialNLL(wgt,mod,obs,ss,yr,debug,cout);
+            break;
+        case tcsam::LL_MULTINOMIALP:
+            {
+                int ctr = 0; for (int i=obs.indexmin(); i<=obs.indexmax();i++) {ctr += (obs[i]>0.0);}
+                ivector idx(1,ctr);
+                ctr = 1;     for (int i=obs.indexmin(); i<=obs.indexmax();i++) {if (obs[i]>0.0){idx[ctr++]=i;}}
+                calcMultinomialPNLL(wgt,mod,obs,idx,ss,yr,debug,cout);
+            }
+            break;
+        case tcsam::LL_DIRICHLET:
+            //TODO: finish implementing this!
+//            calcDirichletNLL(wgt,mod,obs,ss,yr,debug,cout);
             break;
         default:
             cout<<"Unrecognized likelihood type in calcNLL_ZC"<<endl;
@@ -9173,12 +9234,7 @@ BETWEEN_PHASES_SECTION
             PRINT2B1("#--Calculating effective weights for size compositions")
             //note that the following modifies the objective function value
             ofstream os; 
-            if ((current_phase()==phsItsRewgt)){
-                os.open("effectiveWeights.R", ios::trunc);
-                os<<"effWgts=list("<<endl;
-            } else {
-                os.open("effectiveWeights.R", ios::app);
-            }
+            os.open("effectiveWeights.R", ios::app); //--note opening to append to existing file
             os<<"#--BETWEEN_PHASES_SECTION: Calculating effective weights for size compositions at start of "<<str(current_phase())<<endl;
             os<<"effWgts."<<current_phase()-phsItsRewgt+1<<"=list("<<endl;
             os<<"surveys="  <<endl; calcWeightsForSurveySizeComps( -1,os); os<<","<<endl;
@@ -9289,17 +9345,25 @@ FUNCTION void calcWeightsForSurveySizeComps(int debug, ostream& cout)
                     if (debug>0) cout<<"#--Index catch size comps weights using "<<tcsam::getFitType(ptrObs->ptrICD->ptrZFD->optFit)<<endl;
                     d4_array effWgts_nxms = calcEffWgts(effWgtComps_xmsyn,debug,cout);
                     if (debug>0) {cout<<"effWgts_nxms ="<<endl; wts::print(effWgts_nxms,cout,0); cout<<endl;}
+                    if (debug>0) {
+                        ivector bnds = wts::getBounds(effWgts_nxms);
+                        adstring x = tcsamDims::getSXsForR(bnds(3),bnds(4));
+                        adstring m = tcsamDims::getMSsForR(bnds(5),bnds(6));
+                        adstring s = tcsamDims::getSCsForR(bnds(7),bnds(8));
+                        cout<<"effWgts_nxms bounds = "<<bnds<<endl;
+                        cout<<"effWgts="<<endl; wts::writeToR(cout, effWgts_nxms,nDims,x,m,s); cout<<endl;
+                    }
                     if (debug<0) {
                         ivector bnds = wts::getBounds(effWgts_nxms);
                         adstring x = tcsamDims::getSXsForR(bnds(3),bnds(4));
                         adstring m = tcsamDims::getMSsForR(bnds(5),bnds(6));
                         adstring s = tcsamDims::getSCsForR(bnds(7),bnds(8));
-                        cout<<"effWgts="<<endl; wts::writeToR(cout, effWgts_nxms,nDims,x,m,s); cout<<cc<<endl;
+                        cout<<"effWgts="<<endl; wts::writeToR(cout, effWgts_nxms,nDims,x,m,s); 
                     }
                     if (opt) {
                         cout<<"#----Calculating reweighting size comps in call to calcWeightsForSurveySizeComps!!"<<endl;
                         if (debug<0) {
-                            cout<<"opt="<<opt<<cc<<endl;
+                            cout<<cc<<endl<<"opt="<<opt<<cc<<endl;
                             cout<<"applied="<<endl;
                         }
                         ptrObs->ptrICD->ptrZFD->calcReWeightingFactors(effWgts_nxms(opt),debug,cout);
@@ -9356,12 +9420,12 @@ FUNCTION void calcWeightsForFisherySizeComps(int debug, ostream& cout)
                         adstring x = tcsamDims::getSXsForR(bnds(3),bnds(4));
                         adstring m = tcsamDims::getMSsForR(bnds(5),bnds(6));
                         adstring s = tcsamDims::getSCsForR(bnds(7),bnds(8));
-                        cout<<"effWgts="<<endl; wts::writeToR(cout, effWgts_nxms,nDims,x,m,s); cout<<cc<<endl;
+                        cout<<"effWgts="<<endl; wts::writeToR(cout, effWgts_nxms,nDims,x,m,s);
                     }
                     if (opt) {
                         cout<<"#----Calculating reweighting size comps in call to calcWeightsForFisherySizeComps!!"<<endl;
                         if (debug<0) {
-                            cout<<"opt="<<opt<<cc<<endl;
+                            cout<<cc<<endl<<"opt="<<opt<<cc<<endl;
                             cout<<"applied="<<endl;
                         }
                         ptrObs->ptrRCD->ptrZFD->calcReWeightingFactors(effWgts_nxms(opt),debug,cout);
@@ -9385,12 +9449,12 @@ FUNCTION void calcWeightsForFisherySizeComps(int debug, ostream& cout)
                         adstring x = tcsamDims::getSXsForR(bnds(3),bnds(4));
                         adstring m = tcsamDims::getMSsForR(bnds(5),bnds(6));
                         adstring s = tcsamDims::getSCsForR(bnds(7),bnds(8));
-                        cout<<"effWgts="<<endl; wts::writeToR(cout, effWgts_nxms,nDims,x,m,s); cout<<cc<<endl;
+                        cout<<"effWgts="<<endl; wts::writeToR(cout, effWgts_nxms,nDims,x,m,s);
                     }
                     if (opt) {
                         cout<<"#----Calculating reweighting size comps in call to calcWeightsForFisherySizeComps!!"<<endl;
                         if (debug<0) {
-                            cout<<"opt="<<opt<<cc<<endl;
+                            cout<<cc<<endl<<"opt="<<opt<<cc<<endl;
                             cout<<"applied="<<endl;
                         }
                         ptrObs->ptrTCD->ptrZFD->calcReWeightingFactors(effWgts_nxms(opt),debug,cout);
@@ -9414,12 +9478,12 @@ FUNCTION void calcWeightsForFisherySizeComps(int debug, ostream& cout)
                         adstring x = tcsamDims::getSXsForR(bnds(3),bnds(4));
                         adstring m = tcsamDims::getMSsForR(bnds(5),bnds(6));
                         adstring s = tcsamDims::getSCsForR(bnds(7),bnds(8));
-                        cout<<"effWgts="<<endl; wts::writeToR(cout, effWgts_nxms,nDims,x,m,s); cout<<cc<<endl;
+                        cout<<"effWgts="<<endl; wts::writeToR(cout, effWgts_nxms,nDims,x,m,s);
                     }
                     if (opt) {
                         cout<<"#----Calculating reweighting size comps in call to calcWeightsForFisherySizeComps!!"<<endl;
                         if (debug<0) {
-                            cout<<"opt="<<opt<<cc<<endl;
+                            cout<<cc<<endl<<"opt="<<opt<<cc<<endl;
                             cout<<"applied="<<endl;
                         }
                         ptrObs->ptrDCD->ptrZFD->calcReWeightingFactors(effWgts_nxms(opt),debug,cout);
@@ -9459,11 +9523,12 @@ FUNCTION d4_array calcEffWgts(d5_array& effWgtComps,int debug, ostream& cout)
     d4_array effWgts_nxms(0,2,d[1],d[2],d[3],d[4],d[5],d[6]);
     
     //calculate McAllister-Ianelli weights using the harmonic mean (1.B in Punt, 2017)
+    if (debug>0) cout<<"--calculating Mc-I weights. xmysn bounds = "<<d<<endl;
     for (int x=d[1];x<=d[2];x++){
         for (int m=d[3];m<=d[4];m++){
             for (int s=d[5];s<=d[6];s++){
-                double N = sum(column(effWgtComps(x,m,s),1));
-                double harmn = 0.0;
+                double N = sum(column(effWgtComps(x,m,s),1));//number of years with ZC data
+                double harmn = 0.0;                          //harmonic mean of Mc-I effective ss over years
                 for (int y=effWgtComps(x,m,s).indexmin();y<=effWgtComps(x,m,s).indexmax();y++){
                     if (effWgtComps(x,m,s,y,1)>0.0) harmn += 1.0/effWgtComps(x,m,s,y,2);
                 }
@@ -9471,6 +9536,11 @@ FUNCTION d4_array calcEffWgts(d5_array& effWgtComps,int debug, ostream& cout)
                 if (N>0){//to avoid nan's
                     effWgts_nxms(1,x,m,s) = N/harmn;//harmonic mean  of annual Mc-I tuning weights 
                 } else effWgts_nxms(1,x,m,s) = 1.0;
+                if (debug>0) {
+                    cout<<"x,m,s = "<<x<<tb<<m<<tb<<s<<endl;
+                    cout<<tb<<"col   = "<<column(effWgtComps(x,m,s),1)<<endl;
+                    cout<<tb<<"N, harmN, effWgt = "<<N<<tb<<harmn<<tb<<effWgts_nxms(1,x,m,s)<<endl;
+                }
             }
         }
     }
@@ -9843,14 +9913,22 @@ FINAL_SECTION
                 PRINT2B1("#----Calculating final effective weights for size compositions")
                 PRINT2B1("#----Note that the value of objFun is not valid now!!")
                 //note that this modifies the value of the objective function!
-                ofstream os; os.open("effectiveWeights.R", ios::app);
+                //do it for testing
+                rpt::echo<<"#--Calculating effective weights in FINAL_PHASE--"<<endl;
+                rpt::echo<<"effWgts.final=list("<<endl;
+                rpt::echo<<"surveys=";   calcWeightsForSurveySizeComps( 1,rpt::echo); rpt::echo<<","<<endl;
+                rpt::echo<<"fisheries="; calcWeightsForFisherySizeComps(1,rpt::echo); rpt::echo<<endl;
+                rpt::echo<<")"<<endl;
+                rpt::echo<<"#--Finished calculating effective weights in FINAL_PHASE--"<<endl;
+                //do it for real
+                ofstream os; os.open("effectiveWeights.R", ios::app);//--note appending to existing file
                 os<<"#--Calculating effective weights in FINAL_PHASE--"<<endl;
                 os<<"effWgts.final=list("<<endl;
                 os<<"surveys=";   calcWeightsForSurveySizeComps( -1,os); os<<","<<endl;
                 os<<"fisheries="; calcWeightsForFisherySizeComps(-1,os); os<<endl;
                 os<<")"<<endl;
                 os<<"#--Finished calculating effective weights in FINAL_PHASE--"<<endl;
-                os<<")"<<endl;
+                os<<")"<<endl;//need to close list
                 os.close();
                 PRINT2B2("#--obj fun = ",objFun)
                 PRINT2B1(" ")
