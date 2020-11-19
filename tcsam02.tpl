@@ -645,6 +645,7 @@
 //                   Updated model version to 2020.11.16.
 //              2. Corrected output format for effectiveWeights.R file.
 //-2020-11-19:  1. Added calcDirichletNLL function stub, but need to fully implement.
+//              2. Added switch and code to writeParameters functions to write to alternative par file.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -9054,89 +9055,92 @@ FUNCTION void ReportToR_OpModMode(ostream& os, double maxGrad, int debug, ostrea
 
 //----------------------------------------------------------------------
 //Write parameter information to file
-//NOTE: if toR=0, willBeActive>0, and phase=0, all parameters that will be active are written to csv
-//      if toR=0, willBeActive>0, and phase>0, only active parameters are written to csv
-FUNCTION void writeParameters(ostream& os,int toR, int willBeActive, int phase)      
+//NOTE: toF = -1 writes in par file format
+//      toF =  0 writes in csv format
+//      toF =  1 writes in R format
+//      if toF=0, willBeActive>0, and phase=0, all parameters that will be active are written to csv
+//      if toF=0, willBeActive>0, and phase>0, only active parameters are written to csv
+FUNCTION void writeParameters(ostream& os,int toF, int willBeActive, int phase)      
     adstring ctg1, ctg2;
-    if (!toR) tcsam::writeCSVHeaderForParametersFile(os);
+    if (toF>0) tcsam::writeCSVHeaderForParametersFile(os);
     //recruitment parameters
     ctg1="population processes";
     ctg2="recruitment";
-    tcsam::writeParameters(os,pLnR,ctg1,ctg2,ptrMPI->ptrRec->pLnR,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pRCV,ctg1,ctg2,ptrMPI->ptrRec->pRCV,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pRX, ctg1,ctg2,ptrMPI->ptrRec->pRX, toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pRa, ctg1,ctg2,ptrMPI->ptrRec->pRa, toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pRb, ctg1,ctg2,ptrMPI->ptrRec->pRb, toR,willBeActive,phase);      
-    tcsam::writeParameters(os,devsLnR,ctg1,ctg2,ptrMPI->ptrRec->pDevsLnR,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pLnR,ctg1,ctg2,ptrMPI->ptrRec->pLnR,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pRCV,ctg1,ctg2,ptrMPI->ptrRec->pRCV,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pRX, ctg1,ctg2,ptrMPI->ptrRec->pRX, toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pRa, ctg1,ctg2,ptrMPI->ptrRec->pRa, toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pRb, ctg1,ctg2,ptrMPI->ptrRec->pRb, toF,willBeActive,phase);      
+    tcsam::writeParameters(os,devsLnR,ctg1,ctg2,ptrMPI->ptrRec->pDevsLnR,toF,willBeActive,phase);      
     
     //natural mortality parameters
     ctg1="population processes";
     ctg2="natural mortality";
-    tcsam::writeParameters(os,pM,ctg1,ctg2,ptrMPI->ptrNM->pM,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pDM1,ctg1,ctg2,ptrMPI->ptrNM->pDM1,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pDM2,ctg1,ctg2,ptrMPI->ptrNM->pDM2,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pDM3,ctg1,ctg2,ptrMPI->ptrNM->pDM3,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pDM4,ctg1,ctg2,ptrMPI->ptrNM->pDM4,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pM,ctg1,ctg2,ptrMPI->ptrNM->pM,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pDM1,ctg1,ctg2,ptrMPI->ptrNM->pDM1,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pDM2,ctg1,ctg2,ptrMPI->ptrNM->pDM2,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pDM3,ctg1,ctg2,ptrMPI->ptrNM->pDM3,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pDM4,ctg1,ctg2,ptrMPI->ptrNM->pDM4,toF,willBeActive,phase);      
     
     //growth parameters
     ctg1="population processes";
     ctg2="growth";
-    tcsam::writeParameters(os,pGrA,ctg1,ctg2,ptrMPI->ptrGrw->pGrA,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pGrB,ctg1,ctg2,ptrMPI->ptrGrw->pGrB,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pGrBeta,ctg1,ctg2,ptrMPI->ptrGrw->pGrBeta,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pGrA,ctg1,ctg2,ptrMPI->ptrGrw->pGrA,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pGrB,ctg1,ctg2,ptrMPI->ptrGrw->pGrB,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pGrBeta,ctg1,ctg2,ptrMPI->ptrGrw->pGrBeta,toF,willBeActive,phase);      
     
     //maturity parameters
     ctg1="population processes";
     ctg2="maturity";
-    tcsam::writeParameters(os,matLgtPrM2M,ctg1,ctg2,ptrMPI->ptrM2M->pvLgtPrM2M,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,matLgtPrM2M,ctg1,ctg2,ptrMPI->ptrM2M->pvLgtPrM2M,toF,willBeActive,phase);      
     
     //selectivity parameters
     ctg1="selectivity";
     ctg2="selectivity";
-    tcsam::writeParameters(os,pS1,ctg1,ctg2,ptrMPI->ptrSel->pS1,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pS2,ctg1,ctg2,ptrMPI->ptrSel->pS2,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pS3,ctg1,ctg2,ptrMPI->ptrSel->pS3,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pS4,ctg1,ctg2,ptrMPI->ptrSel->pS4,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pS5,ctg1,ctg2,ptrMPI->ptrSel->pS5,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pS6,ctg1,ctg2,ptrMPI->ptrSel->pS6,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,devsS1,ctg1,ctg2,ptrMPI->ptrSel->pDevsS1,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,devsS2,ctg1,ctg2,ptrMPI->ptrSel->pDevsS2,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,devsS3,ctg1,ctg2,ptrMPI->ptrSel->pDevsS3,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,devsS4,ctg1,ctg2,ptrMPI->ptrSel->pDevsS4,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,devsS5,ctg1,ctg2,ptrMPI->ptrSel->pDevsS5,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,devsS6,ctg1,ctg2,ptrMPI->ptrSel->pDevsS6,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,matNPSel,   ctg1,ctg2,ptrMPI->ptrSel->pvNPSel,   toR,willBeActive,phase);      
-    tcsam::writeParameters(os,matCubSplns,ctg1,ctg2,ptrMPI->ptrSel->pvCubSplns,toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pS1,ctg1,ctg2,ptrMPI->ptrSel->pS1,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pS2,ctg1,ctg2,ptrMPI->ptrSel->pS2,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pS3,ctg1,ctg2,ptrMPI->ptrSel->pS3,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pS4,ctg1,ctg2,ptrMPI->ptrSel->pS4,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pS5,ctg1,ctg2,ptrMPI->ptrSel->pS5,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pS6,ctg1,ctg2,ptrMPI->ptrSel->pS6,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,devsS1,ctg1,ctg2,ptrMPI->ptrSel->pDevsS1,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,devsS2,ctg1,ctg2,ptrMPI->ptrSel->pDevsS2,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,devsS3,ctg1,ctg2,ptrMPI->ptrSel->pDevsS3,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,devsS4,ctg1,ctg2,ptrMPI->ptrSel->pDevsS4,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,devsS5,ctg1,ctg2,ptrMPI->ptrSel->pDevsS5,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,devsS6,ctg1,ctg2,ptrMPI->ptrSel->pDevsS6,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,matNPSel,   ctg1,ctg2,ptrMPI->ptrSel->pvNPSel,   toF,willBeActive,phase);      
+    tcsam::writeParameters(os,matCubSplns,ctg1,ctg2,ptrMPI->ptrSel->pvCubSplns,toF,willBeActive,phase);      
     
     //fishery parameters
     ctg1="fisheries";
     ctg2="fisheries";
-    tcsam::writeParameters(os,pHM, ctg1,ctg2,ptrMPI->ptrFsh->pHM, toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pLnC,ctg1,ctg2,ptrMPI->ptrFsh->pLnC,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pDC1,ctg1,ctg2,ptrMPI->ptrFsh->pDC1,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pDC2,ctg1,ctg2,ptrMPI->ptrFsh->pDC2,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pDC3,ctg1,ctg2,ptrMPI->ptrFsh->pDC3,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pDC4,ctg1,ctg2,ptrMPI->ptrFsh->pDC4,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,devsLnC,ctg1,ctg2,ptrMPI->ptrFsh->pDevsLnC,toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pLnEffX, ctg1,ctg2,ptrMPI->ptrFsh->pLnEffX, toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pLgtRet, ctg1,ctg2,ptrMPI->ptrFsh->pLgtRet, toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pHM, ctg1,ctg2,ptrMPI->ptrFsh->pHM, toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pLnC,ctg1,ctg2,ptrMPI->ptrFsh->pLnC,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pDC1,ctg1,ctg2,ptrMPI->ptrFsh->pDC1,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pDC2,ctg1,ctg2,ptrMPI->ptrFsh->pDC2,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pDC3,ctg1,ctg2,ptrMPI->ptrFsh->pDC3,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pDC4,ctg1,ctg2,ptrMPI->ptrFsh->pDC4,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,devsLnC,ctg1,ctg2,ptrMPI->ptrFsh->pDevsLnC,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pLnEffX, ctg1,ctg2,ptrMPI->ptrFsh->pLnEffX, toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pLgtRet, ctg1,ctg2,ptrMPI->ptrFsh->pLgtRet, toF,willBeActive,phase);      
     
     //survey parameters
     ctg1="surveys";
     ctg2="surveys";
-    tcsam::writeParameters(os,pQ,    ctg1,ctg2,ptrMPI->ptrSrv->pQ,    toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pDQ1,  ctg1,ctg2,ptrMPI->ptrSrv->pDQ1,  toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pDQ2,  ctg1,ctg2,ptrMPI->ptrSrv->pDQ2,  toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pDQ3,  ctg1,ctg2,ptrMPI->ptrSrv->pDQ3,  toR,willBeActive,phase);      
-    tcsam::writeParameters(os,pDQ4,  ctg1,ctg2,ptrMPI->ptrSrv->pDQ4,  toR,willBeActive,phase);
-    tcsam::writeParameters(os,pLnXCV,ctg1,ctg2,ptrMPI->ptrSrv->pLnXCV,toR,willBeActive,phase);
-    tcsam::writeParameters(os,pA,    ctg1,ctg2,ptrMPI->ptrSrv->pA,    toR,willBeActive,phase);      
+    tcsam::writeParameters(os,pQ,    ctg1,ctg2,ptrMPI->ptrSrv->pQ,    toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pDQ1,  ctg1,ctg2,ptrMPI->ptrSrv->pDQ1,  toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pDQ2,  ctg1,ctg2,ptrMPI->ptrSrv->pDQ2,  toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pDQ3,  ctg1,ctg2,ptrMPI->ptrSrv->pDQ3,  toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pDQ4,  ctg1,ctg2,ptrMPI->ptrSrv->pDQ4,  toF,willBeActive,phase);
+    tcsam::writeParameters(os,pLnXCV,ctg1,ctg2,ptrMPI->ptrSrv->pLnXCV,toF,willBeActive,phase);
+    tcsam::writeParameters(os,pA,    ctg1,ctg2,ptrMPI->ptrSrv->pA,    toF,willBeActive,phase);      
     
     //MSE directed fishery
-    if (mseOpModMode){
+    if (mseOpModMode||(toF<1)){
         ctg1="MSE-related";
         ctg2="ln-scale directed fishery capture rate";
-        tcsam::writeParameters(os,pMSE_LnC,ctg1,ctg2,ptrMPI->ptrMSE->pMSE_LnC,toR,willBeActive,phase);
+        tcsam::writeParameters(os,pMSE_LnC,ctg1,ctg2,ptrMPI->ptrMSE->pMSE_LnC,toF,willBeActive,phase);
     }
     
 // =============================================================================
@@ -9947,7 +9951,16 @@ FINAL_SECTION
             calcObjFun(dbgAll+1,rpt::echo);
             calcObjFun(dbgObjFun,cout);
             PRINT2B2("#--Final obj fun = ",objFun)
-                    
+                   
+            {
+                PRINT2B1("#----writing alternative par file tcsam02.par1")
+                ofstream par1; par1.precision(12);
+                par1.open("tcsam02.par1", ios::trunc); 
+                writeParameters(par1,-1,0,0);
+                par1.close();
+                PRINT2B1("#------finished writing alternative par file")
+            }
+            
             {
                 PRINT2B1("#----writing cohort progression to R")
                 ofstream echo1; echo1.precision(12);

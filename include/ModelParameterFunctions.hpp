@@ -214,7 +214,7 @@ namespace tcsam {
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
  * @param pI - pointer to associated NumberInfo object
- * @param toR - flag to write to R format (=1) or csv (=0)
+ * @param toF - format flag for output: csv (=0), R list (=1), or par file (=-1)
  * @param willBeActive - flag to write only if parameter will be active
  * @param phase - current phase
  */
@@ -222,7 +222,7 @@ namespace tcsam {
                         param_init_number& p,             
                         adstring& ctg1, adstring& ctg2, 
                         NumberInfo* i, 
-                        int toR, int willBeActive, int phase=0);
+                        int toF, int willBeActive, int phase=0);
 /**
  * Writes information for a bounded parameter to an output stream.
  * 
@@ -231,7 +231,7 @@ namespace tcsam {
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
  * @param pI - BoundedNumberInfo
- * @param toR - flag to write to R format (=1) or csv (=0)
+ * @param toF - format flag for output: csv (=0), R list (=1), or par file (=-1)
  * @param willBeActive - flag to write only if parameter will be active
  * @param phase - current phase
  */
@@ -239,7 +239,7 @@ namespace tcsam {
                         param_init_bounded_number& p,     
                         adstring& ctg1, adstring& ctg2, 
                         BoundedNumberInfo* i, 
-                        int toR, int willBeActive, int phase=0);
+                        int toF, int willBeActive, int phase=0);
 /**
  * Writes information for a parameter vector to an output stream.
  * 
@@ -248,7 +248,7 @@ namespace tcsam {
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
  * @param lbl - parameter-specific label
- * @param toR - flag to write to R format (=1) or csv (=0)
+ * @param toF - format flag for output: csv (=0), R list (=1), or par file (=-1)
  * @param willBeActive - flag to write only if parameter vector will be active
  * @param phase - current phase
  */
@@ -256,7 +256,7 @@ namespace tcsam {
                          dvar_vector& p,             
                          adstring& ctg1, adstring& ctg2, 
                          VectorInfo* i, 
-                         int toR, int willBeActive, int phase=0);
+                         int toF, int willBeActive, int phase=0);
 /**
  * Writes information for a bounded parameter vector to an output stream.
  * 
@@ -265,7 +265,7 @@ namespace tcsam {
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
  * @param pI - pointer to associated BoundedVectorInfo info object
- * @param toR - flag to write to R format (=1) or csv (=0)
+ * @param toF - format flag for output: csv (=0), R list (=1), or par file (=-1)
  * @param willBeActive - flag to write only if parameter vector will be active
  * @param phase - current phase
  */
@@ -273,7 +273,7 @@ namespace tcsam {
                          dvar_vector& p,     
                          adstring& ctg1, adstring& ctg2, 
                          BoundedVectorInfo* i, 
-                         int toR, int willBeActive, int phase=0);
+                         int toF, int willBeActive, int phase=0);
 /**
  * Writes information for a devs parameter vector to an output stream.
  * 
@@ -282,7 +282,7 @@ namespace tcsam {
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
  * @param pI - pointer to associated DevsVectorInfo info object
- * @param toR - flag to write to R format (=1) or csv (=0)
+ * @param toF - format flag for output: csv (=0), R list (=1), or par file (=-1)
  * @param willBeActive - flag to write only if parameter vector will be active
  * @param phase - current phase
  */
@@ -290,16 +290,16 @@ namespace tcsam {
                          dvar_vector& p, 
                          adstring& ctg1, adstring& ctg2, 
                          DevsVectorInfo* i, 
-                         int toR, int willBeActive, int phase=0);
+                         int toF, int willBeActive, int phase=0);
 /**
- * Writes a vector of parameters (param_init_number_vector) to R or csv.
+ * Writes a vector of parameters (param_init_number_vector) to an output stream.
  * 
  * @param os - output stream to write to
  * @param p - a param_init_number_vector
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
  * @param pI - pointer to associated NumberVectorInfo info object
- * @param toR - flag to write to R format (=1) or csv (=0)
+ * @param toF - format flag for output: csv (=0), R list (=1), or par file (=-1)
  * @param willBeActive - flag to write if parameters will be active in some phase
  * @param phase - current phase
  */
@@ -307,16 +307,16 @@ namespace tcsam {
                          param_init_number_vector& p,        
                          adstring& ctg1, adstring& ctg2, 
                          NumberVectorInfo* pI, 
-                         int toR, int willBeActive, int phase=0);
+                         int toF, int willBeActive, int phase=0);
 /**
- * Writes a vector of parameters (param_init_bounded_number_vector) to R or csv.
+ * Writes a vector of parameters (param_init_bounded_number_vector) to an output stream.
  * 
  * @param os - output stream to write to
  * @param p - a param_init_bounded_number_vector
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
  * @param pI - pointer to associated BoundedNumberVectorInfo info object
- * @param toR - flag to write to R format (=1) or csv (=0)
+ * @param toF - format flag for output: csv (=0), R list (=1), or par file (=-1)
  * @param willBeActive - flag to write if parameters will be active in some phase
  * @param phase - current phase
  */
@@ -324,16 +324,16 @@ namespace tcsam {
                          param_init_bounded_number_vector& p,
                          adstring& ctg1, adstring& ctg2, 
                          BoundedNumberVectorInfo* pI, 
-                         int toR, int willBeActive, int phase=0);
+                         int toF, int willBeActive, int phase=0);
 /**
- * Writes a vector of parameter vectors (as a dvar_matrix) to R or csv.
+ * Writes a vector of parameter vectors (as a dvar_matrix) to an output stream.
  * 
  * @param os - output stream to write to
  * @param p - dvar_matrix representing the vector_vector
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
  * @param pI - pointer to associated VectorVectorInfo info object
- * @param toR - flag to write to R format (=1) or csv (=0)
+ * @param toF - format flag for output: csv (=0), R list (=1), or par file (=-1)
  * @param willBeActive - flag to write if parameters will be active in some phase
  * @param phase - current phase
  */
@@ -341,16 +341,16 @@ namespace tcsam {
                          dvar_matrix& p,        
                          adstring& ctg1, adstring& ctg2, 
                          VectorVectorInfo* pI, 
-                         int toR, int willBeActive, int phase=0);
+                         int toF, int willBeActive, int phase=0);
 /**
- * Writes a vector of parameter vectors (as a dvar_matrix) to R or csv.
+ * Writes a vector of parameter vectors (as a dvar_matrix) to an output stream.
  * 
  * @param os - output stream to write to
  * @param p - dvar_matrix representing the bounded_vector_vector
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
  * @param pI - pointer to associated BoundedVectorVectorInfo info object
- * @param toR - flag to write to R format (otherwise csv)
+ * @param toF - format flag for output: csv (=0), R list (=1), or par file (=-1)
  * @param willBeActive - flag to write if parameters will be active in some phase
  * @param phase - current phase
  */
@@ -358,17 +358,17 @@ namespace tcsam {
                          dvar_matrix& p,
                          adstring& ctg1, adstring& ctg2, 
                          BoundedVectorVectorInfo* pI, 
-                         int toR, int willBeActive, int phase=0);
+                         int toF, int willBeActive, int phase=0);
     
 /**
- * Writes a vector of parameter vectors (as a dvar_matrix) to R or csv.
+ * Writes a vector of parameter vectors (as a dvar_matrix) to an output stream.
  * 
  * @param os - output stream to write to
  * @param p - a dvar_matrix
  * @param ctg1 - category 1 label
  * @param ctg2 - category 2 label
  * @param pI - pointer to associated DevsVectorVectorInfo info object
- * @param toR - flag to write to R format (otherwise csv)
+ * @param toF - format flag for output: csv (=0), R list (=1), or par file (=-1)
  * @param willBeActive - flag to write if parameters will be active in some phase
  * @param phase - current phase
  */
@@ -377,7 +377,7 @@ namespace tcsam {
                          adstring& ctg1, 
                          adstring& ctg2, 
                          DevsVectorVectorInfo* pI, 
-                         int toR, int willBeActive, int phase=0);
+                         int toF, int willBeActive, int phase=0);
     
 /**
  * Sets the info for a param_init_number_vector from a NumberVectorInfo object.
