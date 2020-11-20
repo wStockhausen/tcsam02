@@ -59,7 +59,7 @@ class IndexBlock;
         /* keyword indicating biomass (weight) data */
         const static adstring KW_BIOMASS_DATA;  
     protected:
-        /* input aggregate catch data (value, cv by xmsy) */
+        /* input aggregate catch data (use flag, value, cv by xmsy) */
         d5_array inpC_xmsyc; 
     public:
         /* type (abundance, biomass) of data */
@@ -77,7 +77,7 @@ class IndexBlock;
         d4_array C_xmsy;   //aggregate catch by sex, maturity, shell_condition, year (converted from units to THOUSANDS of crab or MT))
         d4_array cv_xmsy;  //aggregate catch cv's by sex, maturity, shell_condition, year
         d4_array sd_xmsy;  //aggregate catch stdv's by sex, maturity, shell_condition, year
-        d4_array nlls_xmsy;//negative log-likelihood components
+        d4_array uf_xmsy;  //use flags, by sex, maturity, shell_condition, year
         
     public:
         AggregateCatchData(){}

@@ -70,7 +70,9 @@ void AggregateCatchData::aggregateData(void){
 
     //fill in aggregate values, as necessary
     //need to be careful handling values already partially aggregated
-    double tC; double vC;
+    double tC; //summed catch value
+    double vC; //summed catch variance
+    double tU; //summed use flags
     for (int x=xxmn;x<=xxmx;x++){
         int xmn, xmx;
         xmn = xmx = x; if (x==tcsam::ALL_SXs) {xmn = 1; xmx = tcsam::ALL_SXs;}
@@ -100,19 +102,20 @@ void AggregateCatchData::aggregateData(void){
                             if (debug) os<<y<<endl;
                             tC = 0.0;
                             vC = 0.0;
+                            tU = 0.0;
                             for (int xp=xmn;xp<=xmx;xp++){
                                 for (int mp=mmn;mp<=mmx;mp++){
                                     for (int sp=smn;sp<=smx;sp++){
-                                        if (debug) os<<xp<<" "<<mp<<" "<<sp<<" "<<convFac*inpC_xmsyc(xp,mp,sp,y,2)<<" "<<inpC_xmsyc(xp,mp,sp,y,3)<<endl;
-                                        tC += convFac*inpC_xmsyc(xp,mp,sp,y,2);//mean
-                                        vC += square(convFac*inpC_xmsyc(xp,mp,sp,y,2)*inpC_xmsyc(xp,mp,sp,y,3));//variance = (mean*cv)^2
+                                        if (debug) os<<xp<<" "<<mp<<" "<<sp<<" "<<convFac*inpC_xmsyc(xp,mp,sp,y,3)<<" "<<inpC_xmsyc(xp,mp,sp,y,4)<<endl;
+                                        tC += convFac*inpC_xmsyc(xp,mp,sp,y,3);//mean
+                                        vC += square(convFac*inpC_xmsyc(xp,mp,sp,y,2)*inpC_xmsyc(xp,mp,sp,y,4));//variance = (mean*cv)^2
+                                        tU += inpC_xmsyc(xp,mp,sp,y,1);//use flag
                                     }//sp
                                 }//mp
                             }//xp
                             C_xmsy(x,m,s,y) = tC;
-                            if (tC>0.0) {
-                                cv_xmsy(x,m,s,y) = sqrt(vC)/tC;
-                            }
+                            if (tC>0.0) cv_xmsy(x,m,s,y) = sqrt(vC)/tC;
+                            if (tU>0.0) uf_xmsy(x,m,s,y) = 1.0;//aggregated use flag set to 1 unless all aggregated components had uf = 0 
                         }//y
                         if (llType==tcsam::LL_LOGNORMAL){
                             sd_xmsy(x,m,s) = sqrt(log(1.0+elem_prod(cv_xmsy(x,m,s),cv_xmsy(x,m,s))));
@@ -124,6 +127,7 @@ void AggregateCatchData::aggregateData(void){
                         rpt::echo<<"C  = "<< C_xmsy(x,m,s)<<endl;
                         rpt::echo<<"cv = "<<cv_xmsy(x,m,s)<<endl;
                         rpt::echo<<"sd = "<<sd_xmsy(x,m,s)<<endl;
+                        rpt::echo<<"uf = "<<uf_xmsy(x,m,s)<<endl;
                     }
                 }//aggregate?
             }//s
@@ -137,6 +141,7 @@ void AggregateCatchData::aggregateData(void){
  * abundance data and 1000's mt for biomass data.
  * Also modifies inpC_xmsyc to reflect new data, but keeps original units.
  * Error-related quantities remain the same.
+ * Use flags remain the same.
  * 
  * @param iSeed - flag to add noise to data (if !=0)
  * @param rng - random number generator
@@ -162,7 +167,7 @@ void AggregateCatchData::replaceCatchData(int iSeed,random_number_generator& rng
     int oldNY = ny;
     ivector oldYrs(1,oldNY); oldYrs = yrs;
     d4_array oldSD_xmsy(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,oldNY);
-    d5_array oldInpC_xmsyc(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,oldNY,1,3);
+    d5_array oldInpC_xmsyc(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,oldNY,1,4);
     for (int x=1;x<=tcsam::ALL_SXs;x++){
         for (int m=1;m<=tcsam::ALL_MSs;m++){
             for (int s=1;s<=tcsam::ALL_SCs;s++) {
@@ -184,7 +189,7 @@ void AggregateCatchData::replaceCatchData(int iSeed,random_number_generator& rng
     yrs.deallocate(); yrs.allocate(1,ny); yrs.initialize();
     //reallocate inpC_xmsyc for new number of years
     inpC_xmsyc.deallocate(); 
-    inpC_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,3);
+    inpC_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,4);
     inpC_xmsyc.initialize();
 
     //copy old data from appropriate years & factor combinations
@@ -207,9 +212,10 @@ void AggregateCatchData::replaceCatchData(int iSeed,random_number_generator& rng
                         v += wts::drawSampleNormal(rng,0.0,sd);
                     }
                 }
-                inpC_xmsyc(x,m,s,yctr,1) = oldInpC_xmsyc(x,m,s,y,1);//old year
-                inpC_xmsyc(x,m,s,yctr,3) = oldInpC_xmsyc(x,m,s,y,3);//old cv
-                inpC_xmsyc(x,m,s,yctr,2) = v/convFac;//new value
+                inpC_xmsyc(x,m,s,yctr,1) = oldInpC_xmsyc(x,m,s,y,1);//old use flag
+                inpC_xmsyc(x,m,s,yctr,2) = oldInpC_xmsyc(x,m,s,y,1);//old year
+                inpC_xmsyc(x,m,s,yctr,3) = v/convFac;               //new value
+                inpC_xmsyc(x,m,s,yctr,4) = oldInpC_xmsyc(x,m,s,y,3);//old cv
             }//i loop
         }//if ((mnY<=yr)&&(yr<=mxY))
     }//y loop
@@ -219,13 +225,15 @@ void AggregateCatchData::replaceCatchData(int iSeed,random_number_generator& rng
     C_xmsy.allocate( 1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);  C_xmsy.initialize();
     cv_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny); cv_xmsy.initialize();
     sd_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny); sd_xmsy.initialize();    
+    uf_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny); uf_xmsy.initialize();    
     int nc = factors.indexmax();
     for (int i=1;i<=nc;i++){
         int x = tcsam::getSexType(factors(i,1));
         int m = tcsam::getMaturityType(factors(i,2));
         int s = tcsam::getShellType(factors(i,3));
         C_xmsy(x,m,s)  = convFac*column(inpC_xmsyc(x,m,s),2);
-        cv_xmsy(x,m,s) = column(inpC_xmsyc(x,m,s),3);
+        cv_xmsy(x,m,s) = column(inpC_xmsyc(x,m,s),4);
+        uf_xmsy(x,m,s) = column(inpC_xmsyc(x,m,s),1);
         if (llType==tcsam::LL_LOGNORMAL){
             sd_xmsy(x,m,s) = sqrt(log(1.0+elem_prod(cv_xmsy(x,m,s),cv_xmsy(x,m,s))));
         } else {
@@ -236,6 +244,7 @@ void AggregateCatchData::replaceCatchData(int iSeed,random_number_generator& rng
             rpt::echo<<"C_xmsy  = "<< C_xmsy(x,m,s)<<endl;
             rpt::echo<<"cv_xmsy = "<<cv_xmsy(x,m,s)<<endl;
             rpt::echo<<"sd_xmsy = "<<sd_xmsy(x,m,s)<<endl;
+            rpt::echo<<"uf_xmsy = "<<uf_xmsy(x,m,s)<<endl;
         }
     }
     
@@ -248,6 +257,7 @@ void AggregateCatchData::replaceCatchData(int iSeed,random_number_generator& rng
  * Update catch data C_xmsy with data for new year "y". 
  * Units are MILLIONS for abundance data and 1000's mt for biomass data.
  * Also modifies inpC_xmsyc to reflect new data, but keeps original units.
+ * Use flag for new year is 1.
  * 
  * @param y - year to add
  * @param newC_xms - d3_array of new catch data
@@ -267,7 +277,7 @@ void AggregateCatchData::addCatchData(int y, d3_array& newC_xms){
     //copy old values to temporary values
     int oldNY = ny;
     ivector oldYrs(1,oldNY); oldYrs = yrs;
-    d5_array oldInpC_xmsyc(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,oldNY,1,3);
+    d5_array oldInpC_xmsyc(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,oldNY,1,4);
     for (int x=1;x<=tcsam::ALL_SXs;x++){
         for (int m=1;m<=tcsam::ALL_MSs;m++){
             for (int s=1;s<=tcsam::ALL_SCs;s++) {
@@ -286,7 +296,7 @@ void AggregateCatchData::addCatchData(int y, d3_array& newC_xms){
     
     //reallocate inpC_xmsyc for new number of years
     inpC_xmsyc.deallocate(); 
-    inpC_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,3);
+    inpC_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,4);
     inpC_xmsyc.initialize();
 
     //copy old data from appropriate years & factor combinations
@@ -309,9 +319,10 @@ void AggregateCatchData::addCatchData(int y, d3_array& newC_xms){
         int s = tcsam::getShellType(factors(i,3));
         if (debug) os<<"x,m,s = "<<x<<cc<<m<<cc<<s<<endl;
         double v = tcsam::extractFromXMS(x,m,s,newC_xms);//aggregate as necessary
-        inpC_xmsyc(x,m,s,ny,1) = y;//new year
-        inpC_xmsyc(x,m,s,ny,2) = v/convFac;//new value
-        inpC_xmsyc(x,m,s,ny,3) = oldInpC_xmsyc(x,m,s,oldNY,3);//set new cv = old cv
+        inpC_xmsyc(x,m,s,ny,1) = 1;//use flag set to 1
+        inpC_xmsyc(x,m,s,ny,2) = y;//new year
+        inpC_xmsyc(x,m,s,ny,3) = v/convFac;//new value
+        inpC_xmsyc(x,m,s,ny,4) = oldInpC_xmsyc(x,m,s,oldNY,4);//set new cv = old cv
     }//i loop
     if (debug) os<<"Created new inpC_xmsyc"<<endl;
     
@@ -319,13 +330,15 @@ void AggregateCatchData::addCatchData(int y, d3_array& newC_xms){
     C_xmsy.allocate( 1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);  C_xmsy.initialize();
     cv_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny); cv_xmsy.initialize();
     sd_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny); sd_xmsy.initialize();    
+    uf_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny); uf_xmsy.initialize();    
     int nc = factors.indexmax();
     for (int i=1;i<=nc;i++){
         int x = tcsam::getSexType(factors(i,1));
         int m = tcsam::getMaturityType(factors(i,2));
         int s = tcsam::getShellType(factors(i,3));
-        C_xmsy(x,m,s)  = convFac*column(inpC_xmsyc(x,m,s),2);
-        cv_xmsy(x,m,s) = column(inpC_xmsyc(x,m,s),3);
+        C_xmsy(x,m,s)  = convFac*column(inpC_xmsyc(x,m,s),3);
+        cv_xmsy(x,m,s) = column(inpC_xmsyc(x,m,s),4);
+        uf_xmsy(x,m,s) = column(inpC_xmsyc(x,m,s),1);
         if (llType==tcsam::LL_LOGNORMAL){
             sd_xmsy(x,m,s) = sqrt(log(1.0+elem_prod(cv_xmsy(x,m,s),cv_xmsy(x,m,s))));
         } else {
@@ -336,6 +349,7 @@ void AggregateCatchData::addCatchData(int y, d3_array& newC_xms){
             os<<"C_xmsy  = "<< C_xmsy(x,m,s)<<endl;
             os<<"cv_xmsy = "<<cv_xmsy(x,m,s)<<endl;
             os<<"sd_xmsy = "<<sd_xmsy(x,m,s)<<endl;
+            os<<"uf_xmsy = "<<uf_xmsy(x,m,s)<<endl;
         }
     }
     
@@ -363,12 +377,14 @@ void AggregateCatchData::setMaxYear(int mxYr){
     d4_array new_C_xmsy(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp);
     d4_array new_cv_xmsy(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp);
     d4_array new_sd_xmsy(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp);  
+    d4_array new_uf_xmsy(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp);  
     
     new_yrs.initialize();
     new_inpC_xmsyc.initialize();
     new_C_xmsy.initialize();
     new_cv_xmsy.initialize();
     new_sd_xmsy.initialize();
+    new_uf_xmsy.initialize();
     
     int iyp = 0;
     for (int iy=1;iy<=ny;iy++) {
@@ -382,6 +398,7 @@ void AggregateCatchData::setMaxYear(int mxYr){
                         new_C_xmsy(x,m,s,iyp)     = C_xmsy(x,m,s,iy);
                         new_cv_xmsy(x,m,s,iyp)    = cv_xmsy(x,m,s,iy);
                         new_sd_xmsy(x,m,s,iyp)    = sd_xmsy(x,m,s,iy);
+                        new_uf_xmsy(x,m,s,iyp)    = uf_xmsy(x,m,s,iy);
                     }//--s
                 }//--m
             }//--x
@@ -400,12 +417,14 @@ void AggregateCatchData::setMaxYear(int mxYr){
     C_xmsy.deallocate();
     cv_xmsy.deallocate();
     sd_xmsy.deallocate();
+    uf_xmsy.deallocate();
     
     yrs.allocate(new_yrs);
     inpC_xmsyc.allocate(new_inpC_xmsyc);
     C_xmsy.allocate(new_C_xmsy);
     cv_xmsy.allocate(new_cv_xmsy);
     sd_xmsy.allocate(new_sd_xmsy);
+    uf_xmsy.allocate(new_sd_xmsy);
     
     for (int iy=1;iy<=ny;iy++) {
         yrs(iy) = new_yrs(iy);
@@ -416,6 +435,7 @@ void AggregateCatchData::setMaxYear(int mxYr){
                     C_xmsy(x,m,s,iy)     = new_C_xmsy(x,m,s,iy);
                     cv_xmsy(x,m,s,iy)    = new_cv_xmsy(x,m,s,iy);
                     sd_xmsy(x,m,s,iy)    = new_sd_xmsy(x,m,s,iy);
+                    uf_xmsy(x,m,s,iy)    = new_uf_xmsy(x,m,s,iy);
                 }//--s
             }//--m
         }//--x
@@ -475,13 +495,15 @@ void AggregateCatchData::read(cifstream & is){
         rpt::echo<<"#conversion factor from "<<units<<" to 1000's MT is "<<convFac<<std::endl;
     }
     
-    inpC_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,3);
+    //last index is use flag, year, catch, sd or cv
+    inpC_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,4);
     inpC_xmsyc.initialize();
     
     yrs.allocate(1,ny);
     C_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);   C_xmsy.initialize();
     cv_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny); cv_xmsy.initialize();
     sd_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny); sd_xmsy.initialize();
+    uf_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny); uf_xmsy.initialize();
     
     int nc; //number of factor combinations to read in data for
     is>>nc;
@@ -497,9 +519,10 @@ void AggregateCatchData::read(cifstream & is){
             is>>inpC_xmsyc(x,m,s);
             rpt::echo<<"#year    value     cv"<<std::endl;
             rpt::echo<<inpC_xmsyc(x,m,s)<<std::endl;
-            yrs = (ivector) column(inpC_xmsyc(x,m,s),1);
-            C_xmsy(x,m,s)  = convFac*column(inpC_xmsyc(x,m,s),2);
-            cv_xmsy(x,m,s) = column(inpC_xmsyc(x,m,s),3);
+            uf_xmsy(x,m,s) = column(inpC_xmsyc(x,m,s),1);
+            yrs = (ivector) column(inpC_xmsyc(x,m,s),2);
+            C_xmsy(x,m,s)  = convFac*column(inpC_xmsyc(x,m,s),3);
+            cv_xmsy(x,m,s) = column(inpC_xmsyc(x,m,s),4);
             if (llType==tcsam::LL_LOGNORMAL){
                 sd_xmsy(x,m,s) = sqrt(log(1.0+elem_prod(cv_xmsy(x,m,s),cv_xmsy(x,m,s))));
             } else {
@@ -508,6 +531,7 @@ void AggregateCatchData::read(cifstream & is){
             rpt::echo<<"C_xmsy  = "<< C_xmsy(x,m,s)<<endl;
             rpt::echo<<"cv_xmsy = "<<cv_xmsy(x,m,s)<<endl;
             rpt::echo<<"sd_xmsy = "<<sd_xmsy(x,m,s)<<endl;
+            rpt::echo<<"uf_xmsy = "<<uf_xmsy(x,m,s)<<endl;
         } else {
             std::cout<<"-----------------------------------------------------------"<<std::endl;
             std::cout<<"-----------------------------------------------------------"<<std::endl;
@@ -544,7 +568,7 @@ void AggregateCatchData::write(ostream & os){
         int s = tcsam::getShellType(factors(c,3));
         os<<"#-------"<<factors(c,1)<<cc<<factors(c,2)<<cc<<factors(c,3)<<std::endl;
         os<<factors(c,1)<<tb<<factors(c,2)<<tb<<factors(c,3)<<std::endl;
-        os<<"#year    value     cv"<<std::endl;
+        os<<"#use? year    value     cv"<<std::endl;
         os<<inpC_xmsyc(x,m,s)<<std::endl;
     }
     if (debug) std::cout<<"end AggregateCatchData::write(...) "<<this<<std::endl;
@@ -554,10 +578,6 @@ void AggregateCatchData::write(ostream & os){
 ***************************************************************/
 void AggregateCatchData::writeToR(ostream& os, std::string nm, int indent) {
     if (debug) std::cout<<"AggregateCatchData::writing to R"<<std::endl;
-    
-//    ivector bnds = wts::getBounds(C_xmsy);
-//    adstring x = tcsamDims::getSXsForR(bnds[1],bnds[2]);
-//    adstring y  = "year=c("+wts::to_qcsv(yrs)+")";
     
     adstring str; adstring unitsp;
     if (type==KW_ABUNDANCE_DATA) {
@@ -587,7 +607,10 @@ void AggregateCatchData::writeToR(ostream& os, std::string nm, int indent) {
         wts::writeToR(os,C_xmsy,x,m,s,y); os<<cc<<std::endl;
     for (int n=0;n<indent;n++) os<<tb;
         os<<"cvs="<<std::endl;
-        wts::writeToR(os,cv_xmsy,x,m,s,y); os<<std::endl;
+        wts::writeToR(os,cv_xmsy,x,m,s,y); os<<cc<<std::endl;
+    for (int n=0;n<indent;n++) os<<tb;
+        os<<"ufs="<<std::endl;
+        wts::writeToR(os,uf_xmsy,x,m,s,y); os<<std::endl;
     for (int n=0;n<indent;n++) os<<tb;
          os<<")";
     if (debug) std::cout<<"AggregateCatchData::done writing to R"<<std::endl;
