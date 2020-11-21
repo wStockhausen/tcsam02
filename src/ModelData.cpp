@@ -687,7 +687,7 @@ void SizeFrequencyData::applyReWeightingFactors(){
 }
 
 /**
- * Normalize the size frequency data to sum to 1 over x,m,s,z.
+ * Normalize the size frequency data to sum to 1 over all x,m,s,z.
  */
 void SizeFrequencyData::normalize(void){
     if (debug) os<<"Starting SizeFrequencyData::normalize()"<<endl;
@@ -710,6 +710,51 @@ void SizeFrequencyData::normalize(void){
 }
 
 /**
+ * Create the indices used for tail compression and do the compression.
+ * 
+ * Tail compression is done by xmsy.
+ */
+void SizeFrequencyData::doTailCompression(void){
+    int olddebug=debug;
+    debug=1;
+    if (debug) rpt::echo<<"starting SizeFrequencyData::doTailCompression() "<<this<<std::endl;
+    tc_xmsyc.deallocate();
+    tc_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,2);
+    for (int y=1;y<=ny;y++){
+        //calculate total numbers
+        for (int x=1;x<=tcsam::ALL_SXs;x++){
+            for (int m=1;m<=tcsam::ALL_MSs;m++){
+                for (int s=1;s<=tcsam::ALL_SCs;s++) {
+                    double nT = sum(NatZ_xmsyz(x,m,s,y));//sum over size bins for xmsy
+                    if (nT>0.0){
+                        int mnZ = NatZ_xmsyz(x,m,s,y).indexmin();
+                        int mxZ = NatZ_xmsyz(x,m,s,y).indexmax();
+                        dvector cumsum = NatZ_xmsyz(x,m,s,y)/nT;
+                        int imnFound = 0; int imxFound = 0;
+                        if (tc_limits(1)<=cumsum(1)) {tc_xmsyc(x,m,s,y)(1) = 1; imnFound=1;}
+                        for (int i=2;i<=mxZ;i++) {
+                            cumsum(i) = cumsum(i)+cumsum(i-1);//cumulative sum
+                            if ((!imnFound)&&(    tc_limits(1)<=cumsum(i))) {tc_xmsyc(x,m,s,y)(1) = i; imnFound=1;}
+                            if ((!imxFound)&&((1-tc_limits(2))<=cumsum(i))) {tc_xmsyc(x,m,s,y)(2) = i; imxFound=1;}
+                        }
+                        if (!imxFound) tc_xmsyc(x,m,s,y)(2) = mxZ;
+                        if (debug){
+                            rpt::echo<<"yxms      = "<<y<<tb<<x<<tb<<m<<tb<<s<<std::endl;
+                            rpt::echo<<"tc_limits = "<<tc_limits<<std::endl;
+                            rpt::echo<<"tc_indxs  = "<<tc_xmsyc(x,m,s,y)<<std::endl;
+                            rpt::echo<<"cumsum    = "<<cumsum<<std::endl;
+                            rpt::echo<<"NatZ      = "<<NatZ_xmsyz(x,m,s,y)<<std::endl;
+                        }
+                    }
+                }//--s
+            }//--m
+        }//--x
+    }//--y
+    if (debug) rpt::echo<<"finished SizeFrequencyData::doTailCompression() "<<this<<std::endl;
+    debug=olddebug;
+}
+
+/**
  * Replace catch-at-size data NatZ_xmsyz with new data. 
  * Also modifies inpNatZ_xmsyc to reflect new data.
  * Error-related quantities remain the same.
@@ -728,7 +773,7 @@ void SizeFrequencyData::replaceSizeFrequencyData(int iSeed,random_number_generat
     //copy old values in temporary variables
     int oldNY = ny;
     ivector oldYrs(1,oldNY); oldYrs = yrs;
-    d5_array oldInpNatZ_xmsyc(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,oldNY,1,2+(nZCs-1));
+    d5_array oldInpNatZ_xmsyc(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,oldNY,1,3+(nZCs-1));
     for (int x=1;x<=tcsam::ALL_SXs;x++){
         for (int m=1;m<=tcsam::ALL_MSs;m++){
             for (int s=1;s<=tcsam::ALL_SCs;s++) {
@@ -747,7 +792,7 @@ void SizeFrequencyData::replaceSizeFrequencyData(int iSeed,random_number_generat
     yrs.deallocate(); yrs.allocate(1,ny); yrs.initialize();
     //reallocate inpNatZ_xmsyc for new number of years
     inpNatZ_xmsyc.deallocate(); 
-    inpNatZ_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,2+(nZCs-1));
+    inpNatZ_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,3+(nZCs-1));
     inpNatZ_xmsyc.initialize();
 
     //copy old data from appropriate years
@@ -774,8 +819,8 @@ void SizeFrequencyData::replaceSizeFrequencyData(int iSeed,random_number_generat
                                 cout<<"new n_z = "<<n_z<<endl;
                             }
                         }
-                        inpNatZ_xmsyc(x,m,s,yctr)(1,2) = oldInpNatZ_xmsyc(x,m,s,y)(1,2);//old year, ss
-                        inpNatZ_xmsyc(x,m,s,yctr)(3,2+nZCs-1).shift(1) = n_z;//new size frequency
+                        inpNatZ_xmsyc(x,m,s,yctr)(1,3) = oldInpNatZ_xmsyc(x,m,s,y)(1,3);//old use flag, year, ss
+                        inpNatZ_xmsyc(x,m,s,yctr)(4,3+nZCs-1).shift(1) = n_z;//new size frequency
                     }
                 }
             }
@@ -783,21 +828,32 @@ void SizeFrequencyData::replaceSizeFrequencyData(int iSeed,random_number_generat
     }
     
     //re-constitute other arrays
+    inpUF_xmsy.deallocate();
+    inpSS_xmsy.deallocate();
+    NatZ_xmsyz.deallocate();
+    PatZ_xmsyz.deallocate();
+    
+    inpUF_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
     inpSS_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
     NatZ_xmsyz.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,nZCs-1);
     PatZ_xmsyz.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,nZCs-1);
     
+    inpUF_xmsy.initialize();
     inpSS_xmsy.initialize();
     NatZ_xmsyz.initialize();
     PatZ_xmsyz.initialize();
     
+    ss_xmsy.deallocate();
     ss_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
     ss_xmsy.initialize();
     
     //reset re-weighting multipliers
+    cumF_xms.deallocate();
     cumF_xms.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs);
     cumF_xms.initialize();
     cumF_xms = 1.0;
+    
+    itrF_xms.deallocate();
     itrF_xms.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs);
     itrF_xms.initialize();
     
@@ -809,7 +865,7 @@ void SizeFrequencyData::replaceSizeFrequencyData(int iSeed,random_number_generat
             inpSS_xmsy(x,m,s) = column(inpNatZ_xmsyc(x,m,s),2);
             ss_xmsy(x,m,s) = inpSS_xmsy(x,m,s);
             for (int y=1;y<=ny;y++){
-                NatZ_xmsyz(x,m,s,y)  = (inpNatZ_xmsyc(x,m,s,y)(3,2+(nZCs-1))).shift(1);
+                NatZ_xmsyz(x,m,s,y)  = (inpNatZ_xmsyc(x,m,s,y)(4,3+(nZCs-1))).shift(1);
             }
     }
     normalize();
@@ -830,7 +886,7 @@ void SizeFrequencyData::addSizeFrequencyData(int y, d4_array& newNatZ_xmsz){
     if (debug) os<<"Copying old values to temporary storage"<<endl;
     int oldNY = ny;
     ivector oldYrs(1,oldNY); oldYrs = yrs;
-    d5_array oldInpNatZ_xmsyc(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,oldNY,1,2+(nZCs-1));
+    d5_array oldInpNatZ_xmsyc(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,oldNY,1,3+(nZCs-1));
     for (int x=1;x<=tcsam::ALL_SXs;x++){
         for (int m=1;m<=tcsam::ALL_MSs;m++){
             for (int s=1;s<=tcsam::ALL_SCs;s++) {
@@ -848,7 +904,7 @@ void SizeFrequencyData::addSizeFrequencyData(int y, d4_array& newNatZ_xmsz){
     
     //reallocate inpNatZ_xmsyc for new number of years
     inpNatZ_xmsyc.deallocate(); 
-    inpNatZ_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,2+(nZCs-1));
+    inpNatZ_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,3+(nZCs-1));
     inpNatZ_xmsyc.initialize();
     if (debug) os<<"Done reallocating for new number of years"<<endl;
 
@@ -873,9 +929,10 @@ void SizeFrequencyData::addSizeFrequencyData(int y, d4_array& newNatZ_xmsz){
                 if (debug) os<<"x,m,s = "<<x<<cc<<m<<cc<<s<<endl;
                 dvector n_z = tcsam::extractFromXMSZ(x,m,s,newNatZ_xmsz);
                 if (debug) os<<"n_z = "<<n_z<<endl;
-                inpNatZ_xmsyc(x,m,s,ny)(1) = y;                               //new year
-                inpNatZ_xmsyc(x,m,s,ny)(2) = oldInpNatZ_xmsyc(x,m,s,oldNY)(2);//new ss = last year's ss
-                inpNatZ_xmsyc(x,m,s,ny)(3,2+nZCs-1).shift(1) = n_z;           //new size frequency
+                inpNatZ_xmsyc(x,m,s,ny)(1) = 1;                               //set UF=1 to use new ZC
+                inpNatZ_xmsyc(x,m,s,ny)(2) = y;                               //new year
+                inpNatZ_xmsyc(x,m,s,ny)(3) = oldInpNatZ_xmsyc(x,m,s,oldNY)(3);//new ss = last year's ss
+                inpNatZ_xmsyc(x,m,s,ny)(4,3+nZCs-1).shift(1) = n_z;           //new size frequency
             }//-s
         }//-m
     }//-x
@@ -883,21 +940,32 @@ void SizeFrequencyData::addSizeFrequencyData(int y, d4_array& newNatZ_xmsz){
     
     //re-constitute other arrays
     if (debug) os<<"Reconstituting other arrays"<<endl;
+    inpUF_xmsy.deallocate();
+    inpSS_xmsy.deallocate();
+    NatZ_xmsyz.deallocate();
+    PatZ_xmsyz.deallocate();
+    
+    inpUF_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
     inpSS_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
     NatZ_xmsyz.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,nZCs-1);
     PatZ_xmsyz.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,nZCs-1);
     
+    inpUF_xmsy.initialize();
     inpSS_xmsy.initialize();
     NatZ_xmsyz.initialize();
     PatZ_xmsyz.initialize();
     
+    ss_xmsy.deallocate();
     ss_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
     ss_xmsy.initialize();
     
     //reset re-weighting multipliers
+    cumF_xms.deallocate();
     cumF_xms.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs);
     cumF_xms.initialize();
     cumF_xms = 1.0;
+    
+    itrF_xms.allocate();
     itrF_xms.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs);
     itrF_xms.initialize();
     
@@ -906,10 +974,11 @@ void SizeFrequencyData::addSizeFrequencyData(int y, d4_array& newNatZ_xmsz){
         int x = tcsam::getSexType(factors(i+1,1));
         int m = tcsam::getMaturityType(factors(i+1,2));
         int s = tcsam::getShellType(factors(i+1,3));
-            inpSS_xmsy(x,m,s) = column(inpNatZ_xmsyc(x,m,s),2);
-            ss_xmsy(x,m,s) = inpSS_xmsy(x,m,s);
+            inpUF_xmsy(x,m,s) = column(inpNatZ_xmsyc(x,m,s),1);
+            inpSS_xmsy(x,m,s) = column(inpNatZ_xmsyc(x,m,s),3);
+            ss_xmsy(x,m,s)    = inpSS_xmsy(x,m,s);
             for (int iy=1;iy<=ny;iy++){
-                NatZ_xmsyz(x,m,s,iy)  = (inpNatZ_xmsyc(x,m,s,iy)(3,2+(nZCs-1))).shift(1);
+                NatZ_xmsyz(x,m,s,iy)  = (inpNatZ_xmsyc(x,m,s,iy)(4,3+(nZCs-1))).shift(1);
             }
     }
     normalize();
@@ -935,19 +1004,24 @@ void SizeFrequencyData::setMaxYear(int mxYr){
     
     //allocate temporary arrays
     ivector new_yrs(1,nyp);
+    d4_array new_inpUF_xmsy(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp);
     d4_array new_inpSS_xmsy(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp);
     d5_array new_NatZ_xmsyz(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp,1,nZCs-1);
     d5_array new_inpNatZ_xmsyc(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp,1,2+(nZCs-1));
     
     new_yrs.initialize();
+    new_inpUF_xmsy.initialize();
     new_inpSS_xmsy.initialize();
     new_NatZ_xmsyz.initialize();
     new_inpNatZ_xmsyc.initialize();
     
     //set re-weighting multipliers
+    cumF_xms.deallocate();
     cumF_xms.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs);
     cumF_xms.initialize();
     cumF_xms = 1.0;
+    
+    itrF_xms.deallocate();
     itrF_xms.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs);
     itrF_xms.initialize();
     
@@ -959,6 +1033,7 @@ void SizeFrequencyData::setMaxYear(int mxYr){
             for (int x=1;x<=tcsam::ALL_SXs;x++){
                 for (int m=1;m<=tcsam::ALL_MSs;m++){
                     for (int s=1;s<=tcsam::ALL_SCs;s++){
+                        new_inpUF_xmsy(x,m,s,iyp)    = inpUF_xmsy(x,m,s,iy);
                         new_inpSS_xmsy(x,m,s,iyp)    = inpSS_xmsy(x,m,s,iy);
                         new_NatZ_xmsyz(x,m,s,iyp)    = NatZ_xmsyz(x,m,s,iy);
                         new_inpNatZ_xmsyc(x,m,s,iyp) = inpNatZ_xmsyc(x,m,s,iy);
@@ -975,17 +1050,20 @@ void SizeFrequencyData::setMaxYear(int mxYr){
     
     //copy back to class members
     yrs.deallocate();
+    inpUF_xmsy.deallocate();
     inpSS_xmsy.deallocate();
     NatZ_xmsyz.deallocate();
     inpNatZ_xmsyc.deallocate();
     
     ny = nyp;
     yrs.allocate(1,ny);
+    inpUF_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
     inpSS_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
     NatZ_xmsyz.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,nZCs-1);
-    inpNatZ_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,2+(nZCs-1));
+    inpNatZ_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,3+(nZCs-1));
     
     yrs.initialize();
+    inpUF_xmsy.initialize();
     inpSS_xmsy.initialize();
     NatZ_xmsyz.initialize();
     inpNatZ_xmsyc.initialize();
@@ -1000,6 +1078,7 @@ void SizeFrequencyData::setMaxYear(int mxYr){
         for (int x=1;x<=tcsam::ALL_SXs;x++){
             for (int m=1;m<=tcsam::ALL_MSs;m++){
                 for (int s=1;s<=tcsam::ALL_SCs;s++){
+                    inpUF_xmsy(x,m,s,iy)    = new_inpUF_xmsy(x,m,s,iy);
                     inpSS_xmsy(x,m,s,iy)    = new_inpSS_xmsy(x,m,s,iy);
                     ss_xmsy(x,m,s,iy)       = inpSS_xmsy(x,m,s,iy);
                     NatZ_xmsyz(x,m,s,iy)    = new_NatZ_xmsyz(x,m,s,iy);
@@ -1018,7 +1097,7 @@ void SizeFrequencyData::setMaxYear(int mxYr){
                         rpt::echo<<inpNatZ_xmsyc(x,m,s)<<endl;
                         rpt::echo<<yrs<<endl;
                         for (int iy=1;iy<=ny;iy++){
-                            rpt::echo<<yrs(iy)<<tb<<inpSS_xmsy(x,m,s,iy)<<tb<<NatZ_xmsyz(x,m,s,iy)<<endl;
+                            rpt::echo<<inpUF_xmsy(x,m,s,iy)<<tb<<yrs(iy)<<tb<<inpSS_xmsy(x,m,s,iy)<<tb<<NatZ_xmsyz(x,m,s,iy)<<endl;
                         }//--iy
                     }//--if
                 }//--s
@@ -1072,6 +1151,9 @@ void SizeFrequencyData::read(cifstream & is){
     rpt::echo<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood function type"<<std::endl;
     is>>llWgt;
     rpt::echo<<llWgt<<tb<<"#likelihood weight (multiplier)"<<std::endl;
+    tc_limits.allocate(1,2);//tail compression limits (pmin, 1-pmax)
+    is>>tc_limits;
+    rpt::echo<<tc_limits<<tb<<"#tail compression limits (pmin, 1-pmax)"<<std::endl;
     is>>ny;//number of years of numbers-at-size data
     rpt::echo<<ny<<tb<<"#number of years for size frequency data"<<std::endl;
     is>>units;
@@ -1086,11 +1168,13 @@ void SizeFrequencyData::read(cifstream & is){
     if (debug) std::cout<<zBs<<tb<<"#zBins"<<std::endl;
     
     yrs.allocate(1,ny);
+    inpUF_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
     inpSS_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
     NatZ_xmsyz.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,nZCs-1);
-    inpNatZ_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,2+(nZCs-1));
+    inpNatZ_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,3+(nZCs-1));
     
     yrs.initialize();
+    inpUF_xmsy.initialize();
     inpSS_xmsy.initialize();
     NatZ_xmsyz.initialize();
     inpNatZ_xmsyc.initialize();
@@ -1118,13 +1202,14 @@ void SizeFrequencyData::read(cifstream & is){
         rpt::echo<<factors(i+1,1)<<tb<<factors(i+1,2)<<tb<<factors(i+1,3)<<tb<<"#factors"<<std::endl;
         if (x&&m&&s){
             is>>inpNatZ_xmsyc(x,m,s);
-            rpt::echo<<"#year    ss     "<<zBs<<std::endl;
+            rpt::echo<<"#use? year    ss     "<<zBs<<std::endl;
             rpt::echo<<inpNatZ_xmsyc(x,m,s)<<std::endl;
-            yrs = (ivector) column(inpNatZ_xmsyc(x,m,s),1);
-            inpSS_xmsy(x,m,s) = column(inpNatZ_xmsyc(x,m,s),2);
+            inpUF_xmsy(x,m,s) = column(inpNatZ_xmsyc(x,m,s),1);
+            yrs     = (ivector) column(inpNatZ_xmsyc(x,m,s),2);
+            inpSS_xmsy(x,m,s) = column(inpNatZ_xmsyc(x,m,s),3);
             ss_xmsy(x,m,s)    = inpSS_xmsy(x,m,s);
             for (int y=1;y<=ny;y++){
-                NatZ_xmsyz(x,m,s,y)  = (inpNatZ_xmsyc(x,m,s,y)(3,2+(nZCs-1))).shift(1);
+                NatZ_xmsyz(x,m,s,y)  = (inpNatZ_xmsyc(x,m,s,y)(4,3+(nZCs-1))).shift(1);
 //                std::cout<<"Bounds NatZ_xmsyz(x,m,s,y)   : "<<wts::getBounds(NatZ_xmsyz(x,m,s,y))<<std::endl;
 //                std::cout<<"Bounds inpNatZ_xmsyc(x,m,s,y): "<<wts::getBounds(inpNatZ_xmsyc(x,m,s,y))<<std::endl;
             }
@@ -1143,6 +1228,9 @@ void SizeFrequencyData::read(cifstream & is){
     PatZ_xmsyz.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,nZCs-1);
     PatZ_xmsyz.initialize();
     normalize();
+    
+    doTailCompression();
+    
     if (debug) std::cout<<"end SizeFrequencyData::read(...) "<<this<<std::endl;
 }
 /***************************************************************
@@ -1154,6 +1242,7 @@ void SizeFrequencyData::write(ostream & os){
     os<<tcsam::getFitType(optFit)<<tb<<"#objective function fitting option"<<std::endl;
     os<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood function type"<<std::endl;
     os<<llWgt<<tb<<"#likelihood weight (multiplier)"<<std::endl;
+    os<<tc_limits<<tb<<"#tail compression limits (pmin,1-pmax)"<<std::endl;    
     os<<ny<<tb<<"#number of years of size data"<<std::endl;
     os<<units<<tb<<"#units for numbers at size"<<std::endl;
     os<<nZCs<<tb<<"#number of size bin cutpoints"<<std::endl;
@@ -1167,7 +1256,7 @@ void SizeFrequencyData::write(ostream & os){
         int s = tcsam::getShellType(factors(c,3));
         os<<"#-------"<<factors(c,1)<<cc<<factors(c,2)<<cc<<factors(c,3)<<std::endl;
         os<<factors(c,1)<<tb<<factors(c,2)<<tb<<factors(c,3)<<std::endl;
-        os<<"#year    ss     "<<zBs<<std::endl;
+        os<<"#use? year    ss     "<<zBs<<std::endl;
         os<<inpNatZ_xmsyc(x,m,s)<<std::endl;
     }
     if (debug) std::cout<<"end SizeFrequencyData::write(...) "<<this<<std::endl;
@@ -1193,6 +1282,8 @@ void SizeFrequencyData::writeToR(ostream& os, std::string nm, int indent) {
         os<<"y="; wts::writeToR(os,yrs); os<<cc<<std::endl;
     for (int n=0;n<indent;n++) os<<tb;
         os<<"zc="; wts::writeToR(os,zCs); os<<cc<<std::endl;
+    for (int n=0;n<indent;n++) os<<tb;
+        os<<"use.flags="; wts::writeToR(os,inpUF_xmsy,x,m,s,y); os<<cc<<std::endl;
     for (int n=0;n<indent;n++) os<<tb;
         os<<"sample.sizes="; wts::writeToR(os,inpSS_xmsy,x,m,s,y); os<<cc<<std::endl;
     for (int n=0;n<indent;n++) os<<tb;

@@ -211,7 +211,7 @@ class IndexBlock;
     private:
         /* factor combinations for input numbers-at-size */
         wts::adstring_matrix factors;
-        /* input numbers-at-size data (sex,maturity state,shell condition,year,year+sample_size+nAtZ) */
+        /* input numbers-at-size data (sex,maturity state,shell condition,year,use+year+sample_size+nAtZ) */
         d5_array inpNatZ_xmsyc;       
     public:
         /* objective function fitting option */
@@ -233,12 +233,19 @@ class IndexBlock;
         adstring units; 
         /* years of size frequency data */
         ivector  yrs;       
+        /* use flags for size frequency data */
+        d4_array inpUF_xmsy;   
         /* input sample sizes for size frequency data */
         d4_array inpSS_xmsy;   
         /* raw size frequency data */
         d5_array NatZ_xmsyz;
         /* normalized size frequency data (sums to 1 over xmsz for each y) */
         d5_array PatZ_xmsyz;
+        
+        /* tail compression limits (min, 1-max) */
+        dvector tc_limits;
+        /* tail compression indices */
+        i5_array tc_xmsyc;   
         
         /* cumulative iterative re-weighting factors */
         d3_array cumF_xms;
@@ -326,8 +333,17 @@ class IndexBlock;
     public:
         /**
          * Calculate normalized size compositions PatZ_xmsyz based on NatZ_xmsyz.
+         * 
+         * Normalization is by year across xmsz.
          */
         void normalize(void);
+        
+        /**
+         * Create the indices used for tail compression and do the compression.
+         * 
+         * Tail compression is done by xmsy.
+         */
+        void doTailCompression(void);
     };
 
 //--------------------------------------------------------------------------------

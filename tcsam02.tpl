@@ -646,7 +646,9 @@
 //              2. Corrected output format for effectiveWeights.R file.
 //-2020-11-19:  1. Added calcDirichletNLL function stub, but need to fully implement.
 //              2. Added switch and code to writeParameters functions to write to alternative par file.
-//              3. Modified AggregateCatchData class to read and handle "use" flags
+//              3. Modified AggregateCatchData class to read and handle "use" flags.
+//-2020-11-20:  1. Modified SizeFrequencyData class to read and handle "use" flags.
+//              2. Modified SizeFrequencyData class to read and handle partially handle tail compression.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
