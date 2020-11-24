@@ -648,7 +648,7 @@
 //              2. Added switch and code to writeParameters functions to write to alternative par file.
 //              3. Modified AggregateCatchData class to read and handle "use" flags.
 //-2020-11-20:  1. Modified SizeFrequencyData class to read and handle "use" flags.
-//              2. Modified SizeFrequencyData class to read and handle partially handle tail compression.
+//              2. Modified SizeFrequencyData class to read and partially handle tail compression.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -6830,8 +6830,10 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
     dvariable nT;
     int mny = mA_yxmsz.indexmin();
     int mxy = mA_yxmsz.indexmax();//may NOT be mxYr
-    dvector     oP_z;//observed size comp.
-    dvar_vector mP_z;//model size comp.
+    dvector     oP_z;//observed size comp (aggregated,tail-compressed, normalized)[need to allocate as appropriate]
+    dvar_vector mP_z;//model size comp.   (aggregated,tail-compressed, normalized)[need to allocate as appropriate]
+    dvector     oP_zp(1,nZBs);//intermediate vector for "extended" comps [don't need to reallocate as size is always nZBs]
+    dvar_vector mP_zp(1,nZBs);//intermediate vector for "extended" comps [don't need to reallocate as size is always nZBs]
     if (debug<0) cout<<"list("<<endl;
     if (ptrZFD->optFit==tcsam::FIT_BY_TOT){
         effWgtComps_xmsyn.allocate(tcsam::ALL_SXs,tcsam::ALL_SXs,
@@ -6844,31 +6846,39 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
             y = yrs[iy];
             if (debug>=dbgNLLs) cout<<"y = "<<y<<endl;
             if ((mny<=y)&&(y<=mxy)) {
-                ss = 0;
                 nT = sum(mA_yxmsz(y));//=0 if not calculated
                 if (value(nT)>0){
-                    oP_z.initialize();//observed size comp.
-                    mP_z.initialize();//model size comp.
-                    for (int x=1;x<=ALL_SXs;x++){
-                        for (int m=1;m<=ALL_MSs;m++) {
-                            for (int s=1;s<=ALL_SCs;s++) {
-                                ss   += ptrZFD->ss_xmsy(x,m,s,iy);
-                                oP_z += ptrZFD->PatZ_xmsyz(x,m,s,iy);
-                            }
-                        }
+                    //get observed size comp (aggregated and tail compressed) and normalize it
+                    ss   = ptrZFD->ss_xmsy(ALL_SXs,ALL_MSs,ALL_SCs,iy);      //sample size
+                    oP_z = ptrZFD->tcdNatZ_xmsyz(ALL_SXs,ALL_MSs,ALL_SCs,iy);//--tail-compressed already
+                    if (sum(oP_z)>0) oP_z /= sum(oP_z);                      //--normalize to sum to 1
+                    //calculate model size comp
+                    //--aggregate model size comp to ALL_SXs,ALL_MSs,ALL_SC
+                    mP_zp.initialize();//model size comp.
+                    for (int x=1;x<=nSXs;x++){
+                        for (int m=1;m<=nMSs;m++) {
+                            for (int s=1;s<=nSCs;s++) {
+                                mP_zp += mA_yxmsz(y,x,m,s);
+                            }//--s
+                        }//--m
+                    }//--x
+                    //--do tail compression on model size comp
+                    int imn = ptrZFD->tc_xmsyc(ALL_SXs,ALL_MSs,ALL_SCs,iy)(1);
+                    int imx = ptrZFD->tc_xmsyc(ALL_SXs,ALL_MSs,ALL_SCs,iy)(2);
+                    if (debug>=dbgNLLs) {
+                        cout<<"x,m,s,iy = "<<"ALL_SXs"<<cc<<"ALL_MSs"<<cc<<"ALL_SCs"<<cc<<iy<<endl;
+                        cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
                     }
-                    if (sum(oP_z)>0) oP_z /= sum(oP_z);
+                    mP_z(imn)         += sum(mP_zp(1,imn));
+                    mP_z(imn+1,imx-1) += mP_zp(imn+1,imx-1);
+                    mP_z(imx)         += sum(mP_zp(imx,nZBs));
+                    //--normalize model size comp
+                    mP_z /= nT;
                     if (debug>=dbgNLLs){
                         cout<<"ss = "<<ss<<endl;
                         cout<<"oP_Z = "<<oP_z<<endl;
+                        cout<<"mP_z = "<<mP_z<<endl;
                     }
-                    for (int x=1;x<=nSXs;x++){
-                        for (int m=1;m<=nMSs;m++) {
-                            for (int s=1;s<=nSCs;s++)mP_z += mA_yxmsz(y,x,m,s);
-                        }
-                    }
-                    mP_z /= nT;//normalize model size comp
-                    if (debug>=dbgNLLs) cout<<"mP_z = "<<mP_z<<endl;
                     if (debug<0) {
                         cout<<"'"<<y<<"'=list(";
                         cout<<"fit.type='"<<tcsam::getFitType(ptrZFD->optFit)<<"'"<<cc;
@@ -6878,6 +6888,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                         cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
                         cout<<"fit=";
                     }
+                    //calculate likelihood contribution
                     calcNLL_ZC(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,y,debug,cout);
                     effWgtComps_xmsyn(tcsam::ALL_SXs,tcsam::ALL_MSs,tcsam::ALL_SCs,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
                     if (debug<0) cout<<")"<<cc<<endl;
@@ -6905,20 +6916,28 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                         mP_z.initialize();//model size comp.
                         for (int m=1;m<=ALL_MSs;m++) {
                             for (int s=1;s<=ALL_SCs;s++) {
-                                ss   += ptrZFD->ss_xmsy(x,m,s,iy);
-                                oP_z += ptrZFD->PatZ_xmsyz(x,m,s,iy);
-                            }
-                        }
+                                int imn = ptrZFD->tc_xmsyc(x,m,s,iy)(1);
+                                int imx = ptrZFD->tc_xmsyc(x,m,s,iy)(2);
+                                if (debug>=dbgNLLs) {
+                                    cout<<"x,m,s,iy = "<<x<<cc<<m<<cc<<s<<cc<<iy<<endl;
+                                    cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
+                                }
+                                ss += ptrZFD->ss_xmsy(x,m,s,iy);
+                                oP_z += ptrZFD->tcdNatZ_xmsyz(x,m,s,iy);//--tail-compressed already
+                                if ((m<=nMSs)&&(s<=nSCs)){//don't do this for "ALL"s
+                                    mP_z(imn)         += sum(mA_yxmsz(y,x,m,s)(1,imn));
+                                    mP_z(imn+1,imx-1) += mA_yxmsz(y,x,m,s)(imn+1,imx-1);
+                                    mP_z(imx)         += sum(mA_yxmsz(y,x,m,s)(imx,nZBs));
+                                }
+                            }//--s
+                        }//--m
                         if (sum(oP_z)>0) oP_z /= sum(oP_z);
+                        mP_z /= nT;//normalize model size comp
                         if (debug>=dbgNLLs){
                             cout<<"ss = "<<ss<<endl;
                             cout<<"oP_Z = "<<oP_z<<endl;
+                            cout<<"mP_z = "<<mP_z<<endl;
                         }
-                        for (int m=1;m<=nMSs;m++) {
-                            for (int s=1;s<=nSCs;s++) mP_z += mA_yxmsz(y,x,m,s);
-                        }
-                        mP_z /= nT;//normalize model size comp
-                        if (debug>=dbgNLLs) cout<<"mP_z = "<<mP_z<<endl;
                         if (debug<0) {
                             cout<<"'"<<y<<"'=list(";
                             cout<<"fit.type='"<<tcsam::getFitType(ptrZFD->optFit)<<"'"<<cc;
@@ -6956,17 +6975,27 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             oP_z.initialize();//observed size comp.
                             mP_z.initialize();//model size comp.
                             for (int s=1;s<=ALL_SCs;s++) {
-                                ss   += ptrZFD->ss_xmsy(x,m,s,iy);
-                                oP_z += ptrZFD->PatZ_xmsyz(x,m,s,iy);
-                            }
+                                int imn = ptrZFD->tc_xmsyc(x,m,s,iy)(1);
+                                int imx = ptrZFD->tc_xmsyc(x,m,s,iy)(2);
+                                if (debug>=dbgNLLs) {
+                                    cout<<"x,m,s,iy = "<<x<<cc<<m<<cc<<s<<cc<<iy<<endl;
+                                    cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
+                                }
+                                ss += ptrZFD->ss_xmsy(x,m,s,iy);
+                                oP_z += ptrZFD->tcdNatZ_xmsyz(x,m,s,iy);//--tail-compressed already
+                                if (s<=nSCs){//don't do this for "ALL"s
+                                    mP_z(imn)         += sum(mA_yxmsz(y,x,m,s)(1,imn));
+                                    mP_z(imn+1,imx-1) += mA_yxmsz(y,x,m,s)(imn+1,imx-1);
+                                    mP_z(imx)         += sum(mA_yxmsz(y,x,m,s)(imx,nZBs));
+                                }
+                            }//--s
                             if (sum(oP_z)>0) oP_z /= sum(oP_z);
+                            mP_z /= nT;//normalize model size comp
                             if (debug>=dbgNLLs){
                                 cout<<"ss = "<<ss<<endl;
                                 cout<<"oP_Z = "<<oP_z<<endl;
+                                cout<<"mP_z = "<<mP_z<<endl;
                             }
-                            for (int s=1;s<=nSCs;s++) mP_z += mA_yxmsz(y,x,m,s);
-                            mP_z /= nT;//normalize model size comp
-                            if (debug>=dbgNLLs) cout<<"mP_z = "<<mP_z<<endl;
                             if (debug<0) {
                                 cout<<"'"<<y<<"'=list(";
                                 cout<<"fit.type='"<<tcsam::getFitType(ptrZFD->optFit)<<"'"<<cc;
@@ -7006,17 +7035,27 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             oP_z.initialize();//observed size comp.
                             mP_z.initialize();//model size comp.
                             for (int m=1;m<=ALL_MSs;m++) {
-                                ss   += ptrZFD->ss_xmsy(x,m,s,iy);
-                                oP_z += ptrZFD->PatZ_xmsyz(x,m,s,iy);
-                            }
+                                int imn = ptrZFD->tc_xmsyc(x,m,s,iy)(1);
+                                int imx = ptrZFD->tc_xmsyc(x,m,s,iy)(2);
+                                if (debug>=dbgNLLs) {
+                                    cout<<"x,m,s,iy = "<<x<<cc<<m<<cc<<s<<cc<<iy<<endl;
+                                    cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
+                                }
+                                ss += ptrZFD->ss_xmsy(x,m,s,iy);
+                                oP_z += ptrZFD->tcdNatZ_xmsyz(x,m,s,iy);//--tail-compressed already
+                                if ((m<=nMSs)&&(s<=nSCs)){//don't do this for "ALL"s
+                                    mP_z(imn)         += sum(mA_yxmsz(y,x,m,s)(1,imn));
+                                    mP_z(imn+1,imx-1) += mA_yxmsz(y,x,m,s)(imn+1,imx-1);
+                                    mP_z(imx)         += sum(mA_yxmsz(y,x,m,s)(imx,nZBs));
+                                }
+                            }//--m
                             if (sum(oP_z)>0) oP_z /= sum(oP_z);
+                            mP_z /= nT;//normalize model size comp
                             if (debug>=dbgNLLs){
                                 cout<<"ss = "<<ss<<endl;
                                 cout<<"oP_Z = "<<oP_z<<endl;
+                                cout<<"mP_z = "<<mP_z<<endl;
                             }
-                            for (int m=1;m<=nMSs;m++) mP_z += mA_yxmsz(y,x,m,s);
-                            mP_z /= nT;//normalize model size comp
-                            if (debug>=dbgNLLs) cout<<"mP_z = "<<mP_z<<endl;
                             if (debug<0) {
                                 cout<<"'"<<y<<"'=list(";
                                 cout<<"fit.type='"<<tcsam::getFitType(ptrZFD->optFit)<<"'"<<cc;
@@ -7052,16 +7091,24 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             if (value(nT)>0){
                                 oP_z.initialize();//observed size comp.
                                 mP_z.initialize();//model size comp.                            
+                                int imn = ptrZFD->tc_xmsyc(x,m,s,iy)(1);
+                                int imx = ptrZFD->tc_xmsyc(x,m,s,iy)(2);
+                                if (debug>=dbgNLLs) {
+                                    cout<<"x,m,s,iy = "<<x<<cc<<m<<cc<<s<<cc<<iy<<endl;
+                                    cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
+                                }
                                 ss   += ptrZFD->ss_xmsy(x,m,s,iy);
-                                oP_z += ptrZFD->PatZ_xmsyz(x,m,s,iy);
+                                oP_z += ptrZFD->tcdNatZ_xmsyz(x,m,s,iy);//--tail-compressed already
+                                mP_z(imn)         += sum(mA_yxmsz(y,x,m,s)(1,imn));
+                                mP_z(imn+1,imx-1) += mA_yxmsz(y,x,m,s)(imn+1,imx-1);
+                                mP_z(imx)         += sum(mA_yxmsz(y,x,m,s)(imx,nZBs));
                                 if (sum(oP_z)>0) oP_z /= sum(oP_z);
+                                mP_z /= nT;//normalize model size comp
                                 if (debug>=dbgNLLs){
                                     cout<<"ss = "<<ss<<endl;
                                     cout<<"oP_Z = "<<oP_z<<endl;
+                                    cout<<"mP_z = "<<mP_z<<endl;
                                 }
-                                mP_z += mA_yxmsz(y,x,m,s);
-                                mP_z /= nT;//normalize model size comp
-                                if (debug>=dbgNLLs) cout<<"mP_z = "<<mP_z<<endl;
                                 if (debug<0) {
                                     cout<<"'"<<y<<"'=list(";
                                     cout<<"fit.type='"<<tcsam::getFitType(ptrZFD->optFit)<<"'"<<cc;
@@ -7101,23 +7148,35 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                     for (int x=1;x<=nSXs;x++) {
                         int mnz = 1+(x-1)*nZBs;
                         int mxz = x*nZBs;
+                        oP_zp.initialize();
+                        mP_zp.initialize();
                         for (int m=1;m<=ALL_MSs;m++) {
                             for (int s=1;s<=ALL_SCs;s++) {
-                                ss += ptrZFD->ss_xmsy(x,m,s,iy);
-                                oP_z(mnz,mxz).shift(1) += ptrZFD->PatZ_xmsyz(x,m,s,iy);
-                            }
-                        }
-                        for (int m=1;m<=nMSs;m++) {
-                            for (int s=1;s<=nSCs;s++) mP_z(mnz,mxz).shift(1) += mA_yxmsz(y,x,m,s);
-                        }
+                                int imn = ptrZFD->tc_xmsyc(x,m,s,iy)(1);
+                                int imx = ptrZFD->tc_xmsyc(x,m,s,iy)(2);
+                                if (debug>=dbgNLLs) {
+                                    cout<<"x,m,s,iy = "<<x<<cc<<m<<cc<<s<<cc<<iy<<endl;
+                                    cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
+                                }
+                                ss    += ptrZFD->ss_xmsy(x,m,s,iy);
+                                oP_zp += ptrZFD->tcdNatZ_xmsyz(x,m,s,iy);//--tail-compressed already
+                                if ((m<=nMSs)&&(s<=nSCs)){//don't do this for "ALL"s
+                                    mP_zp(imn)         += sum(mA_yxmsz(y,x,m,s)(1,imn));
+                                    mP_zp(imn+1,imx-1) += mA_yxmsz(y,x,m,s)(imn+1,imx-1);
+                                    mP_zp(imx)         += sum(mA_yxmsz(y,x,m,s)(imx,nZBs));
+                                }
+                            }//--s
+                        }//--m
+                        oP_z(mnz,mxz).shift(1) += oP_zp;
+                        mP_z(mnz,mxz).shift(1) += mP_zp;
                     }//x
                     if (sum(oP_z)>0) oP_z /= sum(oP_z);
+                    mP_z /= nT;//normalize model size comp
                     if (debug>=dbgNLLs){
                         cout<<"ss = "<<ss<<endl;
                         cout<<"oP_Z = "<<oP_z<<endl;
+                        cout<<"mP_z = "<<mP_z<<endl;
                     }
-                    mP_z /= nT;//normalize model size comp
-                    if (debug>=dbgNLLs) cout<<"mP_z = "<<mP_z<<endl;
                     for (int x=1;x<=nSXs;x++) {
                         int mnz = 1+(x-1)*nZBs;
                         int mxz = x*nZBs;
@@ -7161,20 +7220,33 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                         for (int m=1;m<=nMSs;m++) {
                             int mnz = 1+(m-1)*nZBs;
                             int mxz = m*nZBs;
+                            oP_zp.initialize();
+                            mP_zp.initialize();
                             for (int s=1;s<=ALL_SCs;s++) {
-                                ss += ptrZFD->ss_xmsy(x,m,s,iy);
-                                oP_z(mnz,mxz).shift(1) += ptrZFD->PatZ_xmsyz(x,m,s,iy);
+                                int imn = ptrZFD->tc_xmsyc(x,m,s,iy)(1);
+                                int imx = ptrZFD->tc_xmsyc(x,m,s,iy)(2);
+                                if (debug>=dbgNLLs) {
+                                    cout<<"x,m,s,iy = "<<x<<cc<<m<<cc<<s<<cc<<iy<<endl;
+                                    cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
+                                }
+                                ss    += ptrZFD->ss_xmsy(x,m,s,iy);
+                                oP_zp += ptrZFD->tcdNatZ_xmsyz(x,m,s,iy);//--tail-compressed already
+                                if (s<=nSCs){//don't do this for "ALL"s
+                                    mP_zp(imn)         += sum(mA_yxmsz(y,x,m,s)(1,imn));
+                                    mP_zp(imn+1,imx-1) += mA_yxmsz(y,x,m,s)(imn+1,imx-1);
+                                    mP_zp(imx)         += sum(mA_yxmsz(y,x,m,s)(imx,nZBs));
+                                }
                             }//s
-                            for (int s=1;s<=nSCs;s++) {
-                                mP_z(mnz,mxz).shift(1) += mA_yxmsz(y,x,m,s);
-                            }//s
+                            oP_z(mnz,mxz).shift(1) += oP_zp;
+                            mP_z(mnz,mxz).shift(1) += mP_zp;
                         }//m
                         if (sum(oP_z)>0) oP_z /= sum(oP_z);
+                         mP_z /= nT;//normalize model size comp
                         if (debug>=dbgNLLs){
                             cout<<"ss = "<<ss<<endl;
                             cout<<"oP_Z = "<<oP_z<<endl;
+                            cout<<"mP_z = "<<mP_z<<endl;
                         }
-                        mP_z /= nT;//normalize model size comp
                         if (debug>=dbgNLLs) cout<<"mP_z = "<<mP_z<<endl;
                         for (int m=1;m<=nMSs;m++) {
                             int mnz = 1+(m-1)*nZBs;
@@ -7220,21 +7292,33 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                         for (int s=1;s<=nSCs;s++) {
                             int mnz = 1+(s-1)*nZBs;
                             int mxz = s*nZBs;
+                            oP_zp.initialize();
+                            mP_zp.initialize();
                             for (int m=1;m<=ALL_MSs;m++) {
-                                ss += ptrZFD->ss_xmsy(x,m,s,iy);
-                                oP_z(mnz,mxz).shift(1) += ptrZFD->PatZ_xmsyz(x,m,s,iy);
+                                int imn = ptrZFD->tc_xmsyc(x,m,s,iy)(1);
+                                int imx = ptrZFD->tc_xmsyc(x,m,s,iy)(2);
+                                if (debug>=dbgNLLs) {
+                                    cout<<"x,m,s,iy = "<<x<<cc<<m<<cc<<s<<cc<<iy<<endl;
+                                    cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
+                                }
+                                ss    += ptrZFD->ss_xmsy(x,m,s,iy);
+                                oP_zp += ptrZFD->tcdNatZ_xmsyz(x,m,s,iy);//--tail-compressed already
+                                if (m<=nMSs){//don't do this for "ALL"s
+                                    mP_zp(imn)         += sum(mA_yxmsz(y,x,m,s)(1,imn));
+                                    mP_zp(imn+1,imx-1) += mA_yxmsz(y,x,m,s)(imn+1,imx-1);
+                                    mP_zp(imx)         += sum(mA_yxmsz(y,x,m,s)(imx,nZBs));
+                                }
                             }//m
-                            for (int m=1;m<=nMSs;m++) {
-                                mP_z(mnz,mxz).shift(1) += mA_yxmsz(y,x,m,s);
-                            }//m
+                            oP_z(mnz,mxz).shift(1) += oP_zp;
+                            mP_z(mnz,mxz).shift(1) += mP_zp;
                         }//s
                         if (sum(oP_z)>0) oP_z /= sum(oP_z);
+                         mP_z /= nT;//normalize model size comp
                         if (debug>=dbgNLLs){
                             cout<<"ss = "<<ss<<endl;
                             cout<<"oP_Z = "<<oP_z<<endl;
+                            cout<<"mP_z = "<<mP_z<<endl;
                         }
-                        mP_z /= nT;//normalize model size comp
-                        if (debug>=dbgNLLs) cout<<"mP_z = "<<mP_z<<endl;
                         for (int s=1;s<=nSCs;s++) {
                             int mnz = 1+(s-1)*nZBs;
                             int mxz = s*nZBs;
@@ -7279,24 +7363,34 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                         for (int m=1;m<=nMSs;m++) {
                             int mnz = 1+(m-1)*nZBs+(x-1)*nMSs*nZBs;
                             int mxz = mnz+nZBs-1;
+                            oP_zp.initialize();
+                            mP_zp.initialize();
                             for (int s=1;s<=ALL_SCs;s++) {
-                                ss += ptrZFD->ss_xmsy(x,m,s,iy);
-                                oP_z(mnz,mxz).shift(1) += ptrZFD->PatZ_xmsyz(x,m,s,iy);
-                            }
-                            if (debug>=dbgNLLs){
-                                cout<<"ss = "<<ss<<endl;
-                                cout<<"oP_Z = "<<oP_z<<endl;
-                            }
-                            if (m<=nMSs) {for (int s=1;s<=nSCs;s++) mP_z(mnz,mxz).shift(1) += mA_yxmsz(y,x,m,s);}
-                        }//m
-                    }//x
+                                int imn = ptrZFD->tc_xmsyc(x,m,s,iy)(1);
+                                int imx = ptrZFD->tc_xmsyc(x,m,s,iy)(2);
+                                if (debug>=dbgNLLs) {
+                                    cout<<"x,m,s,iy = "<<x<<cc<<m<<cc<<s<<cc<<iy<<endl;
+                                    cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
+                                }
+                                ss    += ptrZFD->ss_xmsy(x,m,s,iy);
+                                oP_zp += ptrZFD->tcdNatZ_xmsyz(x,m,s,iy);//--tail-compressed already
+                                if (s<=nSCs){//don't do this for "ALL"s
+                                    mP_zp(imn)         += sum(mA_yxmsz(y,x,m,s)(1,imn));
+                                    mP_zp(imn+1,imx-1) += mA_yxmsz(y,x,m,s)(imn+1,imx-1);
+                                    mP_zp(imx)         += sum(mA_yxmsz(y,x,m,s)(imx,nZBs));
+                                }
+                            }//--s
+                            oP_z(mnz,mxz).shift(1) += oP_zp;
+                            mP_z(mnz,mxz).shift(1) += mP_zp;
+                        }//--m
+                    }//--x
                     if (sum(oP_z)>0) oP_z /= sum(oP_z);
+                     mP_z /= nT;//normalize model size comp
                     if (debug>=dbgNLLs){
                         cout<<"ss = "<<ss<<endl;
                         cout<<"oP_Z = "<<oP_z<<endl;
+                        cout<<"mP_z = "<<mP_z<<endl;
                     }
-                    mP_z /= nT;//normalize model size comp
-                    if (debug>=dbgNLLs) cout<<"mP_z = "<<mP_z<<endl;
                     for (int x=1;x<=nSXs;x++) {
                         for (int m=1;m<=nMSs;m++) {
                             int mnz = 1+(m-1)*nZBs+(x-1)*nMSs*nZBs;
@@ -7343,17 +7437,29 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             for (int s=1;s<=nSCs;s++) {
                                 int mnz = 1+(s-1)*nZBs;
                                 int mxz = s*nZBs;
-                                ss += ptrZFD->ss_xmsy(x,m,s,iy);
-                                oP_z(mnz,mxz).shift(1) += ptrZFD->PatZ_xmsyz(x,m,s,iy);
-                                mP_z(mnz,mxz).shift(1) += mA_yxmsz(y,x,m,s);
+                                oP_zp.initialize();
+                                mP_zp.initialize();
+                                int imn = ptrZFD->tc_xmsyc(x,m,s,iy)(1);
+                                int imx = ptrZFD->tc_xmsyc(x,m,s,iy)(2);
+                                if (debug>=dbgNLLs) {
+                                    cout<<"x,m,s,iy = "<<x<<cc<<m<<cc<<s<<cc<<iy<<endl;
+                                    cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
+                                }
+                                ss    += ptrZFD->ss_xmsy(x,m,s,iy);
+                                oP_zp += ptrZFD->tcdNatZ_xmsyz(x,m,s,iy);//--tail-compressed already
+                                mP_zp(imn)         += sum(mA_yxmsz(y,x,m,s)(1,imn));
+                                mP_zp(imn+1,imx-1) += mA_yxmsz(y,x,m,s)(imn+1,imx-1);
+                                mP_zp(imx)         += sum(mA_yxmsz(y,x,m,s)(imx,nZBs));
+                                oP_z(mnz,mxz).shift(1) += oP_zp;
+                                mP_z(mnz,mxz).shift(1) += mP_zp;
                             }//s
                             if (sum(oP_z)>0) oP_z /= sum(oP_z);
+                             mP_z /= nT;//normalize model size comp
                             if (debug>=dbgNLLs){
                                 cout<<"ss = "<<ss<<endl;
                                 cout<<"oP_Z = "<<oP_z<<endl;
+                                cout<<"mP_z = "<<mP_z<<endl;
                             }
-                            mP_z /= nT;//normalize model size comp
-                            if (debug>=dbgNLLs) cout<<"mP_z = "<<mP_z<<endl;
                             for (int s=1;s<=nSCs;s++) {
                                 int mnz = 1+(s-1)*nZBs;
                                 int mxz = s*nZBs;
@@ -7400,18 +7506,30 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             for (int s=1;s<=nSCs;s++) {
                                 int mnz = 1+(s-1)*nZBs+(m-1)*nSCs*nZBs;
                                 int mxz =       s*nZBs+(m-1)*nSCs*nZBs;
-                                ss += ptrZFD->ss_xmsy(x,m,s,iy);
-                                oP_z(mnz,mxz).shift(1) += ptrZFD->PatZ_xmsyz(x,m,s,iy);
-                                mP_z(mnz,mxz).shift(1) += mA_yxmsz(y,x,m,s);
+                                oP_zp.initialize();
+                                mP_zp.initialize();
+                                int imn = ptrZFD->tc_xmsyc(x,m,s,iy)(1);
+                                int imx = ptrZFD->tc_xmsyc(x,m,s,iy)(2);
+                                if (debug>=dbgNLLs) {
+                                    cout<<"x,m,s,iy = "<<x<<cc<<m<<cc<<s<<cc<<iy<<endl;
+                                    cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
+                                }
+                                ss    += ptrZFD->ss_xmsy(x,m,s,iy);
+                                oP_zp += ptrZFD->tcdNatZ_xmsyz(x,m,s,iy);//--tail-compressed already
+                                mP_zp(imn)         += sum(mA_yxmsz(y,x,m,s)(1,imn));
+                                mP_zp(imn+1,imx-1) += mA_yxmsz(y,x,m,s)(imn+1,imx-1);
+                                mP_zp(imx)         += sum(mA_yxmsz(y,x,m,s)(imx,nZBs));
+                                oP_z(mnz,mxz).shift(1) += oP_zp;
+                                mP_z(mnz,mxz).shift(1) += mP_zp;
                             }//s
                         }//m
                         if (sum(oP_z)>0) oP_z /= sum(oP_z);
+                         mP_z /= nT;//normalize model size comp
                         if (debug>=dbgNLLs){
                             cout<<"ss = "<<ss<<endl;
                             cout<<"oP_Z = "<<oP_z<<endl;
+                            cout<<"mP_z = "<<mP_z<<endl;
                         }
-                        mP_z /= nT;//normalize model size comp
-                        if (debug>=dbgNLLs) cout<<"mP_z = "<<mP_z<<endl;
                         for (int m=1;m<=nMSs;m++) {
                             for (int s=1;s<=nSCs;s++) {
                                 int mnz = 1+(s-1)*nZBs+(m-1)*nSCs*nZBs;
@@ -9065,7 +9183,7 @@ FUNCTION void ReportToR_OpModMode(ostream& os, double maxGrad, int debug, ostrea
 //      if toF=0, willBeActive>0, and phase>0, only active parameters are written to csv
 FUNCTION void writeParameters(ostream& os,int toF, int willBeActive, int phase)      
     adstring ctg1, ctg2;
-    if (toF>0) tcsam::writeCSVHeaderForParametersFile(os);
+    if (toF==0) tcsam::writeCSVHeaderForParametersFile(os);
     //recruitment parameters
     ctg1="population processes";
     ctg2="recruitment";

@@ -238,9 +238,13 @@ class IndexBlock;
         /* input sample sizes for size frequency data */
         d4_array inpSS_xmsy;   
         /* raw size frequency data */
-        d5_array NatZ_xmsyz;
-        /* normalized size frequency data (sums to 1 over xmsz for each y) */
-        d5_array PatZ_xmsyz;
+        d5_array rawNatZ_xmsyz;
+        /* size frequency data aggregated to fit option */
+        d5_array aggNatZ_xmsyz;
+        /* tail-compressed aggregated size frequency data */
+        d5_array tcdNatZ_xmsyz;
+        /* normalized aggregated size frequency data (sums to 1 over xmsz for each y) */
+        d5_array aggPatZ_xmsyz;
         
         /* tail compression limits (min, 1-max) */
         dvector tc_limits;
@@ -339,11 +343,21 @@ class IndexBlock;
         void normalize(void);
         
         /**
-         * Create the indices used for tail compression and do the compression.
+         * Create the indices used for tail compression based on aggregated size comps.
          * 
-         * Tail compression is done by xmsy.
+         * Tail compression is specified for aggregated size comps by xmsy.
          */
         void doTailCompression(void);
+        
+        /**
+         * Calculate aggregated size compositions from raw size comps prior to tail compression.
+         * 
+         * Aggregation is done according to value of optFit.
+         * 
+         * Calculates aggNatZ_xmsyz from rawNatZ_xmsyz.
+         * 
+         */
+        void aggregateRawNatZ(void);
     };
 
 //--------------------------------------------------------------------------------
