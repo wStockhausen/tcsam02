@@ -750,7 +750,8 @@ void SizeFrequencyData::doTailCompression(void){
                         //find tail compression limits
                         dvector cumsum = aggNatZ_xmsyz(x,m,s,y)/nT;
                         int imnFound = 0; int imxFound = 0;
-                        if (tc_limits(1)<=cumsum(1)) {tc_xmsyc(x,m,s,y)(1) = 1; imnFound=1;}
+                        if (tc_limits(1)<=cumsum(1)) {tc_xmsyc(x,m,s,y)(1) = 1;   imnFound=1;}
+                        if (tc_limits(2) == 0)       {tc_xmsyc(x,m,s,y)(2) = mxZ; imxFound=1;}
                         for (int i=2;i<=mxZ;i++) {
                             cumsum(i) = cumsum(i)+cumsum(i-1);//cumulative sum
                             if ((!imnFound)&&(    tc_limits(1)<=cumsum(i))) {tc_xmsyc(x,m,s,y)(1) = i; imnFound=1;}
