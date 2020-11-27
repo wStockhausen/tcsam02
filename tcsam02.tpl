@@ -651,6 +651,8 @@
 //              2. Modified SizeFrequencyData class to read and partially handle tail compression.
 //-2020-11-23:  1. Modified calcNLLs_CatchNatZ to handle tail compression of model-predicted size comps.
 //-2020-11-27:  1. Fixed problem with upper range tail compression if limit was 0 (no tail compression).
+//              2. Added "idxParamDM" to SizeFrequencyData class to indicate which Dirichlet-Multinomial
+//                  parameter to use when fitting the associated data.
 // =============================================================================
 // =============================================================================
 //--Commandline Options

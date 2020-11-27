@@ -15,6 +15,9 @@
  *           2. revised ModelDatasets to incorporate new data classes
  * 20190530: 1. added MaturityOgiveData class
  *           2. revised ModelDatasets to incorporate new data class
+ * 20201127: 1. Completed adding tail compression for size composition data.
+ *           2. Added index to the Dirichlet-Multinomial parameter used for
+ *                size composition data.
 */
 
 #ifndef MODELDATA_HPP
@@ -250,6 +253,9 @@ class IndexBlock;
         dvector tc_limits;
         /* tail compression indices */
         i5_array tc_xmsyc;   
+        
+        /* index for Dirichlet-Multinomial parameter */
+        int idxParamDM;
         
         /* cumulative iterative re-weighting factors */
         d3_array cumF_xms;

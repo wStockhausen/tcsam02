@@ -1319,6 +1319,8 @@ void SizeFrequencyData::read(cifstream & is){
     rpt::echo<<tcsam::getFitType(optFit)<<tb<<"#objective function fitting option"<<std::endl;
     is>>str; llType = tcsam::getLikelihoodType(str);
     rpt::echo<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood function type"<<std::endl;
+    is>>idxParamDM;
+    rpt::echo<<idxParamDM<<tb<<"#index to Dirichlet-Multinomial parameter"<<std::endl;
     is>>llWgt;
     rpt::echo<<llWgt<<tb<<"#likelihood weight (multiplier)"<<std::endl;
     tc_limits.allocate(1,2);//tail compression limits (pmin, 1-pmax)
@@ -1402,6 +1404,7 @@ void SizeFrequencyData::write(ostream & os){
     os<<KW_SIZEFREQUENCY_DATA<<tb<<"#required keyword"<<std::endl;
     os<<tcsam::getFitType(optFit)<<tb<<"#objective function fitting option"<<std::endl;
     os<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood function type"<<std::endl;
+    os<<idxParamDM<<tb<<"#index to Dirichlet-Multinomial parameter"<<std::endl;
     os<<llWgt<<tb<<"#likelihood weight (multiplier)"<<std::endl;
     os<<tc_limits<<tb<<"#tail compression limits (pmin,1-pmax)"<<std::endl;    
     os<<ny<<tb<<"#number of years of size data"<<std::endl;
@@ -1438,6 +1441,7 @@ void SizeFrequencyData::writeToR(ostream& os, std::string nm, int indent) {
     for (int n=0;n<indent;n++) os<<tb;
         os<<"optFit="<<qt<<tcsam::getFitType(optFit)<<qt<<cc; 
         os<<"llType="<<qt<<tcsam::getLikelihoodType(llType)<<qt<<cc; 
+        os<<"idxParamDM="<<idxParamDM<<cc;
         os<<"llWgt="<<llWgt<<cc<<std::endl; 
     for (int n=0;n<indent;n++) os<<tb;
         os<<"y="; wts::writeToR(os,yrs); os<<cc<<std::endl;
