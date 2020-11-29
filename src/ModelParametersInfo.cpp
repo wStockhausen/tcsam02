@@ -17,6 +17,8 @@
 **      SelectivityInfo\n
 **      FisheriesInfo\n
 **      SurveysInfo\n
+**      MSE_Info\n
+**      DirichletMultinomialInfo\n
 **      ModelParametersInfo\n
 **----------------------------------------------------------------------------*/
 int ParameterGroupInfo::debug   = 0;
@@ -28,8 +30,9 @@ int SelectivityInfo::debug      = 0;
 int FisheriesInfo::debug        = 0;
 int SurveysInfo::debug          = 0;
 int MSE_Info::debug             = 0;
+int DirichletMultinomialInfo::debug = 1;
 int ModelParametersInfo::debug  = 0;
-const adstring ModelParametersInfo::version = "2020.02.29";
+const adstring ModelParametersInfo::version = "2020.11.27";
     
 /*----------------------------------------------------------------------------*/
 /**
@@ -2820,6 +2823,143 @@ void SurveysInfo::writeToR(std::ostream & os){
 }
 
 /*------------------------------------------------------------------------------
+ * DirichletMultinomialInfo
+ -----------------------------------------------------------------------------*/
+adstring DirichletMultinomialInfo::NAME = "DirichletMultinomial";
+int DirichletMultinomialInfo::idxLnDirMul  = 1+1;//column in parameter combinations matrix with parameter index 
+/*------------------------------------------------------------------------------
+ * DirichletMultinomialInfo\n
+ * Encapsulates the DirichletMultinomial parameter:\n
+*----------------------------------------------------------------------------*/
+DirichletMultinomialInfo::DirichletMultinomialInfo(){
+    if (debug) cout<<"starting DirichletMultinomialInfo::DirichletMultinomialInfo()"<<endl;
+    name = NAME;//assign static NAME to ParameterGroupInfo::name
+    
+    int k;
+    //create "independent variables" for parameter group assignment
+    nIVs = 1;//number of independent variables TODO: this is probably 0
+    ParameterGroupInfo::nIVs = DirichletMultinomialInfo::nIVs;
+    lblIVs.allocate(1,nIVs);
+    k=1;
+    lblIVs(k++) = "YEAR_BLOCK";
+    
+    //create index block sets for "BLOCKS" (e.g. year blocks)
+    nIBSs = 1;
+    ibsIdxs.allocate(1,nIBSs);
+    ibsIdxs(1) = 1;//index for YEAR_BLOCK
+    ParameterGroupInfo::createIndexBlockSets();
+    for (int i=1;i<=nIBSs;i++) ppIBSs[i-1]->setType(lblIVs(ibsIdxs(i)));
+    
+    nPVs=1;
+    lblPVs.allocate(1,nPVs); dscPVs.allocate(1,nPVs);
+    k=1;
+    lblPVs(k) = "pLnDirMul"; dscPVs(k) = "ln-scale Dirichlet-Multinomial parameter";
+    pLnDirMul = new BoundedNumberVectorInfo(lblPVs(k)); k++;
+    
+    //create "extra indices"
+    nXIs=0;
+    
+    if (debug) cout<<"finished DirichletMultinomialInfo::DirichletMultinomialInfo()"<<endl;
+}
+
+DirichletMultinomialInfo::~DirichletMultinomialInfo(){
+    if (pLnDirMul) delete pLnDirMul;  pLnDirMul=0;
+}
+
+void DirichletMultinomialInfo::addNextYearToInfo(int closed){
+    //no year block to project from
+}
+
+void DirichletMultinomialInfo::read(cifstream & is){
+    if (debug) {
+        cout<<"starting DirichletMultinomialInfo::read(cifstream & is)"<<endl;
+        ParameterGroupInfo::debug=1;
+    }
+    
+    adstring str;
+    is>>str;
+    rpt::echo<<str<<tb<<"#Required keyword ("<<NAME<<")"<<endl;
+    if (!(str==NAME)){
+        cout<<"Error in DirichletMultinomialInfo::read(cifstream & is)"<<endl;
+        tcsam::readError(is,NAME,str);
+        exit(-1);
+    }
+    if (debug) cout<<"DirichletMultinomialInfo starting ParameterGroupInfo::read(is)"<<endl;
+    ParameterGroupInfo::read(is);
+    if (debug) cout<<"MSE_Info finished ParameterGroupInfo::read(is)"<<endl;
+    
+    if (nPCs>0) {
+        is>>str;
+        if (debug) cout<<str<<tb<<"#Required keyword (PARAMETERS)"<<endl;
+        rpt::echo<<str<<tb<<"#Required keyword (PARAMETERS)"<<endl;
+        if (str=="PARAMETERS"){
+            int k=1;
+            if (debug) cout<<"DirichletMultinomialInfo::read--starting PGI::read(is,lblPVs(k),pLnDirMul"<<endl;
+            pLnDirMul = ParameterGroupInfo::read(is,lblPVs(k),pLnDirMul);    
+            if (debug) {
+                cout<<"DirichletMultinomialInfo::read--finished PGI::read(is,lblPVs(k),pLnDirMul"<<endl;
+                cout<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; cout<<(*pLnDirMul)<<endl;
+            }
+            rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnDirMul)<<endl;  k++;
+        } else {
+            cout<<"Error reading DirichletMultinomialInfo from "<<is.get_file_name()<<endl;
+            cout<<"Expected keyword 'PARAMETERS' but got '"<<str<<"'."<<endl;
+            cout<<"Aborting..."<<endl;
+            exit(-1);
+        }
+    }//nPCs
+    if (debug) {
+        ParameterGroupInfo::debug=0;
+        cout<<"finished DirichletMultinomialInfo::read(is)"<<endl;
+    }
+}
+
+void DirichletMultinomialInfo::write(std::ostream & os){
+    os<<NAME<<tb<<"#process name"<<endl;
+    ParameterGroupInfo::write(os);
+    
+    if (nPCs>0){
+        os<<"PARAMETERS"<<endl;
+
+        int k=1;
+        os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
+        os<<(*pLnDirMul)<<endl;
+    }
+ }
+
+void DirichletMultinomialInfo::writeToPin(std::ostream & os){
+    if (debug) {
+        cout<<"starting DirichletMultinomialInfo::writeToPin(std::ostream & os)"<<endl;
+        ParameterGroupInfo::debug =1;
+    }
+    os<<"#--DirichletMultinomial parameters"<<endl;
+    pLnDirMul->writeToPin(os);
+     if (debug) {
+        ParameterGroupInfo::debug =0;
+        cout<<"finished DirichletMultinomialInfo::writeToPin(std::ostream & os)"<<endl;
+    }
+}
+
+void DirichletMultinomialInfo::writeToR(std::ostream & os){
+    if (debug) {
+        cout<<"starting DirichletMultinomialInfo::writeToR(std::ostream & os)"<<endl;
+        ParameterGroupInfo::debug =1;
+    }
+    int indent=0;
+    os<<"dm=list("<<endl;
+        ParameterGroupInfo::writeToR(os);
+        if (nPCs>0) {
+            os<<cc<<endl;
+            pLnDirMul->writeToR(os, "pLnDirMul", indent++); os<<endl;
+        }
+    os<<")";
+    if (debug) {
+        ParameterGroupInfo::debug =0;
+        cout<<"finished DirichletMultinomialInfo::writeToR(std::ostream & os)"<<endl;
+    }
+}
+
+/*------------------------------------------------------------------------------
  * MSE_Info
  -----------------------------------------------------------------------------*/
 adstring MSE_Info::NAME = "MSE";
@@ -2954,6 +3094,7 @@ ModelParametersInfo::ModelParametersInfo(ModelConfiguration& mc){
     ptrFsh=0;
     ptrSrv=0;
     ptrMSE=0;
+    ptrDM =0;
 }
 
 ModelParametersInfo::~ModelParametersInfo(){
@@ -2965,6 +3106,7 @@ ModelParametersInfo::~ModelParametersInfo(){
     if (ptrFsh) {delete ptrFsh;     ptrFsh  = 0;}
     if (ptrSrv) {delete ptrSrv;     ptrSrv  = 0;}
     if (ptrMSE) {delete ptrMSE;     ptrMSE  = 0;}
+    if (ptrDM)  {delete ptrDM;      ptrDM   = 0;}
 }
 
 /**
@@ -2992,8 +3134,8 @@ void ModelParametersInfo::setMaxYear(int mxYr){
         rpt::echo<<"sfs = "<<sfs<<endl;
         ptrSel->setMaxYear(mxYr, sfs);
     }
-    //if (ptrSel) ptrSel->setMaxYear(mxYr); //handled by FisheriesInfo, SurveysInfo
     //if (ptrMSE) ptrMSE->setMaxYear(mxYr); //not needed for MSE_Info
+    //if (ptrDM)  ptrDM ->setMaxYear(mxYr); //not needed for DirichletMultinomialInfo
 }
 
 /**
@@ -3011,6 +3153,7 @@ void ModelParametersInfo::setToWriteVectorEstimationPhases(bool flag){
     if (ptrFsh) ptrFsh->setToWriteVectorEstimationPhases(flag);
     if (ptrSrv) ptrSrv->setToWriteVectorEstimationPhases(flag); //not needed for SurveysInfo
     if (ptrMSE) ptrMSE->setToWriteVectorEstimationPhases(flag); //not needed for MSE_Info
+    if (ptrDM)  ptrDM ->setToWriteVectorEstimationPhases(flag); //not needed for DirichletMultinomialInfo
 }
 
 /**
@@ -3028,6 +3171,7 @@ void ModelParametersInfo::setToWriteVectorInitialValues(bool flag){
     if (ptrFsh) ptrFsh->setToWriteVectorInitialValues(flag);
     if (ptrSrv) ptrSrv->setToWriteVectorInitialValues(flag); //not needed for SurveysInfo
     if (ptrMSE) ptrMSE->setToWriteVectorInitialValues(flag); //not needed for MSE_Info
+    if (ptrDM)  ptrDM ->setToWriteVectorInitialValues(flag); //not needed for DirichletMultinomialInfo
 }
 
 void ModelParametersInfo::read(cifstream & is){
@@ -3089,6 +3233,12 @@ void ModelParametersInfo::read(cifstream & is){
     is>>(*ptrSrv);
     rpt::echo<<"#---read Surveys Info"<<endl;
     
+    //read DirichletMultinomial-related parameters
+    rpt::echo<<"#---reading DirichletMultinomial Info"<<endl;
+    ptrDM = new DirichletMultinomialInfo();
+    is>>(*ptrDM);
+    rpt::echo<<"#---read DirichletMultinomial Info"<<endl;
+    
     //read MSE-related parameters
     rpt::echo<<"#---reading MSE Info"<<endl;
     ptrMSE = new MSE_Info();
@@ -3137,6 +3287,11 @@ void ModelParametersInfo::write(std::ostream & os){
     os<<(*ptrSrv)<<endl;
     
     os<<"#-------------------------------"<<endl;
+    os<<"# DirichletMultinomial-related parameters  "<<endl;
+    os<<"#-------------------------------"<<endl;
+    os<<(*ptrDM)<<endl;
+    
+    os<<"#-------------------------------"<<endl;
     os<<"# MSE-related parameters  "<<endl;
     os<<"#-------------------------------"<<endl;
     os<<(*ptrMSE)<<endl;
@@ -3179,6 +3334,11 @@ void ModelParametersInfo::writePin(std::ostream & os){
     ptrSrv->writeToPin(os); os<<endl;
     
     os<<"#-------------------------------"<<endl;
+    os<<"# DirichletMultinomial-related parameters  "<<endl;
+    os<<"#-------------------------------"<<endl;
+    ptrDM->writeToPin(os); os<<endl;
+    
+    os<<"#-------------------------------"<<endl;
     os<<"# MSE-related parameters  "<<endl;
     os<<"#-------------------------------"<<endl;
     ptrMSE->writeToPin(os); os<<endl;
@@ -3207,6 +3367,9 @@ void ModelParametersInfo::addNextYearToInfo(int closed){
     //selectivity info for surveys
     ptrSel->addNextYear1("surveys",ModelConfiguration::mxYr+2,srvpcs);
     
+    //DirichletMultinomial info
+    ptrDM->addNextYearToInfo(closed);
+    
     //MSE info
     ptrMSE->addNextYearToInfo(closed);
 }
@@ -3221,6 +3384,7 @@ void ModelParametersInfo::writeToR(std::ostream & os){
     ptrSel->writeToR(os); os<<cc<<endl;
     ptrFsh->writeToR(os); os<<cc<<endl;
     ptrSrv->writeToR(os); os<<cc<<endl;
+    ptrDM ->writeToR(os); os<<cc<<endl;
     ptrMSE->writeToR(os); os<<endl;
     os<<")";
 }

@@ -1132,6 +1132,72 @@ class SurveysInfo : public ParameterGroupInfo {
 };
 
 /*------------------------------------------------------------------------------
+ * DirichletMultinomial_Info\n
+ * Encapsulates the following DirichletMultinomial-related parameters:\n
+ *   pLnDirMul   : ln-scale Dirichlet-Multinomial parameter
+ * 
+ * Notes:
+ *  1. index variables for parameters:
+*----------------------------------------------------------------------------*/
+class DirichletMultinomialInfo : public ParameterGroupInfo {
+    public:
+        static int debug;
+        static int idxLnDirMul; //column in parameter combinations matrix with parameter index
+    protected:
+        static adstring NAME;//"DirichletMultinomial"
+    public:
+        BoundedNumberVectorInfo* pLnDirMul;//ln-scale Dirichlet-Multinomial parameter
+        
+        DirichletMultinomialInfo();
+        ~DirichletMultinomialInfo();
+        
+        /**
+         * Reads the ParameterGroupInfo for the DirichletMultinomial from an input filestream in ADMB format.
+         * 
+         * @param is - the input filestream
+         */
+        void read(cifstream & is);
+        /**
+         * Sets the flags to write estimation phases for vector parameters to file 
+         * when writing parameter info to file.
+         * 
+         * @param flag - true/false to set to write estimation phases to file
+         */
+        void setToWriteVectorEstimationPhases(bool flag){}//does nothing, no devs vectors
+        /**
+         * Sets the flags to write initial values for vector parameters to file 
+         * when writing parameter info to file.
+         * 
+         * @param flag - true/false to set to write initial values to file
+         */
+        void setToWriteVectorInitialValues(bool flag){}//does nothing, no vector parameters
+        /**
+         * Writes to an output stream in ADMB format.
+         * 
+         * @param os - output stream
+         */
+        void write(std::ostream & os);
+        /**
+         * Writes parameter values to an output stream in ADMB pin-file format.
+         * 
+         * @param os - output stream
+         */
+        void writeToPin(std::ostream & os);
+        /**
+         * Update MSE_Info for a 1-year projected scenario.
+         * 
+         * @param closed - flag indicating whether directed fishery is closed
+         */
+        void addNextYearToInfo(int closed); 
+        /**
+         * Writes to an output stream in R format.
+         * 
+         * @param os - output stream
+         */
+        void writeToR(std::ostream & os);
+};
+
+/*------------------------------------------------------------------------------
  * MSE_Info\n
  * Encapsulates the following MSE-related parameters:\n
  *   pMSE_F   : base capture rate in directed fishery
@@ -1237,6 +1303,8 @@ class ModelParametersInfo{
         SelectivityInfo*      ptrSel; //pointer to selectivity functions info
         FisheriesInfo*        ptrFsh; //pointer to fisheries info
         SurveysInfo*          ptrSrv; //pointer to surveys info
+        
+        DirichletMultinomialInfo* ptrDM; //pointer to Dirichlet-Multinomial info
         
         MSE_Info*             ptrMSE; //pointer to MSE info
     public:

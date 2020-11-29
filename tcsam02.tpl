@@ -652,7 +652,9 @@
 //-2020-11-23:  1. Modified calcNLLs_CatchNatZ to handle tail compression of model-predicted size comps.
 //-2020-11-27:  1. Fixed problem with upper range tail compression if limit was 0 (no tail compression).
 //              2. Added "idxParamDM" to SizeFrequencyData class to indicate which Dirichlet-Multinomial
-//                  parameter to use when fitting the associated data.
+//                   parameter to use when fitting the associated data.
+//-2020-11-28:  1. Created DirichletMultinomialInfo class, added it to ModelParametersInfo, and
+//                   created calcDirichletNLL function.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -1755,6 +1757,11 @@ DATA_SECTION
     }
  END_CALCS    
          
+    //Dirichlet-Multinomial parameters
+    int npLnDirMul; ivector phsLnDirMul; vector lbLnDirMul; vector ubLnDirMul;
+    !!tcsam::setParameterInfo(ptrMPI->ptrDM->pLnDirMul,npLnDirMul,lbLnDirMul,ubLnDirMul,phsLnDirMul,rpt::echo);
+    !!if(mseOpModMode) {phsLnDirMul = -1;}
+    
     //MSE-related parameters
     int npMSE_LnC; ivector phsMSE_LnC; vector lbMSE_LnC; vector ubMSE_LnC;
     !!tcsam::setParameterInfo(ptrMPI->ptrMSE->pMSE_LnC,npMSE_LnC,lbMSE_LnC,ubMSE_LnC,phsMSE_LnC,rpt::echo);
@@ -1796,6 +1803,8 @@ DATA_SECTION
     !!npcFsh = ptrMPI->ptrFsh->nPCs;
     int npcSrv;   //number of survey parameter combinations
     !!npcSrv = ptrMPI->ptrSrv->nPCs;
+    int npcDM;   //number of Dirichlet-Multinomial parameter combinations
+    !!npcDM = ptrMPI->ptrDM->nPCs;
     
     ivector nDevsLnR_c(1,npcRec);              //number of recruit devs by parameter combination
     
@@ -2111,6 +2120,11 @@ PARAMETER_SECTION
     !!PRINT2B2("pA = ",pA)
     !!PRINT2B1("got past survey catchability parameters")
    
+    //Dirichlet-Multinomial parameters
+    init_bounded_number_vector pLnDirMul(1,npLnDirMul,lbLnDirMul,ubLnDirMul,phsLnDirMul);
+    !!PRINT2B2("pLnDirMul = ",pLnDirMul)
+    !!PRINT2B1("got past Dirichlet-Multinomial parameters")
+            
     //MSE-related parameters
     init_bounded_number_vector pMSE_LnC(1,npMSE_LnC,lbMSE_LnC,ubMSE_LnC,phsMSE_LnC);//
     !!PRINT2B2("pMSE_LnC = ",pMSE_LnC)
@@ -2200,6 +2214,8 @@ PARAMETER_SECTION
     6darray q_vyxmsz(1,nSrv,mnYr,mxYr+1,1,nSXs,1,nMSs,1,nSCs,1,nZBs);//size-specific catchability in survey v (includes availability)
     6darray n_vyxmsz(1,nSrv,mnYr,mxYr+1,1,nSXs,1,nMSs,1,nSCs,1,nZBs);//catch abundance at size in survey v
     6darray b_vyxmsz(1,nSrv,mnYr,mxYr+1,1,nSXs,1,nMSs,1,nSCs,1,nZBs);//catch biomass at size in survey v
+    
+    //Dirichlet-Multinomial-related quantities
 
     //MSE-related quantities
     vector prj_hmF_f(1,nFsh);                         //projected handling mortality
@@ -6310,42 +6326,57 @@ FUNCTION void calcMultinomialPNLL(double wgt, dvar_vector& mod, dvector& obs, iv
  
 //-------------------------------------------------------------------------------------
 ////Calculate Dirichlet NLL contribution to objective function
-FUNCTION void calcDirichletNLL(dvariable& vn, double wgt, dvar_vector& mod, dvector& obs, double& ss, int& yr, int debug, ostream& cout)
+FUNCTION void calcDirichletNLL(dvariable& theta, double wgt, dvar_vector& mod, dvector& obs, double& ss, int& yr, int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"Starting calcDirichletNLL()"<<endl;
-    dvariable nll = -ss*(obs*(log(mod+smlVal)-log(obs+smlVal)));//note dot-product sums
-    objFun += wgt*nll;
+    dvariable nll = 0.0;
     
-    dvector o = obs/sum(obs);
-    int c1 = o.indexmin();
-    int c2 = o.indexmax();
-    dvar_vector p = mod;
+    //following is modified from GMACS
+    int c1 = obs.indexmin();
+    int c2 = obs.indexmax();
     
-    dvariable lmnB = 0.0;
-    dvariable sj = 0.0;
-    dvariable alpha0 = 0.0;
-    dvar_vector alpha = vn * p/sum(p);
+    dvariable lmnB    = 0.0;
+    dvariable sj      = 0.0;
+    dvariable alpha0  = 0.0;
+    dvar_vector alpha = theta * ss * mod;
     for ( int j = c1; j <= c2; j++ ) {
         dvariable aj = alpha(j);
-        alpha0 += aj;
-        lmnB += gammln(aj);
-        sj += (aj - 1.0) * log(1e-10 + obs(j));
+        alpha0      += aj;
+        lmnB        += gammln(aj);
+        sj          += (aj - 1.0) * log(1e-10 + obs(j));
     }
     lmnB -= gammln(alpha0);
     nll -= sj - lmnB;
     
-    if (debug<0){
+    objFun += wgt*nll;
+    
+    if ((debug<0)||(debug>=dbgAll)){
         dvector vmod = value(mod);
         dvector nlls = -ss*(elem_prod(obs,log(vmod+smlVal)-log(obs+smlVal)));
         dvector zscrs = elem_div(obs-vmod,sqrt(elem_prod((vmod+smlVal),1.0-(vmod+smlVal))/ss));//pearson residuals
         double effN = 0.0;
         if (ss>0) effN = (vmod*(1.0-vmod))/norm2(obs-vmod);
-        cout<<"list(nll.type='Dirichlet',yr="<<yr<<cc<<"wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<"ss="<<ss<<cc<<"effN="<<effN<<cc<<endl; 
-        adstring dzbs = "size=c("+ptrMC->csvZBs+")";
-        cout<<"nlls=";  wts::writeToR(cout,nlls, dzbs); cout<<cc<<endl;
-        cout<<"obs=";   wts::writeToR(cout,obs,  dzbs); cout<<cc<<endl;
-        cout<<"mod=";   wts::writeToR(cout,vmod, dzbs); cout<<cc<<endl;
-        cout<<"zscrs="; wts::writeToR(cout,zscrs,dzbs); cout<<endl;
-        cout<<")";
+        double nEff = value((1.0+theta*ss)/(1.0+theta));
+        if (debug<0){
+            cout<<"list(nll.type='DirichletMultinomial',yr="<<yr<<cc<<"wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc;
+            cout<<"ss="<<ss<<cc<<"effN="<<effN<<cc<<"nEff="<<nEff<<cc<<"theta="<<value(theta)<<cc<<endl; 
+            adstring dzbs = "size=c("+ptrMC->csvZBs+")";
+            cout<<"nlls=";  wts::writeToR(cout,nlls, dzbs); cout<<cc<<endl;
+            cout<<"obs=";   wts::writeToR(cout,obs,  dzbs); cout<<cc<<endl;
+            cout<<"mod=";   wts::writeToR(cout,vmod, dzbs); cout<<cc<<endl;
+            cout<<"zscrs="; wts::writeToR(cout,zscrs,dzbs); cout<<endl;
+            cout<<")";
+        }
+        if (debug>=dbgAll) {
+            cout<<"yr = "    <<yr<<tb<<"ss = "<<ss<<endl;
+            cout<<"obs    = "<<obs <<endl;
+            cout<<"mod    = "<<vmod<<endl;
+            cout<<"zscrs  = "<<zscrs<<endl;
+            cout<<"nlls   = "<<nlls<<endl;
+            cout<<"effN   = "<<effN<<endl;
+            cout<<"theta  = "<<theta<<endl;
+            cout<<"nEff   = "<<nEff<<endl;
+            cout<<"nll    = "<<nll<<tb<<"objFun = "<<wgt*nll<<endl;
+        }
     }
     if (debug>=dbgAll) cout<<"Finished calcDirchletNLL()"<<endl;
  
@@ -6397,29 +6428,31 @@ FUNCTION void calcNLL_TS(int llType, double wgt, dvar_vector& mod, dvar_vector& 
 
 //-------------------------------------------------------------------------------------
 //Calculate size frequency contribution to objective function
-FUNCTION void calcNLL_ZC(int llType, double wgt, dvar_vector& mod, dvector& obs, double& ss, int& yr, int debug, ostream& cout)
-    switch (llType){
+FUNCTION void calcNLL_ZC(SizeFrequencyData* ptrZFD, dvar_vector& mod, dvector& obs, double& ss, int& yr, int debug, ostream& cout)
+    switch (ptrZFD->llType){
         case tcsam::LL_NONE:
-            calcNoneNLL_ZC(wgt,mod,obs,ss,yr,debug,cout);
+            calcNoneNLL_ZC(ptrZFD->llWgt,mod,obs,ss,yr,debug,cout);
             break;
         case tcsam::LL_MULTINOMIAL:
-            calcMultinomialNLL(wgt,mod,obs,ss,yr,debug,cout);
+            calcMultinomialNLL(ptrZFD->llWgt,mod,obs,ss,yr,debug,cout);
             break;
         case tcsam::LL_MULTINOMIALP:
             {
                 int ctr = 0; for (int i=obs.indexmin(); i<=obs.indexmax();i++) {ctr += (obs[i]>0.0);}
                 ivector idx(1,ctr);
                 ctr = 1;     for (int i=obs.indexmin(); i<=obs.indexmax();i++) {if (obs[i]>0.0){idx[ctr++]=i;}}
-                calcMultinomialPNLL(wgt,mod,obs,idx,ss,yr,debug,cout);
+                calcMultinomialPNLL(ptrZFD->llWgt,mod,obs,idx,ss,yr,debug,cout);
             }
             break;
         case tcsam::LL_DIRICHLET:
-            //TODO: finish implementing this!
-//            calcDirichletNLL(wgt,mod,obs,ss,yr,debug,cout);
+            {
+                dvariable theta = mfexp(pLnDirMul[ptrZFD->idxParamDM]);
+                calcDirichletNLL(theta,ptrZFD->llWgt,mod,obs,ss,yr,debug,cout);
+            }
             break;
         default:
             cout<<"Unrecognized likelihood type in calcNLL_ZC"<<endl;
-            cout<<"Input type was "<<llType<<endl;
+            cout<<"Input type was "<<ptrZFD->llType<<endl;
             cout<<"Aborting..."<<endl;
             exit(-1);
     }
@@ -6897,7 +6930,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                         cout<<"fit=";
                     }
                     //calculate likelihood contribution
-                    calcNLL_ZC(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,y,debug,cout);
+                    calcNLL_ZC(ptrZFD,mP_z,oP_z,ss,y,debug,cout);
                     effWgtComps_xmsyn(tcsam::ALL_SXs,tcsam::ALL_MSs,tcsam::ALL_SCs,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
                     if (debug<0) cout<<")"<<cc<<endl;
                 }//value(nT)>0
@@ -6958,7 +6991,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
                             cout<<"fit=";
                         }
-                        calcNLL_ZC(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,y,debug,cout);
+                        calcNLL_ZC(ptrZFD,mP_z,oP_z,ss,y,debug,cout);
                         effWgtComps_xmsyn(x,tcsam::ALL_MSs,tcsam::ALL_SCs,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
                         if (debug<0) cout<<")"<<cc<<endl;
                     }//nT>0
@@ -7020,7 +7053,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
                                 cout<<"fit=";
                             }
-                            calcNLL_ZC(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,y,debug,cout);
+                            calcNLL_ZC(ptrZFD,mP_z,oP_z,ss,y,debug,cout);
                             effWgtComps_xmsyn(x,m,tcsam::ALL_SCs,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
                             if (debug<0) cout<<")"<<cc<<endl;
                         }//nT>0
@@ -7083,7 +7116,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 cout<<"s='"<<tcsam::getShellType(s)<<"'"<<cc;
                                 cout<<"fit=";
                             }
-                            calcNLL_ZC(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,y,debug,cout);
+                            calcNLL_ZC(ptrZFD,mP_z,oP_z,ss,y,debug,cout);
                             effWgtComps_xmsyn(x,tcsam::ALL_MSs,s,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
                             if (debug<0) cout<<")"<<cc<<endl;
                         }//nT>0
@@ -7140,7 +7173,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                     cout<<"s='"<<tcsam::getShellType(s)<<"'"<<cc;
                                     cout<<"fit=";
                                 }
-                                calcNLL_ZC(ptrZFD->llType,ptrZFD->llWgt,mP_z,oP_z,ss,y,debug,cout);
+                                calcNLL_ZC(ptrZFD,mP_z,oP_z,ss,y,debug,cout);
                                 effWgtComps_xmsyn(x,m,s,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
                                 if (debug<0) cout<<")"<<cc<<endl;
                             }//nT>0
@@ -7217,7 +7250,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
                             cout<<"fit=";
                         }
-                        calcNLL_ZC(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,y,debug,cout);
+                        calcNLL_ZC(ptrZFD,mPt,oPt,ss,y,debug,cout);
                         if (debug<0) cout<<")"<<cc<<endl;
                     }//x
                     effWgtComps_xmsyn(tcsam::ALL_SXs,tcsam::ALL_MSs,tcsam::ALL_SCs,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
@@ -7292,7 +7325,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
                                 cout<<"fit=";
                             }
-                            calcNLL_ZC(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,y,debug,cout);
+                            calcNLL_ZC(ptrZFD,mPt,oPt,ss,y,debug,cout);
                             if (debug<0) cout<<")"<<cc<<endl;
                         }//m
                         effWgtComps_xmsyn(x,tcsam::ALL_MSs,tcsam::ALL_SCs,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
@@ -7367,7 +7400,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 cout<<"s='"<<tcsam::getShellType(s)<<"'"<<cc;
                                 cout<<"fit=";
                             }
-                            calcNLL_ZC(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,y,debug,cout);
+                            calcNLL_ZC(ptrZFD,mPt,oPt,ss,y,debug,cout);
                             if (debug<0) cout<<")"<<cc<<endl;
                         }//s
                         effWgtComps_xmsyn(x,tcsam::ALL_MSs,tcsam::ALL_SCs,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
@@ -7444,7 +7477,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
                                 cout<<"fit=";
                             }
-                            calcNLL_ZC(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,y,debug,cout);
+                            calcNLL_ZC(ptrZFD,mPt,oPt,ss,y,debug,cout);
                             if (debug<0) cout<<")"<<cc<<endl;
                         }//m
                     }//x
@@ -7518,7 +7551,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                     cout<<"s='"<<tcsam::getShellType(s)<<"'"<<cc;
                                     cout<<"fit=";
                                 }
-                                calcNLL_ZC(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,y,debug,cout);
+                                calcNLL_ZC(ptrZFD,mPt,oPt,ss,y,debug,cout);
                                 if (debug<0) cout<<")"<<cc<<endl;
                             }//s
                             effWgtComps_xmsyn(x,m,tcsam::ALL_SCs,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
@@ -7595,7 +7628,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                     cout<<"s='"<<tcsam::getShellType(s)<<"'"<<cc;
                                     cout<<"fit=";
                                 }
-                                calcNLL_ZC(ptrZFD->llType,ptrZFD->llWgt,mPt,oPt,ss,y,debug,cout);
+                                calcNLL_ZC(ptrZFD,mPt,oPt,ss,y,debug,cout);
                                 if (debug<0) cout<<")"<<cc<<endl;
                             }//s
                         }//m
@@ -7982,6 +8015,9 @@ FUNCTION void setInitVals(int debug, ostream& os)
     setInitVals(ptrMPI->ptrSrv->pLnXCV, pLnXCV, usePin, debug, os);
     setInitVals(ptrMPI->ptrSrv->pA,     pA,     usePin, debug, os);
 
+    //Dirichlet-Multinomial parameters
+    setInitVals(ptrMPI->ptrDM->pLnDirMul, pLnDirMul, usePin, debug, os);
+
     //MSE parameters    
     setInitVals(ptrMPI->ptrMSE->pMSE_LnC, pMSE_LnC, usePin, debug, os);
 
@@ -8048,6 +8084,9 @@ FUNCTION int checkParams(int debug, ostream& os)
     res += checkParams(ptrMPI->ptrSrv->pDQ4,   pDQ4,   debug,os);
     res += checkParams(ptrMPI->ptrSrv->pLnXCV, pLnXCV, debug,os);
     res += checkParams(ptrMPI->ptrSrv->pA,     pA,     debug,os);
+
+    //Dirichlet-Multinomial parameters
+    res += checkParams(ptrMPI->ptrDM->pLnDirMul, pLnDirMul, debug,os);
 
     //MSE parameters
     res += checkParams(ptrMPI->ptrMSE->pMSE_LnC,pMSE_LnC,debug,os);
@@ -8286,6 +8325,9 @@ FUNCTION void writeMCMCtoR(ofstream& mcmc)
         writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pDQ4);   mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pLnXCV); mcmc<<cc<<endl;
         writeMCMCtoR(mcmc,ptrMPI->ptrSrv->pA);     mcmc<<cc<<endl;
+
+        //Dirichlet-Multinomial parameters
+        writeMCMCtoR(mcmc,ptrMPI->ptrDM->pLnDirMul); mcmc<<cc<<endl;
     
         //write other quantities
         mcmc<<"R_y="; wts::writeToR(mcmc,value(R_y)); mcmc<<cc<<endl;
@@ -9088,6 +9130,11 @@ FUNCTION void updateMPI(int debug, ostream& cout)
     ptrMPI->ptrSrv->pA->setFinalValsFromParamVals(pA);
     if (debug) cout<<"finished surveys parameters"<<endl;
     
+    //Dirichlet-Multinomial parameters
+    if (debug) cout<<"starting Dirichlet-Multinomial parameters"<<endl;
+    ptrMPI->ptrDM->pLnDirMul->setFinalValsFromParamVals(pLnDirMul);
+    if (debug) cout<<"finished Dirichlet-Multinomial parameters"<<endl;
+    
     //MSE-related parameters
     ptrMPI->ptrMSE->pMSE_LnC->setFinalValsFromParamVals(pMSE_LnC);
     if (debug) cout<<"finished MSE parameters"<<endl;
@@ -9308,7 +9355,12 @@ FUNCTION void writeParameters(ostream& os,int toF, int willBeActive, int phase)
     tcsam::writeParameters(os,pDQ3,  ctg1,ctg2,ptrMPI->ptrSrv->pDQ3,  toF,willBeActive,phase);      
     tcsam::writeParameters(os,pDQ4,  ctg1,ctg2,ptrMPI->ptrSrv->pDQ4,  toF,willBeActive,phase);
     tcsam::writeParameters(os,pLnXCV,ctg1,ctg2,ptrMPI->ptrSrv->pLnXCV,toF,willBeActive,phase);
-    tcsam::writeParameters(os,pA,    ctg1,ctg2,ptrMPI->ptrSrv->pA,    toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pA,    ctg1,ctg2,ptrMPI->ptrSrv->pA,    toF,willBeActive,phase);     
+    
+    //Dirichlet-Multinomial parameters
+    ctg1="likelihood";
+    ctg2="Dirichlet-Multinomial";
+    tcsam::writeParameters(os,pLnDirMul,ctg1,ctg2,ptrMPI->ptrDM->pLnDirMul,toF,willBeActive,phase);      
     
     //MSE directed fishery
     if (mseOpModMode||(toF<1)){
