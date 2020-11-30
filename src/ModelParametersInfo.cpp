@@ -30,9 +30,9 @@ int SelectivityInfo::debug      = 0;
 int FisheriesInfo::debug        = 0;
 int SurveysInfo::debug          = 0;
 int MSE_Info::debug             = 0;
-int DirichletMultinomialInfo::debug = 1;
+int DirichletMultinomialInfo::debug = 0;
 int ModelParametersInfo::debug  = 0;
-const adstring ModelParametersInfo::version = "2020.11.27";
+const adstring ModelParametersInfo::version = "2020.11.29";
     
 /*----------------------------------------------------------------------------*/
 /**
@@ -702,8 +702,12 @@ void ParameterGroupInfo::createIndices(void){
                     tmp(i).allocate(1,1);
                     tmp(i,1) = in(p,i);
                     nc *= 1;//just for clarity
-                } else {
-                    if (debug) cout<<"Parsing label '"<<lblIVs(i)<<"' for IndexBlockSet dim type."<<endl;
+                } else
+                if (lblIVs(i)==tcsam::STR_FLEET) {
+                    tmp(i).allocate(1,1);
+                    tmp(i,1) = in(p,i);
+                    nc *= 1;//just for clarity
+                } else {                    if (debug) cout<<"Parsing label '"<<lblIVs(i)<<"' for IndexBlockSet dim type."<<endl;
                     //parse label (should be of form 'type_BLOCK')
                     int n = lblIVs(i).pos("_");
                     if (n) { //can parse label correctly
@@ -2841,14 +2845,16 @@ DirichletMultinomialInfo::DirichletMultinomialInfo(){
     ParameterGroupInfo::nIVs = DirichletMultinomialInfo::nIVs;
     lblIVs.allocate(1,nIVs);
     k=1;
-    lblIVs(k++) = "YEAR_BLOCK";
+    lblIVs(k++) = tcsam::STR_FLEET;
     
     //create index block sets for "BLOCKS" (e.g. year blocks)
-    nIBSs = 1;
-    ibsIdxs.allocate(1,nIBSs);
-    ibsIdxs(1) = 1;//index for YEAR_BLOCK
-    ParameterGroupInfo::createIndexBlockSets();
-    for (int i=1;i<=nIBSs;i++) ppIBSs[i-1]->setType(lblIVs(ibsIdxs(i)));
+    nIBSs = 0;
+    if (nIBSs){
+        ibsIdxs.allocate(1,nIBSs);
+        ibsIdxs(1) = 1;//index for YEAR_BLOCK
+        ParameterGroupInfo::createIndexBlockSets();
+        for (int i=1;i<=nIBSs;i++) ppIBSs[i-1]->setType(lblIVs(ibsIdxs(i)));
+    }
     
     nPVs=1;
     lblPVs.allocate(1,nPVs); dscPVs.allocate(1,nPVs);

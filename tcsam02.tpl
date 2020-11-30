@@ -655,6 +655,10 @@
 //                   parameter to use when fitting the associated data.
 //-2020-11-28:  1. Created DirichletMultinomialInfo class, added it to ModelParametersInfo, and
 //                   created calcDirichletNLL function.
+//-2020-11-29:  1. Incremented model version and MPI version to 2020.11.29 reflecting recent changes.
+//                  NOTE: Model configuration version remains at 2020.07.08 since nothing changed there.
+//              2. Added tcsam::STR_FLEET as model constant (might drop distinction between 
+//                   FISHERY and SURVEY in favor of FLEET, or keep formers as subset of latter)
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -6330,45 +6334,56 @@ FUNCTION void calcDirichletNLL(dvariable& theta, double wgt, dvar_vector& mod, d
     if (debug>=dbgAll) cout<<"Starting calcDirichletNLL()"<<endl;
     dvariable nll = 0.0;
     
-    //following is modified from GMACS
-    int c1 = obs.indexmin();
-    int c2 = obs.indexmax();
+//    //following is modified from GMACS
+//    {
+//        int c1 = obs.indexmin();
+//        int c2 = obs.indexmax();
+//
+//        dvariable lmnB    = 0.0;
+//        dvariable sj      = 0.0;
+//        dvariable alpha0  = 0.0;
+//        dvar_vector alpha = theta * ss * mod;
+//        for ( int j = c1; j <= c2; j++ ) {
+//            dvariable aj = alpha(j);
+//            alpha0      += aj;
+//            lmnB        += gammln(aj);
+//            sj          += (aj - 1.0) * log(1e-10 + obs(j));
+//        }
+//        lmnB -= gammln(alpha0);
+//        nll -= sj - lmnB;
+//    }
     
-    dvariable lmnB    = 0.0;
-    dvariable sj      = 0.0;
-    dvariable alpha0  = 0.0;
-    dvar_vector alpha = theta * ss * mod;
-    for ( int j = c1; j <= c2; j++ ) {
-        dvariable aj = alpha(j);
-        alpha0      += aj;
-        lmnB        += gammln(aj);
-        sj          += (aj - 1.0) * log(1e-10 + obs(j));
-    }
-    lmnB -= gammln(alpha0);
-    nll -= sj - lmnB;
+    //the following is from Thorson et al. 2016
+    double n      = ss;      //to maintain semblance to Thorson et al.
+    dvariable thn = theta*n;
+    dvector     obsp = (obs+1.0e-10)/sum(obs+1.0e-10);
+    dvar_vector modp = (mod+1.0e-10)/sum(mod+1.0e-10);
+    nll = -( gammln(n+1.0)-sum(gammln(n*obsp+1.0)) );//constant term
+    nll -= gammln(thn)-gammln(n+thn);
+    nll -= sum(gammln(n*obsp+thn*modp) - gammln(thn*modp));
     
     objFun += wgt*nll;
     
     if ((debug<0)||(debug>=dbgAll)){
-        dvector vmod = value(mod);
-        dvector nlls = -ss*(elem_prod(obs,log(vmod+smlVal)-log(obs+smlVal)));
-        dvector zscrs = elem_div(obs-vmod,sqrt(elem_prod((vmod+smlVal),1.0-(vmod+smlVal))/ss));//pearson residuals
-        double effN = 0.0;
-        if (ss>0) effN = (vmod*(1.0-vmod))/norm2(obs-vmod);
-        double nEff = value((1.0+theta*ss)/(1.0+theta));
+        dvector vmod = value(modp);
+        double nEff  = value(1.0/(1.0+theta) + n*(theta/(1.0+theta)));
+        double effN  = 0.0;
+        if (ss>0) effN = (vmod*(1.0-vmod))/norm2(obsp-vmod);
+        dvector nlls   = -value( (gammln(thn)-gammln(n+thn)) + gammln(n*obsp+thn*modp) - gammln(thn*modp) );
+        dvector zscrs  = elem_div(obsp-vmod,sqrt(elem_prod(vmod,1.0-vmod)/nEff));//pearson residuals using nEff, not n (i.e., not ss)
         if (debug<0){
             cout<<"list(nll.type='DirichletMultinomial',yr="<<yr<<cc<<"wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc;
             cout<<"ss="<<ss<<cc<<"effN="<<effN<<cc<<"nEff="<<nEff<<cc<<"theta="<<value(theta)<<cc<<endl; 
             adstring dzbs = "size=c("+ptrMC->csvZBs+")";
             cout<<"nlls=";  wts::writeToR(cout,nlls, dzbs); cout<<cc<<endl;
-            cout<<"obs=";   wts::writeToR(cout,obs,  dzbs); cout<<cc<<endl;
+            cout<<"obs=";   wts::writeToR(cout,obsp, dzbs); cout<<cc<<endl;
             cout<<"mod=";   wts::writeToR(cout,vmod, dzbs); cout<<cc<<endl;
             cout<<"zscrs="; wts::writeToR(cout,zscrs,dzbs); cout<<endl;
             cout<<")";
         }
         if (debug>=dbgAll) {
             cout<<"yr = "    <<yr<<tb<<"ss = "<<ss<<endl;
-            cout<<"obs    = "<<obs <<endl;
+            cout<<"obs    = "<<obsp<<endl;
             cout<<"mod    = "<<vmod<<endl;
             cout<<"zscrs  = "<<zscrs<<endl;
             cout<<"nlls   = "<<nlls<<endl;

@@ -34,6 +34,8 @@
  * 20201116: Added LL_MULTINOMIALP.
  * 20201117: Added LL_DIRICHLET and LL_DIRICHLETP.
  *           Incremented tcsam::VERSION to "2020.11.16" reflecting changes to tpl file.
+ * 20201116: Incremented tcsam::VERSION to "2020.11.29" reflecting completion of
+ *             tail compression and Dirichlet-Multinomial options.
  */
 
 #pragma once
@@ -68,7 +70,7 @@ namespace tcsam{
     /* adstring indicating model name */
     const adstring MODEL = "tcsam02";
     /* adstring indicating model version */
-    const adstring VERSION = "2020.11.17";
+    const adstring VERSION = "2020.11.29";
     
     /* minimum debugging level that will print ALL debug info */
     const int dbgAll = 100;
@@ -94,6 +96,8 @@ namespace tcsam{
     const adstring STR_FISHERY = "FISHERY";
     /* Model dimension name for surveys */
     const adstring STR_SURVEY = "SURVEY";
+    /* Model dimension name for fleets */
+    const adstring STR_FLEET = "FLEET";
     /* Model dimension name for arbitrary arrays */
     const adstring STR_ARRAY = "ARRAY";
     /* Model flag name for selectivity functions */
@@ -162,25 +166,25 @@ namespace tcsam{
     const int FIT_BY_X_MSE = 12;
     
     /** adstring constant indicating likelihood type 'NONE' */
-    const adstring STR_LL_NONE        = "NONE";
+    const adstring STR_LL_NONE         = "NONE";
     /** adstring constant indicating likelihood type 'NORM2' */
-    const adstring STR_LL_NORM2       = "NORM2";
+    const adstring STR_LL_NORM2        = "NORM2";
     /** adstring constant indicating likelihood type 'NORMAL' */
-    const adstring STR_LL_NORMAL      = "NORMAL";
+    const adstring STR_LL_NORMAL       = "NORMAL";
     /** adstring constant indicating likelihood type 'LOGNORMAL' */
-    const adstring STR_LL_LOGNORMAL   = "LOGNORMAL";
+    const adstring STR_LL_LOGNORMAL    = "LOGNORMAL";
     /** adstring constant indicating likelihood type 'MULTINOMIAL' */
-    const adstring STR_LL_MULTINOMIAL = "MULTINOMIAL";
+    const adstring STR_LL_MULTINOMIAL  = "MULTINOMIAL";
     /** integer constant indicating likelihood type 'MULTINOMIALP' */
-    const adstring STR_LL_MULTINOMIALP    = "MULTINOMIALP";
+    const adstring STR_LL_MULTINOMIALP = "MULTINOMIALP";
     /** adstring constant indicating likelihood type 'DIRICHLET' */
-    const adstring STR_LL_DIRICHLET = "DIRICHLET";
+    const adstring STR_LL_DIRICHLET    = "DIRICHLET";
     /** adstring constant indicating likelihood type 'DIRICHLETP' */
-    const adstring STR_LL_DIRICHLETP = "DIRICHLETP";
+    const adstring STR_LL_DIRICHLETP   = "DIRICHLETP";
     /** adstring constant indicating likelihood type 'BINOMIAL' */
-    const adstring STR_LL_BINOMIAL    = "BINOMIAL";
+    const adstring STR_LL_BINOMIAL     = "BINOMIAL";
     /** adstring constant indicating likelihood type 'GAMMA' */
-    const adstring STR_LL_GAMMA    = "GAMMA";
+    const adstring STR_LL_GAMMA        = "GAMMA";
     /** integer constant indicating likelihood type 'NONE' */
     const int LL_NONE        = 0;
     /** integer constant indicating likelihood type 'NORM2' */

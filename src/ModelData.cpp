@@ -13,7 +13,7 @@
 //      ModelDatasets
 //**********************************************************************
 int AggregateCatchData::debug = 0;
-int SizeFrequencyData::debug  = 1;
+int SizeFrequencyData::debug  = 0;
 int BioData::debug            = 0;
 int ModelDatasets::debug      = 0;
 ostream& AggregateCatchData::os = std::cout;
