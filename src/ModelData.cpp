@@ -4,6 +4,7 @@
 #include "ModelConfiguration.hpp"
 #include "ModelData.hpp"
 #include "SummaryFunctions.hpp"
+#include "ModelFunctions.hpp"
 
 //**********************************************************************
 //  Includes
@@ -718,7 +719,7 @@ void SizeFrequencyData::normalize(void){
 /**
  * Create the indices used for tail compression based on aggregated size comps.
  * 
- * Tail compression is specified for aggregated size comps by xmsy.
+ * Tail compression is calculated using aggregated size comps by xmsy.
  */
 void SizeFrequencyData::doTailCompression(void){
     int olddebug=debug;
@@ -797,6 +798,16 @@ void SizeFrequencyData::aggregateRawNatZ(void){
     debug=1;
     if (debug) rpt::echo<<"Starting aggregateRawNatZ()"<<endl;
     
+    //working use flags
+    uf_xmsy.deallocate();
+    uf_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
+    uf_xmsy.initialize();
+    
+    //working DM indices
+    dm_xmsy.deallocate();
+    dm_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
+    dm_xmsy.initialize();
+    
     //working sample sizes
     ss_xmsy.deallocate();
     ss_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
@@ -811,6 +822,8 @@ void SizeFrequencyData::aggregateRawNatZ(void){
     int nSCs = tcsam::nSCs; int ALL_SCs = tcsam::ALL_SCs;
     
     int y;
+    int uf; 
+    int dm;
     double ss;
     int nZBs = nZCs-1;
     dvector oP_z(1,nZBs);//observed size comp.
@@ -820,21 +833,40 @@ void SizeFrequencyData::aggregateRawNatZ(void){
         for (int iy=1;iy<=yrs.size();iy++) {
             y = yrs[iy];
             if (debug) rpt::echo<<"y = "<<y<<endl;
+            uf = 0;
+            dm = 0;
             ss = 0;
             oP_z.initialize();//observed size comp.
             for (int x=1;x<=ALL_SXs;x++){
                 for (int m=1;m<=ALL_MSs;m++) {
                     for (int s=1;s<=ALL_SCs;s++) {
+                        uf   += inpUF_xmsy(x,m,s,iy);
+                        if (!dm) {
+                            dm = inpDM_xmsy(x,m,s,iy);
+                        } else {
+                            if (dm!=inpDM_xmsy(x,m,s,iy)){
+                                std::cout<<"Error in defining indices for Dirichlet-Multinomial parameter. See EchoData.dat."<<std::endl;
+                                rpt::echo<<"Error in defining indices for Dirichlet-Multinomial parameter."<<std::endl;
+                                rpt::echo<<"Indices must be consistent across aggregation level."<<std::endl;
+                                rpt::echo<<"current x,m,s,y = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(s)<<cc<<y<<std::endl;
+                                rpt::echo<<"dm was "<<dm<<", current dm = "<<inpDM_xmsy(x,m,s,iy)<<std::endl;
+                                std::cout<<"Terminating..."<<std::endl;
+                                rpt::echo<<"Terminating..."<<std::endl;
+                            }
+                        }
                         ss   += inpSS_xmsy(x,m,s,iy);
                         oP_z += rawNatZ_xmsyz(x,m,s,iy);
                     }
                 }
             }
+            uf_xmsy(ALL_SXs,ALL_MSs,ALL_SCs,iy) = uf;
+            dm_xmsy(ALL_SXs,ALL_MSs,ALL_SCs,iy) = dm;
             ss_xmsy(ALL_SXs,ALL_MSs,ALL_SCs,iy) = ss;
             aggNatZ_xmsyz(ALL_SXs,ALL_MSs,ALL_SCs,iy) = oP_z;
             if (debug){
-                rpt::echo<<"ss = "<<ss<<endl;
-                rpt::echo<<"aggNatZ_xmsyz(ALL_SXs,ALL_MSs,ALL_SCs,iy) = "<<oP_z<<endl;
+                rpt::echo<<"x, m, s = "<<tcsam::getSexType(ALL_SXs)<<cc<<tcsam::getMaturityType(ALL_MSs)<<cc<<tcsam::getShellType(ALL_SCs)<<std::endl;
+                rpt::echo<<"uf, dm, ss = "<<uf<<cc<<dm<<cc<<ss<<std::endl;
+                rpt::echo<<"aggNatZ_xmsyz(x,m,s,iy) = "<<oP_z<<endl;
             }
         } //loop over iy
         //FIT_BY_TOT
@@ -844,19 +876,38 @@ void SizeFrequencyData::aggregateRawNatZ(void){
             y = yrs[iy];
             if (debug) rpt::echo<<"y = "<<y<<endl;
             for (int x=1;x<=nSXs;x++) {
+                uf = 0;
+                dm = 0;
                 ss = 0;
                 oP_z.initialize();//observed size comp.
                 for (int m=1;m<=ALL_MSs;m++) {
                     for (int s=1;s<=ALL_SCs;s++) {
+                        uf   += inpUF_xmsy(x,m,s,iy);
+                        if (!dm) {
+                            dm = inpDM_xmsy(x,m,s,iy);
+                        } else {
+                            if (dm!=inpDM_xmsy(x,m,s,iy)){
+                                std::cout<<"Error in defining indices for Dirichlet-Multinomial parameter. See EchoData.dat."<<std::endl;
+                                rpt::echo<<"Error in defining indices for Dirichlet-Multinomial parameter."<<std::endl;
+                                rpt::echo<<"Indices must be consistent across aggregation level."<<std::endl;
+                                rpt::echo<<"current x,m,s,y = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(s)<<cc<<y<<std::endl;
+                                rpt::echo<<"dm was "<<dm<<", current dm = "<<inpDM_xmsy(x,m,s,iy)<<std::endl;
+                                std::cout<<"Terminating..."<<std::endl;
+                                rpt::echo<<"Terminating..."<<std::endl;
+                            }
+                        }
                         ss += inpSS_xmsy(x,m,s,iy);
                         oP_z += rawNatZ_xmsyz(x,m,s,iy);
                     }//--s
                 }//--m
+                uf_xmsy(x,ALL_MSs,ALL_SCs,iy) = uf;
+                dm_xmsy(x,ALL_MSs,ALL_SCs,iy) = dm;
                 ss_xmsy(x,ALL_MSs,ALL_SCs,iy) = ss;
                 aggNatZ_xmsyz(x,ALL_MSs,ALL_SCs,iy) = oP_z;
                 if (debug){
-                    rpt::echo<<"x,ss = "<<x<<cc<<ss<<endl;
-                    rpt::echo<<"aggNatZ_xmsyz(x,ALL_MSs,ALL_SCs,iy) = "<<oP_z<<endl;
+                    rpt::echo<<"x, m, s = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(ALL_MSs)<<cc<<tcsam::getShellType(ALL_SCs)<<std::endl;
+                    rpt::echo<<"uf, dm, ss = "<<uf<<cc<<dm<<cc<<ss<<std::endl;
+                    rpt::echo<<"aggNatZ_xmsyz(x,m,s,iy) = "<<oP_z<<endl;
                 }
             }//x
         } //loop over iy
@@ -869,17 +920,36 @@ void SizeFrequencyData::aggregateRawNatZ(void){
             if (debug) rpt::echo<<"y = "<<y<<endl;
             for (int x=1;x<=nSXs;x++) {
                 for (int m=1;m<=nMSs;m++){
+                    uf = 0;
+                    dm = 0;
                     ss = 0;
                     oP_z.initialize();//size comp. aggregated over s
                     for (int s=1;s<=ALL_SCs;s++) {
+                        uf   += inpUF_xmsy(x,m,s,iy);
+                        if (!dm) {
+                            dm = inpDM_xmsy(x,m,s,iy);
+                        } else {
+                            if (dm!=inpDM_xmsy(x,m,s,iy)){
+                                std::cout<<"Error in defining indices for Dirichlet-Multinomial parameter. See EchoData.dat."<<std::endl;
+                                rpt::echo<<"Error in defining indices for Dirichlet-Multinomial parameter."<<std::endl;
+                                rpt::echo<<"Indices must be consistent across aggregation level."<<std::endl;
+                                rpt::echo<<"current x,m,s,y = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(s)<<cc<<y<<std::endl;
+                                rpt::echo<<"dm was "<<dm<<", current dm = "<<inpDM_xmsy(x,m,s,iy)<<std::endl;
+                                std::cout<<"Terminating..."<<std::endl;
+                                rpt::echo<<"Terminating..."<<std::endl;
+                            }
+                        }
                         ss += inpSS_xmsy(x,m,s,iy);
                         oP_z += rawNatZ_xmsyz(x,m,s,iy);
                     }//--s
+                    uf_xmsy(x,m,ALL_SCs,iy) = uf;
+                    dm_xmsy(x,m,ALL_SCs,iy) = dm;
                     ss_xmsy(x,m,ALL_SCs,iy) = ss;
                     aggNatZ_xmsyz(x,m,ALL_SCs,iy) = oP_z;
                     if (debug){
-                        rpt::echo<<"x,m,ss   = "<<x<<cc<<m<<cc<<ss<<endl;
-                        rpt::echo<<"aggNatZ_xmsyz(x,m,ALL_SCs,iy) = "<<oP_z<<endl;
+                        rpt::echo<<"x, m, s = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(ALL_SCs)<<std::endl;
+                        rpt::echo<<"uf, dm, ss = "<<uf<<cc<<dm<<cc<<ss<<std::endl;
+                        rpt::echo<<"aggNatZ_xmsyz(x,m,s,iy) = "<<oP_z<<endl;
                     }
                 }//m
             }//x
@@ -892,17 +962,36 @@ void SizeFrequencyData::aggregateRawNatZ(void){
             if (debug) rpt::echo<<"y = "<<y<<endl;
             for (int x=1;x<=nSXs;x++) {
                 for (int s=1;s<=nSCs;s++){
+                    uf = 0;
+                    dm = 0;
                     ss = 0;
                     oP_z.initialize();//size comp. aggregated over m
                     for (int m=1;m<=ALL_MSs;m++) {
+                        uf   += inpUF_xmsy(x,m,s,iy);
+                        if (!dm) {
+                            dm = inpDM_xmsy(x,m,s,iy);
+                        } else {
+                            if (dm!=inpDM_xmsy(x,m,s,iy)){
+                                std::cout<<"Error in defining indices for Dirichlet-Multinomial parameter. See EchoData.dat."<<std::endl;
+                                rpt::echo<<"Error in defining indices for Dirichlet-Multinomial parameter."<<std::endl;
+                                rpt::echo<<"Indices must be consistent across aggregation level."<<std::endl;
+                                rpt::echo<<"current x,m,s,y = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(s)<<cc<<y<<std::endl;
+                                rpt::echo<<"dm was "<<dm<<", current dm = "<<inpDM_xmsy(x,m,s,iy)<<std::endl;
+                                std::cout<<"Terminating..."<<std::endl;
+                                rpt::echo<<"Terminating..."<<std::endl;
+                            }
+                        }
                         ss += inpSS_xmsy(x,m,s,iy);
                         oP_z += rawNatZ_xmsyz(x,m,s,iy);
                     }//--m
+                    uf_xmsy(x,ALL_MSs,s,iy) = uf;
+                    dm_xmsy(x,ALL_MSs,s,iy) = dm;
                     ss_xmsy(x,ALL_MSs,s,iy) = ss;
                     aggNatZ_xmsyz(x,ALL_MSs,s,iy) = oP_z;
                     if (debug){
-                        rpt::echo<<"x,s,ss   = "<<x<<cc<<s<<cc<<ss<<endl;
-                        rpt::echo<<"aggNatZ_xmsyz(x,ALL_MSs,s,iy) = "<<oP_z<<endl;
+                        rpt::echo<<"x, m, s = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(ALL_MSs)<<cc<<tcsam::getShellType(s)<<std::endl;
+                        rpt::echo<<"uf, dm, ss = "<<uf<<cc<<dm<<cc<<ss<<std::endl;
+                        rpt::echo<<"aggNatZ_xmsyz(x,m,s,iy) = "<<oP_z<<endl;
                     }
                 }//s
             }//x
@@ -916,14 +1005,33 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                 for (int x=1;x<=nSXs;x++) {
                     for (int m=1;m<=nMSs;m++){
                         for (int s=1;s<=nSCs;s++) {
+                            uf = 0;
+                            dm = 0;
                             ss = 0;
                             oP_z.initialize();//observed size comp.
+                            uf   += inpUF_xmsy(x,m,s,iy);
+                            if (!dm) {
+                                dm = inpDM_xmsy(x,m,s,iy);
+                            } else {
+                                if (dm!=inpDM_xmsy(x,m,s,iy)){
+                                    std::cout<<"Error in defining indices for Dirichlet-Multinomial parameter. See EchoData.dat."<<std::endl;
+                                    rpt::echo<<"Error in defining indices for Dirichlet-Multinomial parameter."<<std::endl;
+                                    rpt::echo<<"Indices must be consistent across aggregation level."<<std::endl;
+                                    rpt::echo<<"current x,m,s,y = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(s)<<cc<<y<<std::endl;
+                                    rpt::echo<<"dm was "<<dm<<", current dm = "<<inpDM_xmsy(x,m,s,iy)<<std::endl;
+                                    std::cout<<"Terminating..."<<std::endl;
+                                    rpt::echo<<"Terminating..."<<std::endl;
+                                }
+                            }
                             ss += inpSS_xmsy(x,m,s,iy);
                             oP_z += rawNatZ_xmsyz(x,m,s,iy);
+                            uf_xmsy(x,m,s,iy) = uf;
+                            dm_xmsy(x,m,s,iy) = dm;
                             ss_xmsy(x,m,s,iy) = ss;
                             aggNatZ_xmsyz(x,m,s,iy) = oP_z;
                             if (debug){
-                                rpt::echo<<"x,m,s,ss = "<<x<<cc<<m<<cc<<s<<cc<<ss<<endl;
+                                rpt::echo<<"x, m, s = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(s)<<std::endl;
+                                rpt::echo<<"uf, dm, ss = "<<uf<<cc<<dm<<cc<<ss<<std::endl;
                                 rpt::echo<<"aggNatZ_xmsyz(x,m,s,iy) = "<<oP_z<<endl;
                             }
                         }//s
@@ -961,7 +1069,7 @@ void SizeFrequencyData::replaceSizeFrequencyData(int iSeed,random_number_generat
     //copy old values in temporary variables
     int oldNY = ny;
     ivector oldYrs(1,oldNY); oldYrs = yrs;
-    d5_array oldInpNatZ_xmsyc(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,oldNY,1,3+(nZCs-1));
+    d5_array oldInpNatZ_xmsyc(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,oldNY,1,LAST_COL+(nZCs-1));
     for (int x=1;x<=tcsam::ALL_SXs;x++){
         for (int m=1;m<=tcsam::ALL_MSs;m++){
             for (int s=1;s<=tcsam::ALL_SCs;s++) {
@@ -980,7 +1088,7 @@ void SizeFrequencyData::replaceSizeFrequencyData(int iSeed,random_number_generat
     yrs.deallocate(); yrs.allocate(1,ny); yrs.initialize();
     //reallocate inpNatZ_xmsyc for new number of years
     inpNatZ_xmsyc.deallocate(); 
-    inpNatZ_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,3+(nZCs-1));
+    inpNatZ_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,LAST_COL+(nZCs-1));
     inpNatZ_xmsyc.initialize();
 
     //copy old data from appropriate years
@@ -1007,8 +1115,8 @@ void SizeFrequencyData::replaceSizeFrequencyData(int iSeed,random_number_generat
                                 cout<<"new n_z = "<<n_z<<endl;
                             }
                         }
-                        inpNatZ_xmsyc(x,m,s,yctr)(1,3) = oldInpNatZ_xmsyc(x,m,s,y)(1,3);//old use flag, year, ss
-                        inpNatZ_xmsyc(x,m,s,yctr)(4,3+nZCs-1).shift(1) = n_z;//new size frequency
+                        inpNatZ_xmsyc(x,m,s,yctr)(1,LAST_COL) = oldInpNatZ_xmsyc(x,m,s,y)(1,LAST_COL);//old use flag, DM, year, ss
+                        inpNatZ_xmsyc(x,m,s,yctr)(LAST_COL+1,LAST_COL+nZCs-1).shift(1) = n_z;//new size frequency
                     }
                 }
             }
@@ -1017,14 +1125,17 @@ void SizeFrequencyData::replaceSizeFrequencyData(int iSeed,random_number_generat
     
     //re-constitute other arrays
     inpUF_xmsy.deallocate();
+    inpDM_xmsy.deallocate();
     inpSS_xmsy.deallocate();
     rawNatZ_xmsyz.deallocate();
     
     inpUF_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
+    inpDM_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
     inpSS_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
     rawNatZ_xmsyz.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,nZCs-1);
     
     inpUF_xmsy.initialize();
+    inpDM_xmsy.initialize();
     inpSS_xmsy.initialize();
     rawNatZ_xmsyz.initialize();
     
@@ -1043,10 +1154,13 @@ void SizeFrequencyData::replaceSizeFrequencyData(int iSeed,random_number_generat
         int x = tcsam::getSexType(factors(i+1,1));
         int m = tcsam::getMaturityType(factors(i+1,2));
         int s = tcsam::getShellType(factors(i+1,3));
-            inpSS_xmsy(x,m,s) = column(inpNatZ_xmsyc(x,m,s),2);
-            for (int y=1;y<=ny;y++){
-                rawNatZ_xmsyz(x,m,s,y)  = (inpNatZ_xmsyc(x,m,s,y)(4,3+(nZCs-1))).shift(1);
-            }
+        int k=0;
+        inpUF_xmsy(x,m,s) = column(inpNatZ_xmsyc(x,m,s),1);
+        inpDM_xmsy(x,m,s) = column(inpNatZ_xmsyc(x,m,s),2);
+        inpSS_xmsy(x,m,s) = column(inpNatZ_xmsyc(x,m,s),4);
+        for (int y=1;y<=ny;y++){
+            rawNatZ_xmsyz(x,m,s,y)  = (inpNatZ_xmsyc(x,m,s,y)(LAST_COL+1,LAST_COL+(nZCs-1))).shift(1);
+        }
     }
     aggregateRawNatZ();
     doTailCompression();
@@ -1068,7 +1182,7 @@ void SizeFrequencyData::addSizeFrequencyData(int y, d4_array& newNatZ_xmsz){
     if (debug) os<<"Copying old values to temporary storage"<<endl;
     int oldNY = ny;
     ivector oldYrs(1,oldNY); oldYrs = yrs;
-    d5_array oldInpNatZ_xmsyc(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,oldNY,1,3+(nZCs-1));
+    d5_array oldInpNatZ_xmsyc(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,oldNY,1,LAST_COL+(nZCs-1));
     for (int x=1;x<=tcsam::ALL_SXs;x++){
         for (int m=1;m<=tcsam::ALL_MSs;m++){
             for (int s=1;s<=tcsam::ALL_SCs;s++) {
@@ -1086,7 +1200,7 @@ void SizeFrequencyData::addSizeFrequencyData(int y, d4_array& newNatZ_xmsz){
     
     //reallocate inpNatZ_xmsyc for new number of years
     inpNatZ_xmsyc.deallocate(); 
-    inpNatZ_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,3+(nZCs-1));
+    inpNatZ_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,LAST_COL+(nZCs-1));
     inpNatZ_xmsyc.initialize();
     if (debug) os<<"Done reallocating for new number of years"<<endl;
 
@@ -1096,7 +1210,7 @@ void SizeFrequencyData::addSizeFrequencyData(int y, d4_array& newNatZ_xmsz){
         for (int x=1;x<=tcsam::ALL_SXs;x++){
             for (int m=1;m<=tcsam::ALL_MSs;m++){
                 for (int s=1;s<=tcsam::ALL_SCs;s++) {
-                    inpNatZ_xmsyc(x,m,s,iy) = oldInpNatZ_xmsyc(x,m,s,iy);//old year, ss, size frequency
+                    inpNatZ_xmsyc(x,m,s,iy) = oldInpNatZ_xmsyc(x,m,s,iy);//old use flag, DM, year, ss, size frequency
                 }//-s
             }//-m
         }//-x
@@ -1111,10 +1225,12 @@ void SizeFrequencyData::addSizeFrequencyData(int y, d4_array& newNatZ_xmsz){
                 if (debug) os<<"x,m,s = "<<x<<cc<<m<<cc<<s<<endl;
                 dvector n_z = tcsam::extractFromXMSZ(x,m,s,newNatZ_xmsz);
                 if (debug) os<<"n_z = "<<n_z<<endl;
-                inpNatZ_xmsyc(x,m,s,ny)(1) = 1;                               //set UF=1 to use new ZC
-                inpNatZ_xmsyc(x,m,s,ny)(2) = y;                               //new year
-                inpNatZ_xmsyc(x,m,s,ny)(3) = oldInpNatZ_xmsyc(x,m,s,oldNY)(3);//new ss = last year's ss
-                inpNatZ_xmsyc(x,m,s,ny)(4,3+nZCs-1).shift(1) = n_z;           //new size frequency
+                int k=0;
+                inpNatZ_xmsyc(x,m,s,ny)(++k) = 1;                                 //set UF=1 to use new ZC
+                inpNatZ_xmsyc(x,m,s,ny)(++k) = oldInpNatZ_xmsyc(x,m,s,oldNY)(k);  //new DM = last year's DM
+                inpNatZ_xmsyc(x,m,s,ny)(++k) = y;                                 //new year
+                inpNatZ_xmsyc(x,m,s,ny)(++k) = oldInpNatZ_xmsyc(x,m,s,oldNY)(k);  //new ss = last year's ss
+                inpNatZ_xmsyc(x,m,s,ny)(LAST_COL+1,LAST_COL+nZCs-1).shift(1) = n_z;//new size frequency
             }//-s
         }//-m
     }//-x
@@ -1123,14 +1239,17 @@ void SizeFrequencyData::addSizeFrequencyData(int y, d4_array& newNatZ_xmsz){
     //re-constitute other arrays
     if (debug) os<<"Reconstituting other arrays"<<endl;
     inpUF_xmsy.deallocate();
+    inpDM_xmsy.deallocate();
     inpSS_xmsy.deallocate();
     rawNatZ_xmsyz.deallocate();
     
     inpUF_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
+    inpDM_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
     inpSS_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
     rawNatZ_xmsyz.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,nZCs-1);
     
     inpUF_xmsy.initialize();
+    inpDM_xmsy.initialize();
     inpSS_xmsy.initialize();
     rawNatZ_xmsyz.initialize();
     
@@ -1150,9 +1269,10 @@ void SizeFrequencyData::addSizeFrequencyData(int y, d4_array& newNatZ_xmsz){
         int m = tcsam::getMaturityType(factors(i+1,2));
         int s = tcsam::getShellType(factors(i+1,3));
             inpUF_xmsy(x,m,s) = column(inpNatZ_xmsyc(x,m,s),1);
-            inpSS_xmsy(x,m,s) = column(inpNatZ_xmsyc(x,m,s),3);
+            inpDM_xmsy(x,m,s) = column(inpNatZ_xmsyc(x,m,s),2);
+            inpSS_xmsy(x,m,s) = column(inpNatZ_xmsyc(x,m,s),4);
             for (int iy=1;iy<=ny;iy++){
-                rawNatZ_xmsyz(x,m,s,iy)  = (inpNatZ_xmsyc(x,m,s,iy)(4,3+(nZCs-1))).shift(1);
+                rawNatZ_xmsyz(x,m,s,iy)  = (inpNatZ_xmsyc(x,m,s,iy)(LAST_COL+1,LAST_COL+(nZCs-1))).shift(1);
             }
     }
     
@@ -1182,12 +1302,14 @@ void SizeFrequencyData::setMaxYear(int mxYr){
     //allocate temporary arrays
     ivector new_yrs(1,nyp);
     d4_array new_inpUF_xmsy(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp);
+    i4_array new_idxDM_xmsy(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp);
     d4_array new_inpSS_xmsy(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp);
     d5_array new_NatZ_xmsyz(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp,1,nZCs-1);
-    d5_array new_inpNatZ_xmsyc(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp,1,2+(nZCs-1));
+    d5_array new_inpNatZ_xmsyc(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp,1,LAST_COL+(nZCs-1));
     
     new_yrs.initialize();
     new_inpUF_xmsy.initialize();
+    new_idxDM_xmsy.initialize();
     new_inpSS_xmsy.initialize();
     new_NatZ_xmsyz.initialize();
     new_inpNatZ_xmsyc.initialize();
@@ -1211,6 +1333,7 @@ void SizeFrequencyData::setMaxYear(int mxYr){
                 for (int m=1;m<=tcsam::ALL_MSs;m++){
                     for (int s=1;s<=tcsam::ALL_SCs;s++){
                         new_inpUF_xmsy(x,m,s,iyp)    = inpUF_xmsy(x,m,s,iy);
+                        new_idxDM_xmsy(x,m,s,iyp)    = inpDM_xmsy(x,m,s,iy);
                         new_inpSS_xmsy(x,m,s,iyp)    = inpSS_xmsy(x,m,s,iy);
                         new_NatZ_xmsyz(x,m,s,iyp)    = rawNatZ_xmsyz(x,m,s,iy);
                         new_inpNatZ_xmsyc(x,m,s,iyp) = inpNatZ_xmsyc(x,m,s,iy);
@@ -1228,6 +1351,7 @@ void SizeFrequencyData::setMaxYear(int mxYr){
     //copy back to class members
     yrs.deallocate();
     inpUF_xmsy.deallocate();
+    inpDM_xmsy.deallocate();
     inpSS_xmsy.deallocate();
     rawNatZ_xmsyz.deallocate();
     inpNatZ_xmsyc.deallocate();
@@ -1235,12 +1359,14 @@ void SizeFrequencyData::setMaxYear(int mxYr){
     ny = nyp;
     yrs.allocate(1,ny);
     inpUF_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
+    inpDM_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
     inpSS_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
     rawNatZ_xmsyz.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,nZCs-1);
-    inpNatZ_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,3+(nZCs-1));
+    inpNatZ_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,LAST_COL+(nZCs-1));
     
     yrs.initialize();
     inpUF_xmsy.initialize();
+    inpDM_xmsy.initialize();
     inpSS_xmsy.initialize();
     rawNatZ_xmsyz.initialize();
     inpNatZ_xmsyc.initialize();
@@ -1251,8 +1377,9 @@ void SizeFrequencyData::setMaxYear(int mxYr){
             for (int m=1;m<=tcsam::ALL_MSs;m++){
                 for (int s=1;s<=tcsam::ALL_SCs;s++){
                     inpUF_xmsy(x,m,s,iy)    = new_inpUF_xmsy(x,m,s,iy);
+                    inpDM_xmsy(x,m,s,iy)    = new_idxDM_xmsy(x,m,s,iy);
                     inpSS_xmsy(x,m,s,iy)    = new_inpSS_xmsy(x,m,s,iy);
-                    rawNatZ_xmsyz(x,m,s,iy)    = new_NatZ_xmsyz(x,m,s,iy);
+                    rawNatZ_xmsyz(x,m,s,iy) = new_NatZ_xmsyz(x,m,s,iy);
                     inpNatZ_xmsyc(x,m,s,iy) = new_inpNatZ_xmsyc(x,m,s,iy);
                 }//--s
             }//--m
@@ -1268,7 +1395,7 @@ void SizeFrequencyData::setMaxYear(int mxYr){
                         rpt::echo<<inpNatZ_xmsyc(x,m,s)<<endl;
                         rpt::echo<<yrs<<endl;
                         for (int iy=1;iy<=ny;iy++){
-                            rpt::echo<<inpUF_xmsy(x,m,s,iy)<<tb<<yrs(iy)<<tb<<inpSS_xmsy(x,m,s,iy)<<tb<<rawNatZ_xmsyz(x,m,s,iy)<<endl;
+                            rpt::echo<<inpUF_xmsy(x,m,s,iy)<<tb<<inpDM_xmsy(x,m,s,iy)<<tb<<yrs(iy)<<tb<<inpSS_xmsy(x,m,s,iy)<<tb<<rawNatZ_xmsyz(x,m,s,iy)<<endl;
                         }//--iy
                     }//--if
                 }//--s
@@ -1319,8 +1446,6 @@ void SizeFrequencyData::read(cifstream & is){
     rpt::echo<<tcsam::getFitType(optFit)<<tb<<"#objective function fitting option"<<std::endl;
     is>>str; llType = tcsam::getLikelihoodType(str);
     rpt::echo<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood function type"<<std::endl;
-    is>>idxParamDM;
-    rpt::echo<<idxParamDM<<tb<<"#index to Dirichlet-Multinomial parameter"<<std::endl;
     is>>llWgt;
     rpt::echo<<llWgt<<tb<<"#likelihood weight (multiplier)"<<std::endl;
     tc_limits.allocate(1,2);//tail compression limits (pmin, 1-pmax)
@@ -1341,12 +1466,14 @@ void SizeFrequencyData::read(cifstream & is){
     
     yrs.allocate(1,ny);
     inpUF_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
+    inpDM_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
     inpSS_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
     rawNatZ_xmsyz.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,nZCs-1);
-    inpNatZ_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,3+(nZCs-1));
+    inpNatZ_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,LAST_COL+(nZCs-1));
     
     yrs.initialize();
     inpUF_xmsy.initialize();
+    inpDM_xmsy.initialize();
     inpSS_xmsy.initialize();
     rawNatZ_xmsyz.initialize();
     inpNatZ_xmsyc.initialize();
@@ -1370,13 +1497,15 @@ void SizeFrequencyData::read(cifstream & is){
         rpt::echo<<factors(i+1,1)<<tb<<factors(i+1,2)<<tb<<factors(i+1,3)<<tb<<"#factors"<<std::endl;
         if (x&&m&&s){
             is>>inpNatZ_xmsyc(x,m,s);
-            rpt::echo<<"#use? year    ss     "<<zBs<<std::endl;
+            rpt::echo<<"#use? dm  year  ss     "<<zBs<<std::endl;
             rpt::echo<<inpNatZ_xmsyc(x,m,s)<<std::endl;
-            inpUF_xmsy(x,m,s) = column(inpNatZ_xmsyc(x,m,s),1);
-            yrs     = (ivector) column(inpNatZ_xmsyc(x,m,s),2);
-            inpSS_xmsy(x,m,s) = column(inpNatZ_xmsyc(x,m,s),3);
+            int k=1;
+            inpUF_xmsy(x,m,s) = column(inpNatZ_xmsyc(x,m,s),k++);
+            inpDM_xmsy(x,m,s) = (ivector) column(inpNatZ_xmsyc(x,m,s),k++);
+            yrs               = (ivector) column(inpNatZ_xmsyc(x,m,s),k++);
+            inpSS_xmsy(x,m,s) = column(inpNatZ_xmsyc(x,m,s),k++);
             for (int y=1;y<=ny;y++){
-                rawNatZ_xmsyz(x,m,s,y)  = (inpNatZ_xmsyc(x,m,s,y)(4,3+(nZCs-1))).shift(1);
+                rawNatZ_xmsyz(x,m,s,y)  = (inpNatZ_xmsyc(x,m,s,y)(LAST_COL+1,LAST_COL+(nZCs-1))).shift(1);
             }
         } else {
             std::cout<<"-----------------------------------------------------------"<<std::endl;
@@ -1404,7 +1533,6 @@ void SizeFrequencyData::write(ostream & os){
     os<<KW_SIZEFREQUENCY_DATA<<tb<<"#required keyword"<<std::endl;
     os<<tcsam::getFitType(optFit)<<tb<<"#objective function fitting option"<<std::endl;
     os<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood function type"<<std::endl;
-    os<<idxParamDM<<tb<<"#index to Dirichlet-Multinomial parameter"<<std::endl;
     os<<llWgt<<tb<<"#likelihood weight (multiplier)"<<std::endl;
     os<<tc_limits<<tb<<"#tail compression limits (pmin,1-pmax)"<<std::endl;    
     os<<ny<<tb<<"#number of years of size data"<<std::endl;
@@ -1420,7 +1548,7 @@ void SizeFrequencyData::write(ostream & os){
         int s = tcsam::getShellType(factors(c,3));
         os<<"#-------"<<factors(c,1)<<cc<<factors(c,2)<<cc<<factors(c,3)<<std::endl;
         os<<factors(c,1)<<tb<<factors(c,2)<<tb<<factors(c,3)<<std::endl;
-        os<<"#use? year    ss     "<<zBs<<std::endl;
+        os<<"#use? dm  year  ss     "<<zBs<<std::endl;
         os<<inpNatZ_xmsyc(x,m,s)<<std::endl;
     }
     if (debug) std::cout<<"end SizeFrequencyData::write(...) "<<this<<std::endl;
@@ -1429,8 +1557,9 @@ void SizeFrequencyData::write(ostream & os){
 *   Function to write object to R list.                        *
 ***************************************************************/
 void SizeFrequencyData::writeToR(ostream& os, std::string nm, int indent) {
-    if (debug) std::cout<<"SizeFrequencyData::writing to R"<<std::endl;
+    if (debug) tcsam::writeMessage(adstring("SizeFrequencyData::writing to R: ")+adstring(nm.c_str()));
     ivector bnds = wts::getBounds(rawNatZ_xmsyz);
+    if (debug) tcsam::writeMessage("got here");
     adstring x = tcsamDims::getSXsForR(bnds(1),bnds(2));
     adstring m = tcsamDims::getMSsForR(bnds(3),bnds(4));
     adstring s = tcsamDims::getSCsForR(bnds(5),bnds(6));
@@ -1441,16 +1570,21 @@ void SizeFrequencyData::writeToR(ostream& os, std::string nm, int indent) {
     for (int n=0;n<indent;n++) os<<tb;
         os<<"optFit="<<qt<<tcsam::getFitType(optFit)<<qt<<cc; 
         os<<"llType="<<qt<<tcsam::getLikelihoodType(llType)<<qt<<cc; 
-        os<<"idxParamDM="<<idxParamDM<<cc;
         os<<"llWgt="<<llWgt<<cc<<std::endl; 
     for (int n=0;n<indent;n++) os<<tb;
         os<<"y="; wts::writeToR(os,yrs); os<<cc<<std::endl;
     for (int n=0;n<indent;n++) os<<tb;
         os<<"zc="; wts::writeToR(os,zCs); os<<cc<<std::endl;
     for (int n=0;n<indent;n++) os<<tb;
-        os<<"use.flags="; wts::writeToR(os,inpUF_xmsy,x,m,s,y); os<<cc<<std::endl;
+        os<<"inpUF="; wts::writeToR(os,inpUF_xmsy,x,m,s,y); os<<cc<<std::endl;
+    for (int n=0;n<indent;n++) os<<tb;
+        os<<"inpDM="; wts::writeToR(os,inpDM_xmsy,x,m,s,y); os<<cc<<std::endl;
     for (int n=0;n<indent;n++) os<<tb;
         os<<"inpSS="; wts::writeToR(os,inpSS_xmsy,x,m,s,y); os<<cc<<std::endl;
+    for (int n=0;n<indent;n++) os<<tb;
+        os<<"aggUF="; wts::writeToR(os,uf_xmsy,x,m,s,y); os<<cc<<std::endl;
+    for (int n=0;n<indent;n++) os<<tb;
+        os<<"aggDM="; wts::writeToR(os,dm_xmsy,x,m,s,y); os<<cc<<std::endl;
     for (int n=0;n<indent;n++) os<<tb;
         os<<"aggSS="; wts::writeToR(os,ss_xmsy,x,m,s,y); os<<cc<<std::endl;
     for (int n=0;n<indent;n++) os<<tb;
@@ -1467,7 +1601,7 @@ void SizeFrequencyData::writeToR(ostream& os, std::string nm, int indent) {
         wts::writeToR(os,aggNatZ_xmsyz,x,m,s,y,z); os<<std::endl;
     for (int n=0;n<indent;n++) os<<tb;
          os<<")";
-    if (debug) std::cout<<"SizeFrequencyData::done writing to R"<<std::endl;
+    if (debug) tcsam::writeMessage("SizeFrequencyData::done writing to R");
 }
 /////////////////////////////////end SizeFrequencyData/////////////////////////
 //----------------------------------------------------------------------

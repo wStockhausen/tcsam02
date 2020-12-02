@@ -38,6 +38,16 @@ void tcsam::readError(cifstream & is, const char * expP, adstring gotP){
     cout<<"Expected parameter name '"<<expP<<"' but got '"<<gotP<<"'."<<endl;
     cout<<"Aborting..."<<endl;
 }
+
+/**
+ * Writes a message to std::cout and rpt::echo.
+ * 
+ * @param msg - message to  write
+ */
+void tcsam::writeMessage(adstring msg){
+    std::cout<<msg<<std::endl; 
+    rpt::echo<<msg<<std::endl;
+}
 //----------------------------------------------------------------------
 //          Model Functions
 //----------------------------------------------------------------------

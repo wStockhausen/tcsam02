@@ -211,10 +211,12 @@ class IndexBlock;
         static std::ostream& os;
         /* keyword indicating size frequency data */
         const static adstring KW_SIZEFREQUENCY_DATA;
+        /* integer indicating last column in inpNatZ_xmsyc BEFORE nAtZ data */
+        const static int LAST_COL=4;//use flag, dm index, year, ss
     private:
         /* factor combinations for input numbers-at-size */
         wts::adstring_matrix factors;
-        /* input numbers-at-size data (sex,maturity state,shell condition,year,use+year+sample_size+nAtZ) */
+        /* input numbers-at-size data (sex,maturity state,shell condition,year,use+idxDM+year+sample_size+nAtZ) */
         d5_array inpNatZ_xmsyc;       
     public:
         /* objective function fitting option */
@@ -230,14 +232,17 @@ class IndexBlock;
         /* vector of size bin centers (1:nZCs-1) */
         dvector zBs; 
         
-        /* number of years of size frequency data */
-        int ny;         
         /* units for numbers-at-size data */
         adstring units; 
+        
+        /* number of years of size frequency data */
+        int ny;         
         /* years of size frequency data */
         ivector  yrs;       
         /* use flags for size frequency data */
         d4_array inpUF_xmsy;   
+        /* input indices for Dirichlet-Multinomial parameter */
+        d4_array inpDM_xmsy;
         /* input sample sizes for size frequency data */
         d4_array inpSS_xmsy;   
         /* raw size frequency data */
@@ -254,13 +259,16 @@ class IndexBlock;
         /* tail compression indices */
         i5_array tc_xmsyc;   
         
-        /* index for Dirichlet-Multinomial parameter */
-        int idxParamDM;
         
         /* cumulative iterative re-weighting factors */
         d3_array cumF_xms;
         /* last set of iterative re-weighting factors */
         d3_array itrF_xms;
+        
+        /* working use flags for size frequency data */
+        i4_array uf_xmsy;   
+        /* working Dirichlet-Multinomial parameter indices for size frequency data */
+        i4_array dm_xmsy;   
         /* working (possibly re-weighted) sample sizes for size frequency data */
         d4_array ss_xmsy;   
         

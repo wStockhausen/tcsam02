@@ -36,6 +36,8 @@
  *           Incremented tcsam::VERSION to "2020.11.16" reflecting changes to tpl file.
  * 20201116: Incremented tcsam::VERSION to "2020.11.29" reflecting completion of
  *             tail compression and Dirichlet-Multinomial options.
+ * 20201203: Incremented tcsam::VERSION to "2020.12.03" reflecting revision of
+ *             Dirichlet-Multinomial specification and use flags implementation.
  */
 
 #pragma once
@@ -70,7 +72,7 @@ namespace tcsam{
     /* adstring indicating model name */
     const adstring MODEL = "tcsam02";
     /* adstring indicating model version */
-    const adstring VERSION = "2020.11.29";
+    const adstring VERSION = "2020.12.03";
     
     /* minimum debugging level that will print ALL debug info */
     const int dbgAll = 100;

@@ -11,6 +11,8 @@
 
 #include <admodel.h>
 
+#include "ModelConstants.hpp"
+
 //----------------------------------------------------------------------
 //          Model Functions
 //----------------------------------------------------------------------
@@ -43,6 +45,12 @@ namespace tcsam{
      * @param gotP - the obtained read value
      */
     void readError(cifstream & is, const char * expP, adstring gotP);
+    /**
+     * Writes a message to std::cout and rpt::echo.
+     * 
+     * @param msg - message to  write
+     */
+    void writeMessage(adstring msg);
     
     /***********************************************************************
     modfcn_constant
