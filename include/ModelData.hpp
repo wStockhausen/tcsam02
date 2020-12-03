@@ -372,6 +372,20 @@ class IndexBlock;
          * 
          */
         void aggregateRawNatZ(void);
+    private:
+        /**
+         * Set the DM parameter index based on previous value and current value.
+         * 
+         * @param x
+         * @param m
+         * @param s
+         * @param y - year
+         * @param dm - previous value of DM parameter index
+         * @param inpDM - current value of DM parameter index
+         * 
+         * @return possibly updated value for dm.
+         */
+        int setDM(int x,int m,int s,int y,int dm,int inpDM);
     };
 
 //--------------------------------------------------------------------------------

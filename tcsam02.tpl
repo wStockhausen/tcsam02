@@ -666,6 +666,7 @@
 //              2. Added tcsam::writeMessage(adstring) in ModelFunctions to write to a message to both
 //                   std::cout and rpt::echo (similar to macro PRINT2B1 in tpl).
 //              3. Incremented model version to 2020.12.03 to reflect changes.
+//-2020-12-04:  1. Added calcDirichletPNLL function to use DM likelihood without a small constant.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -6365,19 +6366,25 @@ FUNCTION void calcDirichletNLL(dvariable& theta, double wgt, dvar_vector& mod, d
     dvariable thn = theta*n;
     dvector     obsp = (obs+1.0e-10)/sum(obs+1.0e-10);
     dvar_vector modp = (mod+1.0e-10)/sum(mod+1.0e-10);
-    nll = -( gammln(n+1.0)-sum(gammln(n*obsp+1.0)) );//constant term
-    nll -= gammln(thn)-gammln(n+thn);
-    nll -= sum(gammln(n*obsp+thn*modp) - gammln(thn*modp));
+    if (ss>0){//blows up if ss=0
+        nll = -( gammln(n+1.0)-sum(gammln(n*obsp+1.0)) );//constant term
+        nll -= gammln(thn)-gammln(n+thn);
+        nll -= sum(gammln(n*obsp+thn*modp) - gammln(thn*modp));
+    }
     
     objFun += wgt*nll;
     
     if ((debug<0)||(debug>=dbgAll)){
-        dvector vmod = value(modp);
-        double nEff  = value(1.0/(1.0+theta) + n*(theta/(1.0+theta)));
-        double effN  = 0.0;
-        if (ss>0) effN = (vmod*(1.0-vmod))/norm2(obsp-vmod);
-        dvector nlls   = -value( (gammln(thn)-gammln(n+thn)) + gammln(n*obsp+thn*modp) - gammln(thn*modp) );
-        dvector zscrs  = elem_div(obsp-vmod,sqrt(elem_prod(vmod,1.0-vmod)/nEff));//pearson residuals using nEff, not n (i.e., not ss)
+        dvector vmod  = value(modp);
+        double nEff   = value(1.0/(1.0+theta) + n*(theta/(1.0+theta)));
+        double effN   = 0.0;
+        dvector nlls  = 0.0*vmod;
+        dvector zscrs = 0.0*vmod;
+        if (ss>0) {
+            effN  = (vmod*(1.0-vmod))/norm2(obsp-vmod);
+            nlls  = -value( (gammln(thn)-gammln(n+thn)) + gammln(n*obsp+thn*modp) - gammln(thn*modp) );
+            zscrs = elem_div(obsp-vmod,sqrt(elem_prod(vmod,1.0-vmod)/nEff));//pearson residuals using nEff, not n (i.e., not ss)
+        }
         if (debug<0){
             cout<<"list(nll.type='DirichletMultinomial',yr="<<yr<<cc<<"wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc;
             cout<<"ss="<<ss<<cc<<"effN="<<effN<<cc<<"nEff="<<nEff<<cc<<"theta="<<value(theta)<<cc<<endl; 
@@ -6389,7 +6396,7 @@ FUNCTION void calcDirichletNLL(dvariable& theta, double wgt, dvar_vector& mod, d
             cout<<")";
         }
         if (debug>=dbgAll) {
-            cout<<"yr = "    <<yr<<tb<<"ss = "<<ss<<endl;
+            cout<<"yr = "<<yr<<tb<<"ss = "<<ss<<endl;
             cout<<"obs    = "<<obsp<<endl;
             cout<<"mod    = "<<vmod<<endl;
             cout<<"zscrs  = "<<zscrs<<endl;
@@ -6401,6 +6408,62 @@ FUNCTION void calcDirichletNLL(dvariable& theta, double wgt, dvar_vector& mod, d
         }
     }
     if (debug>=dbgAll) cout<<"Finished calcDirchletNLL()"<<endl;
+ 
+////Calculate Dirichlet NLL contribution to objective function
+FUNCTION void calcDirichletPNLL(dvariable& theta, double wgt, dvar_vector& mod, dvector& obs, double& ss, int& yr, int debug, ostream& cout)
+    if (debug>=dbgAll) cout<<"Starting calcDirichletPNLL()"<<endl;
+    dvariable nll = 0.0;
+    
+    //the following is from Thorson et al. 2016
+    double n      = ss;      //to maintain semblance to Thorson et al.
+    dvariable thn = theta*n;
+    if (ss>0){//blows up if ss=0
+        nll = -( gammln(n+1.0)-sum(gammln(n*obs+1.0)) );//constant term
+        nll -= gammln(thn)-gammln(n+thn);
+        for (int i=mod.indexmin();i<=mod.indexmax();i++){
+            if (mod[i]>0) nll -= gammln(n*obs[i]+thn*mod[i]) - gammln(thn*mod[i]);
+        }
+    }
+    
+    objFun += wgt*nll;
+    
+    if ((debug<0)||(debug>=dbgAll)){
+        dvector vmod  = value(mod);
+        double nEff   = value(1.0/(1.0+theta) + n*(theta/(1.0+theta)));
+        double effN   = 0.0;
+        dvector nlls  = 0.0*vmod;
+        dvector zscrs = 0.0*vmod;
+        if (ss>0) {
+            effN  = (vmod*(1.0-vmod))/norm2(obs-vmod);
+            nlls  = -value( (gammln(thn)-gammln(n+thn)) );
+            for (int i=mod.indexmin();i<=mod.indexmax();i++){
+                if (mod[i]>0) nlls[i] -= value(gammln(n*obs[i]+thn*mod[i]) - gammln(thn*mod[i]));
+            }
+            zscrs = elem_div(obs-vmod,sqrt(elem_prod(vmod,1.0-vmod)/nEff));//pearson residuals using nEff, not n (i.e., not ss)
+        }
+        if (debug<0){
+            cout<<"list(nll.type='DirichletMultinomial',yr="<<yr<<cc<<"wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc;
+            cout<<"ss="<<ss<<cc<<"effN="<<effN<<cc<<"nEff="<<nEff<<cc<<"theta="<<value(theta)<<cc<<endl; 
+            adstring dzbs = "size=c("+ptrMC->csvZBs+")";
+            cout<<"nlls=";  wts::writeToR(cout,nlls, dzbs); cout<<cc<<endl;
+            cout<<"obs=";   wts::writeToR(cout,obsp, dzbs); cout<<cc<<endl;
+            cout<<"mod=";   wts::writeToR(cout,vmod, dzbs); cout<<cc<<endl;
+            cout<<"zscrs="; wts::writeToR(cout,zscrs,dzbs); cout<<endl;
+            cout<<")";
+        }
+        if (debug>=dbgAll) {
+            cout<<"yr = "<<yr<<tb<<"ss = "<<ss<<endl;
+            cout<<"obs    = "<<obsp<<endl;
+            cout<<"mod    = "<<vmod<<endl;
+            cout<<"zscrs  = "<<zscrs<<endl;
+            cout<<"nlls   = "<<nlls<<endl;
+            cout<<"effN   = "<<effN<<endl;
+            cout<<"theta  = "<<theta<<endl;
+            cout<<"nEff   = "<<nEff<<endl;
+            cout<<"nll    = "<<nll<<tb<<"objFun = "<<wgt*nll<<endl;
+        }
+    }
+    if (debug>=dbgAll) cout<<"Finished calcDirchletPNLL()"<<endl;
  
 //-------------------------------------------------------------------------------------
 //Pass through for no NLL contribution to objective function for size comps
@@ -6468,8 +6531,18 @@ FUNCTION void calcNLL_ZC(SizeFrequencyData* ptrZFD, dvar_vector& mod, dvector& o
             break;
         case tcsam::LL_DIRICHLET:
             {
-                dvariable theta = mfexp(pLnDirMul[idm]);
-                calcDirichletNLL(theta,ptrZFD->llWgt,mod,obs,ss,yr,debug,cout);
+                if (idm){
+                    dvariable theta = mfexp(pLnDirMul[idm]);
+                    calcDirichletNLL(theta,ptrZFD->llWgt,mod,obs,ss,yr,debug,cout);
+                }
+            }
+            break;
+        case tcsam::LL_DIRICHLETP:
+            {
+                if (idm){
+                    dvariable theta = mfexp(pLnDirMul[idm]);
+                    calcDirichletPNLL(theta,ptrZFD->llWgt,mod,obs,ss,yr,debug,cout);
+                }
             }
             break;
         default:
@@ -6929,7 +7002,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                     int imn = ptrZFD->tc_xmsyc(ALL_SXs,ALL_MSs,ALL_SCs,iy)(1);
                     int imx = ptrZFD->tc_xmsyc(ALL_SXs,ALL_MSs,ALL_SCs,iy)(2);
                     if (debug>=dbgNLLs) {
-                        cout<<"x,m,s,iy = "<<"ALL_SXs"<<cc<<"ALL_MSs"<<cc<<"ALL_SCs"<<cc<<iy<<endl;
+                        cout<<"x,m,s,y = "<<tcsam::getSexType(ALL_SXs)<<cc<<tcsam::getMaturityType(ALL_MSs)<<cc<<tcsam::getShellType(ALL_SCs)<<cc<<y<<endl;
                         cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
                     }
                     mP_z.initialize();
@@ -6992,7 +7065,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                         int imn = ptrZFD->tc_xmsyc(x,ALL_MSs,ALL_SCs,iy)(1);
                         int imx = ptrZFD->tc_xmsyc(x,ALL_MSs,ALL_SCs,iy)(2);
                         if (debug>=dbgNLLs) {
-                            cout<<"x,m,s,iy = "<<x<<cc<<"ALL_MSs"<<cc<<"ALL_SCs"<<cc<<iy<<endl;
+                            cout<<"x,m,s,y = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(ALL_MSs)<<cc<<tcsam::getShellType(ALL_SCs)<<cc<<y<<endl;
                             cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
                         }
                         mP_z.initialize();
@@ -7059,7 +7132,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             int imn = ptrZFD->tc_xmsyc(x,m,ALL_SCs,iy)(1);
                             int imx = ptrZFD->tc_xmsyc(x,m,ALL_SCs,iy)(2);
                             if (debug>=dbgNLLs) {
-                                cout<<"x,m,s,iy = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<"ALL_SCs"<<cc<<iy<<endl;
+                                cout<<"x,m,s,y = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(ALL_SCs)<<cc<<y<<endl;
                                 cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
                             }
                             mP_z.initialize();
@@ -7119,7 +7192,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             int imn = ptrZFD->tc_xmsyc(x,ALL_MSs,s,iy)(1);
                             int imx = ptrZFD->tc_xmsyc(x,ALL_MSs,s,iy)(2);
                             if (debug>=dbgNLLs) {
-                                cout<<"x,m,s,iy = "<<x<<cc<<"ALL_MSs"<<cc<<s<<cc<<iy<<endl;
+                                cout<<"x,m,s,y = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(ALL_MSs)<<cc<<tcsam::getShellType(s)<<cc<<y<<endl;
                                 cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
                             }
                             mP_z.initialize();
@@ -7178,7 +7251,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 int imn = ptrZFD->tc_xmsyc(x,m,s,iy)(1);
                                 int imx = ptrZFD->tc_xmsyc(x,m,s,iy)(2);
                                 if (debug>=dbgNLLs) {
-                                    cout<<"x,m,s,iy = "<<x<<cc<<m<<cc<<s<<cc<<iy<<endl;
+                                    cout<<"x,m,s,y = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(m)<<cc<<y<<endl;
                                     cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
                                 }
                                 mP_z(imn)         += sum(mP_zp(1,imn));
@@ -7249,7 +7322,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             int imn = ptrZFD->tc_xmsyc(x,ALL_MSs,ALL_SCs,iy)(1);
                             int imx = ptrZFD->tc_xmsyc(x,ALL_MSs,ALL_SCs,iy)(2);
                             if (debug>=dbgNLLs) {
-                                cout<<"x,m,s,iy = "<<x<<cc<<"ALL_MSs"<<cc<<"ALL_SCs"<<cc<<iy<<endl;
+                                cout<<"x,m,s,y = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(ALL_MSs)<<cc<<tcsam::getShellType(ALL_SCs)<<cc<<y<<endl;
                                 cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
                             }
                             mP_zp.initialize();
@@ -7326,7 +7399,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 int imn = ptrZFD->tc_xmsyc(x,m,ALL_SCs,iy)(1);
                                 int imx = ptrZFD->tc_xmsyc(x,m,ALL_SCs,iy)(2);
                                 if (debug>=dbgNLLs) {
-                                    cout<<"x,m,s,iy = "<<x<<cc<<m<<cc<<"ALL_SCs"<<cc<<iy<<endl;
+                                    cout<<"x,m,s,y = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(ALL_SCs)<<cc<<y<<endl;
                                     cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
                                 }
                                 mP_zp.initialize();
@@ -7405,7 +7478,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 int imn = ptrZFD->tc_xmsyc(x,ALL_MSs,s,iy)(1);
                                 int imx = ptrZFD->tc_xmsyc(x,ALL_MSs,s,iy)(2);
                                 if (debug>=dbgNLLs) {
-                                    cout<<"x,m,s,iy = "<<x<<cc<<"ALL_MSs"<<cc<<s<<cc<<iy<<endl;
+                                    cout<<"x,m,s,y = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(ALL_MSs)<<cc<<tcsam::getShellType(s)<<cc<<y<<endl;
                                     cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
                                 }
                                 mP_zp.initialize();
@@ -7483,7 +7556,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 int imn = ptrZFD->tc_xmsyc(x,m,ALL_SCs,iy)(1);
                                 int imx = ptrZFD->tc_xmsyc(x,m,ALL_SCs,iy)(2);
                                 if (debug>=dbgNLLs) {
-                                    cout<<"x,m,s,iy = "<<x<<cc<<m<<cc<<"ALL_SCs"<<cc<<iy<<endl;
+                                    cout<<"x,m,s,y = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(ALL_SCs)<<cc<<y<<endl;
                                     cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
                                 }
                                 mP_zp.initialize();
@@ -7562,7 +7635,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                     int imn = ptrZFD->tc_xmsyc(x,m,s,iy)(1);
                                     int imx = ptrZFD->tc_xmsyc(x,m,s,iy)(2);
                                     if (debug>=dbgNLLs) {
-                                        cout<<"x,m,s,iy = "<<x<<cc<<m<<cc<<s<<cc<<iy<<endl;
+                                        cout<<"x,m,s,y = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(s)<<cc<<y<<endl;
                                         cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
                                     }
                                     mP_zp.initialize();
@@ -7640,7 +7713,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                     int imn = ptrZFD->tc_xmsyc(x,m,s,iy)(1);
                                     int imx = ptrZFD->tc_xmsyc(x,m,s,iy)(2);
                                     if (debug>=dbgNLLs) {
-                                        cout<<"x,m,s,iy = "<<x<<cc<<m<<cc<<s<<cc<<iy<<endl;
+                                        cout<<"x,m,s,y = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(s)<<cc<<y<<endl;
                                         cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
                                     }
                                     mP_zp.initialize();

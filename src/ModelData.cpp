@@ -786,6 +786,47 @@ void SizeFrequencyData::doTailCompression(void){
 }
 
 /**
+ * Set the DM parameter index based on previous value and current value.
+ * 
+ * @param x
+ * @param m
+ * @param s
+ * @param y - year
+ * @param dm - previous value of DM parameter index
+ * @param inpDM - current value of DM parameter index
+ * 
+ * @return possibly updated value for dm.
+ */
+int SizeFrequencyData::setDM(int x,int m,int s,int y,int dm,int inpDM){
+    if (debug>1){
+        rpt::echo<<"starting SizeFrequencyData::setDM"<<endl;
+        rpt::echo<<"x,m,s,y="<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(s)<<cc<<y<<std::endl;
+        rpt::echo<<"previous dm = "<<dm<<". current dm = "<<inpDM<<std::endl;
+    }
+    if (inpDM) {            //want to set dm
+        if (!dm){                //dm has not yet been set
+            dm = inpDM;              //set dm
+        } else {                 //dm has already been set, so check for consistency
+            if (dm!=inpDM){          //if not consistent, terminate
+                tcsam::writeMessage("Error in defining indices for Dirichlet-Multinomial parameter.");
+                std::cout<<"See EchoData.dat."<<std::endl;
+                rpt::echo<<"Indices must be consistent across aggregation level."<<std::endl;
+                rpt::echo<<"current x,m,s,y = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(s)<<cc<<y<<std::endl;
+                rpt::echo<<"previous dm = "<<dm<<". current dm = "<<inpDM<<std::endl;
+                std::cout<<"Terminating..."<<std::endl;
+                rpt::echo<<"Terminating..."<<std::endl;
+                exit(-1);
+            }
+        }
+    }
+    if (debug>1){
+        rpt::echo<<"final dm = "<<dm<<std::endl;
+        rpt::echo<<"finished SizeFrequencyData::setDM"<<std::endl;
+    }
+    return(dm);//return possibly updated DM parameter index
+}
+
+/**
  * Calculate aggregated size compositions from raw size comps prior to tail compression.
  * 
  * Aggregation is done according to value of optFit.
@@ -841,19 +882,7 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                 for (int m=1;m<=ALL_MSs;m++) {
                     for (int s=1;s<=ALL_SCs;s++) {
                         uf   += inpUF_xmsy(x,m,s,iy);
-                        if (!dm) {
-                            dm = inpDM_xmsy(x,m,s,iy);
-                        } else {
-                            if (dm!=inpDM_xmsy(x,m,s,iy)){
-                                std::cout<<"Error in defining indices for Dirichlet-Multinomial parameter. See EchoData.dat."<<std::endl;
-                                rpt::echo<<"Error in defining indices for Dirichlet-Multinomial parameter."<<std::endl;
-                                rpt::echo<<"Indices must be consistent across aggregation level."<<std::endl;
-                                rpt::echo<<"current x,m,s,y = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(s)<<cc<<y<<std::endl;
-                                rpt::echo<<"dm was "<<dm<<", current dm = "<<inpDM_xmsy(x,m,s,iy)<<std::endl;
-                                std::cout<<"Terminating..."<<std::endl;
-                                rpt::echo<<"Terminating..."<<std::endl;
-                            }
-                        }
+                        dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
                         ss   += inpSS_xmsy(x,m,s,iy);
                         oP_z += rawNatZ_xmsyz(x,m,s,iy);
                     }
@@ -883,19 +912,7 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                 for (int m=1;m<=ALL_MSs;m++) {
                     for (int s=1;s<=ALL_SCs;s++) {
                         uf   += inpUF_xmsy(x,m,s,iy);
-                        if (!dm) {
-                            dm = inpDM_xmsy(x,m,s,iy);
-                        } else {
-                            if (dm!=inpDM_xmsy(x,m,s,iy)){
-                                std::cout<<"Error in defining indices for Dirichlet-Multinomial parameter. See EchoData.dat."<<std::endl;
-                                rpt::echo<<"Error in defining indices for Dirichlet-Multinomial parameter."<<std::endl;
-                                rpt::echo<<"Indices must be consistent across aggregation level."<<std::endl;
-                                rpt::echo<<"current x,m,s,y = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(s)<<cc<<y<<std::endl;
-                                rpt::echo<<"dm was "<<dm<<", current dm = "<<inpDM_xmsy(x,m,s,iy)<<std::endl;
-                                std::cout<<"Terminating..."<<std::endl;
-                                rpt::echo<<"Terminating..."<<std::endl;
-                            }
-                        }
+                        dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
                         ss += inpSS_xmsy(x,m,s,iy);
                         oP_z += rawNatZ_xmsyz(x,m,s,iy);
                     }//--s
@@ -926,19 +943,7 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                     oP_z.initialize();//size comp. aggregated over s
                     for (int s=1;s<=ALL_SCs;s++) {
                         uf   += inpUF_xmsy(x,m,s,iy);
-                        if (!dm) {
-                            dm = inpDM_xmsy(x,m,s,iy);
-                        } else {
-                            if (dm!=inpDM_xmsy(x,m,s,iy)){
-                                std::cout<<"Error in defining indices for Dirichlet-Multinomial parameter. See EchoData.dat."<<std::endl;
-                                rpt::echo<<"Error in defining indices for Dirichlet-Multinomial parameter."<<std::endl;
-                                rpt::echo<<"Indices must be consistent across aggregation level."<<std::endl;
-                                rpt::echo<<"current x,m,s,y = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(s)<<cc<<y<<std::endl;
-                                rpt::echo<<"dm was "<<dm<<", current dm = "<<inpDM_xmsy(x,m,s,iy)<<std::endl;
-                                std::cout<<"Terminating..."<<std::endl;
-                                rpt::echo<<"Terminating..."<<std::endl;
-                            }
-                        }
+                        dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
                         ss += inpSS_xmsy(x,m,s,iy);
                         oP_z += rawNatZ_xmsyz(x,m,s,iy);
                     }//--s
@@ -968,19 +973,7 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                     oP_z.initialize();//size comp. aggregated over m
                     for (int m=1;m<=ALL_MSs;m++) {
                         uf   += inpUF_xmsy(x,m,s,iy);
-                        if (!dm) {
-                            dm = inpDM_xmsy(x,m,s,iy);
-                        } else {
-                            if (dm!=inpDM_xmsy(x,m,s,iy)){
-                                std::cout<<"Error in defining indices for Dirichlet-Multinomial parameter. See EchoData.dat."<<std::endl;
-                                rpt::echo<<"Error in defining indices for Dirichlet-Multinomial parameter."<<std::endl;
-                                rpt::echo<<"Indices must be consistent across aggregation level."<<std::endl;
-                                rpt::echo<<"current x,m,s,y = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(s)<<cc<<y<<std::endl;
-                                rpt::echo<<"dm was "<<dm<<", current dm = "<<inpDM_xmsy(x,m,s,iy)<<std::endl;
-                                std::cout<<"Terminating..."<<std::endl;
-                                rpt::echo<<"Terminating..."<<std::endl;
-                            }
-                        }
+                        dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
                         ss += inpSS_xmsy(x,m,s,iy);
                         oP_z += rawNatZ_xmsyz(x,m,s,iy);
                     }//--m
@@ -1010,19 +1003,7 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                             ss = 0;
                             oP_z.initialize();//observed size comp.
                             uf   += inpUF_xmsy(x,m,s,iy);
-                            if (!dm) {
-                                dm = inpDM_xmsy(x,m,s,iy);
-                            } else {
-                                if (dm!=inpDM_xmsy(x,m,s,iy)){
-                                    std::cout<<"Error in defining indices for Dirichlet-Multinomial parameter. See EchoData.dat."<<std::endl;
-                                    rpt::echo<<"Error in defining indices for Dirichlet-Multinomial parameter."<<std::endl;
-                                    rpt::echo<<"Indices must be consistent across aggregation level."<<std::endl;
-                                    rpt::echo<<"current x,m,s,y = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(s)<<cc<<y<<std::endl;
-                                    rpt::echo<<"dm was "<<dm<<", current dm = "<<inpDM_xmsy(x,m,s,iy)<<std::endl;
-                                    std::cout<<"Terminating..."<<std::endl;
-                                    rpt::echo<<"Terminating..."<<std::endl;
-                                }
-                            }
+                            dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
                             ss += inpSS_xmsy(x,m,s,iy);
                             oP_z += rawNatZ_xmsyz(x,m,s,iy);
                             uf_xmsy(x,m,s,iy) = uf;
