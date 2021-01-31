@@ -667,6 +667,8 @@
 //                   std::cout and rpt::echo (similar to macro PRINT2B1 in tpl).
 //              3. Incremented model version to 2020.12.03 to reflect changes.
 //-2020-12-04:  1. Added calcDirichletPNLL function to use DM likelihood without a small constant.
+//-2021-01-31:  1. Added logic to minimize output to screen during mcmc phase to speed things up
+//                   for adnuts processing.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -2780,7 +2782,7 @@ PROCEDURE_SECTION
     lkNMMM = M_yxmsz(mxYr,  MALE,MATURE,NEW_SHELL)(1); 
     lkNMMF = M_yxmsz(mxYr,FEMALE,MATURE,NEW_SHELL)(1);
     
-    if (sd_phase()){
+    if (sd_phase()& (!mc_phase())){
         sdrLnR_y = log(R_y);
         for (int x=1;x<=nSXs;x++){
             for (int y=mnYr; y<=mxYr; y++){
@@ -4965,7 +4967,7 @@ FUNCTION d5_array calcCohortProgression(int yr, int nzp, int includeM, int inclu
     }
     d5_array vn_yxmsz = wts::value(n_yxmsz);
     
-    cout<<"finished calcCohortProgression(...)"<<endl<<endl<<endl;
+    if (debug) cout<<"finished calcCohortProgression(...)"<<endl<<endl<<endl;
     return vn_yxmsz;
 //-------------END cohort progression calculations----------   
         
@@ -5166,7 +5168,7 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
             }
         }//Tier 3 calculation
     
-    if (sd_phase()){
+    if (sd_phase()&(!mc_phase())){
         //assign likelihood profile variables
         lkAvgRec = sum(ptrOFLResults->avgRec_x);
         lkBmsy   = ptrOFLResults->Bmsy;
@@ -6446,14 +6448,14 @@ FUNCTION void calcDirichletPNLL(dvariable& theta, double wgt, dvar_vector& mod, 
             cout<<"ss="<<ss<<cc<<"effN="<<effN<<cc<<"nEff="<<nEff<<cc<<"theta="<<value(theta)<<cc<<endl; 
             adstring dzbs = "size=c("+ptrMC->csvZBs+")";
             cout<<"nlls=";  wts::writeToR(cout,nlls, dzbs); cout<<cc<<endl;
-            cout<<"obs=";   wts::writeToR(cout,obsp, dzbs); cout<<cc<<endl;
+            cout<<"obs=";   wts::writeToR(cout,obs, dzbs); cout<<cc<<endl;
             cout<<"mod=";   wts::writeToR(cout,vmod, dzbs); cout<<cc<<endl;
             cout<<"zscrs="; wts::writeToR(cout,zscrs,dzbs); cout<<endl;
             cout<<")";
         }
         if (debug>=dbgAll) {
             cout<<"yr = "<<yr<<tb<<"ss = "<<ss<<endl;
-            cout<<"obs    = "<<obsp<<endl;
+            cout<<"obs    = "<<obs<<endl;
             cout<<"mod    = "<<vmod<<endl;
             cout<<"zscrs  = "<<zscrs<<endl;
             cout<<"nlls   = "<<nlls<<endl;
