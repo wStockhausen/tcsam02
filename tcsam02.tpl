@@ -669,6 +669,7 @@
 //-2020-12-04:  1. Added calcDirichletPNLL function to use DM likelihood without a small constant.
 //-2021-01-31:  1. Added logic to minimize output to screen during mcmc phase to speed things up
 //                   for adnuts processing.
+//-2021-03-16:  1. Added derivative checking commandline option (-doDerivChecks)
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -852,6 +853,15 @@ GLOBALS_SECTION
     int dbgDevs   = 90;
     int dbgAll    = tcsam::dbgAll;
     
+    //flags for checking derivatives
+    int derivChecker = 0;
+    int checkDerivs  = 0;
+    adstring checkDerivsFor = "";
+    int chkDerivIndex = 0;
+    
+    //flag for doing hess_step
+    int doHessStep = 0;
+    
     int phsItsRewgt  = 1000;//min phase to calculate effective weights for size comps
     int maxItsRewgt = 0;    //maximum number of iterations for re-weighting
     int numItsRewgt = 0;    //number of re-weighting iterations completed
@@ -890,6 +900,39 @@ DATA_SECTION
     int on = 0;
     int flg = 0;
     PRINT2B1("#------Reading command line options---------")
+//    //admb optimization debugging (requires compiling and linking admb based on admb-12.3.wts_dbg)
+//    wts_dbg = 0;
+//    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-wts_dbg"))>-1) {
+//        wts_dbg = 1;
+//        rpt::echo<<"#--turning on admb optimization debugging--"<<endl;
+//    }
+    //check whether running hess_step has been requested. If so,
+    //will turn off the REPORT_SECTION and some sections in the 
+    //PROCEDURE_SECTION that seem to be incompatible with this.
+    doHessStep = 0;
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-hess_step"))>-1) {
+        doHessStep = 1;
+        rpt::echo<<"#--will run hess_step function--turning off some output--"<<endl;
+    }
+    //if admb derivative checking is requested via "-dd n",
+    //check if it is requested for an intermediate quantitiy, not 
+    //true objective function.
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-dd"))>-1){
+        //admb derivative checking is on
+        PRINT2B1("#--ADMB empirical derivative checking turned on")
+        derivChecker = 1;//derivative checker will be invoked
+        //check to see if this is requested 
+        //for an intermediate quantity, not the true objective function
+         if ((on=option_match(ad_comm::argc,ad_comm::argv,"-checkDerivsFor"))>-1) {
+            checkDerivs = 1;
+            checkDerivsFor = ad_comm::argv[on+1];//option for quantity to check
+            if ((on=option_match(ad_comm::argc,ad_comm::argv,"-derivIndex"))>-1) {
+                chkDerivIndex = atoi(ad_comm::argv[on+1]);//array index to check
+            }
+            PRINT2B2("#--TCSAM02 empirical derivative checking turned on for option ",checkDerivsFor);
+            PRINT2B2("#--index for empirical derivative checking is ",chkDerivIndex);
+         }
+    }
     //configFile
     fnConfigFile = "tcsam02.ModelConfig.dat";//default model config filename
     if ((on=option_match(ad_comm::argc,ad_comm::argv,"-configFile"))>-1) {
@@ -2277,21 +2320,21 @@ PARAMETER_SECTION
     sdreport_matrix sdrSpB_xy(1,nSXs,mnYr,mxYr);
     
     //likelihood profile numbers
-    likeprof_number lkMMB; 
-    likeprof_number lkQM; 
-    likeprof_number lkQF; 
-    likeprof_number lkNMIM; 
-    likeprof_number lkNMIF;
-    likeprof_number lkNMMM; 
-    likeprof_number lkNMMF;
-    //--these will only be calculated if OFL is calculated
-    likeprof_number lkAvgRec;
-    likeprof_number lkBmsy;
-    likeprof_number lkFmsy;
-    likeprof_number lkMSY;
-    likeprof_number lkCurB;
-    likeprof_number lkPrjB;
-    likeprof_number lkOFL;
+//    likeprof_number lkMMB; 
+//    likeprof_number lkQM; 
+//    likeprof_number lkQF; 
+//    likeprof_number lkNMIM; 
+//    likeprof_number lkNMIF;
+//    likeprof_number lkNMMM; 
+//    likeprof_number lkNMMF;
+//    //--these will only be calculated if OFL is calculated
+//    likeprof_number lkAvgRec;
+//    likeprof_number lkBmsy;
+//    likeprof_number lkFmsy;
+//    likeprof_number lkMSY;
+//    likeprof_number lkCurB;
+//    likeprof_number lkPrjB;
+//    likeprof_number lkOFL;
 
     
     !!PRINT2B1("#finished PARAMETER_SECTION")
@@ -2551,7 +2594,7 @@ PRELIMINARY_CALCS_SECTION
                 PRINT2B1("--Testing calcObjFun()")
                 if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
                 calcObjFun(dbgAll+100,rpt::echo);
-                PRINT2B2("--Finished testing calcObjFun(): ",objFun)
+                PRINT2B2("--Finished testing calcObjFun(): ",value(objFun))
             }
 
             {
@@ -2611,14 +2654,14 @@ PRELIMINARY_CALCS_SECTION
             PRINT2B1("MCEVAL is on")
         }//if mcevalOn
         PRINT2B1("")
-        PRINT2B2("obj fun = ",objFun)
+        PRINT2B2("obj fun = ",value(objFun))
     } else {
 //-------PRELIMINARY_CALCS: MSE MODEL RUNS ONLY---------------------------------   
          if (mseOpModMode){
 //-----------PRELIMINARY_CALCS: MSE OpMod RUNS ONLY-----------------------------
             PRINT2B1("PRELIMINARY_CALCS: MSE OpModMode")
             dvector vLnR_y = log(ptrOMI->R_y(ptrMOs->opModRecStatsMinYr,ptrMOs->opModRecStatsMaxYr));
-            cout<<"vLnR_y = "<<vLnR_y<<endl;
+            PRINT2B2("vLnR_y = ",vLnR_y);
             opModMnLnR = mean(vLnR_y);
             opModSdLnR = sqrt(wts::variance(vLnR_y));
             opModDevLnR = wts::drawSampleNormal(rng, 0.0, opModSdLnR);
@@ -2685,13 +2728,13 @@ PRELIMINARY_CALCS_SECTION
         }
     }
     //--these will be re-calculated if OFL is calculated
-    lkAvgRec = 0.0;
-    lkBmsy   = 0.0;
-    lkFmsy   = 0.0;
-    lkMSY    = 0.0;
-    lkCurB   = 0.0;
-    lkPrjB   = 0.0;
-    lkOFL    = 0.0;
+//    lkAvgRec = 0.0;
+//    lkBmsy   = 0.0;
+//    lkFmsy   = 0.0;
+//    lkMSY    = 0.0;
+//    lkCurB   = 0.0;
+//    lkPrjB   = 0.0;
+//    lkOFL    = 0.0;
 
     PRINT2B1("#finished PRELIMINARY_CALCS_SECTION")
     PRINT2B1("#----------------------------------")
@@ -2699,13 +2742,22 @@ PRELIMINARY_CALCS_SECTION
 // =============================================================================
 // =============================================================================
 PROCEDURE_SECTION
-    int dbg = 0; //dbgAll;
+    int dbg = 0; //dbgObjFun; //dbgAll;
     
     ctrProcCalls++;       //increment procedure section calls counter
     ctrProcCallsInPhase++;//increment in-phase procedure section calls counter
     if (dbg>=dbgObjFun){
         PRINT2B1(" ")
         PRINT2B1("--PROCEDURE_SECTION----------------")
+        adstring msg;
+        msg = "---phase="+str(current_phase())+". ctrProcCalls = "+str(ctrProcCalls)+tb+str(ctrProcCallsInPhase);
+        PRINT2B1(msg)
+        msg = "number of active params = "+str(initial_params::nvarcalc())+tb+str(initial_params::num_active_calc());
+        PRINT2B1(msg)
+        msg = "sd_phase = "+str(sd_phase())+". mc_phase = "+str(mc_phase());
+        PRINT2B1(msg)
+        msg = "doOFL = "+str(doOFL)+". mseOpModMode ="+str(mseOpModMode);
+        PRINT2B1(msg)
     }
 
 //    {
@@ -2725,7 +2777,7 @@ PROCEDURE_SECTION
         //writeParameters(std::cout,0,1,current_phase());
         writeParameters(rpt::echo,0,1,current_phase());
     }
-    if (ctrDebugParams&&(ctrProcCalls>=ctrDebugParams)){
+    if (ctrDebugParams&&(ctrProcCalls>=ctrDebugParams)&&(!derivChecker)&&(!doHessStep)){
         adstring msg;
         PRINT2B1("--writing parameters to file for debugging")
         msg = "---phase="+str(current_phase())+". ctrProcCalls = "+str(ctrProcCalls)+tb+str(ctrProcCallsInPhase);
@@ -2737,10 +2789,11 @@ PROCEDURE_SECTION
         os.precision(12);
         PRINT2B1("--writing report to R file for debugging")
         ReportToR(os,-1.0,1,cout);
+        PRINT2B2("*pobjfun = ",*objective_function_value::pobjfun)
         PRINT2B1("--finished writing report to R file for debugging")
     }
     
-    if (checkParams(0,std::cout)){
+    if (checkParams(0,std::cout)&&(!doHessStep)){
         adstring msg;
         PRINT2B1("--checking parameters for debugging")
         msg = "---phase="+str(current_phase())+". ctrProcCalls = "+str(ctrProcCalls)+tb+str(ctrProcCallsInPhase);
@@ -2762,27 +2815,30 @@ PROCEDURE_SECTION
         calcObjFun(dbg,rpt::echo);
     }
     
-    if ((!mseOpModMode)&&(ctrProcCallsInPhase==1)){
+    if ((!mseOpModMode)&&(ctrProcCallsInPhase==1)&&(!derivChecker)&&(!doHessStep)){
         //write objective function components only
+        PRINT2B2("before calling ReportToR_ModelFits. obj fun = ",value(objFun))
+        PRINT2B2("*pobjfun = ",*objective_function_value::pobjfun)
         adstring fn = "tcsam02.ModelFits."+itoa(current_phase(),10)+"-"+str(ctrProcCallsInPhase)+"."+"R";
         ofstream os0(fn, ios::trunc);
         os0.precision(12);
         ReportToR_ModelFits(os0,-1.0,0,cout);
         os0.close();
-        PRINT2B2("just after ReportToR_ModelFits. obj fun = ",objFun)
+        PRINT2B2("*pobjfun = ",*objective_function_value::pobjfun)
+        PRINT2B2("just after ReportToR_ModelFits. obj fun = ",value(objFun))
         PRINT2B1(" ")            
     }
     
-    //assign values to likelihood profile numbers
-    lkMMB = spB_yx(mxYr,MALE); 
-    lkQM  = q_vyxms(1,mxYr+1,  MALE,MATURE,NEW_SHELL); 
-    lkQF  = q_vyxms(1,mxYr+1,FEMALE,MATURE,NEW_SHELL); 
-    lkNMIM = M_yxmsz(mxYr,  MALE,IMMATURE,NEW_SHELL)(1); 
-    lkNMIF = M_yxmsz(mxYr,FEMALE,IMMATURE,NEW_SHELL)(1);
-    lkNMMM = M_yxmsz(mxYr,  MALE,MATURE,NEW_SHELL)(1); 
-    lkNMMF = M_yxmsz(mxYr,FEMALE,MATURE,NEW_SHELL)(1);
+//    //assign values to likelihood profile numbers
+//    lkMMB = spB_yx(mxYr,MALE); 
+//    lkQM  = q_vyxms(1,mxYr+1,  MALE,MATURE,NEW_SHELL); 
+//    lkQF  = q_vyxms(1,mxYr+1,FEMALE,MATURE,NEW_SHELL); 
+//    lkNMIM = M_yxmsz(mxYr,  MALE,IMMATURE,NEW_SHELL)(1); 
+//    lkNMIF = M_yxmsz(mxYr,FEMALE,IMMATURE,NEW_SHELL)(1);
+//    lkNMMM = M_yxmsz(mxYr,  MALE,MATURE,NEW_SHELL)(1); 
+//    lkNMMF = M_yxmsz(mxYr,FEMALE,MATURE,NEW_SHELL)(1);
     
-    if (sd_phase()& (!mc_phase())){
+    if (sd_phase() & (!mc_phase())){
         sdrLnR_y = log(R_y);
         for (int x=1;x<=nSXs;x++){
             for (int y=mnYr; y<=mxYr; y++){
@@ -2791,7 +2847,9 @@ PROCEDURE_SECTION
         }
         if (doOFL){
             PRINT2B1("#----Starting OFL calculations in sd_phase")
+            PRINT2B2("*pobjfun = ",*objective_function_value::pobjfun)
             calcOFL(mxYr+1-yRetro,0,cout);//recalculates ptrOFLResults
+            PRINT2B2("*pobjfun = ",*objective_function_value::pobjfun)
             PRINT2B1("#----Finished OFL calculations in sd_phase")
         }
     }
@@ -2806,12 +2864,15 @@ PROCEDURE_SECTION
 //     adstring fn = "tcsam02.params.all."+str(current_phase())+"."+str(ctrProcCallsInPhase)+".csv";
 //     ofstream os1(fn, ios::trunc);
 //     os1.precision(12);
-//     os1<<"objFun = "<<cc<<objFun<<cc<<"phase ="<<cc<<current_phase()<<cc<<"proc calls in phase = "<<cc<<ctrProcCallsInPhase<<endl;
+//     os1<<"objFun = "<<cc<<value(objFun)<<cc<<"phase ="<<cc<<current_phase()<<cc<<"proc calls in phase = "<<cc<<ctrProcCallsInPhase<<endl;
 //     writeParameters(os1,0,0,0);//all parameters
 //     os1.close();
 //    }
 //
-    if (dbg>=dbgObjFun) {PRINT2B1("--END PROCEDURE_SECTION----------------")}
+    if (dbg>=dbgObjFun) {
+        PRINT2B2("*pobjfun = ",*objective_function_value::pobjfun)
+        PRINT2B1("--END PROCEDURE_SECTION----------------")
+    }
             
 //-------------------------------------------------------------------------------------
 FUNCTION void runAltPopDyMod(int debug, ostream& cout)
@@ -5170,13 +5231,13 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
     
     if (sd_phase()&(!mc_phase())){
         //assign likelihood profile variables
-        lkAvgRec = sum(ptrOFLResults->avgRec_x);
-        lkBmsy   = ptrOFLResults->Bmsy;
-        lkFmsy   = ptrOFLResults->Fmsy;
-        lkMSY    = ptrOFLResults->MSY;
-        lkCurB   = spB_yx(mxYr,MALE);
-        lkPrjB   = ptrOFLResults->curB;
-        lkOFL    = ptrOFLResults->OFL;
+//        lkAvgRec = sum(ptrOFLResults->avgRec_x);
+//        lkBmsy   = ptrOFLResults->Bmsy;
+//        lkFmsy   = ptrOFLResults->Fmsy;
+//        lkMSY    = ptrOFLResults->MSY;
+//        lkCurB   = spB_yx(mxYr,MALE);
+//        lkPrjB   = ptrOFLResults->curB;
+//        lkOFL    = ptrOFLResults->OFL;
     }
         
     if (debug) {
@@ -5697,44 +5758,264 @@ FUNCTION void calcNLLs_Recruitment(int debug, ostream& cout)
 //-------------------------------------------------------------------------------------
 //Calculate objective function TODO: finish
 FUNCTION void calcObjFun(int debug, ostream& cout)
-    if ((debug>=dbgObjFun)||(debug<0)) {PRINT2B1("----Starting calcObjFun()")}
+    if ((debug>=dbgObjFun)||(debug<0)){
+        PRINT2B1("----Starting calcObjFun()")
+        PRINT2B2("proc call          = ",ctrProcCalls)
+        PRINT2B2("proc call in phase = ",ctrProcCallsInPhase)
+    }
+
+//    {
+//        int nvar = initial_params::nvarcalc();
+//        independent_variables x(1,nvar);
+//        initial_params::xinit(x);
+//        PRINT2B2("num indep vars : ",nvar);
+//        PRINT2B2("indep variables (unbounded scale): ",x);
+//    }
+
 
     int k = 0;
     dvector objFunV(0,20);
 
     //reset objective function
-    objFun.initialize();                     objFunV[k++] = value(objFun);
-    //objective function penalties
-    calcPenalties(debug,cout);               objFunV[k++] = value(objFun);
-    //prior likelihoods
-    calcAllPriors(debug,cout);               objFunV[k++] = value(objFun);
-    //recruitment component
-    calcNLLs_Recruitment(debug,cout);        objFunV[k++] = value(objFun);    
-    //effort extrapolation
-    calcNLLs_ExtrapolatedEffort(debug,cout); objFunV[k++] = value(objFun);
+    objFun.initialize();                          objFunV[k++] = value(objFun);
+    if (!(checkDerivs && derivChecker)) {
+        //calculate the full objective function
+        //objective function penalties
+        calcPenalties(debug,cout);               objFunV[k++] = value(objFun);
+        //prior likelihoods
+        calcAllPriors(debug,cout);               objFunV[k++] = value(objFun);
+        //recruitment component
+        calcNLLs_Recruitment(debug,cout);        objFunV[k++] = value(objFun);    
+        //effort extrapolation
+        calcNLLs_ExtrapolatedEffort(debug,cout); objFunV[k++] = value(objFun);
+
+        //data components
+        calcNLLs_Fisheries(debug,cout);         objFunV[k++] = value(objFun);
+        calcNLLs_Surveys(debug,cout);           objFunV[k++] = value(objFun);
+        calcNLLs_GrowthData(debug,cout);        objFunV[k++] = value(objFun);
+        calcNLLs_ChelaHeightData(debug,cout);   objFunV[k++] = value(objFun);
+        calcNLLs_MaturityOgiveData(debug,cout); objFunV[k++] = value(objFun);
+        if ((debug>=dbgObjFun)||(debug<0)){
+            PRINT2B2("after initialization. objFun =",objFunV[0])
+            PRINT2B2("after calcPenalties.  objFun =",objFunV[1])
+            PRINT2B2("after calcAllPriors.  objFun =",objFunV[2])
+            PRINT2B2("after calcNLLs_Recruitment.        objFun =",objFunV[3])
+            PRINT2B2("after calcNLLs_ExtrapolatedEffort. objFun =",objFunV[4])
+            PRINT2B2("after calcNLLs_Fisheries.          objFun =",objFunV[5])
+            PRINT2B2("after calcNLLs_Surveys.            objFun =",objFunV[6])
+            PRINT2B2("after calcNLLs_GrowthData.         objFun =",objFunV[7])
+            PRINT2B2("after calcNLLs_ChelaHeightData.    objFun =",objFunV[8])    
+            PRINT2B2("after calcNLLs_MaturityOgiveData.  objFun =",objFunV[9])    
+            PRINT2B2("*pobjfun = ",*objective_function_value::pobjfun)
+            PRINT2B1("----Finished calcObjFun()")
+        }
+    } else {
+        //run the derivative checker on an intermediate
+        //quantity, or the full objective function
+        checkDerivatives(debug,cout);
+        objFunV[1] = value(objFun);
+    }
+
+//******************************************************************************
+//* Function: void calcDerivatives
+//* 
+//* Description: Hijacks the objective function variable to check 
+//*   the derivatives of a quantity relative to the currently-active independent
+//*   variables using finite differences via the "derch" function. The model exits
+//*   at completion of the checking.
+//*  
+//*  NOTE: All other processes contributing to the objective function should be 
+//*   turned off.
     
-    //data components
-    calcNLLs_Fisheries(debug,cout);         objFunV[k++] = value(objFun);
-    calcNLLs_Surveys(debug,cout);           objFunV[k++] = value(objFun);
-    calcNLLs_GrowthData(debug,cout);        objFunV[k++] = value(objFun);
-    calcNLLs_ChelaHeightData(debug,cout);   objFunV[k++] = value(objFun);
-    calcNLLs_MaturityOgiveData(debug,cout); objFunV[k++] = value(objFun);
-    if ((debug>=dbgObjFun)||(debug<0)){
-        PRINT2B2("proc call          = ",ctrProcCalls)
-        PRINT2B2("proc call in phase = ",ctrProcCallsInPhase)
-        PRINT2B2("after initialization. objFun =",objFunV[0])
-        PRINT2B2("after calcPenalties.  objFun =",objFunV[1])
-        PRINT2B2("after calcAllPriors.  objFun =",objFunV[2])
-        PRINT2B2("after calcNLLs_Recruitment.        objFun =",objFunV[3])
-        PRINT2B2("after calcNLLs_ExtrapolatedEffort. objFun =",objFunV[4])
-        PRINT2B2("after calcNLLs_Fisheries.          objFun =",objFunV[5])
-        PRINT2B2("after calcNLLs_Surveys.            objFun =",objFunV[6])
-        PRINT2B2("after calcNLLs_GrowthData.         objFun =",objFunV[7])
-        PRINT2B2("after calcNLLs_ChelaHeightData.    objFun =",objFunV[8])    
-        PRINT2B2("after calcNLLs_MaturityOgiveData.  objFun =",objFunV[9])    
-        PRINT2B1("----Finished calcObjFun()")
+//* Inputs:
+//*  debug - integer flag passed on to other functions
+//*  cout - ostream reference passed on to other functions
+//* Returns:
+//*  void
+//* Alters:
+//*  objFun
+//******************************************************************************
+FUNCTION void checkDerivatives(int debug, ostream& cout)
+    if(checkDerivsFor=="all"){
+        //save flags
+        int oCheckDerivs  = checkDerivs;
+        int oDerivChecker = derivChecker;
+        //turn off flags temporarily so calcObjFun computes full objective function
+        checkDerivs = 0; derivChecker = 0;
+        //calc the full objective function
+        calcObjFun(debug,cout);
+        //restore the flags
+        checkDerivs = oCheckDerivs;
+        derivChecker = oDerivChecker;
+    }                         else
+    if(checkDerivsFor=="Rx_c")
+        objFun = sum(Rx_c);   else
+    if(checkDerivsFor=="R_cz")
+        objFun = sum(R_cz);   else
+    if(checkDerivsFor=="R_y")
+        objFun = sum(R_y);    else
+    if(checkDerivsFor=="R_yxz")
+        objFun = sum(R_yxz);  else
+    if(checkDerivsFor=="M_c")
+        objFun = sum(M_c);    else
+    if(checkDerivsFor=="grA_xy")
+        objFun = grA_xy(MALE,mnYr)+grA_xy(FEMALE,mnYr);   else
+    if(checkDerivsFor=="grB_xy")
+        objFun = grB_xy(MALE,mnYr)+grB_xy(FEMALE,mnYr);   else
+    if(checkDerivsFor=="grBeta_xy")
+        objFun = grBeta_xy(MALE,mnYr)+grBeta_xy(FEMALE,mnYr); else
+    if(checkDerivsFor=="prM2M_cz")
+        objFun = sum(prM2M_cz);   else
+    if(checkDerivsFor=="mnGrZ_cz")
+        objFun = sum(mnGrZ_cz);   else
+    if(checkDerivsFor=="prGr_czz"){
+        objFun = sum(prGr_czz);}  else
+    if(checkDerivsFor=="sel_cz"){
+        if (chkDerivIndex==0) {
+            objFun = sum(sel_cz);
+        } else {
+            objFun = sum(sel_cz(chkDerivIndex));
+        }
+    }                             else
+    if(checkDerivsFor=="cpF_fyxms"){
+        if (chkDerivIndex==0) {
+            objFun = sum(cpF_fyxms); 
+        } else {
+            objFun = sum(cpF_fyxms(chkDerivIndex));
+        }
+    }                             else
+    if(checkDerivsFor=="cpF_fyxmsz"){
+        if (chkDerivIndex==0) {
+            objFun = sum(cpF_fyxmsz); 
+        } else {
+            objFun = sum(cpF_fyxmsz(chkDerivIndex));
+        }
+    }                             else
+    if(checkDerivsFor=="xcv_vy"){
+        if (chkDerivIndex==0) {
+            objFun = sum(xcv_vy); 
+        } else {
+            objFun = sum(xcv_vy(chkDerivIndex));
+        }
+    }                             else
+    if(checkDerivsFor=="a_vyxms"){
+        if (chkDerivIndex==0) {
+            objFun = sum(a_vyxms); 
+        } else {
+            objFun = sum(a_vyxms(chkDerivIndex));
+        }
+    }                             else
+    if(checkDerivsFor=="q_vyxms"){
+        if (chkDerivIndex==0) {
+            objFun = sum(q_vyxmss); 
+        } else {
+            objFun = sum(q_vyxms(chkDerivIndex));
+        }
+    }                             else
+    if(checkDerivsFor=="n_yxmsz"){
+        if (chkDerivIndex==0) {
+            objFun = sum(n_yxmsz);
+        } else {
+            objFun = sum(n_yxmsz(chkDerivIndex));
+        }
+    }                            else
+    if(checkDerivsFor=="spB_yx"){
+        if (chkDerivIndex==0) {
+            objFun = sum(spB_yx); 
+        } else {
+            objFun = sum(spB_yx(chkDerivIndex));
+        }
+    }                             else
+    if(checkDerivsFor=="cpN_fyxmsz"){
+        if (chkDerivIndex==0) {
+            objFun = sum(cpN_fyxmsz); 
+        } else {
+            objFun = sum(cpN_fyxmsz(chkDerivIndex));
+        }
+    }                             else
+    if(checkDerivsFor=="mN_fyxmsz"){
+        if (chkDerivIndex==0) {
+            objFun = sum(mN_fyxmsz); 
+        } else {
+            objFun = sum(mN_fyxmsz(chkDerivIndex));
+        }
+    }                             else
+    if(checkDerivsFor=="dmN_fyxmsz"){
+        if (chkDerivIndex==0) {
+            objFun = sum(dmN_fyxmsz); 
+        } else {
+            objFun = sum(dmN_fyxmsz(chkDerivIndex));
+        }
+    }                             else
+    if(checkDerivsFor=="cpB_fyxmsz"){
+        if (chkDerivIndex==0) {
+            objFun = sum(cpB_fyxmsz); 
+        } else {
+            objFun = sum(cpB_fyxmsz(chkDerivIndex));
+        }
+    }                             else
+    if(checkDerivsFor=="rmB_fyxmsz"){
+        if (chkDerivIndex==0) {
+            objFun = sum(rmB_fyxmsz); 
+        } else {
+            objFun = sum(rmB_fyxmsz(chkDerivIndex));
+        }
+    }                             else
+    if(checkDerivsFor=="dmB_fyxmsz"){
+        if (chkDerivIndex==0) {
+            objFun = sum(dmB_fyxmsz); 
+        } else {
+            objFun = sum(dmB_fyxmsz(chkDerivIndex));
+        }
+    }                             else
+    if(checkDerivsFor=="mb_vyx"){
+        if (chkDerivIndex==0) {
+            objFun = sum(mb_vyx); 
+        } else {
+            objFun = sum(mb_vyx(chkDerivIndex));
+        }
+    }                             else
+    if(checkDerivsFor=="n_vyxmsz"){
+        if (chkDerivIndex==0) {
+            objFun = sum(n_vyxmsz); 
+        } else {
+            objFun = sum(n_vyxmsz(chkDerivIndex));
+        }
+    }                             else
+    if(checkDerivsFor=="b_vyxmsz"){
+        if (chkDerivIndex==0) {
+            objFun = sum(b_vyxmsz); 
+        } else {
+            objFun = sum(b_vyxmsz(chkDerivIndex));
+        }
+    }                             else
+    if(checkDerivsFor=="penalties")
+        calcPenalties(debug,cout); else
+    if(checkDerivsFor=="priors")
+        calcAllPriors(debug,cout); else
+    if(checkDerivsFor=="recruitment")
+        calcNLLs_Recruitment(debug,cout); else
+    if(checkDerivsFor=="effort")
+        calcNLLs_ExtrapolatedEffort(debug,cout); else
+    if(checkDerivsFor=="fisheries")
+        calcNLLs_Fisheries(debug,cout); else
+    if(checkDerivsFor=="surveys")
+        calcNLLs_Surveys(debug,cout); else
+    if(checkDerivsFor=="growth")
+        calcNLLs_GrowthData(debug,cout); else
+    if(checkDerivsFor=="chelaheight")
+        calcNLLs_ChelaHeightData(debug,cout); else
+    if(checkDerivsFor=="maturityogives")
+        calcNLLs_MaturityOgiveData(debug,cout); else
+    {
+        adstring msg = "Invalid entry for checking derivatives. Was '"+checkDerivsFor+"'.";
+        PRINT2B1(msg);
+        PRINT2B1("Terminating program.")
+        ad_exit(1);
     }
     
+    
+
 //******************************************************************************
 //* Function: void calcNLLs_MaturityOgiveData
 //* 
@@ -7920,7 +8201,7 @@ FUNCTION void calcNLLs_ExtrapolatedEffort(int debug, ostream& cout)
                             cout<<"zscores               = "<<zscrEffX_nxmsy(n,x,m,s)<<endl;
                         }
                     } else {
-                        objFun += 0.0;//add nothing, for now
+                        //objFun += 0.0;//TODO: implement likelihood!
                         if (debug>dbgAll){
                             cout<<"fishery: "<<ptrMC->lblsFsh[f]<<endl;
                             cout<<"n    x   m    s      stdv   wgt     nll   objFun"<<endl;
@@ -8142,7 +8423,7 @@ FUNCTION void setInitVals(int debug, ostream& os)
     //MSE parameters    
     setInitVals(ptrMPI->ptrMSE->pMSE_LnC, pMSE_LnC, usePin, debug, os);
 
-    os<<"Finished setting niitVals for all parameters."<<endl;
+    os<<"Finished setting initVals for all parameters."<<endl;
     
 //*****************************************
 FUNCTION int checkParams(int debug, ostream& os)
@@ -8386,7 +8667,7 @@ FUNCTION void writeMCMCtoR(ofstream& mcmc)
     mcmc.open((char *) fnMCMC, ofstream::out|ofstream::app);
     ctrMCMC+=1;
     std::cout<<"writing mcmc iteration "<<ctrMCMC<<endl;
-    mcmc<<"mcmc[["<<ctrMCMC<<"]]<-list(objFun="<<objFun<<cc<<endl;
+    mcmc<<"mcmc[["<<ctrMCMC<<"]]<-list(objFun="<<value(objFun)<<cc<<endl;
     //write parameter values
         //recruitment values
         writeMCMCtoR(mcmc,ptrMPI->ptrRec->pLnR);     mcmc<<cc<<endl;
@@ -9495,72 +9776,74 @@ FUNCTION void writeParameters(ostream& os,int toF, int willBeActive, int phase)
 REPORT_SECTION
     PRINT2B1(" ")
     PRINT2B1("--REPORT_SECTION---------")
-        
-    //max gradient
-    double maxGrad = max(fabs(gradients));
+       
+    if (!derivChecker){
+        //max gradient
+        double maxGrad = max(fabs(gradients));
 
-    //write active parameters to rpt::echo
-    PRINT2B2("Finished phase ",current_phase())
-    {
-        //write final gradients to file
-        ofstream os0("tcsam02.Gradients."+itoa(current_phase(),10)+".csv", ios::trunc);
-        for (int i=gradients.indexmin();i<=gradients.indexmax();i++){
-            os0<<i<<cc<<gradients[i]<<endl;
-        }
-        os0.close();
-    }
-    if (!mseOpModMode) {
-        //write objective function components only
-        ofstream os0("tcsam02.ModelFits."+itoa(current_phase(),10)+".R", ios::trunc);
-        os0.precision(12);
-        ReportToR_ModelFits(os0,maxGrad,0,cout);
-        os0.close();
-    }
-    if (last_phase()) {
-        PRINT2B1("--ReportToR: last phase ")
-        PRINT2B2("----last phase objFun =",value(objFun))
-        if (!mseOpModMode){
-            //write report as R file
-            report.precision(12);
-            ReportToR(report,maxGrad,1,rpt::echo);//--writes tcsam02.rep file
-            //write parameter values to csv
-            ofstream os1("tcsam02.params.all.final.csv", ios::trunc);
-            os1.precision(12);
-            writeParameters(os1,0,0,current_phase());
-            os1.close();
-            //write parameter values to csv
-            ofstream os2("tcsam02.params.active.final.csv", ios::trunc);
-            os2.precision(12);
-            writeParameters(os2,0,1,current_phase());
-            os2.close();
-
-            if (option_match(ad_comm::argc,ad_comm::argv,"-jitter")>-1) {
-                ofstream fs("jitterInfo.csv");
-                fs.precision(20);
-                fs<<"seed"<<cc<<"objfun"<<cc<<"maxGrad"<<cc<<"MMB";
-                if (doOFL) fs<<cc<<"B0"<<cc<<"Bmsy"<<cc<<"Fmsy"<<cc<<"OFL"<<cc<<"curB";
-                fs<<endl;
-                fs<<iSeed<<cc<<value(objFun)<<cc<<maxGrad<<cc<<spB_yx(mxYr,MALE);
-                if (doOFL) fs<<cc<<ptrOFLResults->B0<<cc<<ptrOFLResults->Bmsy<<cc<<ptrOFLResults->Fmsy<<cc<<ptrOFLResults->OFL<<cc<<ptrOFLResults->curB;
-                fs<<endl;
-                fs.close();
+        //write active parameters to rpt::echo
+        PRINT2B2("Finished phase ",current_phase())
+        {
+            //write final gradients to file
+            ofstream os0("tcsam02.Gradients."+itoa(current_phase(),10)+".csv", ios::trunc);
+            for (int i=gradients.indexmin();i<=gradients.indexmax();i++){
+                os0<<i<<cc<<gradients[i]<<endl;
             }
-        } else if (mseOpModMode){
-            PRINT2B1("#--Write REPORT FILE for OpModMode--")
-            //write report as R file
-            report.precision(12);
-            ReportToR_OpModMode(report,maxGrad,1,rpt::echo);
-            //write parameter values to csv
-            ofstream os1("tcsam02.params.all.final.csv", ios::trunc);
-            os1.precision(12);
-            writeParameters(os1,0,0,current_phase());
-            os1.close();
-            //write parameter values to csv
-            ofstream os2("tcsam02.params.active.final.csv", ios::trunc);
-            os2.precision(12);
-            writeParameters(os2,0,1,current_phase());
-            os2.close();
-        } 
+            os0.close();
+        }
+        if (!mseOpModMode) {
+            //write objective function components only
+            ofstream os0("tcsam02.ModelFits."+itoa(current_phase(),10)+".R", ios::trunc);
+            os0.precision(12);
+            ReportToR_ModelFits(os0,maxGrad,0,cout);
+            os0.close();
+        }
+        if (last_phase()) {
+            PRINT2B1("--ReportToR: last phase ")
+            PRINT2B2("----last phase objFun =",value(objFun))
+            if (!mseOpModMode){
+                //write report as R file
+                report.precision(12);
+                ReportToR(report,maxGrad,1,rpt::echo);//--writes tcsam02.rep file
+                //write parameter values to csv
+                ofstream os1("tcsam02.params.all.final.csv", ios::trunc);
+                os1.precision(12);
+                writeParameters(os1,0,0,current_phase());
+                os1.close();
+                //write parameter values to csv
+                ofstream os2("tcsam02.params.active.final.csv", ios::trunc);
+                os2.precision(12);
+                writeParameters(os2,0,1,current_phase());
+                os2.close();
+
+                if (option_match(ad_comm::argc,ad_comm::argv,"-jitter")>-1) {
+                    ofstream fs("jitterInfo.csv");
+                    fs.precision(20);
+                    fs<<"seed"<<cc<<"objfun"<<cc<<"maxGrad"<<cc<<"MMB";
+                    if (doOFL) fs<<cc<<"B0"<<cc<<"Bmsy"<<cc<<"Fmsy"<<cc<<"OFL"<<cc<<"curB";
+                    fs<<endl;
+                    fs<<iSeed<<cc<<value(objFun)<<cc<<maxGrad<<cc<<spB_yx(mxYr,MALE);
+                    if (doOFL) fs<<cc<<ptrOFLResults->B0<<cc<<ptrOFLResults->Bmsy<<cc<<ptrOFLResults->Fmsy<<cc<<ptrOFLResults->OFL<<cc<<ptrOFLResults->curB;
+                    fs<<endl;
+                    fs.close();
+                }
+            } else if (mseOpModMode){
+                PRINT2B1("#--Write REPORT FILE for OpModMode--")
+                //write report as R file
+                report.precision(12);
+                ReportToR_OpModMode(report,maxGrad,1,rpt::echo);
+                //write parameter values to csv
+                ofstream os1("tcsam02.params.all.final.csv", ios::trunc);
+                os1.precision(12);
+                writeParameters(os1,0,0,current_phase());
+                os1.close();
+                //write parameter values to csv
+                ofstream os2("tcsam02.params.active.final.csv", ios::trunc);
+                os2.precision(12);
+                writeParameters(os2,0,1,current_phase());
+                os2.close();
+            } 
+        }
     }
     PRINT2B1("--FINISHED REPORT_SECTION---------")
 
@@ -10093,7 +10376,7 @@ FUNCTION finishOpModMode
         dvariable mseCapF = mfexp(pMSE_LnC[1]);
         projectPopForTAC(mseCapF,0,cout);
         calcObjFunForTAC(dbgObjFun,cout);
-        PRINT2B2("#--Final obj fun = ",objFun)
+        PRINT2B2("#--Final obj fun = ",value(objFun))
     } else {
         projectPopForZeroTAC(0,cout);
     }
@@ -10210,216 +10493,222 @@ FUNCTION finishOpModMode
     ofs.close();
     }
 
+FUNCTION void evalGridAtMLE(void)
+    PRINT2B1("#--Starting evalGridAtMLE")
+    PRINT2B1("#--Finished evalGridAtMLE")
+
 // =============================================================================
 // =============================================================================
 FINAL_SECTION
     PRINT2B1(" ")
     PRINT2B1("#--Starting FINAL_SECTION")
         
-    if (!mseMode){
-        PRINT2B1("#--mseMode is OFF")
-        if (mcevalOn) {
-            PRINT2B1("#--mceval is ON")
-            PRINT2B1("#----Closing mcmc file")
-            mcmc.open((char*)(fnMCMC),ios::app);
-            mcmc.precision(12);
-            //mcmc<<"NULL)"<<endl;
-            mcmc.close();
-            PRINT2B1(" ")
-        }
-
-        if (!mcevalOn){
-            PRINT2B1("#--mceval is OFF")
-            PRINT2B2("obj fun = ",objFun)
-            PRINT2B1(" ")
-            {
-                PRINT2B1("writing parameters info to R")
-                ofstream os; os.open("ModelParametersInfo.R", ios::trunc);
-                os.precision(12);
-                ptrMPI->writeToR(os);
-                os.close();
-                PRINT2B1("finished writing parameters info to R")
-                PRINT2B1("writing final MPI")
-            }
-            {
-                //updateMPI(0, cout);//make sure parameter values are final
-                ofstream os; os.open("MPI.dat", ios::trunc);
-                os.precision(12);
-                ptrMPI->setToWriteVectorEstimationPhases(true);
-                ptrMPI->setToWriteVectorInitialValues(true);
-                os<<(*ptrMPI)<<endl;
-                os.close();
-                PRINT2B1("finished writing final MPI")
-            }
-            {
-                PRINT2B1("#----Writing sim data to file")
-                ofstream echo1; echo1.open("ModelData.Sim.dat", ios::trunc);
-                echo1.precision(12);
-                writeSimData(echo1,0,cout,ptrSimMDS);
-                PRINT2B2("obj fun = ",objFun)
+    if ((!derivChecker)&&(!doHessStep)){        
+        if (!mseMode){
+            PRINT2B1("#--mseMode is OFF")
+            if (mcevalOn) {
+                PRINT2B1("#--mceval is ON")
+                PRINT2B1("#----Closing mcmc file")
+                mcmc.open((char*)(fnMCMC),ios::app);
+                mcmc.precision(12);
+                //mcmc<<"NULL)"<<endl;
+                mcmc.close();
                 PRINT2B1(" ")
             }
 
-            {
-                PRINT2B1("#----Calculating final effective weights for size compositions")
-                PRINT2B1("#----Note that the value of objFun is not valid now!!")
-                //note that this modifies the value of the objective function!
-                //do it for testing
-                rpt::echo<<"#--Calculating effective weights in FINAL_PHASE--"<<endl;
-                rpt::echo<<"effWgts.final=list("<<endl;
-                rpt::echo<<"surveys=";   calcWeightsForSurveySizeComps( 1,rpt::echo); rpt::echo<<","<<endl;
-                rpt::echo<<"fisheries="; calcWeightsForFisherySizeComps(1,rpt::echo); rpt::echo<<endl;
-                rpt::echo<<")"<<endl;
-                rpt::echo<<"#--Finished calculating effective weights in FINAL_PHASE--"<<endl;
-                //do it for real
-                ofstream os; os.open("effectiveWeights.R", ios::app);//--note appending to existing file
-                os<<"#--Calculating effective weights in FINAL_PHASE--"<<endl;
-                os<<"effWgts.final=list("<<endl;
-                os<<"surveys=";   calcWeightsForSurveySizeComps( -1,os); os<<","<<endl;
-                os<<"fisheries="; calcWeightsForFisherySizeComps(-1,os); os<<endl;
-                os<<")"<<endl;
-                os<<"#--Finished calculating effective weights in FINAL_PHASE--"<<endl;
-                os<<")"<<endl;//need to close list
-                os.close();
-                PRINT2B2("#--obj fun = ",objFun)
+            if (!mcevalOn){
+                PRINT2B1("#--mceval is OFF")
+                PRINT2B2("obj fun = ",value(objFun))
                 PRINT2B1(" ")
-            }
+                {
+                    PRINT2B1("writing parameters info to R")
+                    ofstream os; os.open("ModelParametersInfo.R", ios::trunc);
+                    os.precision(12);
+                    ptrMPI->writeToR(os);
+                    os.close();
+                    PRINT2B1("finished writing parameters info to R")
+                    PRINT2B1("writing final MPI")
+                }
+                {
+                    //updateMPI(0, cout);//make sure parameter values are final
+                    ofstream os; os.open("MPI.dat", ios::trunc);
+                    os.precision(12);
+                    ptrMPI->setToWriteVectorEstimationPhases(true);
+                    ptrMPI->setToWriteVectorInitialValues(true);
+                    os<<(*ptrMPI)<<endl;
+                    os.close();
+                    PRINT2B1("finished writing final MPI")
+                }
+                {
+                    PRINT2B1("#----Writing sim data to file")
+                    ofstream echo1; echo1.open("ModelData.Sim.dat", ios::trunc);
+                    echo1.precision(12);
+                    writeSimData(echo1,0,cout,ptrSimMDS);
+                    PRINT2B2("obj fun = ",value(objFun))
+                    PRINT2B1(" ")
+                }
 
-            if (doDynB0>0){
-                PRINT2B1("#----Calculating dynamic B0")
-                PRINT2B1("#----Note that the value of objFun is not valid now!!")
-                calcDynB0(1,rpt::echo);
-                PRINT2B2("#--obj fun = ",objFun)
-                PRINT2B1(" ")
-            }
+                {
+                    PRINT2B1("#----Calculating final effective weights for size compositions")
+                    PRINT2B1("#----Note that the value of objFun is not valid now!!")
+                    //note that this modifies the value of the objective function!
+                    //do it for testing
+                    rpt::echo<<"#--Calculating effective weights in FINAL_PHASE--"<<endl;
+                    rpt::echo<<"effWgts.final=list("<<endl;
+                    rpt::echo<<"surveys=";   calcWeightsForSurveySizeComps( 1,rpt::echo); rpt::echo<<","<<endl;
+                    rpt::echo<<"fisheries="; calcWeightsForFisherySizeComps(1,rpt::echo); rpt::echo<<endl;
+                    rpt::echo<<")"<<endl;
+                    rpt::echo<<"#--Finished calculating effective weights in FINAL_PHASE--"<<endl;
+                    //do it for real
+                    ofstream os; os.open("effectiveWeights.R", ios::app);//--note appending to existing file
+                    os<<"#--Calculating effective weights in FINAL_PHASE--"<<endl;
+                    os<<"effWgts.final=list("<<endl;
+                    os<<"surveys=";   calcWeightsForSurveySizeComps( -1,os); os<<","<<endl;
+                    os<<"fisheries="; calcWeightsForFisherySizeComps(-1,os); os<<endl;
+                    os<<")"<<endl;
+                    os<<"#--Finished calculating effective weights in FINAL_PHASE--"<<endl;
+                    os<<")"<<endl;//need to close list
+                    os.close();
+                    PRINT2B2("#--obj fun = ",value(objFun))
+                    PRINT2B1(" ")
+                }
 
-            PRINT2B1("#----Recalculating final objective function value")
+                if (doDynB0>0){
+                    PRINT2B1("#----Calculating dynamic B0")
+                    PRINT2B1("#----Note that the value of objFun is not valid now!!")
+                    calcDynB0(1,rpt::echo);
+                    PRINT2B2("#--obj fun = ",value(objFun))
+                    PRINT2B1(" ")
+                }
+
+                PRINT2B1("#----Recalculating final objective function value")
+                if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
+                calcObjFun(dbgAll+1,rpt::echo);
+                calcObjFun(dbgObjFun,cout);
+                PRINT2B2("#--Final obj fun = ",value(objFun))
+
+                {
+                    PRINT2B1("#----writing alternative par file tcsam02.par1")
+                    ofstream par1; par1.precision(12);
+                    par1.open("tcsam02.par1", ios::trunc); 
+                    writeParameters(par1,-1,0,0);
+                    par1.close();
+                    PRINT2B1("#------finished writing alternative par file")
+                }
+
+                {
+                    PRINT2B1("#----writing cohort progression to R")
+                    ofstream echo1; echo1.precision(12);
+                    echo1.open("CohortProgression.noMF.R", ios::trunc);                
+                    ReportToR_CohortProgression(echo1,1,0,0,1,0,cout);
+                    echo1.close();
+                    echo1.open("CohortProgression.FnoM.R", ios::trunc);                
+                    ReportToR_CohortProgression(echo1,1,0,1,1,0,cout);
+                    echo1.close();
+                    echo1.open("CohortProgression.MnoF.R", ios::trunc);                
+                    ReportToR_CohortProgression(echo1,1,1,0,1,0,cout);
+                    echo1.close();
+                    echo1.open("CohortProgression.MF.R", ios::trunc);                
+                    ReportToR_CohortProgression(echo1,1,1,1,1,0,cout);
+                    echo1.close();
+                    PRINT2B1("#----finished writing cohort progression to file")
+                }
+
+               //do OFL calculations
+                if (doOFL){
+                    PRINT2B1("#----Starting OFL calculations")
+                    ofstream echoOFL; echoOFL.open("calcOFL.final.txt", ios::trunc);
+                    echoOFL.precision(12);
+                    calcOFL(mxYr+1-yRetro,1,echoOFL);//updates ptrOFLResults
+                    ptrOFLResults->writeCSVHeader(echoOFL); echoOFL<<endl;
+                    ptrOFLResults->writeToCSV(echoOFL);     echoOFL<<endl;
+                    echoOFL.close();
+                    PRINT2B1("#----Finished OFL calculations")
+                }
+
+                //do TAC calculations (doTAC = HCR number)
+                PRINT2B2("#----doTAC = ",doTAC)
+                if (doTAC>0) {
+                    PRINT2B1("#----Starting TAC calculations")
+                    int closed = calcTAC(doTAC, value(ptrOFLResults->OFL));
+                    PRINT2B1("#----Finished TAC calculations")
+
+                    //write state for operating model
+                    {
+                        PRINT2B1("#----Writing OpMod state file")
+                        adstring nwF = "OpModStateFile_"+str(mxYr+1)+".txt";
+                        //nwF = wts::concatenateFilePaths(parent,nwF);
+                        ofstream ofs; ofs.open(nwF,ios::trunc);
+                        writeStateForOpMod(mxYr,ofs);
+                        ofs.close();
+                        PRINT2B1("#----Finished writing OpMod state file")
+                    }
+
+                    //write MPI for EstMod for upcoming year
+                    //----devs for upcoming year are zero
+                    {
+                        ptrMPI->addNextYearToInfo(closed);
+                        ptrMPI->setToWriteVectorInitialValues(false);
+                        adstring nwF = "EstMod.ParametersInfo."+str(mxYr+1)+".inp";
+                        ofstream ofs; ofs.open(nwF, ios::trunc);
+                        ptrMPI->write(ofs);
+                        ofs.close();
+                    }
+
+                    //--write pin for EstMod for upcoming year
+                    {
+                        adstring nwF = "EstModPinFile_"+str(mxYr+1)+".txt";
+                        ofstream ofs; ofs.open(nwF, ios::trunc);
+                        ptrMPI->writePin(ofs);
+                        ofs.close();
+                    }
+                }//doTAC>0
+            }//!mcevalOn
+        } else if (mseEstModMode){
+            //running in estModMode
+            PRINT2B1("#----MSE EstModMode: Recalculating population dynamics")
             if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
-            calcObjFun(dbgAll+1,rpt::echo);
             calcObjFun(dbgObjFun,cout);
-            PRINT2B2("#--Final obj fun = ",objFun)
-                   
+            PRINT2B2("#--Final obj fun = ",value(objFun))
+
+            //--calculate OFL
             {
-                PRINT2B1("#----writing alternative par file tcsam02.par1")
-                ofstream par1; par1.precision(12);
-                par1.open("tcsam02.par1", ios::trunc); 
-                writeParameters(par1,-1,0,0);
-                par1.close();
-                PRINT2B1("#------finished writing alternative par file")
-            }
-            
-            {
-                PRINT2B1("#----writing cohort progression to R")
-                ofstream echo1; echo1.precision(12);
-                echo1.open("CohortProgression.noMF.R", ios::trunc);                
-                ReportToR_CohortProgression(echo1,1,0,0,1,0,cout);
-                echo1.close();
-                echo1.open("CohortProgression.FnoM.R", ios::trunc);                
-                ReportToR_CohortProgression(echo1,1,0,1,1,0,cout);
-                echo1.close();
-                echo1.open("CohortProgression.MnoF.R", ios::trunc);                
-                ReportToR_CohortProgression(echo1,1,1,0,1,0,cout);
-                echo1.close();
-                echo1.open("CohortProgression.MF.R", ios::trunc);                
-                ReportToR_CohortProgression(echo1,1,1,1,1,0,cout);
-                echo1.close();
-                PRINT2B1("#----finished writing cohort progression to file")
-            }
-            
-           //do OFL calculations
-            if (doOFL){
-                PRINT2B1("#----Starting OFL calculations")
+                cout<<"#----Starting OFL calculations"<<endl;
                 ofstream echoOFL; echoOFL.open("calcOFL.final.txt", ios::trunc);
                 echoOFL.precision(12);
                 calcOFL(mxYr+1-yRetro,1,echoOFL);//updates ptrOFLResults
                 ptrOFLResults->writeCSVHeader(echoOFL); echoOFL<<endl;
                 ptrOFLResults->writeToCSV(echoOFL);     echoOFL<<endl;
                 echoOFL.close();
-                PRINT2B1("#----Finished OFL calculations")
+                cout<<"#----Finished OFL calculations"<<endl;
             }
-            
-            //do TAC calculations (doTAC = HCR number)
-            PRINT2B2("#----doTAC = ",doTAC)
-            if (doTAC>0) {
-                PRINT2B1("#----Starting TAC calculations")
-                int closed = calcTAC(doTAC, value(ptrOFLResults->OFL));
-                PRINT2B1("#----Finished TAC calculations")
-                
-                //write state for operating model
-                {
-                    PRINT2B1("#----Writing OpMod state file")
-                    adstring nwF = "OpModStateFile_"+str(mxYr+1)+".txt";
-                    //nwF = wts::concatenateFilePaths(parent,nwF);
-                    ofstream ofs; ofs.open(nwF,ios::trunc);
-                    writeStateForOpMod(mxYr,ofs);
-                    ofs.close();
-                    PRINT2B1("#----Finished writing OpMod state file")
-                }
-            
-                //write MPI for EstMod for upcoming year
-                //----devs for upcoming year are zero
-                {
-                    ptrMPI->addNextYearToInfo(closed);
-                    ptrMPI->setToWriteVectorInitialValues(false);
-                    adstring nwF = "EstMod.ParametersInfo."+str(mxYr+1)+".inp";
-                    ofstream ofs; ofs.open(nwF, ios::trunc);
-                    ptrMPI->write(ofs);
-                    ofs.close();
-                }
 
-                //--write pin for EstMod for upcoming year
-                {
-                    adstring nwF = "EstModPinFile_"+str(mxYr+1)+".txt";
-                    ofstream ofs; ofs.open(nwF, ios::trunc);
-                    ptrMPI->writePin(ofs);
-                    ofs.close();
-                }
-            }//doTAC>0
-        }//!mcevalOn
-    } else if (mseEstModMode){
-        //running in estModMode
-        PRINT2B1("#----MSE EstModMode: Recalculating population dynamics")
-        if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
-        calcObjFun(dbgObjFun,cout);
-        PRINT2B2("#--Final obj fun = ",objFun)
-        
-        //--calculate OFL
-        {
-            cout<<"#----Starting OFL calculations"<<endl;
-            ofstream echoOFL; echoOFL.open("calcOFL.final.txt", ios::trunc);
-            echoOFL.precision(12);
-            calcOFL(mxYr+1-yRetro,1,echoOFL);//updates ptrOFLResults
-            ptrOFLResults->writeCSVHeader(echoOFL); echoOFL<<endl;
-            ptrOFLResults->writeToCSV(echoOFL);     echoOFL<<endl;
-            echoOFL.close();
-            cout<<"#----Finished OFL calculations"<<endl;
-        }
-        
-        //--calculate TAC for upcoming year using harvest control rule
-        int closed = calcTAC(doTAC, value(ptrOFLResults->OFL));
-                
-        //write MPI for EstMod for upcoming year
-        //----devs for upcoming year are zero
-        {
-            ptrMPI->addNextYearToInfo(closed);
-            ptrMPI->setToWriteVectorInitialValues(false);
-            adstring nwF = "EstMod.ParametersInfo."+str(mxYr+1)+".inp";
-            ofstream ofs; ofs.open(nwF, ios::trunc);
-            ptrMPI->write(ofs);
-            ofs.close();
-        }
+            //--calculate TAC for upcoming year using harvest control rule
+            int closed = calcTAC(doTAC, value(ptrOFLResults->OFL));
 
-        //--write pin for EstMod for upcoming year
-        {
-            adstring nwF = "EstModPinFile_"+str(mxYr+1)+".txt";
-            ofstream ofs; ofs.open(nwF, ios::trunc);
-            ptrMPI->writePin(ofs);
-            ofs.close();
-        }
-                
-    } else if (mseOpModMode){
-        finishOpModMode();
-    }//mseOpModMode
+            //write MPI for EstMod for upcoming year
+            //----devs for upcoming year are zero
+            {
+                ptrMPI->addNextYearToInfo(closed);
+                ptrMPI->setToWriteVectorInitialValues(false);
+                adstring nwF = "EstMod.ParametersInfo."+str(mxYr+1)+".inp";
+                ofstream ofs; ofs.open(nwF, ios::trunc);
+                ptrMPI->write(ofs);
+                ofs.close();
+            }
+
+            //--write pin for EstMod for upcoming year
+            {
+                adstring nwF = "EstModPinFile_"+str(mxYr+1)+".txt";
+                ofstream ofs; ofs.open(nwF, ios::trunc);
+                ptrMPI->writePin(ofs);
+                ofs.close();
+            }
+
+        } else if (mseOpModMode){
+            finishOpModMode();
+        }//mseOpModMode
+    }
     
     int hour,minute,second;
     double elapsed_time;

@@ -575,6 +575,15 @@ void writeParameter(ostream& os,
                                            <<"-Inf"<<cc<<"Inf"<<cc<<p(i)<<cc
                                            <<pI->name<<cc<<"\"param_init_vector\",\""
                                            <<ctg1<<"\",\""<<ctg2<<"\",\""<<pI->label<<"\""<<endl;
+                } else if((phase==0)&&willBeActive){
+                    //writing only parameters that will be active (i.e., phases[i]>0)
+                    if (phases(i)>0){
+                        os<<i<<cc<<phases(i)<<cc<<mn<<cc<<mx<<cc<<pI->getScaleType()<<cc
+                                           <<"-Inf"<<cc<<"Inf"<<cc<<vals(i)<<cc
+                                           <<"-Inf"<<cc<<"Inf"<<cc<<p(i)<<cc
+                                           <<pI->name<<cc<<"\"param_init_bounded_dev_vector\",\""
+                                           <<ctg1<<"\",\""<<ctg2<<"\",\""<<pI->label<<"\""<<endl;
+                    }
                 }
             }
         }
@@ -638,6 +647,17 @@ void writeParameter(ostream& os,
                                            <<p(i)<<cc
                                            <<pI->name<<cc<<"\"param_init_bounded_vector\",\""
                                            <<ctg1<<"\",\""<<ctg2<<"\",\""<<pI->label<<"\""<<endl;
+                } else if((phase==0)&&willBeActive){
+                    //writing only parameters that will be active (i.e., phases[i]>0)
+                    if (phases(i)>0){
+                        os<<i<<cc<<phases(i)<<cc<<mn<<cc<<mx<<cc<<pI->getScaleType()<<cc
+                                           <<pI->getLowerBound()<<cc<<pI->getUpperBound()<<cc<<vals(i)<<cc
+                                           <<pI->calcParamScaleVals(pI->getLowerBound())<<cc
+                                           <<pI->calcParamScaleVals(pI->getUpperBound())<<cc
+                                           <<p(i)<<cc
+                                           <<pI->name<<cc<<"\"param_init_bounded_dev_vector\",\""
+                                           <<ctg1<<"\",\""<<ctg2<<"\",\""<<pI->label<<"\""<<endl;
+                    }
                 }
             }
         }
@@ -694,6 +714,7 @@ void writeParameter(ostream& os,
             //writing to csv file
             for (int i=mn;i<=mx;i++) {
                 if ((!willBeActive)||((phases[i]>0)&&(phases[i]<=phase))){
+                    //writing all parameters OR currently active parameters
                     os<<i<<cc<<phases(i)<<cc<<mn<<cc<<mx<<cc<<pI->getScaleType()<<cc
                                        <<pI->getLowerBound()<<cc<<pI->getUpperBound()<<cc<<vals(i)<<cc
                                        <<pI->calcParamScaleVals(pI->getLowerBound())<<cc
@@ -701,6 +722,17 @@ void writeParameter(ostream& os,
                                        <<p(i)<<cc
                                        <<pI->name<<cc<<"\"param_init_bounded_dev_vector\",\""
                                        <<ctg1<<"\",\""<<ctg2<<"\",\""<<pI->label<<"\""<<endl;
+                } else if((phase==0)&&willBeActive){
+                    //writing only parameters that will be active (i.e., phases[i]>0)
+                    if (phases(i)>0){
+                        os<<i<<cc<<phases(i)<<cc<<mn<<cc<<mx<<cc<<pI->getScaleType()<<cc
+                                           <<pI->getLowerBound()<<cc<<pI->getUpperBound()<<cc<<vals(i)<<cc
+                                           <<pI->calcParamScaleVals(pI->getLowerBound())<<cc
+                                           <<pI->calcParamScaleVals(pI->getUpperBound())<<cc
+                                           <<p(i)<<cc
+                                           <<pI->name<<cc<<"\"param_init_bounded_dev_vector\",\""
+                                           <<ctg1<<"\",\""<<ctg2<<"\",\""<<pI->label<<"\""<<endl;
+                    }
                 }
             }
         }
