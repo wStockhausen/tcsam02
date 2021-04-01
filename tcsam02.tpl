@@ -5907,7 +5907,7 @@ FUNCTION void checkDerivatives(int debug, ostream& cout)
     }                             else
     if(checkDerivsFor=="q_vyxms"){
         if (chkDerivIndex==0) {
-            objFun = sum(q_vyxmss); 
+            objFun = sum(q_vyxms); 
         } else {
             objFun = sum(q_vyxms(chkDerivIndex));
         }
@@ -5933,11 +5933,11 @@ FUNCTION void checkDerivatives(int debug, ostream& cout)
             objFun = sum(cpN_fyxmsz(chkDerivIndex));
         }
     }                             else
-    if(checkDerivsFor=="mN_fyxmsz"){
+    if(checkDerivsFor=="rmN_fyxmsz"){
         if (chkDerivIndex==0) {
-            objFun = sum(mN_fyxmsz); 
+            objFun = sum(rmN_fyxmsz); 
         } else {
-            objFun = sum(mN_fyxmsz(chkDerivIndex));
+            objFun = sum(rmN_fyxmsz(chkDerivIndex));
         }
     }                             else
     if(checkDerivsFor=="dmN_fyxmsz"){
