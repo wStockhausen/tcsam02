@@ -6645,8 +6645,8 @@ FUNCTION void calcDirichletNLL(dvariable& theta, double wgt, dvar_vector& mod, d
 //    }
     
     //the following is from Thorson et al. 2016
-    double n      = ss;      //to maintain semblance to Thorson et al.
-    dvariable thn = theta*n;
+    double         n = ss;      //to maintain semblance to Thorson et al.
+    dvariable    thn = theta*n;
     dvector     obsp = (obs+1.0e-10)/sum(obs+1.0e-10);
     dvar_vector modp = (mod+1.0e-10)/sum(mod+1.0e-10);
     if (ss>0){//blows up if ss=0
