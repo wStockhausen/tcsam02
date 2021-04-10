@@ -24,6 +24,10 @@
  * 2020-01-29: 1. Added yRetro 
  * 2020-07-08: 1. Added mnYrAvgRec, mxYrOffsetAvgRec.
  *             2. Incremented VERSION to '2020.07.08'.
+ * 2021-04-09: 1. Added maxZs dvector for sex-specific max sizes
+ *             2. Incremented VERSION to '2021.04.09'.
+ * 2021-04-10: 1. Added maxZs dvector for sex-specific max sizes
+ *             2. Incremented VERSION to '2021.04.10'.
  */
 
 #ifndef MODELCONFIGURATION_HPP
@@ -39,6 +43,14 @@
         
         static int debug;  //flag to print debug info
         
+        /* vector of max sizes, by sex */
+        static dvector maxZs;
+        /* vector of indices to max size bin, by sex */
+        static ivector maxZBs;
+        /* max size possible at recruitment */
+        static double maxZRec;
+        /* index to max possible size bin for recruitment */
+        static int maxZBRec;
         /* number of size bins */
         static int nZBs;//number of size bins 
         /* min model year */

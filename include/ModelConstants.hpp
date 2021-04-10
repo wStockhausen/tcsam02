@@ -54,6 +54,44 @@
     #endif
     #define PRINT2B2(t,o) std::cout<<(t)<<(o)<<std::endl; rpt::echo<<(t)<<(o)<<std::endl;
 
+    //macros to print param_init_number_vector object representing devs vectors
+    #ifdef PRINTDEVSp
+        #undef PRINTDEVSp
+    #endif
+    #define PRINTDEVSp(s,P,os) {int ctr = 1; \
+                                os<<s<<": tot num = "<<npDevs##P<<std::endl; \
+                                os<<"indices = "<<pDevs##P.indexmin()<<tb<<pDevs##P.indexmax()<<std::endl; \
+                                for (int p=1;p<=npDevs##P;p++) { \
+                                  std::cout<<s<<"["<<p<<"] = "; \
+                                  os<<" mni = "<<mniDevs##P[p]<<cc<<" mni = "<<mxiDevs##P[p]<<std::endl; \
+                                  for (int j=mniDevs##P[p];j<=mxiDevs##P[p];j++) std::cout<<pDevs##P[ctr++]<<tb; std::cout<<std::endl; \
+                                } \
+                               }
+    #ifdef PRINTDEVS
+        #undef PRINTDEVS
+    #endif
+    #define PRINTDEVS(s,P) PRINTDEVSp(s,P,std::cout) \
+                           PRINTDEVSp(s,P,rpt::echo) 
+
+    //macros to print pseudo-param_init_(bounded)_vector_vector objects
+    #ifdef PRINTVVp
+        #undef PRINTVVp
+    #endif
+    #define PRINTVVp(s,P,os) {int ctr = 1; \
+                                os<<s<<": np = "<<np##P<<std::endl; \
+                                os<<"indices = "<<pv##P.indexmin()<<tb<<pv##P.indexmax()<<std::endl; \
+                                for (int p=1;p<=np##P;p++) { \
+                                    os<<s<<"["<<p<<"] = "<<std::endl; \
+                                    os<<" mni = "<<mni##P[p]<<cc<<" mxi = "<<mxi##P[p]<<std::endl; \
+                                    for (int j=mni##P[p];j<=mxi##P[p];j++) os<<pv##P[ctr++]<<tb; os<<std::endl; \
+                                } \
+                             }
+    #ifdef PRINTVV
+        #undef PRINTVV
+    #endif
+    #define PRINTVV(s,P)  PRINTVVp(s,P,std::cout) \
+                          PRINTVVp(s,P,rpt::echo)
+        
 class rpt{
     public:
         /* Global output filestream */

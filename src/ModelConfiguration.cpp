@@ -9,7 +9,7 @@
 //**********************************************************************
 using namespace std;
 
-const adstring ModelConfiguration::VERSION = "2020.07.08";
+const adstring ModelConfiguration::VERSION = "2021.04.10";
 
 int ModelConfiguration::debug=0;
 //--------------------------------------------------------------------------------
@@ -28,6 +28,10 @@ int    ModelConfiguration::jitter     = OFF;//flag to jitter initial parameter v
 double ModelConfiguration::jitFrac    = 1.0;//fraction to jitter bounded parameter values
 int    ModelConfiguration::resample   = OFF;//flag to resample initial parameter values
 double ModelConfiguration::vif        = 1.0;//variance inflation factor for resampling parameter values
+dvector ModelConfiguration::maxZs(1,tcsam::nSXs);//sex-specific max sizes
+ivector ModelConfiguration::maxZBs(1,tcsam::nSXs);//sex-specific max size bins corresponding to maxZs
+double ModelConfiguration::maxZRec;//max size possible at recruitment
+int ModelConfiguration::maxZBRec;//index to max possible size bin for recruitment
 /***************************************************************
 *   creation                                                   *
 ***************************************************************/
@@ -68,9 +72,10 @@ void ModelConfiguration::write(const adstring & fn) {
 ***************************************************************/
 void ModelConfiguration::read(cifstream & is) {
     if (debug) cout<<"ModelConfiguration::read(cifstream & is)"<<endl;
-    cout<<"ModelConfiguration input file name: '"<<is.get_file_name()<<"'"<<endl;
+    adstring strD; //use to create PRINT2B strings
+    strD = "ModelConfiguration input file name: '"+is.get_file_name()+"'"; PRINT2B1(strD)
     adstring parent = wts::getParentFolder(is);
-    cout<<"parent folder is '"<<parent<<"'"<<endl;
+    strD="parent folder is '"+parent+"'"; PRINT2B1(strD);
     adstring ver;
     is>>ver;//model configuration file version
     if (ver!=ModelConfiguration::VERSION){
@@ -87,28 +92,37 @@ void ModelConfiguration::read(cifstream & is) {
     mxYr = asYr-1;       //max model year
     is>>mnYrAvgRec;      //min year to calculate average recruitment for OFL
     is>>mxYrOffsetAvgRec;//max year to calculate average recruitment for OFL
+    is>>maxZs;           //sex-specific max sizes
+    is>>maxZRec;         //max size at recruitment
     is>>nZBs;            //number of model size bins
     if (debug){
         cout<<mnYr <<tb<<"#model min year"<<endl;
         cout<<mxYr <<tb<<"#model max year"<<endl;
         cout<<mnYrAvgRec       <<tb<<"#min year for OFL average recruitment calculation"<<endl;
         cout<<mxYrOffsetAvgRec <<tb<<"#offset from max year for OFL average recruitment calculation"<<endl;
-        cout<<nZBs<<tb<<"#number of size bins"<<endl;
+        cout<<maxZs  <<tb<<"#max sizes, by sex"<<endl;
+        cout<<maxZRec<<tb<<"#max size at recruitment"<<endl;
+        cout<<nZBs   <<tb<<"#number of size bins"<<endl;
     }
     zMidPts.allocate(1,nZBs); 
     zCutPts.allocate(1,nZBs+1); 
     onesZMidPts.allocate(1,nZBs); onesZMidPts = 1.0;
     is>>zCutPts;
     for (int z=1;z<=nZBs;z++) zMidPts(z) = 0.5*(zCutPts(z)+zCutPts(z+1));
-    if (debug){
-        cout<<"#size bins (mm CW)"<<endl;
-        cout<<zMidPts<<endl;
-        cout<<"#size bin cut points (mm CW)"<<endl;
-        cout<<zCutPts <<endl;
-        cout<<"enter 1 to continue : ";
-        cin>>debug;
-        if (debug<0) exit(1);
+    maxZBs = nZBs;
+    for (int x=1;x<=tcsam::nSXs;x++){
+        for (int z=1;z<=nZBs;z++) 
+            if ((zCutPts[z]<=maxZs[x])&&(maxZs[x]<zCutPts[z+1])) maxZBs[x] = z;
     }
+    maxZBRec = nZBs;
+    for (int z=1;z<=nZBs;z++) 
+        if ((zCutPts[z]<=maxZRec)&&(maxZRec<zCutPts[z+1])) maxZBRec = z;
+    PRINT2B2("#max sizes, by sex: ",maxZs)
+    PRINT2B2("#max size bins, by sex: ",maxZBs)
+    PRINT2B2("#max size at recruitment: ",maxZRec)
+    PRINT2B2("#max size bin for recruitment: ",maxZBRec)
+    PRINT2B2("#size bins (mm CW): ",zMidPts)
+    PRINT2B2("#size bin cut points (mm CW): ",zCutPts)
         
     is>>nFsh; //number of fisheries
     lblsFsh.allocate(1,nFsh);
@@ -212,7 +226,9 @@ void ModelConfiguration::write(ostream & os) {
     os<<asYr<<tb<<"#Assessment year"<<endl;
     os<<mnYrAvgRec<<tb<<"#Min year for OFL average recruitment calculation"<<endl;
     os<<mxYrOffsetAvgRec<<tb<<"#Offset to maxYr for OFL average recruitment calculation"<<endl;
-    os<<nZBs<<tb<<"#Number of model size classes"<<endl;
+    os<<maxZs  <<tb<<"#max sizes, by sex"<<endl;
+    os<<maxZRec<<tb<<"#max size at recruitment"<<endl;
+    os<<nZBs   <<tb<<"#Number of model size classes"<<endl;
     os<<"#size bin cut points"<<endl;
     os<<zCutPts <<endl;
     
@@ -263,6 +279,8 @@ void ModelConfiguration::writeToR(ostream& os, std::string nm, int indent) {
             os<<"m=list(n="<<tcsam::nMSs<<",nms=c("<<tcsamDims::formatForR(csvMSs)<<"))"<<cc<<endl;
         for (int n=0;n<indent;n++) os<<tb;
             os<<"s=list(n="<<tcsam::nSCs<<",nms=c("<<tcsamDims::formatForR(csvSCs)<<"))"<<cc<<endl;
+        for (int n=0;n<indent;n++) os<<tb;
+            os<<"zLims=list(maxZRec="<<maxZRec<<",maxZs=c("<<wts::to_csv(maxZs)<<"))"<<cc<<endl;
         for (int n=0;n<indent;n++) os<<tb;
             os<<"z=list(n="<<nZBs<<",nms=c("<<csvZBs<<"),vls=c("<<wts::to_csv(zMidPts)<<"))"<<cc<<endl;
         for (int n=0;n<indent;n++) os<<tb;

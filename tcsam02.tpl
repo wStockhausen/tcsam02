@@ -670,6 +670,16 @@
 //-2021-01-31:  1. Added logic to minimize output to screen during mcmc phase to speed things up
 //                   for adnuts processing.
 //-2021-03-16:  1. Added derivative checking commandline option (-doDerivChecks)
+//-2021-04-09:  1. Added requirement to specify max size, by sex, in ModelConfiguration (maxZs, maxZBs).
+//                   The corresponding size bins act as accumulators.
+//              2. Modified ModelData/SizeFrequencyData to honor maxZs, maxZBs when aggregating size comps.
+//              3. Modified calcGrowth to honor maxZs, maxZBs.
+//-2021-04-10:  1. Corrected errors in AggregateCatchData::replaceCatchData copying old
+//                 year and cv to new data array (only affected simulated data).
+//              2. Moved parameter-related PRINT2 macros to ModelConstants.hpp.
+//              3. Added requirement to specify max size at recruitment in ModelConfiguration (maxZRec).
+//                   The corresponding size bin (maxZBRec) acts as an accumulator for the gamma distribution.
+//              4. Modified calcRecruitment to honor maxZRec, maxZBRec.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -716,44 +726,6 @@ GLOBALS_SECTION
     #include <admodel.h>
     #include "TCSAM.hpp"
 
-    //macros to print param_init_number_vector object representing devs vectors
-    #ifdef PRINTDEVSp
-        #undef PRINTDEVSp
-    #endif
-    #define PRINTDEVSp(s,P,os) {int ctr = 1; \
-                                os<<s<<": tot num = "<<npDevs##P<<std::endl; \
-                                os<<"indices = "<<pDevs##P.indexmin()<<tb<<pDevs##P.indexmax()<<std::endl; \
-                                for (int p=1;p<=npDevs##P;p++) { \
-                                  std::cout<<s<<"["<<p<<"] = "; \
-                                  os<<" mni = "<<mniDevs##P[p]<<cc<<" mni = "<<mxiDevs##P[p]<<std::endl; \
-                                  for (int j=mniDevs##P[p];j<=mxiDevs##P[p];j++) std::cout<<pDevs##P[ctr++]<<tb; std::cout<<std::endl; \
-                                } \
-                               }
-    #ifdef PRINTDEVS
-        #undef PRINTDEVS
-    #endif
-    #define PRINTDEVS(s,P) PRINTDEVSp(s,P,std::cout) \
-                           PRINTDEVSp(s,P,rpt::echo) 
-
-    //macros to print pseudo-param_init_(bounded)_vector_vector objects
-    #ifdef PRINTVVp
-        #undef PRINTVVp
-    #endif
-    #define PRINTVVp(s,P,os) {int ctr = 1; \
-                                os<<s<<": np = "<<np##P<<std::endl; \
-                                os<<"indices = "<<pv##P.indexmin()<<tb<<pv##P.indexmax()<<std::endl; \
-                                for (int p=1;p<=np##P;p++) { \
-                                    os<<s<<"["<<p<<"] = "<<std::endl; \
-                                    os<<" mni = "<<mni##P[p]<<cc<<" mxi = "<<mxi##P[p]<<std::endl; \
-                                    for (int j=mni##P[p];j<=mxi##P[p];j++) os<<pv##P[ctr++]<<tb; os<<std::endl; \
-                                } \
-                             }
-    #ifdef PRINTVV
-        #undef PRINTVV
-    #endif
-    #define PRINTVV(s,P)  PRINTVVp(s,P,std::cout) \
-                          PRINTVVp(s,P,rpt::echo)
-        
     adstring model  = tcsam::MODEL;
     adstring modVer = tcsam::VERSION; 
     
@@ -3616,8 +3588,17 @@ FUNCTION void calcRecruitment(int debug, ostream& cout)
             }
         }
         
+        //proportion male at recruitment
         Rx_c(pc) = xR;
+        
+        //calculate size distribution at recruitment
         R_cz(pc) = elem_prod(pow(dzs,(aR/bR)-1.0),mfexp(-dzs/bR));
+        //truncate distribution to maxZBRec bins
+        int maxZBRec = ModelConfiguration::maxZBRec;
+        for (int z=(maxZBRec+1);z<=nZBs;z++){
+            R_cz(pc,maxZBRec) += R_cz(pc,z);
+            R_cz(pc,z) = 0.0;
+        }
         R_cz(pc) /= sum(R_cz(pc));//normalize to sum to 1
 
         imatrix idxs = ptrRI->getModelIndices(pc);
@@ -4040,6 +4021,7 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
         mnGrZ_cz(pc) = mnZs;        
         prGr_czz(pc) = trans(prGr_zz);//transpose so rows are post-molt (i.e., lefthand z index is post-molt, or "to") z's so n+ = prGr_zz*n
         
+        //need to move this so sex and maxZBs is known 
         if (isnan(value(sum(prGr_zz)))){
             ofstream os("GrowthReportPrZZ."+str(current_phase())+"."+str(ctrProcCallsInPhase)+".dat");
             os.precision(12);
@@ -4100,21 +4082,43 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
         imatrix idxs = ptrGrw->getModelIndices(pc);
         if (debug) cout<<"growth indices for pc "<<pc<<endl<<idxs<<endl;
         for (int idx=idxs.indexmin();idx<=idxs.indexmax();idx++){
-            y = idxs(idx,1); //year index
-            if ((mnYr<=y)&&(y<=mxYr+1)){
-                mnx = mxx = idxs(idx,2);//sex index
-                if (mnx==tcsam::ALL_SXs){mnx = 1; mxx = tcsam::nSXs;}
+//            y = idxs(idx,1); //year index
+//            if ((mnYr<=y)&&(y<=mxYr+1)){
+//                mnx = mxx = idxs(idx,2);//sex index
+//                if (mnx==tcsam::ALL_SXs){mnx = 1; mxx = tcsam::nSXs;}
+//                if (debug>dbgCalcProcs) cout<<"y = "<<y<<tb<<"sex = "<<tcsam::getSexType(mnx)<<": "<<tcsam::getSexType(mnx)<<endl;
+//                for (int x=mnx;x<=mxx;x++){
+            mnx = mxx = idxs(idx,2);//sex index
+            if (mnx==tcsam::ALL_SXs){mnx = 1; mxx = tcsam::nSXs;}
+            for (int x=mnx;x<=mxx;x++){
+                int maxZB = ModelConfiguration::maxZBs[x];
+                //adjust growth transition matrix to reflect maxZBs
+                dvar_matrix tmpGr_zz(1,nZBs,1,nZBs);
+                if (maxZB==nZBs) {
+                    tmpGr_zz = prGr_czz(pc);//no need to do anything
+                } else {
+                    //accumulate probabilities in sex-specific max size bin
+                    tmpGr_zz.initialize();
+                    dvar_matrix tmpGr_zzp = trans(prGr_czz(pc));//rows are premolt, cols are postmolt
+                    for (int z=1;z<=maxZB;z++) {
+                        tmpGr_zzp(z,maxZB) = sum(tmpGr_zzp(z)(maxZB,nZBs));
+                        tmpGr_zzp(maxZB+1,nZBs) = 0;
+                        tmpGr_zz = trans(tmpGr_zzp);//transpose back so rows are postmolt, cols are premolt
+                    }
+                }
+                y = idxs(idx,1); //year index
                 if (debug>dbgCalcProcs) cout<<"y = "<<y<<tb<<"sex = "<<tcsam::getSexType(mnx)<<": "<<tcsam::getSexType(mnx)<<endl;
-                for (int x=mnx;x<=mxx;x++){
+                if ((mnYr<=y)&&(y<=mxYr+1)){
                     grA_xy(x,y) = grA;
                     grB_xy(x,y) = grB;
                     zGrA_xy(x,y) = zGrA;
                     zGrB_xy(x,y) = zGrB;
                     grBeta_xy(x,y)  = grBeta;
                     for (int s=1;s<=nSCs;s++){
-                        mnGrZ_yxsz(y,x,s) = mnGrZ_cz(pc);
-                        prGr_yxszz(y,x,s) = prGr_czz(pc);
-                        //for (int z=1;z<=nZBs;z++) prGr_yxszz(y,x,s,z) = prGr_czz(pc,z);
+//                        mnGrZ_yxsz(y,x,s) = mnGrZ_cz(pc);
+//                        prGr_yxszz(y,x,s) = prGr_czz(pc);
+                        mnGrZ_yxsz(y,x,s)(1,maxZB) = mnGrZ_cz(pc)(1,maxZB);
+                        prGr_yxszz(y,x,s) = tmpGr_zz;
                     }//s
                 }//x
             }
@@ -6665,7 +6669,8 @@ FUNCTION void calcDirichletNLL(dvariable& theta, double wgt, dvar_vector& mod, d
         dvector zscrs = 0.0*vmod;
         if (ss>0) {
             effN  = (vmod*(1.0-vmod))/norm2(obsp-vmod);
-            nlls  = -value( (gammln(thn)-gammln(n+thn)) + gammln(n*obsp+thn*modp) - gammln(thn*modp) );
+            nlls  = -( gammln(n+1.0)-sum(gammln(n*obsp+1.0)) )
+                    -value( (gammln(thn)-gammln(n+thn)) + gammln(n*obsp+thn*modp) - gammln(thn*modp) );
             zscrs = elem_div(obsp-vmod,sqrt(elem_prod(vmod,1.0-vmod)/nEff));//pearson residuals using nEff, not n (i.e., not ss)
         }
         if (debug<0){

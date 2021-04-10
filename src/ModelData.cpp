@@ -214,9 +214,9 @@ void AggregateCatchData::replaceCatchData(int iSeed,random_number_generator& rng
                     }
                 }
                 inpC_xmsyc(x,m,s,yctr,1) = oldInpC_xmsyc(x,m,s,y,1);//old use flag
-                inpC_xmsyc(x,m,s,yctr,2) = oldInpC_xmsyc(x,m,s,y,1);//old year
+                inpC_xmsyc(x,m,s,yctr,2) = oldInpC_xmsyc(x,m,s,y,2);//old year
                 inpC_xmsyc(x,m,s,yctr,3) = v/convFac;               //new value
-                inpC_xmsyc(x,m,s,yctr,4) = oldInpC_xmsyc(x,m,s,y,3);//old cv
+                inpC_xmsyc(x,m,s,yctr,4) = oldInpC_xmsyc(x,m,s,y,4);//old cv
             }//i loop
         }//if ((mnY<=yr)&&(yr<=mxY))
     }//y loop
@@ -884,7 +884,10 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                         uf   += inpUF_xmsy(x,m,s,iy);
                         dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
                         ss   += inpSS_xmsy(x,m,s,iy);
-                        oP_z += rawNatZ_xmsyz(x,m,s,iy);
+//                        oP_z += rawNatZ_xmsyz(x,m,s,iy);
+                        int mxZB = ModelConfiguration::maxZBs[x];
+                        for (int z=1;   z<mxZB; z++) oP_z[z]    += rawNatZ_xmsyz(x,m,s,iy,z);
+                        for (int z=mxZB;z<=nZBs;z++) oP_z[mxZB] += rawNatZ_xmsyz(x,m,s,iy,z);
                     }
                 }
             }
@@ -914,7 +917,10 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                         uf   += inpUF_xmsy(x,m,s,iy);
                         dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
                         ss += inpSS_xmsy(x,m,s,iy);
-                        oP_z += rawNatZ_xmsyz(x,m,s,iy);
+//                        oP_z += rawNatZ_xmsyz(x,m,s,iy);
+                        int mxZB = ModelConfiguration::maxZBs[x];
+                        for (int z=1;   z<mxZB; z++) oP_z[z]    += rawNatZ_xmsyz(x,m,s,iy,z);
+                        for (int z=mxZB;z<=nZBs;z++) oP_z[mxZB] += rawNatZ_xmsyz(x,m,s,iy,z);
                     }//--s
                 }//--m
                 uf_xmsy(x,ALL_MSs,ALL_SCs,iy) = uf;
@@ -945,7 +951,10 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                         uf   += inpUF_xmsy(x,m,s,iy);
                         dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
                         ss += inpSS_xmsy(x,m,s,iy);
-                        oP_z += rawNatZ_xmsyz(x,m,s,iy);
+//                        oP_z += rawNatZ_xmsyz(x,m,s,iy);
+                        int mxZB = ModelConfiguration::maxZBs[x];
+                        for (int z=1;   z<mxZB; z++) oP_z[z]    += rawNatZ_xmsyz(x,m,s,iy,z);
+                        for (int z=mxZB;z<=nZBs;z++) oP_z[mxZB] += rawNatZ_xmsyz(x,m,s,iy,z);
                     }//--s
                     uf_xmsy(x,m,ALL_SCs,iy) = uf;
                     dm_xmsy(x,m,ALL_SCs,iy) = dm;
@@ -975,7 +984,10 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                         uf   += inpUF_xmsy(x,m,s,iy);
                         dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
                         ss += inpSS_xmsy(x,m,s,iy);
-                        oP_z += rawNatZ_xmsyz(x,m,s,iy);
+//                        oP_z += rawNatZ_xmsyz(x,m,s,iy);
+                        int mxZB = ModelConfiguration::maxZBs[x];
+                        for (int z=1;   z<mxZB; z++) oP_z[z]    += rawNatZ_xmsyz(x,m,s,iy,z);
+                        for (int z=mxZB;z<=nZBs;z++) oP_z[mxZB] += rawNatZ_xmsyz(x,m,s,iy,z);
                     }//--m
                     uf_xmsy(x,ALL_MSs,s,iy) = uf;
                     dm_xmsy(x,ALL_MSs,s,iy) = dm;
@@ -1005,7 +1017,10 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                             uf   += inpUF_xmsy(x,m,s,iy);
                             dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
                             ss += inpSS_xmsy(x,m,s,iy);
-                            oP_z += rawNatZ_xmsyz(x,m,s,iy);
+//                            oP_z += rawNatZ_xmsyz(x,m,s,iy);
+                            int mxZB = ModelConfiguration::maxZBs[x];
+                            for (int z=1;   z<mxZB; z++) oP_z[z]    += rawNatZ_xmsyz(x,m,s,iy,z);
+                            for (int z=mxZB;z<=nZBs;z++) oP_z[mxZB] += rawNatZ_xmsyz(x,m,s,iy,z);
                             uf_xmsy(x,m,s,iy) = uf;
                             dm_xmsy(x,m,s,iy) = dm;
                             ss_xmsy(x,m,s,iy) = ss;
