@@ -680,6 +680,8 @@
 //              3. Added requirement to specify max size at recruitment in ModelConfiguration (maxZRec).
 //                   The corresponding size bin (maxZBRec) acts as an accumulator for the gamma distribution.
 //              4. Modified calcRecruitment to honor maxZRec, maxZBRec.
+//-2021-04-10:  1. Corrected errors in calcGrowth in changes made 2021-04-10 associated with
+//                   honoring maxZs, maxZBs.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -3956,7 +3958,7 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
             os.close();
             exit(-1);
         }
-        prGr_zz.initialize();
+        prGr_zz.initialize();//first z index is remolt size, second is postmolt size
         if (ptrMOs->optGrowthPDF==0) {
             //old style (TCSAM2013)
             for (int z=1;z<=nZBs;z++){//pre-molt growth bin
@@ -3969,6 +3971,7 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
             prGr_zz(nZBs,nZBs) = 1.0; //no growth from max size
         } else if (ptrMOs->optGrowthPDF==1){
             //using cumd_gamma function like gmacs
+            if (debug) cout<<"prs = "<<endl;
             for (int z=1;z<nZBs;z++){
                 dvar_vector sclIs = (ptrMC->zCutPts(z+1,nZBs+1)-zBs(z))/grBeta;//scaled increments at size bin cut points
                 dvar_vector cprs(z,nZBs); cprs.initialize();
@@ -4008,15 +4011,44 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
                 }
                 if (prs.size()>maxZBEx) prs(z+maxZBEx,nZBs) = 0.0;//limit growth range
                 prs = prs/sum(prs);//normalize to sum to 1
-                if (debug) cout<<prs<<endl;
+                if (debug) cout<<"z = "<<z<<" prs: "<<prs<<endl;
                 prGr_zz(z)(z,nZBs) = prs;
             }//zs
             prGr_zz(nZBs,nZBs) = 1.0; //no growth from max size
+            if (debug) cout<<"z = "<<nZBs<<" prs: "<<1.0<<endl;
         } else {
             cout<<"Unrecognized growth option: "<<ptrMOs->optGrowthPDF<<endl;
             cout<<"Terminating!"<<endl;
             exit(-1);
         }
+        
+        //apply sex-specific size limits
+        //don't know which sex(es) correspond to this pc, so do all 
+        //(this actually saves time since the alternative is to do it for
+        //each row of the model indices matrix (idxs below)
+        dvar3_array prGr_xzz(1,nSXs,1,nZBs,1,nZBs);
+        prGr_xzz.initialize();
+        for (int x=1;x<=nSXs;x++){
+            int maxZB = ModelConfiguration::maxZBs[x];
+            if (debug) cout<<"pc = "<<pc<<".  x = "<<x<<".  maxZB = "<<maxZB<<endl;
+            //adjust growth transition matrix to reflect maxZBs
+            dvar_matrix tmpGr_zz(1,nZBs,1,nZBs);
+            tmpGr_zz = prGr_zz;//default assignment
+            if (maxZB<nZBs) {
+                //accumulate probabilities for post-molt size larger than max in sex-specific max size bin
+                for (int z=1;z<=maxZB;z++) {
+                    tmpGr_zz(z)(maxZB)        = sum(tmpGr_zz(z)(maxZB,nZBs));
+                    tmpGr_zz(z)(maxZB+1,nZBs) = 0;
+                }
+                for (int z=(maxZB+1);z<=nZBs;z++) tmpGr_zz(z) = 0;//zero out all: should be no possibilities here
+            }
+            if (debug){
+                cout<<"tmpGr_zz:"<<endl;
+                for (int z=1;z<=nZBs;z++) cout<<"    z: "<<zBs[z]<<" = "<<tmpGr_zz(z)<<endl;
+                cout<<endl;
+            }
+            prGr_xzz(x) = trans(tmpGr_zz);//transpose so rows are post-molt  z's so n+ = prGr_zz*n
+        }//x
         
         mnGrZ_cz(pc) = mnZs;        
         prGr_czz(pc) = trans(prGr_zz);//transpose so rows are post-molt (i.e., lefthand z index is post-molt, or "to") z's so n+ = prGr_zz*n
@@ -4082,43 +4114,42 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
         imatrix idxs = ptrGrw->getModelIndices(pc);
         if (debug) cout<<"growth indices for pc "<<pc<<endl<<idxs<<endl;
         for (int idx=idxs.indexmin();idx<=idxs.indexmax();idx++){
-//            y = idxs(idx,1); //year index
-//            if ((mnYr<=y)&&(y<=mxYr+1)){
-//                mnx = mxx = idxs(idx,2);//sex index
-//                if (mnx==tcsam::ALL_SXs){mnx = 1; mxx = tcsam::nSXs;}
-//                if (debug>dbgCalcProcs) cout<<"y = "<<y<<tb<<"sex = "<<tcsam::getSexType(mnx)<<": "<<tcsam::getSexType(mnx)<<endl;
-//                for (int x=mnx;x<=mxx;x++){
-            mnx = mxx = idxs(idx,2);//sex index
-            if (mnx==tcsam::ALL_SXs){mnx = 1; mxx = tcsam::nSXs;}
-            for (int x=mnx;x<=mxx;x++){
-                int maxZB = ModelConfiguration::maxZBs[x];
-                //adjust growth transition matrix to reflect maxZBs
-                dvar_matrix tmpGr_zz(1,nZBs,1,nZBs);
-                if (maxZB==nZBs) {
-                    tmpGr_zz = prGr_czz(pc);//no need to do anything
-                } else {
-                    //accumulate probabilities in sex-specific max size bin
-                    tmpGr_zz.initialize();
-                    dvar_matrix tmpGr_zzp = trans(prGr_czz(pc));//rows are premolt, cols are postmolt
-                    for (int z=1;z<=maxZB;z++) {
-                        tmpGr_zzp(z,maxZB) = sum(tmpGr_zzp(z)(maxZB,nZBs));
-                        tmpGr_zzp(maxZB+1,nZBs) = 0;
-                        tmpGr_zz = trans(tmpGr_zzp);//transpose back so rows are postmolt, cols are premolt
-                    }
-                }
-                y = idxs(idx,1); //year index
+            y = idxs(idx,1); //year index
+            if ((mnYr<=y)&&(y<=mxYr+1)){
+                mnx = mxx = idxs(idx,2);//sex index
+                if (mnx==tcsam::ALL_SXs){mnx = 1; mxx = tcsam::nSXs;}
                 if (debug>dbgCalcProcs) cout<<"y = "<<y<<tb<<"sex = "<<tcsam::getSexType(mnx)<<": "<<tcsam::getSexType(mnx)<<endl;
-                if ((mnYr<=y)&&(y<=mxYr+1)){
+                for (int x=mnx;x<=mxx;x++){
+//            mnx = mxx = idxs(idx,2);//sex index
+//            if (mnx==tcsam::ALL_SXs){mnx = 1; mxx = tcsam::nSXs;}
+//            for (int x=mnx;x<=mxx;x++){
+//                int maxZB = ModelConfiguration::maxZBs[x];
+//                //adjust growth transition matrix to reflect maxZBs
+//                dvar_matrix tmpGr_zz(1,nZBs,1,nZBs);
+//                if (maxZB==nZBs) {
+//                    tmpGr_zz = prGr_czz(pc);//no need to do anything
+//                } else {
+//                    //accumulate probabilities in sex-specific max size bin
+//                    tmpGr_zz.initialize();
+//                    dvar_matrix tmpGr_zzp = trans(prGr_czz(pc));//rows are premolt, cols are postmolt
+//                    for (int z=1;z<=maxZB;z++) {
+//                        tmpGr_zzp(z,maxZB) = sum(tmpGr_zzp(z)(maxZB,nZBs));
+//                        tmpGr_zzp(maxZB+1,nZBs) = 0;
+//                    }
+//                    tmpGr_zz = trans(tmpGr_zzp);//transpose back so rows are postmolt, cols are premolt
+//                }
+//                y = idxs(idx,1); //year index
+//                if (debug>dbgCalcProcs) cout<<"y = "<<y<<tb<<"sex = "<<tcsam::getSexType(mnx)<<": "<<tcsam::getSexType(mnx)<<endl;
+//                if ((mnYr<=y)&&(y<=mxYr+1)){
                     grA_xy(x,y) = grA;
                     grB_xy(x,y) = grB;
                     zGrA_xy(x,y) = zGrA;
                     zGrB_xy(x,y) = zGrB;
                     grBeta_xy(x,y)  = grBeta;
                     for (int s=1;s<=nSCs;s++){
-//                        mnGrZ_yxsz(y,x,s) = mnGrZ_cz(pc);
+                        mnGrZ_yxsz(y,x,s) = mnGrZ_cz(pc);
 //                        prGr_yxszz(y,x,s) = prGr_czz(pc);
-                        mnGrZ_yxsz(y,x,s)(1,maxZB) = mnGrZ_cz(pc)(1,maxZB);
-                        prGr_yxszz(y,x,s) = tmpGr_zz;
+                        prGr_yxszz(y,x,s) = prGr_xzz(x);
                     }//s
                 }//x
             }
