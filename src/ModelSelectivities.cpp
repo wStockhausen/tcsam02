@@ -38,6 +38,7 @@ const adstring SelFcns::STR_DBLNORMAL4         ="dblnormal4";
 const adstring SelFcns::STR_DBLNORMAL6         ="dblnormal6";
 const adstring SelFcns::STR_CONSTANT           ="constant";
 const adstring SelFcns::STR_NONPARAMETRIC      ="nonparametric";
+const adstring SelFcns::STR_NONPARAMETRIC1     ="nonparametric1";
 const adstring SelFcns::STR_CUBICSPLINE        ="cubic_spline";
 const adstring SelFcns::STR_DBLNORMAL4A        ="dblnormal4a";
 const adstring SelFcns::STR_ASCNORMAL3         ="ascnormal3";
@@ -86,6 +87,7 @@ int SelFcns::getSelFcnID(adstring str){
     if (str==STR_DBLNORMAL6)          return ID_DBLNORMAL6;
     if (str==STR_CONSTANT)            return ID_CONSTANT;
     if (str==STR_NONPARAMETRIC)       return ID_NONPARAMETRIC;
+    if (str==STR_NONPARAMETRIC1)      return ID_NONPARAMETRIC1;
     if (str==STR_CUBICSPLINE)         return ID_CUBICSPLINE;
     if (str==STR_DBLNORMAL4A)         return ID_DBLNORMAL4A;
     if (str==STR_ASCNORMAL3)          return ID_ASCNORMAL3;
@@ -160,6 +162,9 @@ adstring SelFcns::getSelFcnID(int id){
         case ID_NONPARAMETRIC: 
             if (debug) cout<<"SelFcn = "<<STR_NONPARAMETRIC<<endl;
             return STR_NONPARAMETRIC;
+        case ID_NONPARAMETRIC1: 
+            if (debug) cout<<"SelFcn = "<<STR_NONPARAMETRIC1<<endl;
+            return STR_NONPARAMETRIC1;
         case ID_CUBICSPLINE: 
             if (debug) cout<<"SelFcn = "<<STR_CUBICSPLINE<<endl;
             return STR_CUBICSPLINE;
@@ -224,6 +229,7 @@ dvar_vector SelFcns::calcSelFcn(int id, dvector& z, dvar_vector& params, double 
         case ID_DBLNORMAL6:          {s=dblnormal6(z,params,fsZ);          break;}
         case ID_CONSTANT:            {s=constant(z);                       break;}
         case ID_NONPARAMETRIC:       {s=nonparametric(z,params,fsZ);       break;}
+        case ID_NONPARAMETRIC1:      {s=nonparametric1(z,params,fsZ);      break;}
         case ID_CUBICSPLINE:         {s=cubic_spline(z,params,fsZ);        break;}
         case ID_DBLNORMAL4A:         {s=dblnormal4a(z,params,fsZ);         break;}
         case ID_ASCNORMAL3:          {s=ascnormal3(z,params,fsZ);          break;}
@@ -973,9 +979,10 @@ dvar_vector SelFcns::constant(dvector& z){
 }       
 
 /**
- * Calculates "nonparametric" selectivity function with smoothness imposed
- * on the resulting curve by way of penalties in the objective function.
- * 
+* Calculates "nonparametric" selectivity function using LOGIT-scale parameters
+* with smoothness imposed on the resulting curve by way of penalties in the objective 
+* function.
+* 
  * All selectivity values in size bins not explicitly associated 
  * with a parameter value are set to 0.
  * 
@@ -998,6 +1005,37 @@ dvar_vector SelFcns::nonparametric(dvector& z, dvar_vector& params, int idZ){
 //    if (params.indexmin()>z.indexmin()) s(z.indexmin(),params.indexmin()-1) = 0.0;//set lower to 0
 //    if (params.indexmax()<z.indexmax()) s(params.indexmax()+1,z.indexmax()) = 1.0;//set upper to 1
     if (debug) cout<<"Finished SelFcns::nonparametric(...)"<<endl;
+    RETURN_ARRAYS_DECREMENT();
+    return s;
+}       
+
+/**
+ * Calculates "nonparametric" selectivity function using ARITHMETIC-scale parameters
+ * with smoothness imposed on the resulting curve by way of penalties in the objective 
+ * function.
+ * 
+ * This function DOES NOT normalize the selectivity curve, so should not be used with
+ * an estimated "q".
+ * 
+ * All selectivity values in size bins not explicitly associated 
+ * with a parameter value are set to 0.
+ * 
+ * Inputs:
+ * @param z      - dvector of sizes at which to compute function values
+ * @param params - dvar_vector of arithmetic-scale  parameters, 1 for each size bin
+ * @param idZ    - not used [int]
+ * 
+ * @return - selectivity function values as dvar_vector
+ */
+dvar_vector SelFcns::nonparametric1(dvector& z, dvar_vector& params, int idZ){
+    RETURN_ARRAYS_INCREMENT();
+    if (debug) cout<<"Starting SelFcns::nonparametric1(...)"<<endl;
+    if (debug) cout<<"iz_min, iz_max = "<<z.indexmin()<<cc<<z.indexmax()<<endl;
+    if (debug) cout<<"ip_min, ip_max = "<<params.indexmin()<<cc<<params.indexmax()<<endl;
+    dvar_vector s(z.indexmin(),z.indexmax()); 
+    s.initialize();//--all bins are 0 unless explicitly set using params
+    s(params.indexmin(),params.indexmax()) = params;//unnormalized
+    if (debug) cout<<"Finished SelFcns::nonparametric1(...)"<<endl;
     RETURN_ARRAYS_DECREMENT();
     return s;
 }       

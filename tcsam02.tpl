@@ -682,6 +682,8 @@
 //              4. Modified calcRecruitment to honor maxZRec, maxZBRec.
 //-2021-04-10:  1. Corrected errors in calcGrowth in changes made 2021-04-10 associated with
 //                   honoring maxZs, maxZBs.
+//-2021-04-21:  1. Added "nonparametric1" selectivity function option for parameters
+//                   defined on the arithmetic scale.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -2461,25 +2463,25 @@ PRELIMINARY_CALCS_SECTION
             //this section runs for an "ordinary" model run
             int dbgLevel = 0; //set at dbgCalcProcs+1 to print debugging info 
             PRINT2B1("testing calcRecruitment():")
-            calcRecruitment(dbgLevel+100,rpt::echo);
+            calcRecruitment(dbgLevel,rpt::echo);
 
             PRINT2B1("testing calcNatMort():")
             calcNatMort(dbgLevel,rpt::echo);
 
             PRINT2B1("testing calcGrowth():")
-            calcGrowth(dbgLevel+100,rpt::echo);
+            calcGrowth(dbgLevel,rpt::echo);
 
             PRINT2B1("testing calcPrM2M():")
             calcPrM2M(dbgLevel,rpt::echo);
 
             PRINT2B1("testing calcSelectivities():")
-            calcSelectivities(dbgCalcProcs+1,rpt::echo);
+            calcSelectivities(dbgLevel+100,rpt::echo);
 
             PRINT2B1("testing calcFisheryFs():")
             calcFisheryFs(dbgLevel,rpt::echo);
 
             PRINT2B1("testing calcSurveyQs():")
-            calcSurveyQs(dbgLevel,cout);
+            calcSurveyQs(dbgLevel+100,rpt::echo);
 
             if (!runAlt){
                 PRINT2B1("testing runPopDyMod():")
@@ -4224,7 +4226,7 @@ FUNCTION void calcSelectivities(int debug, ostream& cout)
                     if (debug>dbgCalcProcs) cout<<tb<<"y = "<<y<<tb<<"y outside model range--skipping year!"<<endl;
                 }
             }
-        } else if (idSel==SelFcns::ID_NONPARAMETRIC){
+        } else if ((idSel==SelFcns::ID_NONPARAMETRIC)||(idSel==SelFcns::ID_NONPARAMETRIC1)){
             //calculate nonparametric selectivity function
             int pcNP = pids[ptrSel->idxNPSel];
             if (debug>dbgCalcProcs) cout<<tb<<"pcNP = "<<pcNP<<endl;
@@ -4783,8 +4785,8 @@ FUNCTION void calcSurveyQs(int debug, ostream& cout)
         arA = mfexp(lnA);
         arQ = mfexp(lnQ);
         if (debug>dbgCalcProcs){
-            cout<<"lnA:"<<lnA<<tb<<"arA:"<<endl<<arA<<endl;
-            cout<<"lnQ:"<<lnQ<<tb<<"arQ:"<<endl<<arQ<<endl;
+            cout<<"lnA:"<<lnA<<tb<<"arA:"<<tb<<arA<<endl;
+            cout<<"lnQ:"<<lnQ<<tb<<"arQ:"<<tb<<arQ<<endl;
         }
         
         //loop over model indices as defined in the index blocks
@@ -4792,6 +4794,7 @@ FUNCTION void calcSurveyQs(int debug, ostream& cout)
         for (int idx=idxs.indexmin();idx<=idxs.indexmax();idx++){
             v = idxs(idx,1);//survey
             y = idxs(idx,2);//year
+            if (debug>dbgCalcProcs) cout<<"v:"<<v<<tb<<"y:"<<tb<<y<<endl;
             if ((mnYr<=y)&&(y<=mxYrp1)){
                 xcv_vy(v,y) = xcv;
                 mnx = mxx = idxs(idx,3);//sex index
@@ -4804,6 +4807,7 @@ FUNCTION void calcSurveyQs(int debug, ostream& cout)
                     for (int m=mnm;m<=mxm;m++){
                         a_vyxms(v,y,x,m) = arA;//max availability
                         q_vyxms(v,y,x,m) = arQ;//fully-selected catchability
+                        if (debug>dbgCalcProcs) cout<<tb<<"x:"<<x<<tb<<"m:"<<tb<<m<<endl;
                         for (int s=mns;s<=mxs;s++){
                             a_vyxmsz(v,y,x,m,s) = arA;//default: availability = 1
                             if (abs(idAvl)>0) {
@@ -4821,6 +4825,10 @@ FUNCTION void calcSurveyQs(int debug, ostream& cout)
                                 }
                             }
                             q_vyxmsz(v,y,x,m,s) = arA*arQ*elem_prod(a_vyxmsz(v,y,x,m,s),s_vyxmsz(v,y,x,m,s));
+                            if (debug>dbgCalcProcs) {
+                                cout<<tb<<tb<<"s:"<<x<<tb<<"s_vyxmsz:"<<tb<<s_vyxmsz(v,y,x,m,s)<<endl;
+                                cout<<tb<<tb<<"s:"<<x<<tb<<"q_vyxmsz:"<<tb<<q_vyxmsz(v,y,x,m,s)<<endl;
+                            }
                         }//s
                     }//m
                 }//x

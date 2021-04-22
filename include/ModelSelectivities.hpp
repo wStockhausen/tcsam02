@@ -68,6 +68,7 @@
             const static int ID_ASCNORMAL2         =21; const static adstring STR_ASCNORMAL2; 
             const static int ID_ASCNORMAL2A        =22; const static adstring STR_ASCNORMAL2A; 
             const static int ID_ASCNORMAL2B        =23; const static adstring STR_ASCNORMAL2B; 
+            const static int ID_NONPARAMETRIC1     =24; const static adstring STR_NONPARAMETRIC1; 
 
             /**
              * Calculates "constant" selectivity function (= 1 at all sizes).
@@ -84,6 +85,8 @@
              * Calculates "nonparametric" selectivity function with smoothness imposed
              * on the resulting curve by way of penalties in the objective function.
              * 
+             * Parameters are on the LOGIT scale.
+             * 
              * Inputs:
              * @param z      - dvector of sizes at which to compute function values
              * @param params - dvar_vector of logit-scale parameters, 1 for each size bin
@@ -92,6 +95,20 @@
              * @return - selectivity function values as dvar_vector
              */
             dvar_vector static nonparametric(dvector& z, dvar_vector& params, int idZ);       
+            /**
+             * Calculates "nonparametric" selectivity function with smoothness imposed
+             * on the resulting curve by way of penalties in the objective function.
+             * 
+             * Parameters are on the ARITHMETIC scale.
+             * 
+             * Inputs:
+             * @param z      - dvector of sizes at which to compute function values
+             * @param params - dvar_vector of arithmetic-scale parameters, 1 for each size bin
+             * @param idZ    - dummy: no normalization [int]
+             * 
+             * @return - selectivity function values as dvar_vector
+             */
+            dvar_vector static nonparametric1(dvector& z, dvar_vector& params, int idZ);       
             
             /**
              * Calculates ascending logistic function parameterized by 
