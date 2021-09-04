@@ -61,8 +61,16 @@ class IndexBlock;
         const static adstring KW_ABUNDANCE_DATA;
         /* keyword indicating biomass (weight) data */
         const static adstring KW_BIOMASS_DATA;  
+        /* index into "c" for use flags in inpC_xmsyc */
+        const static int idUF = 1;
+        /* index into "c" for years in inpC_xmsyc */
+        const static int idYr = 2;
+        /* index into "c" for estimated values in inpC_xmsyc */
+        const static int idEV = 3;
+        /* index into "c" for cv's in inpC_xmsyc */
+        const static int idCV = 4;
     protected:
-        /* input aggregate catch data (use flag, value, cv by xmsy) */
+        /* input aggregate catch data (c: use flag, value, cv by xmsy) */
         d5_array inpC_xmsyc; 
     public:
         /* type (abundance, biomass) of data */

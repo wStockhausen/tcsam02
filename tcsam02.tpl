@@ -684,6 +684,11 @@
 //                   honoring maxZs, maxZBs.
 //-2021-04-21:  1. Added "nonparametric1" selectivity function option for parameters
 //                   defined on the arithmetic scale.
+//-2021-08-23:  1. Added "id__" column indicators to AggregateCatchData to consolidate column indices.
+//              2. Corrected some problems with aggregating catch data in AggregateCatchData that were not
+//                   previously evident because ACD had always been aggregated to the desired level outside
+//                   the model before the 2021 assessment.
+//-2021-08-26:  1. Added useFlags implementation for aggregate catch data objective function calculations.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -6104,6 +6109,7 @@ FUNCTION void calcNLLs_MaturityOgiveData(int debug, ostream& cout)
                  * all observed size bins */
                 int mny = n_vyxmsz(v).indexmin();
                 int mxy = n_vyxmsz(v).indexmax();
+                if (debug>dbgObjFun) cout<<"mny = "<<mny<<tb<<"mxy = "<<mxy<<endl;
                 dvar_matrix modPrMat_yzp(mny,mxy,1,pMOD->nZBs); modPrMat_yzp.initialize();
                 dvar_vector vmMat_z(1,nZBs);
                 dvar_vector vmTot_z(1,nZBs);
@@ -6384,7 +6390,7 @@ FUNCTION void testNaNs(double v, adstring str)
 
 //-------------------------------------------------------------------------------------
 //Calculate norm2 NLL contribution to objective function
-FUNCTION void calcNorm2NLL(double wgt, dvar_vector& mod, dvar_vector& xcv_y, dvector& obs, dvector& sdobs_y, ivector& yrs, int debug, ostream& cout)
+FUNCTION void calcNorm2NLL(double wgt, dvar_vector& mod, dvar_vector& xcv_y, dvector& obs, dvector& sdobs_y, ivector& yrs, const dvector& useFlgs, int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"Starting calcNorm2NLL()"<<endl;
     int y;
     double rmse = 0.0; int cnt = 0;
@@ -6395,18 +6401,19 @@ FUNCTION void calcNorm2NLL(double wgt, dvar_vector& mod, dvar_vector& xcv_y, dve
         for (int i=1;i<=yrs.size();i++){
             y = yrs(i);
             if ((mod.indexmin()<=y)&&(y<=mod.indexmax())) {
-                zscr[i] = (obs[i]-mod[y]); cnt++;
+                zscr[i] = (obs[i]-mod[y]); 
+                cnt += useFlgs[i];
             }
         }
         if (cnt>0) {
             for (int i=1;i<=yrs.size();i++){
                 y = yrs(i);
                 if ((mod.indexmin()<=y)&&(y<=mod.indexmax())) 
-                    rmse += square((obs[i]-value(mod[y]))/sdobs_y[i]);
+                    rmse += useFlgs[i]*square(value(zscr[i])/sdobs_y[i]);
             }
             rmse = sqrt(rmse/cnt);
         }
-        nll += 0.5*norm2(zscr);
+        nll += 0.5*norm2(elem_prod(useFlgs,zscr));
     }
     objFun += wgt*nll;
     if ((debug<0)||(debug>=dbgAll)){
@@ -6420,17 +6427,19 @@ FUNCTION void calcNorm2NLL(double wgt, dvar_vector& mod, dvar_vector& xcv_y, dve
             cout<<"sdobs="; wts::writeToR(cout,sdobs_y,    obsyrs); cout<<cc<<endl;
             cout<<"stdv="; wts::writeToR(cout,stdv,        obsyrs); cout<<cc<<endl;
             cout<<"zscrs="; wts::writeToR(cout,value(zscr),obsyrs); cout<<cc<<endl;
+            cout<<"useFlgs="; wts::writeToR(cout,useFlgs, obsyrs); cout<<cc<<endl;
             cout<<"rmse="<<rmse<<")";
         }
         if (debug>=dbgAll) {
-            cout<<"obsyrs = "<<obsyrs<<endl;
-            cout<<"obs    = "<<obs<<endl;
-            cout<<"modyrs = "<<modyrs<<endl;
-            cout<<"mod    = "<<value(mod)<<endl;
-            cout<<"stdv   = "<<sdobs_y<<endl;
-            cout<<"zscrs  = "<<value(zscr)<<endl;
-            cout<<"rmse   = "<<rmse<<endl;
-            cout<<"nll    = "<<value(nll)<<tb<<"objFun = "<<wgt*nll<<endl;
+            cout<<"obsyrs  = "<<obsyrs<<endl;
+            cout<<"obs     = "<<obs<<endl;
+            cout<<"modyrs  = "<<modyrs<<endl;
+            cout<<"mod     = "<<value(mod)<<endl;
+            cout<<"stdv    = "<<sdobs_y<<endl;
+            cout<<"zscrs   = "<<value(zscr)<<endl;
+            cout<<"useFlgs = "<<useFlgs<<endl;
+            cout<<"rmse    = "<<rmse<<endl;
+            cout<<"nll     = "<<value(nll)<<tb<<"objFun = "<<wgt*nll<<endl;
         }
     }
     if (debug>=dbgAll) cout<<"Finished calcNorm2NLL()"<<endl;
@@ -6445,12 +6454,13 @@ FUNCTION void calcNorm2NLL(double wgt, dvar_vector& mod, dvar_vector& xcv_y, dve
 // * @param xcv_y - dvar_vector with model-predicted cv's for extra (additional) uncertainty, by model year range
 // * @param obs - dvector of observed values, by index values corresponding to observed years
 // * @param yrs - ivector of observed years
+// * @param useFlgs - ivector of use flags for observed values
 // * @param debug - flag to print debugging info
 // * @param cout - output stream to print debugging info to
 // * 
 // * @return void
 // */
-FUNCTION void calcNormalNLL(double wgt, const dvar_vector& mod, const dvar_vector& xcv_y, const dvector& obs, const dvector& sdobs_y, const ivector& yrs, int debug, ostream& cout)
+FUNCTION void calcNormalNLL(double wgt, const dvar_vector& mod, const dvar_vector& xcv_y, const dvector& obs, const dvector& sdobs_y, const ivector& yrs, const dvector& useFlgs, int debug, ostream& cout)
    if (debug>=dbgAll) cout<<"Starting calcNormalNLL()"<<endl;
     int y;
     double rmse = 0.0; int cnt = 0;
@@ -6472,11 +6482,12 @@ FUNCTION void calcNormalNLL(double wgt, const dvar_vector& mod, const dvar_vecto
         for (int i=1;i<=yrs.size();i++){
             y = yrs(i);
             if ((zscr.indexmin()<=y)&&(y<=zscr.indexmax())) {
-                zscr[i] = (obs[i]-mod[y])/stdv[i]; cnt++;
+                zscr[i] = (obs[i]-mod[y])/stdv[i]; 
+                cnt += useFlgs[i];
             }
         }
-        if (cnt>0) rmse = sqrt(value(norm2(zscr))/cnt);
-        nll += 0.5*norm2(zscr);
+        if (cnt>0) rmse = sqrt(value(norm2(elem_prod(useFlgs,zscr)))/cnt);
+        nll += 0.5*norm2(elem_prod(useFlgs,zscr));
     }
     objFun += wgt*nll;
     if ((debug<0)||(debug>=dbgAll)){
@@ -6490,16 +6501,18 @@ FUNCTION void calcNormalNLL(double wgt, const dvar_vector& mod, const dvar_vecto
             if (allocated(xcv_y)) {cout<<"xcv="; wts::writeToR(cout,value(xcv_y)(yrs),obsyrs); cout<<cc<<endl;}
             cout<<"stdv=";  wts::writeToR(cout,value(stdv), obsyrs); cout<<cc<<endl;
             cout<<"zscrs="; wts::writeToR(cout,value(zscr), obsyrs); cout<<cc<<endl;
+            cout<<"useFlgs="; wts::writeToR(cout,useFlgs, obsyrs); cout<<cc<<endl;
             cout<<"rmse="<<rmse<<")";
         }
         if (debug>=dbgAll) {
-            cout<<"obsyrs = "<<obsyrs<<endl;
-            cout<<"obs    = "<<obs<<endl;
-            cout<<"modyrs = "<<modyrs<<endl;
-            cout<<"mod    = "<<value(mod)<<endl;
-            cout<<"zscrs  = "<<value(zscr)<<endl;
-            cout<<"rmse   = "<<rmse<<endl;
-            cout<<"nll    = "<<value(nll)<<tb<<"objFun = "<<wgt*nll<<endl;
+            cout<<"obsyrs  = "<<obsyrs<<endl;
+            cout<<"obs     = "<<obs<<endl;
+            cout<<"modyrs  = "<<modyrs<<endl;
+            cout<<"mod     = "<<value(mod)<<endl;
+            cout<<"zscrs   = "<<value(zscr)<<endl;
+            cout<<"useFlgs = "<<useFlgs<<endl;
+            cout<<"rmse    = "<<rmse<<endl;
+            cout<<"nll     = "<<value(nll)<<tb<<"objFun = "<<wgt*nll<<endl;
         }
     }
     if (debug>=dbgAll) cout<<"Finished calcNormalNLL()"<<endl;
@@ -6514,12 +6527,13 @@ FUNCTION void calcNormalNLL(double wgt, const dvar_vector& mod, const dvar_vecto
 // * @param xcv_y - dvar_vector with model-predicted cv's for extra (additional) uncertainty, by model year range
 // * @param obs - dvector of observed values, by index values corresponding to observed years
 // * @param yrs - ivector of observed years
+// * @param useFlgs - ivector of use flags for observed values
 // * @param debug - flag to print debugging info
 // * @param cout - output stream to print debugging info to
 // * 
 // * @return void
 // */
-FUNCTION void calcLognormalNLL(double wgt, const dvar_vector& mod, const dvar_vector& xcv_y, const dvector& obs, const dvector& sdobs_y, const ivector& yrs, int debug, ostream& cout)
+FUNCTION void calcLognormalNLL(double wgt, const dvar_vector& mod, const dvar_vector& xcv_y, const dvector& obs, const dvector& sdobs_y, const ivector& yrs, const dvector& useFlgs, int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"Starting calcLognormalNLL()"<<endl;
     int y;
     dvariable nll = 0.0;
@@ -6544,15 +6558,18 @@ FUNCTION void calcLognormalNLL(double wgt, const dvar_vector& mod, const dvar_ve
             }
         }
         if (debug>=dbgAll) cout<<"stdv   = "<<stdv<<endl;
+        dvariable nll_stdv = 0.0;
         for (int i=1;i<=yrs.size();i++){
             y = yrs(i);
             if ((mod.indexmin()<=y)&&(y<=mod.indexmax())) {
-                zscr[i] = (log(obs[i]+smlVal)-log(mod[y]+smlVal))/stdv[i]; cnt++;
+                zscr[i] = (log(obs[i]+smlVal)-log(mod[y]+smlVal))/stdv[i]; 
+                nll_stdv += useFlgs[i]*log(stdv[i]);
+                cnt += useFlgs[i];
             }
         }
         if (cnt>0) {
-            rmse = sqrt(value(norm2(zscr))/cnt);
-            nll = sum(log(stdv)) + 0.5*norm2(zscr);
+            rmse = sqrt(value(norm2(elem_prod(useFlgs,zscr)))/cnt);
+            nll = nll_stdv + 0.5*norm2(elem_prod(useFlgs,zscr));
             //if (allocated(xcv_y)) nll += sum(log(stdv));
             objFun += wgt*nll;
         }
@@ -6568,16 +6585,18 @@ FUNCTION void calcLognormalNLL(double wgt, const dvar_vector& mod, const dvar_ve
             if (allocated(xcv_y)) {cout<<"xcv="; wts::writeToR(cout,value(xcv_y)(yrs),obsyrs); cout<<cc<<endl;}
             cout<<"stdv=";  wts::writeToR(cout,value(stdv), obsyrs); cout<<cc<<endl;
             cout<<"zscrs="; wts::writeToR(cout,value(zscr), obsyrs); cout<<cc<<endl;
+            cout<<"useFlgs="; wts::writeToR(cout,useFlgs, obsyrs); cout<<cc<<endl;
             cout<<"rmse="<<rmse<<")";
         }
         if (debug>=dbgAll) {
-            cout<<"obsyrs = "<<obsyrs<<endl;
-            cout<<"obs    = "<<obs<<endl;
-            cout<<"modyrs = "<<modyrs<<endl;
-            cout<<"mod    = "<<value(mod)<<endl;
-            cout<<"zscrs  = "<<value(zscr)<<endl;
-            cout<<"rmse   = "<<rmse<<endl;
-            cout<<"nll    = "<<value(nll)<<tb<<"objFun = "<<wgt*nll<<endl;
+            cout<<"obsyrs  = "<<obsyrs<<endl;
+            cout<<"obs     = "<<obs<<endl;
+            cout<<"modyrs  = "<<modyrs<<endl;
+            cout<<"mod     = "<<value(mod)<<endl;
+            cout<<"zscrs   = "<<value(zscr)<<endl;
+            cout<<"useFlgs = "<<useFlgs<<endl;
+            cout<<"rmse    = "<<rmse<<endl;
+            cout<<"nll     = "<<value(nll)<<tb<<"objFun = "<<wgt*nll<<endl;
         }
     }
     if (debug>=dbgAll) cout<<"Finished calcLognormalNLL()"<<endl;
@@ -6817,19 +6836,19 @@ FUNCTION void calcNoneNLL_ZC(double wgt, dvar_vector& mod, dvector& obs, double&
 // * 
 // * @return void
 // */
-FUNCTION void calcNLL_TS(int llType, double wgt, dvar_vector& mod, dvar_vector& xcv_y, dvector& obs, dvector& sdobs_y, ivector& yrs, int debug, ostream& cout)
+FUNCTION void calcNLL_TS(int llType, double wgt, dvar_vector& mod, dvar_vector& xcv_y, dvector& obs, dvector& sdobs_y, ivector& yrs, dvector& useFlgs, int debug, ostream& cout)
     switch (llType){
         case tcsam::LL_NONE:
             calcNoneNLL_TS(wgt,mod,xcv_y,obs,sdobs_y,yrs,debug,cout);
             break;
         case tcsam::LL_LOGNORMAL:
-            calcLognormalNLL(wgt,mod,xcv_y,obs,sdobs_y,yrs,debug,cout);
+            calcLognormalNLL(wgt,mod,xcv_y,obs,sdobs_y,yrs,useFlgs,debug,cout);
             break;
         case tcsam::LL_NORMAL:
-            calcNormalNLL(wgt,mod,xcv_y,obs,sdobs_y,yrs,debug,cout);
+            calcNormalNLL(wgt,mod,xcv_y,obs,sdobs_y,yrs,useFlgs,debug,cout);
             break;
         case tcsam::LL_NORM2:
-            calcNorm2NLL(wgt,mod,xcv_y,obs,sdobs_y,yrs,debug,cout);
+            calcNorm2NLL(wgt,mod,xcv_y,obs,sdobs_y,yrs,useFlgs,debug,cout);
             break;
         default:
             cout<<"Unrecognized likelihood type in calcNLL_TS"<<endl;
@@ -6861,6 +6880,9 @@ FUNCTION void calcNLL_ZC(SizeFrequencyData* ptrZFD, dvar_vector& mod, dvector& o
                 if (idm){
                     dvariable theta = mfexp(pLnDirMul[idm]);
                     calcDirichletNLL(theta,ptrZFD->llWgt,mod,obs,ss,yr,debug,cout);
+                } else {
+                    cout<<"Required DIRICHLET_MULTINOMIAL but idm = 0"<<endl;
+                    exit(-1);
                 }
             }
             break;
@@ -6869,6 +6891,9 @@ FUNCTION void calcNLL_ZC(SizeFrequencyData* ptrZFD, dvar_vector& mod, dvector& o
                 if (idm){
                     dvariable theta = mfexp(pLnDirMul[idm]);
                     calcDirichletPNLL(theta,ptrZFD->llWgt,mod,obs,ss,yr,debug,cout);
+                } else {
+                    cout<<"Required DIRICHLET_MULTINOMIAL but idm = 0"<<endl;
+                    exit(-1);
                 }
             }
             break;
@@ -6931,7 +6956,8 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
             cout<<"s="<<qt<<tcsam::getShellType(ALL_SCs)   <<qt<<cc;
             cout<<"nll=";
         }
-        calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, no_xcvs, ptrAB->C_xmsy(ALL_SXs,ALL_MSs,ALL_SCs), ptrAB->sd_xmsy(ALL_SXs,ALL_MSs,ALL_SCs), ptrAB->yrs, debug, cout);                
+        calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, no_xcvs, ptrAB->C_xmsy(ALL_SXs,ALL_MSs,ALL_SCs), 
+                   ptrAB->sd_xmsy(ALL_SXs,ALL_MSs,ALL_SCs), ptrAB->yrs, ptrAB->uf_xmsy(ALL_SXs,ALL_MSs,ALL_SCs), debug, cout);                
         if (debug<0) cout<<")";
         if (debug<0) cout<<")";
     } else if (ptrAB->optFit==tcsam::FIT_BY_X){
@@ -6957,7 +6983,8 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
                 cout<<"s="<<qt<<tcsam::getShellType(ALL_SCs)   <<qt<<cc;
                 cout<<"nll=";
             }
-            calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, no_xcvs, ptrAB->C_xmsy(x,ALL_MSs,ALL_SCs), ptrAB->sd_xmsy(x,ALL_MSs,ALL_SCs), ptrAB->yrs, debug, cout); 
+            calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, no_xcvs, ptrAB->C_xmsy(x,ALL_MSs,ALL_SCs), 
+                    ptrAB->sd_xmsy(x,ALL_MSs,ALL_SCs), ptrAB->yrs, ptrAB->uf_xmsy(x,ALL_MSs,ALL_SCs), debug, cout); 
             if (debug<0) cout<<"),"<<endl;
         }//x
         if (debug<0) cout<<"NULL)";
@@ -6984,7 +7011,8 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
                     cout<<"s="<<qt<<tcsam::getShellType(ALL_SCs)<<qt<<cc;
                     cout<<"nll=";
                 }
-                calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, no_xcvs, ptrAB->C_xmsy(x,m,ALL_SCs), ptrAB->sd_xmsy(x,m,ALL_SCs), ptrAB->yrs, debug, cout); 
+                calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, no_xcvs, ptrAB->C_xmsy(x,m,ALL_SCs), 
+                        ptrAB->sd_xmsy(x,m,ALL_SCs), ptrAB->yrs, ptrAB->uf_xmsy(x,m,ALL_SCs), debug, cout); 
                 if (debug<0) cout<<"),"<<endl;
             }//m
         }//x
@@ -7014,7 +7042,8 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
                     cout<<"s="<<qt<<tcsam::getShellType(s)         <<qt<<cc;
                     cout<<"nll=";
                 }
-                calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, no_xcvs, ptrAB->C_xmsy(x,ALL_MSs,s), ptrAB->sd_xmsy(x,ALL_MSs,s), ptrAB->yrs, debug, cout); 
+                calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, no_xcvs, ptrAB->C_xmsy(x,ALL_MSs,s), 
+                        ptrAB->sd_xmsy(x,ALL_MSs,s), ptrAB->yrs, ptrAB->uf_xmsy(x,ALL_MSs,s), debug, cout); 
                 if (debug<0) cout<<"),"<<endl;
             }//s
         }//x
@@ -7037,7 +7066,8 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
                         cout<<"s="<<qt<<tcsam::getShellType(s)   <<qt<<cc;
                         cout<<"nll=";
                     }
-                    calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, no_xcvs, ptrAB->C_xmsy(x,m,s), ptrAB->sd_xmsy(x,m,s), ptrAB->yrs, debug, cout); 
+                    calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, no_xcvs, ptrAB->C_xmsy(x,m,s), 
+                            ptrAB->sd_xmsy(x,m,s), ptrAB->yrs, ptrAB->uf_xmsy(x,m,s), debug, cout); 
                     if (debug<0) cout<<"),"<<endl;
                 }//s
             }//m
@@ -7115,7 +7145,8 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
             cout<<"s="<<qt<<tcsam::getShellType(ALL_SCs)   <<qt<<cc;
             cout<<"nll=";
         }
-        calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, cv_xtr, ptrAB->C_xmsy(ALL_SXs,ALL_MSs,ALL_SCs), sd_obs, ptrAB->yrs, debug, cout);                
+        calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, cv_xtr, ptrAB->C_xmsy(ALL_SXs,ALL_MSs,ALL_SCs), 
+                   sd_obs, ptrAB->yrs, ptrAB->uf_xmsy(ALL_SXs,ALL_MSs,ALL_SCs), debug, cout);                
         if (debug<0) cout<<")";
         if (debug<0) cout<<")";
     } else if (ptrAB->optFit==tcsam::FIT_BY_X){
@@ -7150,7 +7181,8 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
                 cout<<"s="<<qt<<tcsam::getShellType(ALL_SCs)   <<qt<<cc;
                 cout<<"nll=";
             }
-            calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, cv_xtr, ptrAB->C_xmsy(x,ALL_MSs,ALL_SCs), sd_obs, ptrAB->yrs, debug, cout); 
+            calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, cv_xtr, ptrAB->C_xmsy(x,ALL_MSs,ALL_SCs), 
+                       sd_obs, ptrAB->yrs, ptrAB->uf_xmsy(x,ALL_MSs,ALL_SCs), debug, cout); 
             if (debug<0) cout<<"),"<<endl;
         }//x
         if (debug<0) cout<<"NULL)";
@@ -7187,7 +7219,8 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
                     cout<<"s="<<qt<<tcsam::getShellType(ALL_SCs)<<qt<<cc;
                     cout<<"nll=";
                 }
-                calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, cv_xtr, ptrAB->C_xmsy(x,m,ALL_SCs), sd_obs, ptrAB->yrs, debug, cout); 
+                calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, cv_xtr, ptrAB->C_xmsy(x,m,ALL_SCs), 
+                        sd_obs, ptrAB->yrs, ptrAB->uf_xmsy(x,m,ALL_SCs), debug, cout); 
                 if (debug<0) cout<<"),"<<endl;
             }//m
         }//x
@@ -7227,7 +7260,8 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
                     cout<<"s="<<qt<<tcsam::getShellType(s)         <<qt<<cc;
                     cout<<"nll=";
                 }
-                calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, cv_xtr, ptrAB->C_xmsy(x,ALL_MSs,s), sd_obs, ptrAB->yrs, debug, cout); 
+                calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, cv_xtr, ptrAB->C_xmsy(x,ALL_MSs,s), 
+                        sd_obs, ptrAB->yrs, ptrAB->uf_xmsy(x,ALL_MSs,s), debug, cout); 
                 if (debug<0) cout<<"),"<<endl;
             }//s
         }//x
@@ -7260,7 +7294,8 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
                         cout<<"s="<<qt<<tcsam::getShellType(s)   <<qt<<cc;
                         cout<<"nll=";
                     }
-                    calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, cv_xtr, ptrAB->C_xmsy(x,m,s), sd_obs, ptrAB->yrs, debug, cout); 
+                    calcNLL_TS(ptrAB->llType, ptrAB->llWgt, tAB_y, cv_xtr, ptrAB->C_xmsy(x,m,s), 
+                            sd_obs, ptrAB->yrs, ptrAB->uf_xmsy(x,m,s), debug, cout); 
                     if (debug<0) cout<<"),"<<endl;
                 }//s
             }//m

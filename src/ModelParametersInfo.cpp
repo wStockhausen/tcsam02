@@ -2892,7 +2892,7 @@ void DirichletMultinomialInfo::read(cifstream & is){
     }
     if (debug) cout<<"DirichletMultinomialInfo starting ParameterGroupInfo::read(is)"<<endl;
     ParameterGroupInfo::read(is);
-    if (debug) cout<<"MSE_Info finished ParameterGroupInfo::read(is)"<<endl;
+    if (debug) cout<<"DirichletMultinomialInfo finished ParameterGroupInfo::read(is)"<<endl;
     
     if (nPCs>0) {
         is>>str;

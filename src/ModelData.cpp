@@ -107,10 +107,10 @@ void AggregateCatchData::aggregateData(void){
                             for (int xp=xmn;xp<=xmx;xp++){
                                 for (int mp=mmn;mp<=mmx;mp++){
                                     for (int sp=smn;sp<=smx;sp++){
-                                        if (debug) os<<xp<<" "<<mp<<" "<<sp<<" "<<convFac*inpC_xmsyc(xp,mp,sp,y,3)<<" "<<inpC_xmsyc(xp,mp,sp,y,4)<<endl;
-                                        tC += convFac*inpC_xmsyc(xp,mp,sp,y,3);//mean
-                                        vC += square(convFac*inpC_xmsyc(xp,mp,sp,y,2)*inpC_xmsyc(xp,mp,sp,y,4));//variance = (mean*cv)^2
-                                        tU += inpC_xmsyc(xp,mp,sp,y,1);//use flag
+                                        if (debug) os<<xp<<" "<<mp<<" "<<sp<<" "<<convFac*inpC_xmsyc(xp,mp,sp,y,idEV)<<" "<<inpC_xmsyc(xp,mp,sp,y,idCV)<<endl;
+                                        tC += convFac*inpC_xmsyc(xp,mp,sp,y,idEV);//estimated value
+                                        vC += square(convFac*inpC_xmsyc(xp,mp,sp,y,idEV)*inpC_xmsyc(xp,mp,sp,y,idCV));//variance = (mean*cv)^2
+                                        tU += inpC_xmsyc(xp,mp,sp,y,idUF);//use flag
                                     }//sp
                                 }//mp
                             }//xp
@@ -213,10 +213,10 @@ void AggregateCatchData::replaceCatchData(int iSeed,random_number_generator& rng
                         v += wts::drawSampleNormal(rng,0.0,sd);
                     }
                 }
-                inpC_xmsyc(x,m,s,yctr,1) = oldInpC_xmsyc(x,m,s,y,1);//old use flag
-                inpC_xmsyc(x,m,s,yctr,2) = oldInpC_xmsyc(x,m,s,y,2);//old year
-                inpC_xmsyc(x,m,s,yctr,3) = v/convFac;               //new value
-                inpC_xmsyc(x,m,s,yctr,4) = oldInpC_xmsyc(x,m,s,y,4);//old cv
+                inpC_xmsyc(x,m,s,yctr,idUF) = oldInpC_xmsyc(x,m,s,y,idUF);//old use flag
+                inpC_xmsyc(x,m,s,yctr,idYr) = oldInpC_xmsyc(x,m,s,y,idYr);//old year
+                inpC_xmsyc(x,m,s,yctr,idEV) = v/convFac;                  //new value
+                inpC_xmsyc(x,m,s,yctr,idCV) = oldInpC_xmsyc(x,m,s,y,idCV);//old cv
             }//i loop
         }//if ((mnY<=yr)&&(yr<=mxY))
     }//y loop
@@ -232,9 +232,9 @@ void AggregateCatchData::replaceCatchData(int iSeed,random_number_generator& rng
         int x = tcsam::getSexType(factors(i,1));
         int m = tcsam::getMaturityType(factors(i,2));
         int s = tcsam::getShellType(factors(i,3));
-        C_xmsy(x,m,s)  = convFac*column(inpC_xmsyc(x,m,s),2);
-        cv_xmsy(x,m,s) = column(inpC_xmsyc(x,m,s),4);
-        uf_xmsy(x,m,s) = column(inpC_xmsyc(x,m,s),1);
+        C_xmsy(x,m,s)  = convFac*column(inpC_xmsyc(x,m,s),idEV);
+        cv_xmsy(x,m,s) = column(inpC_xmsyc(x,m,s),idCV);
+        uf_xmsy(x,m,s) = column(inpC_xmsyc(x,m,s),idUF);
         if (llType==tcsam::LL_LOGNORMAL){
             sd_xmsy(x,m,s) = sqrt(log(1.0+elem_prod(cv_xmsy(x,m,s),cv_xmsy(x,m,s))));
         } else {
@@ -320,10 +320,10 @@ void AggregateCatchData::addCatchData(int y, d3_array& newC_xms){
         int s = tcsam::getShellType(factors(i,3));
         if (debug) os<<"x,m,s = "<<x<<cc<<m<<cc<<s<<endl;
         double v = tcsam::extractFromXMS(x,m,s,newC_xms);//aggregate as necessary
-        inpC_xmsyc(x,m,s,ny,1) = 1;//use flag set to 1
-        inpC_xmsyc(x,m,s,ny,2) = y;//new year
-        inpC_xmsyc(x,m,s,ny,3) = v/convFac;//new value
-        inpC_xmsyc(x,m,s,ny,4) = oldInpC_xmsyc(x,m,s,oldNY,4);//set new cv = old cv
+        inpC_xmsyc(x,m,s,ny,idUF) = 1;//use flag set to 1
+        inpC_xmsyc(x,m,s,ny,idYr) = y;//new year
+        inpC_xmsyc(x,m,s,ny,idEV) = v/convFac;//new value
+        inpC_xmsyc(x,m,s,ny,idCV) = oldInpC_xmsyc(x,m,s,oldNY,4);//set new cv = old cv
     }//i loop
     if (debug) os<<"Created new inpC_xmsyc"<<endl;
     
@@ -337,9 +337,9 @@ void AggregateCatchData::addCatchData(int y, d3_array& newC_xms){
         int x = tcsam::getSexType(factors(i,1));
         int m = tcsam::getMaturityType(factors(i,2));
         int s = tcsam::getShellType(factors(i,3));
-        C_xmsy(x,m,s)  = convFac*column(inpC_xmsyc(x,m,s),3);
-        cv_xmsy(x,m,s) = column(inpC_xmsyc(x,m,s),4);
-        uf_xmsy(x,m,s) = column(inpC_xmsyc(x,m,s),1);
+        C_xmsy(x,m,s)  = convFac*column(inpC_xmsyc(x,m,s),idEV);
+        cv_xmsy(x,m,s) = column(inpC_xmsyc(x,m,s),idCV);
+        uf_xmsy(x,m,s) = column(inpC_xmsyc(x,m,s),idUF);
         if (llType==tcsam::LL_LOGNORMAL){
             sd_xmsy(x,m,s) = sqrt(log(1.0+elem_prod(cv_xmsy(x,m,s),cv_xmsy(x,m,s))));
         } else {
@@ -374,7 +374,7 @@ void AggregateCatchData::setMaxYear(int mxYr){
     for (int iy=1;iy<=ny;iy++) {if (yrs(iy)<=mxYr) nyp++;}
     //allocate temporary arrays
     ivector new_yrs(1,nyp);
-    d5_array new_inpC_xmsyc(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp,1,3);
+    d5_array new_inpC_xmsyc(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp,1,4);
     d4_array new_C_xmsy(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp);
     d4_array new_cv_xmsy(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp);
     d4_array new_sd_xmsy(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,nyp);  
@@ -441,7 +441,11 @@ void AggregateCatchData::setMaxYear(int mxYr){
             }//--m
         }//--x
     }//--iy
+    
+    int old_debug = debug;
+    debug = 1;
     aggregateData();
+    debug = old_debug;
     
     if (debug) {
         cout     <<"Finished AggregateCatchData::setMaxYear("<<mxYr<<")"<<endl;
@@ -518,12 +522,12 @@ void AggregateCatchData::read(cifstream & is){
         rpt::echo<<factors(i,1)<<tb<<factors(i,2)<<tb<<factors(i,3)<<tb<<"#factors"<<std::endl;
         if (x&&m&&s){
             is>>inpC_xmsyc(x,m,s);
-            rpt::echo<<"#year    value     cv"<<std::endl;
+            rpt::echo<<"#use? year    value     cv"<<std::endl;
             rpt::echo<<inpC_xmsyc(x,m,s)<<std::endl;
-            uf_xmsy(x,m,s) = column(inpC_xmsyc(x,m,s),1);
-            yrs = (ivector) column(inpC_xmsyc(x,m,s),2);
-            C_xmsy(x,m,s)  = convFac*column(inpC_xmsyc(x,m,s),3);
-            cv_xmsy(x,m,s) = column(inpC_xmsyc(x,m,s),4);
+            uf_xmsy(x,m,s) = column(inpC_xmsyc(x,m,s),idUF);
+            yrs = (ivector) column(inpC_xmsyc(x,m,s),idYr);
+            C_xmsy(x,m,s)  = convFac*column(inpC_xmsyc(x,m,s),idEV);
+            cv_xmsy(x,m,s) = column(inpC_xmsyc(x,m,s),idCV);
             if (llType==tcsam::LL_LOGNORMAL){
                 sd_xmsy(x,m,s) = sqrt(log(1.0+elem_prod(cv_xmsy(x,m,s),cv_xmsy(x,m,s))));
             } else {

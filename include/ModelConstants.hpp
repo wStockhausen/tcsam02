@@ -110,7 +110,7 @@ namespace tcsam{
     /* adstring indicating model name */
     const adstring MODEL = "tcsam02";
     /* adstring indicating model version */
-    const adstring VERSION = "2020.12.03";
+    const adstring VERSION = "2021.08.23";
     
     /* minimum debugging level that will print ALL debug info */
     const int dbgAll = 100;
