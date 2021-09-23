@@ -689,6 +689,7 @@
 //                   previously evident because ACD had always been aggregated to the desired level outside
 //                   the model before the 2021 assessment.
 //-2021-08-26:  1. Added useFlags implementation for aggregate catch data objective function calculations.
+//-2021-09-22:  1. Commented out diagnostic printing when running MCMC via NUTS (was for testing only).
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -2747,17 +2748,18 @@ PROCEDURE_SECTION
 //        writeParameters(os,0,1,current_phase());
 //    }
     
-    if (mc_phase()&&(option_match(ad_comm::argc,ad_comm::argv,"-nuts")>0)){
-        adstring msg;
-        PRINT2B1("--Running NUTS MCMC-------")
-        msg = "---phase="+str(current_phase())+". ctrProcCalls = "+str(ctrProcCalls)+tb+str(ctrProcCallsInPhase);
-        PRINT2B1(msg)
-        msg = "number of active params = "+str(initial_params::nvarcalc())+tb+str(initial_params::num_active_calc());
-        PRINT2B1(msg);
-        rpt::echo<<"number of active params = "<<initial_params::nvarcalc()<<cc<<initial_params::num_active_calc()<<endl;
-        //writeParameters(std::cout,0,1,current_phase());
-        writeParameters(rpt::echo,0,1,current_phase());
-    }
+    if (mc_phase()&&(option_match(ad_comm::argc,ad_comm::argv,"-nuts")>0)) cout<<"number proc calls = "<<str(ctrProcCalls)<<endl;
+//    if (mc_phase()&&(option_match(ad_comm::argc,ad_comm::argv,"-nuts")>0)){
+//        adstring msg;
+//        PRINT2B1("--Running NUTS MCMC-------")
+//        msg = "---phase="+str(current_phase())+". ctrProcCalls = "+str(ctrProcCalls)+tb+str(ctrProcCallsInPhase);
+//        PRINT2B1(msg)
+//        msg = "number of active params = "+str(initial_params::nvarcalc())+tb+str(initial_params::num_active_calc());
+//        PRINT2B1(msg);
+//        rpt::echo<<"number of active params = "<<initial_params::nvarcalc()<<cc<<initial_params::num_active_calc()<<endl;
+//        //writeParameters(std::cout,0,1,current_phase());
+//        writeParameters(rpt::echo,0,1,current_phase());
+//    }
     if (ctrDebugParams&&(ctrProcCalls>=ctrDebugParams)&&(!derivChecker)&&(!doHessStep)){
         adstring msg;
         PRINT2B1("--writing parameters to file for debugging")
@@ -5277,8 +5279,8 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
             }
         }//Tier 3 calculation
     
-    if (sd_phase()&(!mc_phase())){
-        //assign likelihood profile variables
+//    if (sd_phase()&(!mc_phase())){
+//        //assign likelihood profile variables
 //        lkAvgRec = sum(ptrOFLResults->avgRec_x);
 //        lkBmsy   = ptrOFLResults->Bmsy;
 //        lkFmsy   = ptrOFLResults->Fmsy;
@@ -5286,7 +5288,7 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
 //        lkCurB   = spB_yx(mxYr,MALE);
 //        lkPrjB   = ptrOFLResults->curB;
 //        lkOFL    = ptrOFLResults->OFL;
-    }
+//    }
         
     if (debug) {
         int n = 100;
