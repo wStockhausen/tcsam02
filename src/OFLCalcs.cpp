@@ -826,6 +826,9 @@ OFLResults& OFLResults::operator=(const OFLResults& o){
 }
 /**
  * Write csv header for OFL results to output stream.
+ * 
+ * Note that curB is current MMB at *start* of projection year, 
+ * not at time of mating in final year.
  *  
  * @param os - output stream to write to
  */
@@ -837,6 +840,9 @@ void OFLResults::writeCSVHeader(ostream& os){
 
 /**
  * Write values to output stream in csv format
+ * 
+ * Note that curB is current MMB at *start* of projection year, 
+ * not at time of mating in final year.
  * 
  * @param cout - output stream to write to
  */

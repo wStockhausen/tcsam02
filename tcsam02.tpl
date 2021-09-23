@@ -690,6 +690,11 @@
 //                   the model before the 2021 assessment.
 //-2021-08-26:  1. Added useFlags implementation for aggregate catch data objective function calculations.
 //-2021-09-22:  1. Commented out diagnostic printing when running MCMC via NUTS (was for testing only).
+//-2021-09-23:  1. Added "sdr" variables to report OFL-related quantities in the sd_report file.
+//              2. Changed curB in jitter output to MMB-at-mating for final model year (spB_yx(mxYr,MALE); it was MMB at start of projection year).
+//              3. curB in the OFLResults class IS NOT(!!) MMB-at-mating in the final model year.
+//                   It IS the MMB at the beginning of the projection year, so be careful how it is reported.
+//              4. Note that sdrCurB IS MMB-at-mating (spB_yx(mxYr,MALE)) in the final model year.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -2300,6 +2305,14 @@ PARAMETER_SECTION
     //sdreport variables
     sdreport_vector sdrLnR_y(mnYr,mxYr);
     sdreport_matrix sdrSpB_xy(1,nSXs,mnYr,mxYr);
+//    //--these will only be calculated if OFL is calculated
+    sdreport_number sdrAvgRec;
+    sdreport_number sdrBmsy;
+    sdreport_number sdrFmsy;
+    sdreport_number sdrMSY;
+    sdreport_number sdrCurB;
+    sdreport_number sdrPrjB;
+    sdreport_number sdrOFL;
     
     //likelihood profile numbers
 //    likeprof_number lkMMB; 
@@ -5279,16 +5292,24 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
             }
         }//Tier 3 calculation
     
-//    if (sd_phase()&(!mc_phase())){
+    if (sd_phase()&(!mc_phase())){
+        //assign sd variables
+        sdrAvgRec = sum(ptrOFLResults->avgRec_x);
+        sdrBmsy   = ptrOFLResults->Bmsy;
+        sdrFmsy   = ptrOFLResults->Fmsy;
+        sdrMSY    = ptrOFLResults->MSY;
+        sdrCurB   = spB_yx(mxYr,MALE);
+        sdrPrjB   = ptrOFLResults->prjB;
+        sdrOFL    = ptrOFLResults->OFL;
 //        //assign likelihood profile variables
 //        lkAvgRec = sum(ptrOFLResults->avgRec_x);
 //        lkBmsy   = ptrOFLResults->Bmsy;
 //        lkFmsy   = ptrOFLResults->Fmsy;
 //        lkMSY    = ptrOFLResults->MSY;
 //        lkCurB   = spB_yx(mxYr,MALE);
-//        lkPrjB   = ptrOFLResults->curB;
+//        lkPrjB   = ptrOFLResults->prjB;
 //        lkOFL    = ptrOFLResults->OFL;
-//    }
+    }
         
     if (debug) {
         int n = 100;
@@ -9904,7 +9925,7 @@ REPORT_SECTION
                     if (doOFL) fs<<cc<<"B0"<<cc<<"Bmsy"<<cc<<"Fmsy"<<cc<<"OFL"<<cc<<"curB";
                     fs<<endl;
                     fs<<iSeed<<cc<<value(objFun)<<cc<<maxGrad<<cc<<spB_yx(mxYr,MALE);
-                    if (doOFL) fs<<cc<<ptrOFLResults->B0<<cc<<ptrOFLResults->Bmsy<<cc<<ptrOFLResults->Fmsy<<cc<<ptrOFLResults->OFL<<cc<<ptrOFLResults->curB;
+                    if (doOFL) fs<<cc<<ptrOFLResults->B0<<cc<<ptrOFLResults->Bmsy<<cc<<ptrOFLResults->Fmsy<<cc<<ptrOFLResults->OFL<<cc<<spB_yx(mxYr,MALE);
                     fs<<endl;
                     fs.close();
                 }
