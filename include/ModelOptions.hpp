@@ -417,6 +417,44 @@ class EffXtrapScenarios{
 };
 
 /**
+ * ProjectionOptions class definition.
+ */
+class ProjectionOptions {
+public:
+    /** flag to print debugging info */
+    static int debug;
+    
+public:
+    /** number of repetitions to project*/
+    int nReps;
+    /** number of years to project */
+    int nYrs;
+    /** number of F's to project */
+    int nFs;
+    /** F's to project */
+    dvector Fs;
+    /** number of F multipliers to project */
+    int nFMs;
+    /** F multipliers to project */
+    dvector FMs;
+        /**
+         * Class constructor.
+         */
+        ProjectionOptions();
+        /**
+         * Class destructor for projection scenarios.
+         */
+        ~ProjectionOptions();
+        
+        void read(cifstream & is);
+        void write(std::ostream & os);
+        void writeToR(std::ostream & os);
+
+        friend cifstream& operator >>(cifstream & is, ProjectionOptions & obj){obj.read(is); return is;}
+        friend std::ostream& operator <<(std::ostream & os, ProjectionOptions & obj){obj.write(os); return os;}
+};
+
+/**
  * ModelOptions class definition.
  */
     class ModelOptions {
@@ -534,6 +572,11 @@ class EffXtrapScenarios{
         int HCR1_avgMaxYr;
          /** id of ramp to use in HCR 2 */
         int HCR2_rampID;
+        
+        /** pointer to projection options for non-MCMC runs */
+        ProjectionOptions* ptrProjOpts;
+        /** pointer to projection options for MCMC runs */
+        ProjectionOptions* ptrProjOptsMCMC;
  
     public:
         /**

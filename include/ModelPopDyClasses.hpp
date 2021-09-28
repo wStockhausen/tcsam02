@@ -524,6 +524,44 @@ class MultiYearPopProjector {
          * 
          */
         void projectUnFished(int n, dvariable R, dvar3_array& n_msz, ostream& cout);
+        /**
+         * Project multiple years using a vector of recruitment and directed F.
+         * 
+         * NOTE: If dirF &lt 0, then directed fishing mortality is not rescaled.
+         * 
+         * Calculates:
+         *      n_ymsz   - numbers-at-size
+         *      matBio_y - mature biomass
+         *      cp_yf    - captured biomass, by fishery
+         *      rm_yf    - retained catch biomass, by fishery
+         *      dm_yf    - discard catch mortality, by fishery
+         *      totCM_y  - total catch biomass
+         * 
+         * @param n - number of years to project
+         * @param R - single-sex recruitment vector
+         * @param dirF - (constant) directed F
+         * @param n_msz - initial abundance
+         * @param cout - output stream for debug info
+         * 
+         */
+        void project(dvar_vector R, dvariable dirF, dvar3_array& n_msz, ostream& cout);
+        /**
+         * Project multiple years using a vector of recruitment, with no fishing.
+         * 
+         * Calculates:
+         *      n_ymsz   - numbers-at-size
+         *      matBio_y - mature biomass
+         *      cp_yf    - captured biomass, by fishery        [=0]
+         *      rm_yf    - retained catch biomass, by fishery  [=0]
+         *      dm_yf    - discard catch mortality, by fishery [=0]
+         *      totCM_y  - total catch biomass                 [=0]
+         * 
+         * @param R - single-sex recruitment vector
+         * @param n_msz - initial abundance
+         * @param cout - output stream for debug info
+         * 
+         */
+        void projectUnFished(dvar_vector R, dvar3_array& n_msz, ostream& cout);
 };
 
 

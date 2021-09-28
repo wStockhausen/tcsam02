@@ -11,6 +11,7 @@
 //      CapRateAvgScenario
 //      CapRateAvgScenarios
 //      EffXtrapScenarios
+//      ProjectionScenarios
 //      ModelOptions
 //**********************************************************************
 using namespace std;
@@ -507,11 +508,46 @@ void EffXtrapScenarios::writeToR(std::ostream& os){
     os<<"capRateAvgOpts="; ptrCapRateAvgScenarios->writeToR(os); os<<endl;
     os<<")"<<endl;
 }
+
+//--------------------------------------------------------------------------------
+//          ProjectionOptions
+//--------------------------------------------------------------------------------
+int ProjectionOptions::debug = 0;
+ProjectionOptions::ProjectionOptions(){};
+void ProjectionOptions::read(cifstream& is){
+    is>>nReps;
+    is>>nYrs;
+    is>>nFs;
+    if (nFs>0) {
+        Fs.allocate(1,nFs);
+        is>>Fs;
+    }
+    is>>nFMs;
+    if (nFMs>0) {
+        FMs.allocate(1,nFMs);
+        is>>FMs;
+    }
+}
+void ProjectionOptions::write(std::ostream& os){
+    os<<nReps<<tb<<"#--number of repetitions"<<endl;
+    os<<nYrs <<tb<<"#--number of years to project"<<endl;
+    os<<nFs  <<tb<<"#--number of F's"<<endl;
+    os<<"#--fishing mortality rates"<<endl;
+    if (nFs>0) os<<Fs<<endl;
+    os<<nFMs <<tb<<"#--number of Fofl multipliers"<<endl;
+    os<<"#--fishing mortality multipliers"<<endl;
+    if (nFMs>0) os<<FMs<<endl;
+}
+void ProjectionOptions::writeToR(std::ostream& os){
+    os<<"list(nReps="<<nReps<<cc<<"nYrs="<<nYrs<<cc<<endl;
+    os<<tb<<"nFs ="<<nFs <<cc<<"Fs ="; wts::writeToR(os,Fs);  os<<cc<<endl;
+    os<<tb<<"nFMs="<<nFMs<<cc<<"FMs="; wts::writeToR(os,FMs); os<<")";
+}
 //--------------------------------------------------------------------------------
 //          ModelOptions
 //--------------------------------------------------------------------------------
 int ModelOptions::debug = 0;
-const adstring ModelOptions::VERSION = "2020.04.12";
+const adstring ModelOptions::VERSION = "2021.09.27";
 
 ModelOptions::ModelOptions(ModelConfiguration& mc){
     ptrMC=&mc;
@@ -572,6 +608,10 @@ ModelOptions::ModelOptions(ModelConfiguration& mc){
     optsIterativeReweighting(0) = "no iterative re-weighting";
     optsIterativeReweighting(1) = "use harmonic means of McAllister-Ianelli effective N's";
     optsIterativeReweighting(2) = "use Francis weights";
+    
+    //options for projections
+    ptrProjOpts     = new ProjectionOptions();
+    ptrProjOptsMCMC = new ProjectionOptions();
 }
 /**
  * Read from input stream in ADMB format.
@@ -593,7 +633,7 @@ void ModelOptions::read(cifstream & is) {
     cout<<ModelOptions::VERSION<<tb<<"# Model Options version"<<endl;
     
     //initial numbers-at-size options
-    cout<<"##Initial numbers-at-size options:"<<endl;
+    if (debug) cout<<"##Initial numbers-at-size options:"<<endl;
     is>>optInitNatZ;
     cout<<optInitNatZ<<tb<<"#"<<optsInitNatZ(optInitNatZ)<<endl;
     
@@ -746,12 +786,20 @@ void ModelOptions::read(cifstream & is) {
             is>>HCR1_avgMaxYr;
             cout<<HCR1_avgMinYr<<tb<<HCR1_avgMaxYr<<tb<<"#min, max years for averaging"<<endl;
             if (HCR1_avgMaxYr==-1) HCR1_avgMaxYr = ptrMC->mxYr;
+            tst=0;
         } else if (str=="HCR2"){
             cout<<"#--options for "<<str<<endl;
             is>>HCR2_rampID;
             cout<<HCR2_rampID<<tb<<tb<<"#ramp id"<<endl;
+            tst=0;
         } else {tst=0;}
     }
+    cout<<endl;
+    
+    //Projection options
+    cout<<"#Projection-related options"<<endl;
+    is>>(*ptrProjOpts);     cout<<"#--non-MCMC options"<<endl<<(*ptrProjOpts)    <<endl;
+    is>>(*ptrProjOptsMCMC); cout<<"#--    MCMC options"<<endl<<(*ptrProjOptsMCMC)<<endl;
     
     if (debug) cout<<"end ModelOptions::read(cifstream & is)"<<endl;
     if (debug){
@@ -900,9 +948,7 @@ void ModelOptions::write(ostream & os) {
     os<<phsIterativeReweighting<<tb<<"#phase to start iterative re-weighting"<<endl;
     os<<maxIterations<<tb<<"#max number of iterations"<<endl;
     os<<endl;
-    
-    os<<"#---------------------"<<endl<<endl;
-    
+        
     //MSE-related options
     os<<"#----MSE-related options"<<endl;
     os<<"#------Time period for recruitment projection statistics"<<endl;
@@ -926,6 +972,16 @@ void ModelOptions::write(ostream & os) {
         os<<"#Ramp ID: 1, 2 or 3"<<endl;
         os<<HCR2_rampID<<tb<<tb<<"#ramp id"<<endl;
     }
+    os<<endl;
+    
+    //projection options
+    os<<"#----Projection Options"<<endl;
+    os<<"#------non-MCMC projection options "<<endl;
+    os<<(*ptrProjOpts);
+    os<<"#------    MCMC projection options "<<endl;
+    os<<(*ptrProjOptsMCMC);
+    
+    os<<"#---------------------"<<endl<<endl;
     
     if (debug) cout<<"#end ModelOptions::write(ostream)"<<endl;
 }
@@ -967,7 +1023,9 @@ void ModelOptions::writeToR(ostream& os, std::string nm, int indent) {
             os<<"option="<<optIterativeReweighting<<cc<<endl;
             os<<"phase="<<phsIterativeReweighting<<cc<<endl;
             os<<"maxIts="<<maxIterations;
-        os<<")"<<endl;
+        os<<")"<<cc<<endl;
+        os<<"projOpts=";     ptrProjOpts->writeToR(os);     os<<cc<<endl;
+        os<<"projOptsMCMC="; ptrProjOptsMCMC->writeToR(os); os<<endl;
     indent--;
     for (int n=0;n<indent;n++) os<<tb;
         os<<")";

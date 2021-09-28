@@ -695,6 +695,10 @@
 //              3. curB in the OFLResults class IS NOT(!!) MMB-at-mating in the final model year.
 //                   It IS the MMB at the beginning of the projection year, so be careful how it is reported.
 //              4. Note that sdrCurB IS MMB-at-mating (spB_yx(mxYr,MALE)) in the final model year.
+//              5. Added initial code for multi-year projections at a range of F's
+//-2021-09-23:  1. Added new "project" functions to MultiYearPopProjector class to project using vector of recruitment
+//-2021-09-27:  1. Finished adding multi-year projections methodology (calcMultiYearProjections).
+//              2. Updated ModelOptions version to 2021.09.27 to reflect changes associated with multi-year projections.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -706,6 +710,7 @@
 //  -mcpin fnPin                   pin file to run NUTS MCMC (i.e., usePin=2)
 //  -runAlt                        flag to run alternative pop dy equations
 //  -calcOFL                       flag to turn on OFL calculations
+//  -calcProjections               flag to turn on multi-year projections
 //  -calcTAC hcr                   flag to calculate TAC using the indicated harvest control rule (hcr)
 //  -calcDynB0                     flag to turn on dynamic B0 calculations
 //  -doRetro  yRetro               flag to turn on retrospective calculations, dropping yRetro years
@@ -794,12 +799,13 @@ GLOBALS_SECTION
     int mseMode    = 0;//flag indicating model is being run in an MSE
     int mseOpModMode  = 0;//flag indicating model is being run in an MSE in operating model mode
     int mseEstModMode = 0;//flag indicating model is being run in an MSE in estimation model mode 
-    int usePin     = 0;//flag to initialize parameter values using a pin file
-    int doRetro    = 0;//flag to facilitate a retrospective model run
-    int fitSimData = 0;//flag to fit model to simulated data calculated in the PRELIMINARY_CALCs section
-    int doOFL      = 0;///<flag (0/1) to do OFL calculations
-    int doTAC      = 0;///<calculate TAC using harvest control rule indicated by value of doTAC
-    int doDynB0    = 0;//flag to run dynamic B0 calculations after final phase
+    int usePin        = 0;//flag to initialize parameter values using a pin file
+    int doRetro       = 0;//flag to facilitate a retrospective model run
+    int fitSimData    = 0;//flag to fit model to simulated data calculated in the PRELIMINARY_CALCs section
+    int doOFL         = 0;///<flag (0/1) to do OFL calculations
+    int doProjections = 0;///<flag (0/1) to do multi-year projections
+    int doTAC         = 0;///<calculate TAC using harvest control rule indicated by value of doTAC
+    int doDynB0       = 0;//flag to run dynamic B0 calculations after final phase
         
     int yRetro = 0; //number of years to decrement for retrospective model run
     int iSeed = -1; //default random number generator seed
@@ -979,6 +985,14 @@ DATA_SECTION
     if ((on=option_match(ad_comm::argc,ad_comm::argv,"-calcOFL"))>-1) {
         doOFL=1;
         rpt::echo<<"#OFL calculations turned ON"<<endl;
+        rpt::echo<<"#-------------------------------------------"<<endl;
+        flg = 1;
+    }
+    //calcProjections
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-calcProjections"))>-1) {
+        doProjections=1;//do multi-year projections
+        doOFL=1;        //need to do OFL calculations, as well
+        rpt::echo<<"#Multi-year projection calculations turned ON"<<endl;
         rpt::echo<<"#-------------------------------------------"<<endl;
         flg = 1;
     }
@@ -2569,8 +2583,18 @@ PRELIMINARY_CALCS_SECTION
                 ptrOFLResults->writeCSVHeader(echoOFL); echoOFL<<endl;
                 ptrOFLResults->writeToCSV(echoOFL);     echoOFL<<endl;
                 echoOFL<<"----Finished testing calcOFL()!"<<endl;
-                echoOFL.close();
                 PRINT2B1("Finished testing OFL calculations!")
+                if (doProjections){
+                    PRINT2B1("Testing multi-year projections 1")
+                    calcMultiYearProjections(mxYr+1-yRetro, ptrMOs->ptrProjOpts, debugOFL, rpt::echo);
+                    PRINT2B1("Finished testing multi-year projections 1")
+                    PRINT2B1("Testing multi-year projections 2")
+                    ofstream prjR; prjR.open("calcProjections.init.R", ios::trunc);
+                    calcMultiYearProjections(mxYr+1-yRetro, ptrMOs->ptrProjOptsMCMC, -1, prjR);
+                    prjR.close();
+                    PRINT2B1("Finished testing multi-year projections 2")
+                }
+                echoOFL.close();
             }
 
             if (fitSimData){
@@ -5333,6 +5357,265 @@ FUNCTION void calcOFL(int yr, int debug, ostream& cout)
         cout<<"finished calcOFL(yr,debug,cout)"<<endl<<endl<<endl;
     }
 //-------------END OFL Calculations----------   
+        
+//-------------multi-year projections with different F's--------------
+// yrp      - projection starts with population on July 1, yrp (e.g., assessment year)
+// projOpts - pointer to ProjectionOptions object
+// debug    - debugging level
+// cout     - output stream
+FUNCTION void calcMultiYearProjections(int yrp, ProjectionOptions* ptrProjOpts, int debug, ostream& cout)
+    if (debug>0) cout<<"starting calcMultiYearProjections(yrp,ptrProjOpts,debug,cout)"<<endl;
+    int yr = yrp-1;//determine fishery conditions and popoulation rates using year prior to projection year
+    //1. Determine fishery conditions for next year based on averages for recent years
+    //--should be same calculations as for determining the OFL
+    int oflAvgPeriodYrs = 5;  //TODO: this should be an input (at least same of OFL calculations)
+    //assumption here is that ALL fisheries EXCEPT the first are bycatch fisheries
+    //a. Calculate average handling mortality, retention curves and capture rates
+    int ny;   //number of years fishery is active
+    dvar_vector avgHM_f(1,nFsh);
+    avgHM_f.initialize();
+    for (int f=1;f<=nFsh;f++){
+        ny = 0;
+        for (int y=yr-oflAvgPeriodYrs+1;y<=yr;y++){
+            ny         += hasF_fy(f,y);
+            avgHM_f(f) += hmF_fy(f,y);
+        }
+        avgHM_f(f) /= wts::max(1.0,1.0*ny);
+    }
+    if (debug>0) cout<<"avgHm_f = "<<avgHM_f<<endl;
+
+    dvar4_array avgCapF_xfms(1,nSXs,1,nFsh,1,nMSs,1,nSCs);//averaged max fishery capture rates
+    dvar5_array avgCapF_xfmsz(1,nSXs,1,nFsh,1,nMSs,1,nSCs,1,nZBs);//averaged fishery capture rates
+    dvar5_array avgRFcn_xfmsz(1,nSXs,1,nFsh,1,nMSs,1,nSCs,1,nZBs);//averaged fishery retention functions
+    dvar5_array avgSFcn_xfmsz(1,nSXs,1,nFsh,1,nMSs,1,nSCs,1,nZBs);//averaged fishery selectivity functions
+    avgCapF_xfms.initialize();
+    avgCapF_xfmsz.initialize();
+    avgRFcn_xfmsz.initialize();
+    avgSFcn_xfmsz.initialize();
+    for (int f=1;f<=nFsh;f++){
+        oflAvgPeriodYrs = ptrMOs->oflNumYrsForAvgCapRate(f);
+        if (debug>0) cout<<"oflAvgPeriodYrs("<<f<<") = "<<oflAvgPeriodYrs<<endl;
+        for (int x=1;x<=nSXs;x++){
+            for (int m=1;m<=nMSs;m++){
+                for (int s=1;s<=nSCs;s++) {
+                    for (int z=1;z<=nZBs;z++){
+                        ny = 0;
+                        for (int y=(yr-oflAvgPeriodYrs+1);y<=yr;y++) {
+                            //if (debug) cout<<"y = "<<y<<endl;
+                            ny += hasF_fy(f,y);
+                            avgCapF_xfms(x,f,m,s) += cpF_fyxms(f,y,x,m,s);
+                            avgCapF_xfmsz(x,f,m,s,z) += cpF_fyxmsz(f,y,x,m,s,z);
+                            avgRFcn_xfmsz(x,f,m,s,z) += ret_fyxmsz(f,y,x,m,s,z);
+                            avgSFcn_xfmsz(x,f,m,s,z) += sel_fyxmsz(f,y,x,m,s,z);
+                        }//y
+                        double fac = 1.0/max(1.0,1.0*ny);
+                        avgCapF_xfms(x,f,m,s) *= fac;
+                        avgCapF_xfmsz(x,f,m,s,z) *= fac;
+                        avgRFcn_xfmsz(x,f,m,s,z) *= fac;
+                        avgSFcn_xfmsz(x,f,m,s,z) *= fac;
+                    }//z
+                }//s
+            }//m
+        }//x
+    }//f
+    if (debug>0){
+        for (int f=1;f<=nFsh;f++){
+            cout<<"avgCapF_xfmsz(  MALE,"<<f<<",MATURE,NEW_SHELL) = "<<endl<<tb<<avgCapF_xfmsz(  MALE,f,MATURE,NEW_SHELL)<<endl;
+            cout<<"avgCapF_xfmsz(FEMALE,"<<f<<",MATURE,NEW_SHELL) = "<<endl<<tb<<avgCapF_xfmsz(FEMALE,f,MATURE,NEW_SHELL)<<endl;
+            cout<<"avgRFcn_xfmsz(  MALE,"<<f<<",MATURE,NEW_SHELL) = "<<endl<<tb<<avgRFcn_xfmsz(  MALE,f,MATURE,NEW_SHELL)<<endl;
+            cout<<"avgRFcn_xfmsz(FEMALE,"<<f<<",MATURE,NEW_SHELL) = "<<endl<<tb<<avgRFcn_xfmsz(FEMALE,f,MATURE,NEW_SHELL)<<endl;
+            cout<<"avgSFcn_xfmsz(  MALE,"<<f<<",MATURE,NEW_SHELL) = "<<endl<<tb<<avgSFcn_xfmsz(  MALE,f,MATURE,NEW_SHELL)<<endl;
+            cout<<"avgSFcn_xfmsz(FEMALE,"<<f<<",MATURE,NEW_SHELL) = "<<endl<<tb<<avgSFcn_xfmsz(FEMALE,f,MATURE,NEW_SHELL)<<endl;
+        }
+    }
+
+    //determine average capture rates
+    for (int f=1;f<=nFsh;f++){
+        if (ptrMOs->optOFLAvgCapRate(f)==0){
+            //use averaged selectivity functions, max capture rates
+            if (debug>0) cout<<"Using average selectivity functions for fishery "<<f<<" for OFL calculations"<<endl;
+            for (int x=1;x<=nSXs;x++){
+                for (int m=1;m<=nMSs;m++){
+                    for (int s=1;s<=nSCs;s++) avgCapF_xfmsz(x,f,m,s) = avgCapF_xfms(x,f,m,s)*avgSFcn_xfmsz(x,f,m,s);
+                }//m
+            }//x
+        } else {
+            if (debug>0) cout<<"Using size-specific average capture rates for fishery "<<f<<" for OFL calculations"<<endl;
+            //use size-specific averaged capture rates
+            //do nothing
+        }
+    }//f
+    if (debug>0) cout<<"calculated average fishery info"<<endl;
+    
+    //2. Set up CatchInfo objects
+    CatchInfo* pCIM = new CatchInfo(nZBs,nFsh);//male catch info
+    pCIM->setCaptureRates(avgCapF_xfmsz(MALE));
+    pCIM->setCaptureRates(avgCapF_xfms(MALE));
+    pCIM->setSelectivityFcns(avgSFcn_xfmsz(MALE));
+    pCIM->setRetentionFcns(avgRFcn_xfmsz(MALE));
+    pCIM->setHandlingMortality(avgHM_f);
+    dvariable maxCapF = pCIM->findMaxTargetCaptureRate(cout);
+    if (debug>0) cout<<"maxCapF = "<<maxCapF<<endl;
+
+    CatchInfo* pCIF = new CatchInfo(nZBs,nFsh);//female catch info
+    pCIF->setCaptureRates(avgCapF_xfmsz(FEMALE));
+    pCIF->setCaptureRates(avgCapF_xfms(FEMALE));
+    pCIF->setSelectivityFcns(avgSFcn_xfmsz(FEMALE));
+    pCIF->setRetentionFcns(avgRFcn_xfmsz(FEMALE));
+    pCIF->setHandlingMortality(avgHM_f);
+    pCIF->maxF = maxCapF;//need to set this for females
+    if (debug>0) cout<<"created pCI objects"<<endl;
+
+    //3. determine recruitments from which to sample
+    int mnYrAR = ptrMC->mnYrAvgRec;
+    int mxYrAR = yr-ptrMC->mxYrOffsetAvgRec;
+    dvar_vector recs_y = R_y(mnYrAR,mxYrAR);
+    recs_y.shift(1);
+    if (debug>0) cout<<recs_y.indexmin()<<":"<<recs_y.indexmax()<<endl;
+    if (debug>0) cout<<"recs to resample: "<<recs_y<<endl;
+  
+    //loop over fishing mortality scenarios
+    if (ptrProjOpts->nFs>0){
+        //--input F's
+        dvar_vector prjFs = ptrProjOpts->Fs;
+        if (debug<0) {
+            cout<<"projFsList=list(";
+            cout<<"yr="<<yrp<<cc<<"nYrs="<<ptrProjOpts->nYrs<<cc<<"nReps="<<ptrProjOpts->nReps<<cc<<endl;
+            cout<<"Fmsy="<<ptrOFLResults->Fmsy<<cc<<"Bmsy="<<ptrOFLResults->Bmsy<<cc<<"Fofl="<<ptrOFLResults->Fofl<<cc<<endl;
+            cout<<"listFs=list(";
+        }
+        for (int f = prjFs.indexmin();f<=prjFs.indexmax();f++){
+            //get F for projection
+            dvariable prjF = prjFs[f];
+            if (debug>0) cout<<"prjF = "<<prjF<<endl;
+            if (debug<0) cout<<"`"<<f<<"`=list(prjF="<<prjF<<cc<<"reps=list("<<endl;
+            for (int rp=1;rp<=ptrProjOpts->nReps;rp++){
+                if (debug>0) cout<<"rp = "<<rp<<endl;
+                //resample recruitment
+                dvar_vector res_recs_y = wts::resampleVector(rng,ptrProjOpts->nYrs,recs_y,debug>0,cout);
+                if (debug>0) cout<<"res_recs_y indices: "<<res_recs_y.indexmin()<<" "<<res_recs_y.indexmax()<<endl;
+                if (debug>0) cout<<"res_recs_y = "<<res_recs_y<<endl;
+                dvar_matrix res_recs_xy(1,nSXs,res_recs_y.indexmin(),res_recs_y.indexmax());
+                for (int x=1;x<=nSXs;x++) 
+                  res_recs_xy(x) = res_recs_y*R_yx(yr,x);//note "yr", not "yrp"
+                //do projection
+                if (debug<0) {
+                    cout<<"`"<<rp<<"`=list("<<"rep="<<rp<<cc<<endl;
+                    cout<<"recs="; wts::writeToR(cout,value(res_recs_y)); cout<<cc<<endl;
+                }
+                calcMultiYearProjection(prjF, yrp, res_recs_xy, pCIM, pCIF, debug, cout);
+                if (debug<0) {if (rp<ptrProjOpts->nReps) {cout<<")"<<cc<<endl;} else {cout<<"))"<<endl;}}
+            }//--rp
+            if (debug<0) {if (f<prjFs.indexmax()) {cout<<")"<<cc<<endl;} else {cout<<"))"<<endl;}}
+        }
+        if (debug<0) {
+            cout<<")";//end projList
+            if (ptrProjOpts->nFMs>0) {cout<<cc;} else {cout<<")";}
+            cout<<endl;
+        }
+    }
+    if (ptrProjOpts->nFMs>0){
+        //--input Fofl multipliers
+        dvar_vector prjFs = ptrOFLResults->Fofl * ptrProjOpts->FMs;
+        if (debug<0) {
+            cout<<"projFMsList=list(";
+            cout<<"yr="<<yrp<<cc<<"nYrs="<<ptrProjOpts->nYrs<<cc<<"nReps="<<ptrProjOpts->nReps<<cc<<endl;
+            cout<<"Fmsy="<<ptrOFLResults->Fmsy<<cc<<"Bmsy="<<ptrOFLResults->Bmsy<<cc<<"Fofl="<<ptrOFLResults->Fofl<<cc<<endl;
+            cout<<"listFs=list(";
+        }
+        for (int f = prjFs.indexmin();f<=prjFs.indexmax();f++){
+            //get F for projection
+            dvariable prjF = prjFs[f];
+            if (debug>0) cout<<"prjF = "<<prjF<<endl;
+            if (debug<0) cout<<"`"<<f<<"`=list(prjF="<<prjF<<cc<<"mult="<<ptrProjOpts->FMs[f]<<cc<<"reps=list("<<endl;
+            for (int rp=1;rp<=ptrProjOpts->nReps;rp++){
+                if (debug>0) cout<<"rp = "<<rp<<endl;
+                //resample recruitment
+                dvar_vector res_recs_y = wts::resampleVector(rng,ptrProjOpts->nYrs,recs_y,debug>0,cout);
+                if (debug>0) cout<<"res_recs_y indices: "<<res_recs_y.indexmin()<<" "<<res_recs_y.indexmax()<<endl;
+                if (debug>0) cout<<"res_recs_y = "<<res_recs_y<<endl;
+                dvar_matrix res_recs_xy(1,nSXs,res_recs_y.indexmin(),res_recs_y.indexmax());
+                for (int x=1;x<=nSXs;x++) 
+                  res_recs_xy(x) = res_recs_y*R_yx(yr,x);//note "yr", not "yrp"
+                //do projection
+                if (debug<0) {
+                    cout<<"`"<<rp<<"`=list("<<"rep="<<rp<<cc<<endl;
+                    cout<<"recs="; wts::writeToR(cout,value(res_recs_y)); cout<<cc<<endl;
+                }
+                calcMultiYearProjection(prjF, yrp, res_recs_xy, pCIM, pCIF, debug, cout);
+                if (debug<0) {if (rp<ptrProjOpts->nReps) {cout<<")"<<cc<<endl;} else {cout<<"))"<<endl;}}
+            }//--rp
+            if (debug<0) {if (f<prjFs.indexmax()) {cout<<")"<<cc<<endl;} else {cout<<"))"<<endl;}}
+        }
+        if (debug<0) cout<<")";//end projList
+    }
+    if (debug>0) cout<<"finished calcMultiYearProjections(yrp,ptrProjOpts,debug,cout)"<<endl<<endl<<endl;
+
+//-------------multi-year projection--------------
+FUNCTION void calcMultiYearProjection(dvariable prjF, int yrp, dvar_matrix& res_recs_xy, CatchInfo* pCIM, CatchInfo* pCIF, int debug, ostream& cout)
+    if (debug>0) {
+        cout<<endl<<endl<<"#------------------------"<<endl;
+        cout<<"starting calcMultiYearProjection(prjF,yrp,res_recs_xy,pCIM,pCIF,debug,cout)"<<endl;
+        cout<<"start year = "<<yrp<<". projecting "<<res_recs_xy(MALE).size()<<" years."<<endl;
+        cout<<"prjF = "<<prjF<<". res_recs_y = "<<res_recs_xy(MALE)+res_recs_xy(FEMALE)<<endl;
+    }
+
+    //1. get initial population on July 1, yrp
+    dvar4_array n_xmsz = n_yxmsz(yrp);
+    if (debug>0) {cout<<"  males_msz:"<<endl; wts::print(n_xmsz(  MALE),cout,1);}
+    if (debug>0) {cout<<"females_msz:"<<endl; wts::print(n_xmsz(FEMALE),cout,1);}
+    
+    //2. set yr back one year to get population rates, etc., 
+    //   from year prior to projection year
+    int yr = yrp-1;//don't have pop rates, etc. for projection year
+    if (debug>0) cout<<"year for population rates = "<<yr<<endl;
+    
+    //3. Determine population rates for projection, using yr
+    double dtF = dtF_y(yr);//time at which fisheries occur
+    double dtM = dtM_y(yr);//time at which mating occurs
+    
+    PopDyInfo* pPIM = new PopDyInfo(nZBs);//  males info
+    pPIM->R_z   = R_yz(yr);
+    pPIM->w_mz  = ptrMDS->ptrBio->wAtZ_xmz(MALE);
+    pPIM->M_msz = M_yxmsz(yr,MALE);
+    pPIM->T_szz = prGr_yxszz(yr,MALE);
+    for (int s=1;s<=nSCs;s++) pPIM->Th_sz(s) = prM2M_yxz(yr,MALE);
+    
+    PopDyInfo* pPIF = new PopDyInfo(nZBs);//females info
+    pPIF->R_z   = R_yz(yr);
+    pPIF->w_mz  = ptrMDS->ptrBio->wAtZ_xmz(FEMALE);
+    pPIF->M_msz = M_yxmsz(yr,FEMALE);
+    pPIF->T_szz = prGr_yxszz(yr,FEMALE);
+    for (int s=1;s<=nSCs;s++) pPIF->Th_sz(s) = prM2M_yxz(yr,FEMALE);
+    if (debug>0) cout<<"calculated pPIM, pPIF."<<endl;
+            
+    //4. Create PopProjectors
+    PopProjector* pPPM = new PopProjector(pPIM,pCIM);
+    pPPM->dtF = dtF;
+    pPPM->dtM = dtM;
+    PopProjector* pPPF = new PopProjector(pPIF,pCIF);
+    pPPF->dtF = dtF;
+    pPPF->dtM = dtM;
+    if (debug>0) cout<<"created pPPs."<<endl;
+        
+    //5. Create multi-year population projectors
+    MultiYearPopProjector* pMYPPM = new MultiYearPopProjector(pPPM);
+    MultiYearPopProjector* pMYPPF = new MultiYearPopProjector(pPPF);
+    if (debug>0) cout<<"created pPPs."<<endl;
+    pMYPPM->project(res_recs_xy(  MALE),prjF,n_xmsz(  MALE),cout);
+    pMYPPF->project(res_recs_xy(FEMALE),prjF,n_xmsz(FEMALE),cout);
+    if (debug>0) cout<<"created pPPs."<<endl;
+    if (debug>0) {
+        cout<<"recs_y = "<<res_recs_xy(MALE)+res_recs_xy(FEMALE)<<endl;
+        cout<<"MMB_y  = "<<pMYPPM->matBio_y<<endl;
+        cout<<"MFB_y  = "<<pMYPPF->matBio_y<<endl;
+    }
+    if (debug<0) {
+        cout<<"MMB="; wts::writeToR(cout,value(pMYPPM->matBio_y)); cout<<cc<<endl;
+        cout<<"MFB="; wts::writeToR(cout,value(pMYPPF->matBio_y)); cout<<endl;
+    }
+    if (debug>0) cout<<"finished calcMultiYearProjection(prjF,yrp,res_recs_xy,pCIM,pCIF,debug,cout)"<<endl;
+//-------------END calcMultiYearProjection Calculations----------   
         
 //-------------------------------------------------------------------------------------
 //Calculate penalties for objective function. TODO: finish
@@ -8841,6 +9124,14 @@ FUNCTION void writeMCMCtoR(ofstream& mcmc)
             mcmc<<cc<<endl;
             calcOFL(mxYr+1-yRetro,0,cout);//updates ptrOFLResults
             ptrOFLResults->writeToR(mcmc,ptrMC,"ptrOFLResults",0);//mcm<<cc<<endl;
+            if (doProjections){
+                ofstream prjR; prjR.open("calcProjections.mcmc.R", (ctrMCMC==1)*ios::trunc+(ctrMCMC>1)*ios::app);
+                if (ctrMCMC==1) prjR<<"mcmc<-list();"<<endl;
+                prjR<<"mcmc[["<<ctrMCMC<<"]]<-list(objFun="<<value(objFun)<<cc<<endl;
+                calcMultiYearProjections(mxYr+1-yRetro, ptrMOs->ptrProjOptsMCMC, -1, prjR); 
+                prjR<<");"<<endl;
+                prjR.close();
+            }
         }
         
     mcmc<<");"<<endl;
@@ -9697,6 +9988,13 @@ FUNCTION void ReportToR(ostream& os, double maxGrad, int debug, ostream& cout)
             os<<","<<endl;
             ptrOFLResults->writeToR(os,ptrMC,"ptrOFLResults",0);
             os<<tb<<"#end of ptrOFLResults"<<endl;
+            if (doProjections){
+                cout<<"ReportToR: starting multi-year projection calculations"<<endl;
+                ofstream prjR; prjR.open("calcProjections.last.R", ios::trunc);
+                calcMultiYearProjections(mxYr+1-yRetro, ptrMOs->ptrProjOpts, -1, prjR);
+                prjR.close();
+                cout<<"ReportToR: finished multi-year projection calculations"<<endl;
+            }
             cout<<"ReportToR: finished OFL calculations"<<endl;
         }
 
@@ -10724,8 +11022,15 @@ FINAL_SECTION
                     calcOFL(mxYr+1-yRetro,1,echoOFL);//updates ptrOFLResults
                     ptrOFLResults->writeCSVHeader(echoOFL); echoOFL<<endl;
                     ptrOFLResults->writeToCSV(echoOFL);     echoOFL<<endl;
-                    echoOFL.close();
                     PRINT2B1("#----Finished OFL calculations")
+                    if (doProjections){
+                        PRINT2B1("Starting multi-year projections")
+                        ofstream prjR; prjR.open("calcProjections.final.R", ios::app);
+                        calcMultiYearProjections(mxYr+1-yRetro, ptrMOs->ptrProjOpts, -1, prjR);
+                        prjR.close();
+                        PRINT2B1("Finished multi-year projections")
+                    }
+                    echoOFL.close();
                 }
 
                 //do TAC calculations (doTAC = HCR number)
