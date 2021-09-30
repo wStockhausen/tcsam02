@@ -15,6 +15,27 @@ int MultiYearPopProjector::debug = 0;
 ////////////////////////////////////////////////////////////////////////////////
 //PopDyInfo
 ////////////////////////////////////////////////////////////////////////////////
+void PopDyInfo::allocate(){
+    if (debug) cout<<"starting PopDyInfo::allocate()"<<endl;
+    R_z.deallocate();
+    w_mz.deallocate();
+    Th_sz.deallocate();
+    M_msz.deallocate();
+    T_szz.deallocate();
+    
+    np_msz.deallocate();
+    S_msz.deallocate();
+    
+    R_z.allocate(1,nZBs);
+    w_mz.allocate(1,nMSs,1,nZBs);
+    Th_sz.allocate(1,nSCs,1,nZBs);
+    M_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
+    T_szz.allocate(1,nSCs,1,nZBs,1,nZBs);
+    
+    np_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
+    S_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
+    if (debug) cout<<"finished PopDyInfo::allocate()"<<endl;
+}
 /**
  * Constructor.
  * 
@@ -26,14 +47,27 @@ PopDyInfo::PopDyInfo(int npZBs){
     nMSs = tcsam::nMSs;
     nSCs = tcsam::nSCs;
     
-    R_z.allocate(1,nZBs);
-    w_mz.allocate(1,nMSs,1,nZBs);
-    Th_sz.allocate(1,nSCs,1,nZBs);
-    M_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
-    T_szz.allocate(1,nSCs,1,nZBs,1,nZBs);
+    allocate();
+}
+
+PopDyInfo::PopDyInfo(const PopDyInfo& o): PopDyInfo(o.nZBs) {
+//    nZBs = o.nZBs;
+//    
+//    nMSs = tcsam::nMSs;
+//    nSCs = tcsam::nSCs;
+    if (debug) cout<<"starting PopDyInfo::PopDyInfo(const PopDyInfo& o): PopDyInfo(o.nZBs)"<<endl;
+    allocate();
     
-    np_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
-    S_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
+    R_z   = 1.0*o.R_z;
+    w_mz  = 1.0*o.w_mz;
+    Th_sz = 1.0*o.Th_sz;
+    M_msz = 1.0*o.M_msz;
+    T_szz = 1.0*o.T_szz;
+    
+    np_msz = 1.0*o.np_msz;
+    S_msz  = 1.0*o.S_msz;
+    if (debug) cout<<"this = "<<this<<"; o"<<&o<<endl;
+    if (debug) cout<<"finished PopDyInfo::PopDyInfo(const PopDyInfo& o): PopDyInfo(o.nZBs)"<<endl;
 }
 
 PopDyInfo& PopDyInfo::operator=(const PopDyInfo& o) {
@@ -42,8 +76,10 @@ PopDyInfo& PopDyInfo::operator=(const PopDyInfo& o) {
     nMSs = tcsam::nMSs;
     nSCs = tcsam::nSCs;
     
-    R_z = 1.0*o.R_z;
-    w_mz = 1.0*o.w_mz;
+    allocate();
+    
+    R_z   = 1.0*o.R_z;
+    w_mz  = 1.0*o.w_mz;
     Th_sz = 1.0*o.Th_sz;
     M_msz = 1.0*o.M_msz;
     T_szz = 1.0*o.T_szz;
@@ -101,7 +137,7 @@ dvariable PopDyInfo::calcTotalBiomass(dvar3_array& n_msz, ostream& cout){
  * @return d3_array S_msz
  */
 dvar3_array PopDyInfo::calcSurvival(double dt, ostream& cout){
-    if (debug) cout<<"starting PopDyInfo::calcSurvival(dt)"<<endl;
+    if (debug) cout<<"starting PopDyInfo::calcSurvival(dt); dt="<<dt<<endl;
     RETURN_ARRAYS_INCREMENT();
     S_msz.initialize();
     for (int s=1;s<=nSCs;s++){
@@ -123,7 +159,7 @@ dvar3_array PopDyInfo::calcSurvival(double dt, ostream& cout){
  * @return d3_array - final population abundance
  */
 dvar3_array PopDyInfo::applyNM(double dt, dvar3_array& n_msz, ostream& cout){
-    if (debug) cout<<"starting PopDyInfo::applyNM(dt,n_msz)"<<endl;
+    if (debug) cout<<"starting PopDyInfo::applyNM(dt,n_msz); dt="<<dt<<endl;
     RETURN_ARRAYS_INCREMENT();
     np_msz.initialize();
     for (int s=1;s<=nSCs;s++){
@@ -132,7 +168,6 @@ dvar3_array PopDyInfo::applyNM(double dt, dvar3_array& n_msz, ostream& cout){
         }//m
     }//s  
     if (debug) {
-        cout<<"#--np_msz = "<<&np_msz<<endl;
         cout<<"np_msz = "<<endl; wts::print(np_msz,cout,1); cout<<endl;
     }
     if (debug) cout<<"finished PopDyInfo::applyNM(dt,n_msz)"<<endl;
@@ -155,7 +190,6 @@ dvar3_array PopDyInfo::applyMG(dvar3_array& n_msz, ostream& cout){
     np_msz(MATURE,NEW_SHELL)   = elem_prod(    Th_sz(NEW_SHELL),T_szz(NEW_SHELL)*n_msz(IMMATURE,NEW_SHELL));
     np_msz(MATURE,OLD_SHELL)   = n_msz(MATURE,NEW_SHELL)+n_msz(MATURE,OLD_SHELL);
     if (debug) {
-        cout<<"#--np_msz = "<<&np_msz<<endl;
         cout<<"np_msz = "<<endl; wts::print(np_msz,cout,1); cout<<endl;
     }
     if (debug) cout<<"finished PopDyInfo::applyMG(n_msz)"<<endl;
@@ -208,6 +242,7 @@ void PopDyInfo::writeToR(ostream& os, ModelConfiguration* ptrMC, adstring name, 
     os<<"R_z="; wts::writeToR(os,value(R_z),zDms);                os<<cc<<endl;
     os<<"w_mz="; wts::writeToR(os,w_mz,mDms,zDms);                os<<cc<<endl;
     os<<"M_msz="; wts::writeToR(os,value(M_msz),mDms,sDms,zDms);  os<<cc<<endl;
+    os<<"S_msz="; wts::writeToR(os,value(S_msz),mDms,sDms,zDms);  os<<cc<<endl;
     os<<"Th_sz="; wts::writeToR(os,value(Th_sz),sDms,zDms);       os<<cc<<endl;
     os<<"T_szz="; wts::writeToR(os,value(T_szz),sDms,zDms,zpDms); os<<endl;
     os<<")";
@@ -217,20 +252,24 @@ void PopDyInfo::writeToR(ostream& os, ModelConfiguration* ptrMC, adstring name, 
 ////////////////////////////////////////////////////////////////////////////////
 //CatchInfo
 ////////////////////////////////////////////////////////////////////////////////
-/**
- * Constructor.
- * 
- * @param npZBs - number of size bins
- * @param npFsh - number of fisheries
- */
-CatchInfo::CatchInfo(int npZBs, int npFsh){
-    nZBs = npZBs;
-    nFsh = npFsh;
+void CatchInfo::allocate(){
+    if (debug) cout<<"starting CatchInfo::allocate()"<<endl;
+    hm_f.deallocate();
+    cpF_fms.deallocate();
+    cpF_fmsz.deallocate();
+    selF_fmsz.deallocate();
+    retF_fmsz.deallocate();
     
-    nMSs = tcsam::nMSs;
-    nSCs = tcsam::nSCs;
+    rmF_fmsz.deallocate();
+    dmF_fmsz.deallocate();
     
-    maxF = 1.0;//default scale    
+    cmN_msz.deallocate();
+    cpN_fmsz.deallocate();
+    rmN_fmsz.deallocate();
+    dmN_fmsz.deallocate();
+    
+    totFM_z.deallocate();
+    S_msz.deallocate();
     
     hm_f.allocate(1,nFsh);
     cpF_fms.allocate(1,nFsh,1,nMSs,1,nSCs);
@@ -248,6 +287,65 @@ CatchInfo::CatchInfo(int npZBs, int npFsh){
     
     totFM_z.allocate(1,nZBs);
     S_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
+    if (debug) cout<<"finished CatchInfo::allocate()"<<endl;
+}
+/**
+ * Constructor.
+ * 
+ * @param npZBs - number of size bins
+ * @param npFsh - number of fisheries
+ */
+CatchInfo::CatchInfo(int npZBs, int npFsh){
+    if (debug) cout<<"starting CatchInfo::CatchInfo(int npZBs, int npFsh)"<<endl;
+    nZBs = npZBs;
+    nFsh = npFsh;
+    
+    nMSs = tcsam::nMSs;
+    nSCs = tcsam::nSCs;
+    
+    allocate();
+    
+    maxF = 1.0;//default scale    
+    
+    if (debug) cout<<"finished CatchInfo::CatchInfo(int npZBs, int npFsh)"<<endl;
+}
+
+    /**
+     * Class copy constructor.
+     * 
+     * @param o - CatchInfo object
+     */
+CatchInfo::CatchInfo(const CatchInfo& o): CatchInfo(o.nZBs,o.nFsh){
+//    nZBs = o.nZBs;
+//    nFsh = o.nFsh;
+//    
+//    nMSs = tcsam::nMSs;
+//    nSCs = tcsam::nSCs;
+    if (debug) cout<<"starting CatchInfo::CatchInfo(const CatchInfo& o): CatchInfo(o.nZBs,o.nFsh)"<<endl;
+    allocate();
+    
+    maxF = o.maxF;//default scale
+    
+    hm_f      = 1.0*o.hm_f;
+    cpF_fms   = 1.0*o.cpF_fms;
+    for (int f=1;f<=nFsh;f++){
+        cpF_fmsz(f)  = 1.0*o.cpF_fmsz(f);
+        selF_fmsz(f) = 1.0*o.selF_fmsz(f);
+        retF_fmsz(f) = 1.0*o.retF_fmsz(f);
+
+        rmF_fmsz(f) = 1.0*o.rmN_fmsz(f);
+        dmF_fmsz(f) = 1.0*o.dmN_fmsz(f);
+
+        cpN_fmsz(f) = 1.0*o.cpN_fmsz(f);
+        rmN_fmsz(f) = 1.0*o.rmN_fmsz(f);
+        dmN_fmsz(f) = 1.0*o.dmN_fmsz(f);
+    }
+    
+    totFM_z = 1.0*o.totFM_z;
+    S_msz   = 1.0*o.S_msz;
+    cmN_msz = 1.0*o.cmN_msz;
+    if (debug) cout<<"this = "<<this<<"; o"<<&o<<endl;
+    if (debug) cout<<"starting CatchInfo::CatchInfo(const CatchInfo& o): CatchInfo(o.nZBs,o.nFsh)"<<endl;
 }
 
 CatchInfo& CatchInfo::operator =(const CatchInfo& o){
@@ -256,6 +354,8 @@ CatchInfo& CatchInfo::operator =(const CatchInfo& o){
     
     nMSs = tcsam::nMSs;
     nSCs = tcsam::nSCs;
+    
+    allocate();
     
     maxF = o.maxF;//default scale
     
@@ -525,11 +625,51 @@ void CatchInfo::writeToR(ostream& os, ModelConfiguration* ptrMC, adstring name, 
 /**
  * Constructor
  * 
- * @param npZBs - number of size bins
+ * @param pPIp - pointer to PopDyInfo object
+ * @param pCIp - pointer to CatchInfo object
+ * 
+ * NOTE: this does NOT set dtF or dtM.
  */
 PopProjector::PopProjector(PopDyInfo* pPIp, CatchInfo* pCIp){
-    pPI = pPIp;
-    pCI = pCIp;
+    if (debug) cout<<"Starting PopProjector::PopProjector(PopDyInfo* pPIp, CatchInfo* pCIp)"<<endl;
+    pPI = new PopDyInfo(*pPIp);
+    pCI = new CatchInfo(*pCIp);
+    if (debug) {
+        cout<<"got 1"<<endl;
+        cout<<"pPI="<<pPI<<cc<<"pPIp="<<pPIp<<endl;
+        cout<<"pCI="<<pCI<<cc<<"pCIp="<<pCIp<<endl;
+    }
+    
+    nMSs = pPI->nMSs;
+    nSCs = pPI->nSCs;
+    nZBs = pPI->nZBs;
+    nFsh = pCI->nFsh;  
+    if (debug) cout<<"got 2"<<endl;
+    
+    n1_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
+    n2_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
+    n3_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
+    n4_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
+    n5_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
+    if (debug) cout<<"Finished PopProjector::PopProjector(PopDyInfo* pPIp, CatchInfo* pCIp)"<<endl;
+}
+
+/**
+ * Copy constructor
+ * 
+ * @param o - PopProjector object
+ */
+PopProjector::PopProjector(const PopProjector& o){
+    if (debug) cout<<"Starting PopProjector::PopProjector(const PopProjector& o)"<<endl;
+    pPI = new PopDyInfo(*(o.pPI));
+    pCI = new CatchInfo(*(o.pCI));
+    if (debug) {
+        cout<<"got 1"<<endl;
+        cout<<"pPI="<<pPI<<cc<<"o.pPI="<<o.pPI<<endl;
+        cout<<"pCI="<<pCI<<cc<<"o.pCI="<<o.pCI<<endl;
+    }
+    dtF = o.dtF;//time of fishery
+    dtM = o.dtM;//time of mating/growth
     
     nMSs = pPI->nMSs;
     nSCs = pPI->nSCs;
@@ -541,6 +681,7 @@ PopProjector::PopProjector(PopDyInfo* pPIp, CatchInfo* pCIp){
     n3_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
     n4_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
     n5_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
+    if (debug) cout<<"Finished PopProjector::PopProjector(const PopProjector& o)"<<endl;
 }
 
 /**
@@ -774,6 +915,22 @@ dvariable PopProjector::projectMatureBiomassAtMating(dvariable dirF, dvar3_array
 ////////////////////////////////////////////////////////////////////////////////
 //MultiYearPopProjector
 ////////////////////////////////////////////////////////////////////////////////
+/**
+ * Class constructor.
+ * 
+ * @param pPPp - pointer to a PopProjector object
+ */
+MultiYearPopProjector::MultiYearPopProjector(PopProjector* pPPp){
+    pPP = new PopProjector(*pPPp);
+}
+/**
+ * Copy constructor.
+ * 
+ * @param o - MultiYearPopProjector object
+ */
+MultiYearPopProjector::MultiYearPopProjector(const MultiYearPopProjector& o){
+    pPP = new PopProjector(*(o.pPP));
+}
 /**
  * Project multiple years at constant recruitment and directed F.
  * 

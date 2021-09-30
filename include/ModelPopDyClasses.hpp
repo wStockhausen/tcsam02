@@ -29,6 +29,8 @@ class PopDyInfo {
         dvar3_array np_msz;
         dvar3_array S_msz;
     
+    private:
+        void allocate(void);//allocate arrays
         
     public:
         /**
@@ -37,6 +39,12 @@ class PopDyInfo {
          * @param npZBs - number of size bins
          */
         PopDyInfo(int npZBs);
+        /**
+         * Class copy constructor.
+         * 
+         * @param o - PopDyInfo object
+         */
+        PopDyInfo(const PopDyInfo& o);
         /**
          * Class destructor.
          */
@@ -163,6 +171,9 @@ class CatchInfo {
         dvar_vector totFM_z;//total fishing mortality    (temporary for calculations)
         dvar3_array S_msz;//survival following fisheries (temporary for calculations)
           
+    private:
+        void allocate(void);//allocate arrays
+        
     public:
         /**
          * Class constructor.
@@ -171,6 +182,12 @@ class CatchInfo {
          * @param npFsh - number of fisheries
          */
         CatchInfo(int npZBs, int npFsh);
+        /**
+         * Class copy constructor.
+         * 
+         * @param o - CatchInfo object
+         */
+        CatchInfo(const CatchInfo& o);
         /**
          * Class destructor.
          */
@@ -303,7 +320,16 @@ class PopProjector{
         PopProjector(PopDyInfo* pPIp, CatchInfo* pCIp);
         
         /**
+         * Copy constructor.
+         * 
+         * @param o - PopProjector object to copy
+         */
+        PopProjector(const PopProjector& o);
+        
+        /**
          * Class destructor
+         * Does NOT delete the pointers passed in at creation. 
+         * That is the user's responsibility.
          */
         ~PopProjector(){delete pPI; delete pCI;}
         
@@ -478,11 +504,19 @@ class MultiYearPopProjector {
         /**
          * Class constructor.
          * 
-         * @param pPPp - pointer to a PopProjector object to base equilibrium calculations on
+         * @param pPPp - pointer to a PopProjector object
          */
-        MultiYearPopProjector(PopProjector* pPPp){pPP = pPPp;}
+        MultiYearPopProjector(PopProjector* pPPp);
+        /**
+         * Copy constructor.
+         * 
+         * @param o - MultiYearPopProjector object to copy
+         */
+        MultiYearPopProjector(const MultiYearPopProjector& o);
         /**
          * Class destructor.
+         * Does NOT delete the pointer passed in at creation. 
+         * That is the user's responsibility.
          */
         ~MultiYearPopProjector(){delete pPP;}
         /**

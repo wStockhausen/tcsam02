@@ -22,7 +22,19 @@ int OFLResults::debug = 0;
  * @param pPPp - pointer to a PopProjector object to base equilibrium calculations on
  */
 Equilibrium_Calculator::Equilibrium_Calculator(PopProjector* pPPp){
-    pPP = pPPp;
+    pPP = new PopProjector(*pPPp);
+    nMSs = pPP->pPI->nMSs;
+    nSCs = pPP->pPI->nSCs;
+    nZBs = pPP->pPI->nZBs;
+    I_z = identity_matrix(1,nZBs);
+}
+/**
+ * Copy constructor.
+ * 
+ * @param o - Equilibrium_Calculator object
+ */
+Equilibrium_Calculator::Equilibrium_Calculator(const Equilibrium_Calculator& o){
+    pPP = new PopProjector(*(o.pPP));
     nMSs = pPP->pPI->nMSs;
     nSCs = pPP->pPI->nSCs;
     nZBs = pPP->pPI->nZBs;
@@ -48,6 +60,7 @@ dvar3_array Equilibrium_Calculator::calcEqNatZ(dvar_vector& R_z,
                                                dvar3_array& T_szz, 
                                                dvar3_array& S2_msz, 
                                                ostream& cout){
+    RETURN_ARRAYS_INCREMENT();
     if (debug) cout<<"starting dvar3_array Equilibrium_Calculator::calcEqNatZ(...)"<<endl;
     if (debug) {
         cout<<"R_z = "<<R_z<<endl;
@@ -56,7 +69,6 @@ dvar3_array Equilibrium_Calculator::calcEqNatZ(dvar_vector& R_z,
         cout<<"T_szz = "<<endl;  wts::print(T_szz,cout,1);  cout<<endl;
         cout<<"S2_msz = "<<endl; wts::print(S2_msz,cout,1); cout<<endl;
     }
-    RETURN_ARRAYS_INCREMENT();
 
     //the equilibrium solution
     dvar3_array n_msz(1,nMSs,1,nSCs,1,nZBs);
@@ -99,8 +111,11 @@ dvar3_array Equilibrium_Calculator::calcEqNatZ(dvar_vector& R_z,
     //--done calculating transition matrices
     
     //calculate inverses of matrix quantities
+    if (debug) cout<<"calculating matrix inverses 1"<<endl;
     dvar_matrix iM1 = inv(I_z - lD);
+    if (debug) cout<<"calculating matrix inverses 2"<<endl;
     dvar_matrix iM2 = inv(I_z - lA - lB * iM1 * lC);
+    if (debug) cout<<"calculating matrix inverses 3"<<endl;
     dvar_matrix iM3 = inv(I_z - lH);
     
     //the equilibrium solution is
@@ -125,11 +140,11 @@ dvar3_array Equilibrium_Calculator::calcEqNatZ(dvar_vector& R_z,
  * @return equilibrium (male) population abundance on July 1
  */
 dvar3_array Equilibrium_Calculator::calcEqNatZF0(dvariable R, ostream& cout){
+    RETURN_ARRAYS_INCREMENT();
     if (debug) {
         cout<<"starting dvar3_array Equilibrium_Calculator::calcEqNatZF0(double R)"<<endl;
         cout<<"R = "<<R<<endl;
     }
-    RETURN_ARRAYS_INCREMENT();
 
     dvar3_array S1_msz = pPP->pPI->calcSurvival(pPP->dtM,cout);
     dvar3_array S2_msz = pPP->pPI->calcSurvival(1.0-pPP->dtM,cout);
@@ -162,11 +177,11 @@ dvar3_array Equilibrium_Calculator::calcEqNatZF0(dvariable R, ostream& cout){
  * @return equilibrium (male) population abundance on July 1
  */
 dvar3_array Equilibrium_Calculator::calcEqNatZFM(dvariable R, dvariable dirF, ostream& cout){
+    RETURN_ARRAYS_INCREMENT();
     if (debug) {
         cout<<"starting dvar3_array Equilibrium_Calculator::calcEqNatZFM(double R)"<<endl;
         cout<<"R = "<<R<<". dirF = "<<dirF<<endl;
     }
-    RETURN_ARRAYS_INCREMENT();
     
     double dtM = pPP->dtM;//time to mating
     double dtF = pPP->dtF;//time to fisheries
@@ -220,11 +235,11 @@ dvar3_array Equilibrium_Calculator::calcEqNatZFM(dvariable R, dvariable dirF, os
  * @return mature biomass-at-mating for unfished population (1000's t)
  */
 dvariable Equilibrium_Calculator::calcEqMatureBiomassAtMatingF0(dvariable R, ostream& cout){
+    RETURN_ARRAYS_INCREMENT();
     if (debug) {
         cout<<"starting double Equilibrium_Calculator::calcEqMatureBiomassAtMatingF0(double R)"<<endl;
         cout<<"R = "<<R<<endl;
     }
-    RETURN_ARRAYS_INCREMENT();
     //calculate July 1 unfished size distribution
     dvar3_array n_msz = calcEqNatZF0(R,cout);
     
@@ -253,11 +268,11 @@ dvariable Equilibrium_Calculator::calcEqMatureBiomassAtMatingF0(dvariable R, ost
  * @return equilibrium spawning biomass-at-mating 
  */
 dvariable Equilibrium_Calculator::calcEqMatureBiomassAtMatingFM(dvariable R, dvariable dirF, ostream& cout){
+    RETURN_ARRAYS_INCREMENT();
     if (debug) {
         cout<<"starting Equilibrium_Calculator::calcEqMatureBiomassAtMatingFM(double R, double dirF)"<<endl;
         cout<<"R = "<<R<<". dirF = "<<dirF<<endl;
     }
-    RETURN_ARRAYS_INCREMENT();
     //calculate equilibrium size distribution on July 1
     dvar3_array n_msz = calcEqNatZFM(R,dirF,cout);
     
@@ -314,6 +329,14 @@ dvariable Equilibrium_Calculator::calcEqMatureBiomassAtMatingFM(dvariable R, dva
  */
 Tier3_Calculator::Tier3_Calculator(double XXp, Equilibrium_Calculator* pECp) : Tier_Calculator(pECp) {
     XX   = XXp;
+}
+/**
+ * Copy constructor.
+ * 
+ * @params o - Tier3_Calculator object
+ */
+Tier3_Calculator::Tier3_Calculator(const Tier3_Calculator& o): Tier_Calculator(o.pEC) {
+    XX   = o.XX;
 }
 
 /**
@@ -429,13 +452,31 @@ dvariable Tier3_Calculator::calcFmsy(dvariable R, ostream& cout){
 /**
  * Constructor.
  * 
- * @param pTCM - pointer to a Tier_Calculator object for males
- * @param pTCF - pointer to a Tier_Calculator object for females
+ * @param pTCM - pointer to a Tier3_Calculator object for males
+ * @param pTCF - pointer to a Tier3_Calculator object for females
  */
-OFL_Calculator::OFL_Calculator(Tier_Calculator* pTCMp, Tier_Calculator* pTCFp){
+OFL_Calculator::OFL_Calculator(Tier3_Calculator* pTCMp, Tier3_Calculator* pTCFp){
+    tier = 3;
     //inputs
-    pTCM = pTCMp;
-    pTCF = pTCFp;
+    pTCM = new Tier3_Calculator(*pTCMp);
+    pTCF = new Tier3_Calculator(*pTCFp);
+    
+    //other constants
+    alpha = 0.1; 
+    beta  = 0.25;
+}
+
+/**
+ * Copy constructor.
+ * 
+ * @param o - OFL_Calculator object
+ */
+OFL_Calculator::OFL_Calculator(const OFL_Calculator& o){
+    tier = o.tier;
+    if (tier==3){
+        pTCM = new Tier3_Calculator(*(static_cast<Tier3_Calculator*>(o.pTCM)));
+        pTCF = new Tier3_Calculator(*(static_cast<Tier3_Calculator*>(o.pTCF)));
+    }
     
     //other constants
     alpha = 0.1; 
@@ -487,12 +528,12 @@ dvariable OFL_Calculator::calcHCR(dvariable currMMB, dvariable Bmsy, dvariable F
  * @return Fofl
  */
 dvariable OFL_Calculator::calcFofl(dvariable Bmsy, dvariable Fmsy, dvar3_array& n_msz, ostream& cout){
+    RETURN_ARRAYS_INCREMENT();
     if (debug) {
         cout<<"starting double OFL_Calculator::calcFofl(Bmsy, Fmsy,n_msz)"<<endl;
         cout<<"Bmsy = "<<Bmsy<<"; Fmsy = "<<Fmsy<<endl;
         cout<<"n_msz = "<<endl;wts::print(n_msz,cout,1); cout<<endl;        
     }
-    RETURN_ARRAYS_INCREMENT();
     
     PopProjector* pPrjM = pTCM->pEC->pPP;
     
@@ -540,11 +581,11 @@ dvariable OFL_Calculator::calcFofl(dvariable Bmsy, dvariable Fmsy, dvar3_array& 
  * @return the MSY
  */
 dvariable OFL_Calculator::calcMSY(dvar_vector R_x, dvariable Fmsy, ostream& cout){
+    RETURN_ARRAYS_INCREMENT();
     if (debug) {
         cout<<"starting double OFL_Calculator::calcMSY(R_x,Fmsy)"<<endl;
         cout<<"R_x = "<<R_x<<tb<<"Fmsy = "<<Fmsy<<endl;
     }
-    RETURN_ARRAYS_INCREMENT();
     int nFsh = pTCM->pEC->pPP->nFsh;
     if (debug) cout<<"nFsh = "<<nFsh<<endl;
     
@@ -679,11 +720,11 @@ dvariable OFL_Calculator::calcOFL(dvariable Fofl, dvar4_array& n_xmsz, ostream& 
  * @return - the (projected) MMB
  */
 dvariable OFL_Calculator::calcPrjMMB(dvariable Fofl, dvar3_array& n_msz, ostream& cout){
+    RETURN_ARRAYS_INCREMENT();
     if (debug) {
         cout<<"starting dvariable OFL_Calculator::calcPrjMMB(Fofl,n_msz)"<<endl;
         cout<<"Fofl = "<<Fofl<<endl;
     }
-    RETURN_ARRAYS_INCREMENT();
     PopProjector* pPrjM = pTCM->pEC->pPP;
     dvariable mmb = pPrjM->projectMatureBiomassAtMating(Fofl,n_msz,cout);
     if (debug) {
@@ -715,11 +756,11 @@ OFLResults* OFL_Calculator::calcOFLResults(dvar_vector R, dvar4_array& n_xmsz, o
                                 1,tcsam::nSCs,
                                 1,pTCM->pEC->pPP->nZBs);
     res->finlNatZ_xmsz = n_xmsz;
-    res->pPDIM = pTCM->pEC->pPP->pPI;
-    res->pCIM  = pTCM->pEC->pPP->pCI;
+    res->pPDIM = new PopDyInfo(*(pTCM->pEC->pPP->pPI));
+    res->pCIM  = new CatchInfo(*(pTCM->pEC->pPP->pCI));
     if (tcsam::nSXs>1){
-        res->pPDIF = pTCF->pEC->pPP->pPI;
-        res->pCIF  = pTCF->pEC->pPP->pCI;
+        res->pPDIF = new PopDyInfo(*(pTCF->pEC->pPP->pPI));
+        res->pCIF  = new CatchInfo(*(pTCF->pEC->pPP->pCI));
     }
     res->curB     = pTCM->pEC->pPP->pPI->calcMatureBiomass(n_xmsz(MALE),cout);
     if (debug) cout<<"calcOFLResults: calculated curB"<<endl;
@@ -736,6 +777,7 @@ OFLResults* OFL_Calculator::calcOFLResults(dvar_vector R, dvar4_array& n_xmsz, o
     }
             
     res->Fmsy = pTCM->calcFmsy(R(MALE),cout);//also calculates B0 and Bmsy
+    if (debug) cout<<"calcOFLResults: calculated Fmsy"<<endl;
     res->B0   = pTCM->B0;
     res->Bmsy = pTCM->Bmsy;
     res->MSY  = calcMSY(R,res->Fmsy,cout);
@@ -770,6 +812,9 @@ OFLResults* OFL_Calculator::calcOFLResults(dvar_vector R, dvar4_array& n_xmsz, o
 ////////////////////////////////////////////////////////////////////////////////
 //OFLResults
 ////////////////////////////////////////////////////////////////////////////////
+/**
+ * Class constructor.
+ */
 OFLResults::OFLResults(){
     pPDIM=0;
     pPDIF=0;
@@ -777,15 +822,42 @@ OFLResults::OFLResults(){
     pCIF=0;
 }
 
-OFLResults::~OFLResults(){
-    std::cout<<"Deleting OFLResults object."<<endl;
-    if (pPDIM) delete(pPDIM); pPDIM=0;
-    if (pPDIF) delete(pPDIF); pPDIF=0;
-    if (pCIM)  delete(pCIM);  pCIM=0;
-    if (pCIF)  delete(pCIF);  pCIF=0;
-    std::cout<<"Deleted OFLResults object."<<endl;
+/**
+ * Copy constructor.
+ * 
+ * @param o - OFLResults object
+ */
+OFLResults::OFLResults(const OFLResults& o){
+    if (debug) std::cout<<"starting OFLResults::OFLResults(const OFLResults&)"<<endl;
+    avgRec_x = 1.0*o.avgRec_x;//average recruitment, by sex
+    B0       = 1.0*o.B0;      //equilibrium MMB for unfished population
+    Fmsy     = 1.0*o.Fmsy;    //equilibrium F on directed fishery for males resulting in MSY
+    Bmsy     = 1.0*o.Bmsy;    //equilibrium MMB when fished at Fmsy 
+    MSY      = 1.0*o.MSY;     //equilibrium yield (1000's t) when fished at Fmsy
+    Fofl     = 1.0*o.Fofl;    //F on directed fishery for males resulting in the OFL
+    OFL      = 1.0*o.OFL;     //total OFL (1000's t)
+    ofl_fx   = 1.0*o.ofl_fx;  //fishery/sex-specific mortality components to OFL (f=0 is retained catch, f>0 is total catch mortality)
+    prjB     = 1.0*o.prjB;    //projected MMB for projection year when current population is fished at Fofl.
+    curB     = 1.0*o.curB;    //"current" MMB at beginning of projection year
+    finlNatZ_xmsz.deallocate(); //final pop state in assessment model
+    finlNatZ_xmsz.allocate(o.finlNatZ_xmsz);
+    if (debug) std::cout<<"got here 0"<<endl;
+    eqNatZF0_xmsz.deallocate(); //unfished equilibrium size distribution
+    eqNatZF0_xmsz.allocate(o.eqNatZF0_xmsz);
+    if (debug) std::cout<<"got here 1"<<endl;
+    eqNatZF0_xmsz = o.eqNatZF0_xmsz;
+    eqNatZFM_xmsz.deallocate(); //unfished equilibrium size distribution
+    eqNatZFM_xmsz.allocate(o.eqNatZF0_xmsz);
+    if (debug) std::cout<<"got here 2"<<endl;
+    for (int x=1;x<=tcsam::nSXs;x++) eqNatZFM_xmsz(x) = 1.0*o.eqNatZF0_xmsz(x);
+    
+    pPDIM = new PopDyInfo(*(o.pPDIM));
+    pPDIF = new PopDyInfo(*(o.pPDIF));
+    pCIM  = new CatchInfo(*(o.pCIM));
+    pCIF  = new CatchInfo(*(o.pCIF));
+    
+    if (debug) std::cout<<"finished OFLResults::OFLResults(const OFLResults&)"<<endl;
 }
-
 /**
  * Assignment operator for OFLResults class.
  * 
@@ -816,13 +888,20 @@ OFLResults& OFLResults::operator=(const OFLResults& o){
     if (debug) std::cout<<"got here 2"<<endl;
     for (int x=1;x<=tcsam::nSXs;x++) eqNatZFM_xmsz(x) = 1.0*o.eqNatZF0_xmsz(x);
     
-    pPDIM = o.pPDIM;
-    pPDIF = o.pPDIF;
-    pCIM  = o.pCIM;
-    pCIF  = o.pCIF;
+    pPDIM = new PopDyInfo(*(o.pPDIM));
+    pPDIF = new PopDyInfo(*(o.pPDIF));
+    pCIM  = new CatchInfo(*(o.pCIM));
+    pCIF  = new CatchInfo(*(o.pCIF));
     
     if (debug) std::cout<<"finished OFLResults::operator=(const OFLResults&)"<<endl;
     return *this;
+}
+/** 
+ * Class destructor.
+ * */
+OFLResults::~OFLResults(){
+    delete pPDIM; if (pPDIF) delete pPDIF;
+    delete pCIM;  if (pCIF)  delete pCIF;
 }
 /**
  * Write csv header for OFL results to output stream.

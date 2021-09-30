@@ -30,7 +30,15 @@ class Equilibrium_Calculator {
          */
         Equilibrium_Calculator(PopProjector* pPPp);
         /**
+         * Copy constructor.
+         * 
+         * @param o - Equilibrium_Calculator object 
+         */
+        Equilibrium_Calculator(const Equilibrium_Calculator& o);
+        /**
          * Class destructor.
+         * Does NOT delete the pointer passed in at creation via the class constructor. 
+         * That is the user's responsibility.
          */
         ~Equilibrium_Calculator(){delete pPP;}
         /**
@@ -110,13 +118,19 @@ class Tier_Calculator {
         
     public:
         /**
+         * Default class constructor.
+         */
+        Tier_Calculator(){pEC = 0;}
+        /**
          * Class constructor.
          * 
          * @param pEC - pointer to Equilibrium_Calculator object
          */
-        Tier_Calculator(Equilibrium_Calculator* pECp){pEC = pECp;}
+        Tier_Calculator(Equilibrium_Calculator* pECp){pEC = new Equilibrium_Calculator(*pECp);}
         /**
          * Class destructor.
+         * Does NOT delete the pointer passed in at creation. 
+         * That is the user's responsibility.
          */
         virtual ~Tier_Calculator(){delete pEC;}
         /**
@@ -171,7 +185,15 @@ class Tier3_Calculator : public Tier_Calculator {
          */
         Tier3_Calculator(double XX, Equilibrium_Calculator* pECp);
         /**
+         * Copy constructor.
+         * 
+         * @params o - Tier3_Calculator object
+         */
+        Tier3_Calculator(const Tier3_Calculator& o);
+        /**
          * Class destructor (calls superclass destructor).
+         * Does NOT delete the pointer passed in at creation. 
+         * That is the user's responsibility.
          */
         ~Tier3_Calculator(){}
         /**
@@ -268,7 +290,13 @@ class OFLResults {
     public:
         /** constructor */
         OFLResults();
-        /** destructor */
+        /** copy constructor */
+        OFLResults(const OFLResults& o);
+        /** 
+         * Class destructor.
+         * Does NOT delete the pointers passed in at creation. 
+         * That is the user's responsibility.
+         * */
         ~OFLResults();
         
     public:
@@ -327,12 +355,20 @@ class OFL_Calculator{
         /**
          * Constructor.
          * 
-         * @param pTCM - pointer to a Tier_Calculator object for males
-         * @param pTCF - pointer to a Tier_Calculator object for females
+         * @param pTCM - pointer to a Tier3_Calculator object for males
+         * @param pTCF - pointer to a Tier3_Calculator object for females
          */
-        OFL_Calculator(Tier_Calculator* pTCMp, Tier_Calculator* pTCFp);
+        OFL_Calculator(Tier3_Calculator* pTCMp, Tier3_Calculator* pTCFp);
+        /**
+         * Copy constructor.
+         * 
+         * @param o - OFL_Calculator object
+         */
+        OFL_Calculator(const OFL_Calculator& o);
         /**
          * Class destructor.
+         * Does NOT delete the pointers passed in at creation. 
+         * That is the user's responsibility.
          */
         ~OFL_Calculator(){delete pTCM; delete pTCF;}
         /**
