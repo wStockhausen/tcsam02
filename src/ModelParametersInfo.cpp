@@ -1272,11 +1272,11 @@ const adstring InitialNatZInfo::NAME = "initialNatZ";
 /*------------------------------------------------------------------------------
  * InitialNatZInfo\n
  * Encapsulates the following parameters related to initial numbers-at-size:\n
- *   pIniRec   : ln-scale number for base sex/maturity/hell condition/size class
- *   pvInitNatZ: ln-scale offset for numbers-at-size in remaining sex/maturity/hell condition/size classes
+ *   pLnBaseInitN   : ln-scale number for base sex/maturity/hell condition/size class
+ *   pvLnInitNatZ: ln-scale offset for numbers-at-size in remaining sex/maturity/hell condition/size classes
  *
  * Notes:
- *  1. SEX, MATURITY_STATE, SHELL_CONDITION, SIZE are the index variables for pvInitNatZ
+ *  1. SEX, MATURITY_STATE, SHELL_CONDITION, SIZE are the index variables for pvLnInitNatZ
  * 
 *----------------------------------------------------------------------------*/
 InitialNatZInfo::InitialNatZInfo(){
@@ -1301,11 +1301,11 @@ InitialNatZInfo::InitialNatZInfo(){
     ParameterGroupInfo::nPVs=2;
     lblPVs.allocate(1,nPVs); dscPVs.allocate(1,nPVs);
     k=1;
-    lblPVs(k) = "pIniRec";     dscPVs(k++) = "base N-at-Z";
-    lblPVs(k) = "pvInitNatZ";  dscPVs(k++) = "ln-scale initial N-at-Z offsets";
+    lblPVs(k) = "pLnBaseInitN";     dscPVs(k++) = "base N-at-Z";
+    lblPVs(k) = "pvLnInitNatZ";  dscPVs(k++) = "ln-scale initial N-at-Z offsets";
     k=1;
-    pIniRec     = new BoundedNumberVectorInfo(lblPVs(k++));
-    pvInitNatZ  = new BoundedVectorVectorInfo(lblPVs(k++)); 
+    pLnBaseInitN     = new BoundedNumberVectorInfo(lblPVs(k++));
+    pvLnInitNatZ  = new BoundedVectorVectorInfo(lblPVs(k++)); 
     
     //create "extra indices"
     ParameterGroupInfo::nXIs=0;
@@ -1314,8 +1314,8 @@ InitialNatZInfo::InitialNatZInfo(){
 }
 
 InitialNatZInfo::~InitialNatZInfo(){
-    if (pIniRec)     delete pIniRec;     pIniRec=0;
-    if (pvInitNatZ)  delete pvInitNatZ;  pvInitNatZ=0;
+    if (pLnBaseInitN)     delete pLnBaseInitN;     pLnBaseInitN=0;
+    if (pvLnInitNatZ)  delete pvLnInitNatZ;  pvLnInitNatZ=0;
 }
 
 void InitialNatZInfo::read(cifstream & is){
@@ -1336,10 +1336,10 @@ void InitialNatZInfo::read(cifstream & is){
         rpt::echo<<str<<tb<<"#Required keyword (PARAMETERS)"<<endl;
         if (str=="PARAMETERS"){
             int k=1;
-            pIniRec     = ParameterGroupInfo::read(is,lblPVs(k),pIniRec);     
-            rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pIniRec)<<endl;  k++;
-            pvInitNatZ = ParameterGroupInfo::read(is,lblPVs(k),pvInitNatZ); 
-            rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pvInitNatZ)<<endl;  k++;
+            pLnBaseInitN     = ParameterGroupInfo::read(is,lblPVs(k),pLnBaseInitN);     
+            rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pLnBaseInitN)<<endl;  k++;
+            pvLnInitNatZ = ParameterGroupInfo::read(is,lblPVs(k),pvLnInitNatZ); 
+            rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pvLnInitNatZ)<<endl;  k++;
         } else {
             cout<<"Error reading InitialNatZInfo from "<<is.get_file_name()<<endl;
             cout<<"Expected keyword 'PARAMETERS' but got '"<<str<<"'."<<endl;
@@ -1364,9 +1364,9 @@ void InitialNatZInfo::read(cifstream & is){
  * @param flag - true/false to set to write estimation phases to file
  */
 void InitialNatZInfo::setToWriteVectorEstimationPhases(bool flag){
-    if (pvInitNatZ){
-        for (int i=1;i<=pvInitNatZ->getSize();i++){
-            VectorInfo* vi = (*pvInitNatZ)[i];
+    if (pvLnInitNatZ){
+        for (int i=1;i<=pvLnInitNatZ->getSize();i++){
+            VectorInfo* vi = (*pvLnInitNatZ)[i];
             vi->readPhases = flag ? INT_TRUE : INT_FALSE;        
         }
     }
@@ -1379,9 +1379,9 @@ void InitialNatZInfo::setToWriteVectorEstimationPhases(bool flag){
  * @param flag - true/false to set to write initial values to file
  */
 void InitialNatZInfo::setToWriteVectorInitialValues(bool flag){
-    if (pvInitNatZ){
-        for (int i=1;i<=pvInitNatZ->getSize();i++){
-            BoundedVectorInfo* vi = (*pvInitNatZ)[i];
+    if (pvLnInitNatZ){
+        for (int i=1;i<=pvLnInitNatZ->getSize();i++){
+            BoundedVectorInfo* vi = (*pvLnInitNatZ)[i];
             vi->readVals = flag ? INT_TRUE : INT_FALSE;        
         }
     }
@@ -1396,20 +1396,20 @@ void InitialNatZInfo::write(std::ostream & os){
 
         int k=1;
         os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
-        os<<(*pIniRec)<<endl;
+        os<<(*pLnBaseInitN)<<endl;
         os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
-        os<<(*pvInitNatZ)<<endl;
+        os<<(*pvLnInitNatZ)<<endl;
     }//nPCs>0
  }
 
 void InitialNatZInfo::writeToPin(std::ostream & os){
     os<<"#--initial N-at-Z parameters"<<endl;
     if (nPCs>0){
-        pIniRec->writeToPin(os);
-        pvInitNatZ->writeToPin(os);
+        pLnBaseInitN->writeToPin(os);
+        pvLnInitNatZ->writeToPin(os);
     } else {
-        os<<"#pIniRec"<<endl<<0.0<<endl;
-        os<<"#pvInitNatZ"<<endl<<0.0<<endl;
+        os<<"#pLnBaseInitN"<<endl<<0.0<<endl;
+        os<<"#pvLnInitNatZ"<<endl<<0.0<<endl;
     }
 }
 
@@ -1419,8 +1419,8 @@ void InitialNatZInfo::writeToR(std::ostream & os){
         ParameterGroupInfo::writeToR(os);
         if (nPCs>0) {
             os<<cc<<endl;
-            pIniRec->writeToR(os, "pIniRec", indent++); os<<cc<<endl;
-            pvInitNatZ->writeToR(os,"pvInitNatZ",indent++); os<<endl;
+            pLnBaseInitN->writeToR(os, "pLnBaseInitN", indent++); os<<cc<<endl;
+            pvLnInitNatZ->writeToR(os,"pvLnInitNatZ",indent++); os<<endl;
         }
     os<<")";
 }

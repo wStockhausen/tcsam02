@@ -459,12 +459,12 @@ class RecruitmentInfo: public ParameterGroupInfo {
 /*------------------------------------------------------------------------------
  * InitialNatZInfo\n
  * Encapsulates the following parameters related to initial numbers-at-size:\n
- *   pIniRec     : log-scale initial recruitment (numbers in base size class)
- *   pvInitNatZ  : log-scale offset numbers-at-size
+ *   pLnBaseInitN     : log-scale initial recruitment (numbers in base size class)
+ *   pvLnInitNatZ  : log-scale offset numbers-at-size
  * Notes:
  * Notes:
  * <ol type="1">
- *  <li> index variables for pvInitNatZ
+ *  <li> index variables for pvLnInitNatZ
  *    <ol type="a">
  *      <li> SEX
  *      <li> MATURITY
@@ -481,9 +481,9 @@ class InitialNatZInfo : public ParameterGroupInfo {
         const static adstring NAME;//"initialNatZ"
     public:
         /** ln-scale numbers in base sex/maturity/shell condition/size class ("initial" recruitment) */
-        BoundedNumberVectorInfo* pIniRec;
+        BoundedNumberVectorInfo* pLnBaseInitN;
         /** ln-scale offset for numbers-at-size in other sex/maturity/shell condition/size classes */
-        BoundedVectorVectorInfo* pvInitNatZ;
+        BoundedVectorVectorInfo* pvLnInitNatZ;
         
         InitialNatZInfo();
         ~InitialNatZInfo();

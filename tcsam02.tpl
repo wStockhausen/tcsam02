@@ -705,6 +705,8 @@
 //              3. Updated ModelParametersInfo version to 2022.04.10.
 //              4. Updated tcsam02 version to 2022.04.10.
 //-2022-04-12:  1. Completed ability to estimate initial N's at size as parameters.
+//              2. Changed parameter names from pIniRec, pInitNatZ to pLnBaseInitN, pvLnInitNatZ
+//                   to better reflect parameter values.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -1588,25 +1590,25 @@ DATA_SECTION
  END_CALCS    
     
     //initial N-at-Z parameters
-    int npIniRec; ivector phsIniRec; vector lbIniRec; vector ubIniRec;
-    !!tcsam::setParameterInfo(ptrMPI->ptrINs->pIniRec,npIniRec,lbIniRec,ubIniRec,phsIniRec,rpt::echo);
+    int npLnBaseInitN; ivector phsLnBaseInitN; vector lbLnBaseInitN; vector ubLnBaseInitN;
+    !!tcsam::setParameterInfo(ptrMPI->ptrINs->pLnBaseInitN,npLnBaseInitN,lbLnBaseInitN,ubLnBaseInitN,phsLnBaseInitN,rpt::echo);
     
-    int npInitNatZ; int nptInitNatZ;
-    ivector mniInitNatZ; ivector mxiInitNatZ; imatrix idxsInitNatZ;
-    vector lbInitNatZ; vector ubInitNatZ; ivector phsInitNatZ;
-    !!tcsam::setParameterInfo(ptrMPI->ptrINs->pvInitNatZ,npInitNatZ,nptInitNatZ,mniInitNatZ,mxiInitNatZ,idxsInitNatZ,lbInitNatZ,ubInitNatZ,phsInitNatZ,rpt::echo);
+    int npLnInitNatZ; int nptLnInitNatZ;
+    ivector mniLnInitNatZ; ivector mxiLnInitNatZ; imatrix idxsLnInitNatZ;
+    vector lbLnInitNatZ; vector ubLnInitNatZ; ivector phsLnInitNatZ;
+    !!tcsam::setParameterInfo(ptrMPI->ptrINs->pvLnInitNatZ,npLnInitNatZ,nptLnInitNatZ,mniLnInitNatZ,mxiLnInitNatZ,idxsLnInitNatZ,lbLnInitNatZ,ubLnInitNatZ,phsLnInitNatZ,rpt::echo);
  LOCAL_CALCS
-    if (ptrMPI->ptrINs->pvInitNatZ->getSize()>0){
-        phsInitNatZ[1] = -1;//--make sure estimation of first element is turned off (otherwise it's confounded with pIniRec)
-        rpt::echo<<"phsInitNatZ = "<<phsInitNatZ<<endl;
-        rpt::echo<<"idxsInitNatZ"<<endl<<idxsInitNatZ<<endl;
-        for (int i=1;i<=npInitNatZ;i++) rpt::echo<<"fwdIndices["<<i<<"] = "<<(*(ptrMPI->ptrINs->pvInitNatZ))[i]->getFwdIndices()<<endl;
+    if (ptrMPI->ptrINs->pvLnInitNatZ->getSize()>0){
+        phsLnInitNatZ[1] = -1;//--make sure estimation of first element is turned off (otherwise it's confounded with pLnBaseInitN)
+        rpt::echo<<"phsLnInitNatZ = "<<phsLnInitNatZ<<endl;
+        rpt::echo<<"idxsLnInitNatZ"<<endl<<idxsLnInitNatZ<<endl;
+        for (int i=1;i<=npLnInitNatZ;i++) rpt::echo<<"fwdIndices["<<i<<"] = "<<(*(ptrMPI->ptrINs->pvLnInitNatZ))[i]->getFwdIndices()<<endl;
     }
  END_CALCS
  LOCAL_CALCS    
     if (mseOpModMode) {
-        phsIniRec = -1;
-        phsInitNatZ = -1;
+        phsLnBaseInitN = -1;
+        phsLnInitNatZ = -1;
     }
  END_CALCS    
     
@@ -2053,20 +2055,20 @@ PARAMETER_SECTION
     !!PRINT2B1("got past recruitment parameters")
    
     //initial N-at-Z parameters
-    init_bounded_number_vector pIniRec(1,npIniRec,lbIniRec,ubIniRec,phsIniRec);    //base ln-scale initial N-at-Z
-    !!PRINT2B2("pIniRec = ",pIniRec)
+    init_bounded_number_vector pLnBaseInitN(1,npLnBaseInitN,lbLnBaseInitN,ubLnBaseInitN,phsLnBaseInitN);    //base ln-scale initial N-at-Z
+    !!PRINT2B2("pLnBaseInitN = ",pLnBaseInitN)
  LOCAL_CALCS
-    if (ptrMPI->ptrINs->pvInitNatZ->getSize()>0){
-        PRINT2B2("npInitNatZ  = ",npInitNatZ)
-        PRINT2B2("nptInitNatZ = ",nptInitNatZ)
-        PRINT2B2("lbInitNatZ  = ",lbInitNatZ)
-        PRINT2B2("ubInitNatZ  = ",ubInitNatZ)
-        PRINT2B2("phsInitNatZ = ",phsInitNatZ)
+    if (ptrMPI->ptrINs->pvLnInitNatZ->getSize()>0){
+        PRINT2B2("npLnInitNatZ  = ",npLnInitNatZ)
+        PRINT2B2("nptLnInitNatZ = ",nptLnInitNatZ)
+        PRINT2B2("lbLnInitNatZ  = ",lbLnInitNatZ)
+        PRINT2B2("ubLnInitNatZ  = ",ubLnInitNatZ)
+        PRINT2B2("phsLnInitNatZ = ",phsLnInitNatZ)
     }
  END_CALCS
-    init_bounded_number_vector pvInitNatZ(1,nptInitNatZ,lbInitNatZ,ubInitNatZ,phsInitNatZ);//ln-scale N-at-Z offsets
-    !!PRINTVV("pvInitNatZ",InitNatZ)
-    matrix matInitNatZ(1,npInitNatZ,mniInitNatZ,mxiInitNatZ);
+    init_bounded_number_vector pvLnInitNatZ(1,nptLnInitNatZ,lbLnInitNatZ,ubLnInitNatZ,phsLnInitNatZ);//ln-scale N-at-Z offsets
+    !!PRINTVV("pvLnInitNatZ",LnInitNatZ)
+    matrix matLnInitNatZ(1,npLnInitNatZ,mniLnInitNatZ,mxiLnInitNatZ);
     !!PRINT2B1("got past inital N-at-Z parameters")
    
     //natural mortality parameters
@@ -2493,10 +2495,10 @@ PRELIMINARY_CALCS_SECTION
     }
 
     if (ptrMOs->optInitNatZ==3){
-        //re-initialize pIniRec and pvInitNatZ based on equilibrium calculations
+        //re-initialize pLnBaseInitN and pvLnInitNatZ based on equilibrium calculations
         int dbgLevel = 0;
         PRINT2B1(" ")
-        PRINT2B1("--re-initialize pIniRec and pvInitNatZ based on equilibrium calculations")
+        PRINT2B1("--re-initialize pLnBaseInitN and pvLnInitNatZ based on equilibrium calculations")
         PRINT2B1("----setting VectorVector values:")
         setAllVectorVectors(dbgLevel,rpt::echo);
         PRINT2B1("----testing calcRecruitment():")
@@ -2528,11 +2530,11 @@ PRELIMINARY_CALCS_SECTION
         PRINT2B1("----testing calcEqNatZF100:")
         calcEqNatZF100(avgRec, mnYr, dbgLevel+100, rpt::echo);//--calculate n_xmsz
         
-        //update pIniRec and ptrMPI->ptrINs->pIniRec
-        pIniRec[1] = log(n_xmsz(1,1,1,1));//--only one element to update
-        ptrMPI->ptrINs->pIniRec->setInitValsFromParamVals(pIniRec);
+        //update pLnBaseInitN and ptrMPI->ptrINs->pLnBaseInitN
+        pLnBaseInitN[1] = log(n_xmsz(1,1,1,1));//--only one element to update
+        ptrMPI->ptrINs->pLnBaseInitN->setInitValsFromParamVals(pLnBaseInitN);
         
-        //update pvInitNatZ and ptrMPI->ptrINs->pvInitNatZ
+        //update pvLnInitNatZ and ptrMPI->ptrINs->pvLnInitNatZ
         //--find bounds on size indices from non-zero elements of n_xmsz
         i3_array lb(1,nSXs,1,nMSs,1,nSCs);
         i3_array ub(1,nSXs,1,nMSs,1,nSCs);
@@ -2560,16 +2562,16 @@ PRELIMINARY_CALCS_SECTION
             }
         }
         rpt::echo<<"nPCs = "<<nPCs<<tb<<"nPTs = "<<nPTs<<endl;
-        if (nPCs!=npInitNatZ){
-            PRINT2B1("--ERROR INITIALIZING NUMBER AT SIZE: nPCs!=npInitNatZ--")
+        if (nPCs!=npLnInitNatZ){
+            PRINT2B1("--ERROR INITIALIZING NUMBER AT SIZE: nPCs!=npLnInitNatZ--")
             PRINT2B2("nPCs = ",nPCs)
-            PRINT2B2("npInitNatZ = ",npInitNatZ)
+            PRINT2B2("npLnInitNatZ = ",npLnInitNatZ)
             exit(-1);
         }
-        if (nPTs!=nptInitNatZ){
-            PRINT2B1("--ERROR INITIALIZING NUMBER AT SIZE: nPTs!=nptInitNatZ--")
+        if (nPTs!=nptLnInitNatZ){
+            PRINT2B1("--ERROR INITIALIZING NUMBER AT SIZE: nPTs!=nptLnInitNatZ--")
             PRINT2B2("nPTs = ",nPTs)
-            PRINT2B2("nptInitNatZ = ",nptInitNatZ)
+            PRINT2B2("nptLnInitNatZ = ",nptLnInitNatZ)
             exit(-1);
         }
         ivector lbv(1,nPCs);
@@ -2583,46 +2585,46 @@ PRELIMINARY_CALCS_SECTION
             }
         }
         ivector mxi = ubv-lbv+1;
-        if (sum(wts::abs(mxi-mxiInitNatZ))){
+        if (sum(wts::abs(mxi-mxiLnInitNatZ))){
             PRINT2B1("--ERROR INITIALIZING NUMBER AT SIZE: indices mismatch--")
             PRINT2B2("revised mxi = ",mxi)
-            PRINT2B2("mniInitNatZ = ",mniInitNatZ)
-            PRINT2B2("mxiInitNatZ = ",mxiInitNatZ)
+            PRINT2B2("mniLnInitNatZ = ",mniLnInitNatZ)
+            PRINT2B2("mxiLnInitNatZ = ",mxiLnInitNatZ)
             exit(-1);
         }
         int ip = 0; iPC=0;
-        rpt::echo<<"ip"<<tb<<"x"<<tb<<"m"<<tb<<"s"<<tb<<"n_xmsz"<<tb<<"lb"<<tb<<"ub"<<tb<<"pvInitNatZ(ip)"<<endl;
+        rpt::echo<<"ip"<<tb<<"x"<<tb<<"m"<<tb<<"s"<<tb<<"n_xmsz"<<tb<<"lb"<<tb<<"ub"<<tb<<"pvLnInitNatZ(ip)"<<endl;
         for (int x=1;x<=nSXs;x++){
             for (int m=1;m<=nMSs;m++){
                 for (int s=1;s<=nSCs;s++){
                     if (lb(x,m,s)>0) {
                         iPC++;
                         for (int z=lbv(iPC);z<=ubv(iPC);z++) {
-                            pvInitNatZ(++ip) = log(n_xmsz(x,m,s,z))-pIniRec[1];
-                            rpt::echo<<ip<<tb<<x<<tb<<m<<tb<<s<<tb<<n_xmsz(x,m,s,z)<<tb<<lb(x,m,s)<<tb<<ub(x,m,s)<<tb<<pvInitNatZ(ip)<<endl;
+                            pvLnInitNatZ(++ip) = log(n_xmsz(x,m,s,z))-pLnBaseInitN[1];
+                            rpt::echo<<ip<<tb<<x<<tb<<m<<tb<<s<<tb<<n_xmsz(x,m,s,z)<<tb<<lb(x,m,s)<<tb<<ub(x,m,s)<<tb<<pvLnInitNatZ(ip)<<endl;
                         }
                     }
                 }
             }
         }
         int ctr = 1;
-        for (int i=1;i<=npInitNatZ;i++) {
-            BoundedVectorInfo* ptrI = static_cast<BoundedVectorInfo*>((*ptrMPI->ptrINs->pvInitNatZ)[i]);
+        for (int i=1;i<=npLnInitNatZ;i++) {
+            BoundedVectorInfo* ptrI = static_cast<BoundedVectorInfo*>((*ptrMPI->ptrINs->pvLnInitNatZ)[i]);
             dvector pnvls(1,mxi(i));                       //initial values on parameter scale from pin file
-            for (int j=1;j<=mxi(i);j++) pnvls(j) = value(pvInitNatZ(ctr++));
+            for (int j=1;j<=mxi(i);j++) pnvls(j) = value(pvLnInitNatZ(ctr++));
             ptrI->setInitValsFromParamVals(pnvls);              //set final initial values from param vals
             rpt::echo<<tb<<"param      inits : "<<pnvls<<endl;
             rpt::echo<<tb<<"final arith inits: "<<ptrI->getInitVals()<<endl;//final initial values on arithmetic scale from parameter info
             ctr=ctr-mxi(i);//reset counter to start of current devs vector
-            rpt::echo<<tb<<"final param inits: "; for (int j=1;j<=mxi(i);j++) rpt::echo<<pvInitNatZ(ctr++)<<tb; rpt::echo<<endl;//final initial values on parameter scale from parameter info
+            rpt::echo<<tb<<"final param inits: "; for (int j=1;j<=mxi(i);j++) rpt::echo<<pvLnInitNatZ(ctr++)<<tb; rpt::echo<<endl;//final initial values on parameter scale from parameter info
         }
-        tcsam::setBoundedVectorVector(matInitNatZ,pvInitNatZ,ptrMPI->ptrINs->pvInitNatZ,dbgAll,rpt::echo);
+        tcsam::setBoundedVectorVector(matLnInitNatZ,pvLnInitNatZ,ptrMPI->ptrINs->pvLnInitNatZ,dbgAll,rpt::echo);
         dvariable tot = 0;
-        rpt::echo<<"matInitNatZ = "<<endl;
-        for (int i=1;i<=npInitNatZ;i++){
-            rpt::echo<<i<<" : "<<matInitNatZ(i)<<endl;
-            rpt::echo<<i<<" : "<<mfexp(matInitNatZ(i))<<endl;
-            tot += sum(mfexp(matInitNatZ(i)+pIniRec[1]));
+        rpt::echo<<"matLnInitNatZ = "<<endl;
+        for (int i=1;i<=npLnInitNatZ;i++){
+            rpt::echo<<i<<" : "<<matLnInitNatZ(i)<<endl;
+            rpt::echo<<i<<" : "<<mfexp(matLnInitNatZ(i))<<endl;
+            tot += sum(mfexp(matLnInitNatZ(i)+pLnBaseInitN[1]));
         }
         rpt::echo<<"total initial abundance = "<<tot<<endl;
         
@@ -2646,7 +2648,7 @@ PRELIMINARY_CALCS_SECTION
             }
         }
         rpt::echo<<"total initial abundance = "<<sum(n_xmsz)<<endl;
-        PRINT2B1("--finished re-initializing pIniRec and pvInitNatZ based on equilibrium calculations")
+        PRINT2B1("--finished re-initializing pLnBaseInitN and pvLnInitNatZ based on equilibrium calculations")
     }
     
     if (!mseMode){
@@ -3935,7 +3937,7 @@ FUNCTION void estimateInitialNatZ(int debug, ostream&cout)
     
     n_xmsz.initialize();//equilibrium n-at-z
     
-    dvar_vector ptIniRec  = ptrINs->pIniRec->calcArithScaleVals(pIniRec);
+    dvar_vector ptLnBaseInitN  = ptrINs->pLnBaseInitN->calcArithScaleVals(pLnBaseInitN);
     
     int k;
     for (int pc=1;pc<=ptrINs->nPCs;pc++){
@@ -3944,17 +3946,17 @@ FUNCTION void estimateInitialNatZ(int debug, ostream&cout)
         int m = pids[2];
         int s = pids[3];
         k=ptrINs->nIVs+1;//first parameter variable column in ParameterComnbinations
-        dvariable lnInitN = ptIniRec(pids[k++]);
+        dvariable lnInitN = ptLnBaseInitN(pids[k++]);
         
-        BoundedVectorInfo* pBVI = (*ptrINs->pvInitNatZ)[pids[k]];
-        dvar_vector vInitNatZ = pBVI->calcArithScaleVals(matInitNatZ(pids[k++]));
+        BoundedVectorInfo* pBVI = (*ptrINs->pvLnInitNatZ)[pids[k]];
+        dvar_vector vLnInitNatZ = pBVI->calcArithScaleVals(matLnInitNatZ(pids[k++]));
         ivector idxf = pBVI->getFwdIndices();//map indices to model size bins
         int imn = idxf.indexmin();
         int imx = idxf.indexmax();
         if (debug>dbgCalcProcs){
             cout<<"pc = "<<pc<<". x = "<<x<<". m = "<<m<<". s = "<<s<<endl;
             cout<<"imnz = "<<imn<<" imxz = "<<imx<<endl;
-            cout<<"vInitNatZ = "<<vInitNatZ<<endl;
+            cout<<"vLnInitNatZ = "<<vLnInitNatZ<<endl;
             cout<<"fwd indices = "<<idxf<<endl;
             ivector idxr = pBVI->getRevIndices();
             cout<<"rev indices min, max = "<<idxr.indexmin()<<cc<<idxr.indexmax()<<endl;
@@ -3964,7 +3966,7 @@ FUNCTION void estimateInitialNatZ(int debug, ostream&cout)
         int z;
         for (int i=imn;i<=imx;i++){
             z = idxf(i);
-            n_xmsz(x,m,s,z) = mfexp(vInitNatZ(i)+lnInitN);
+            n_xmsz(x,m,s,z) = mfexp(vLnInitNatZ(i)+lnInitN);
         }
     }
     if (debug>dbgCalcProcs){
@@ -9106,8 +9108,8 @@ FUNCTION void setInitVals(int debug, ostream& os)
     setInitVals(ptrMPI->ptrRec->pDevsLnR,pDevsLnR,usePin, debug, os);
 
     //initial numbers-at-size
-    setInitVals(ptrMPI->ptrINs->pIniRec, pIniRec, usePin, debug, os);
-    setInitVals(ptrMPI->ptrINs->pvInitNatZ,pvInitNatZ,usePin, debug, os);
+    setInitVals(ptrMPI->ptrINs->pLnBaseInitN, pLnBaseInitN, usePin, debug, os);
+    setInitVals(ptrMPI->ptrINs->pvLnInitNatZ,pvLnInitNatZ,usePin, debug, os);
     
     //natural mortality parameters
     setInitVals(ptrMPI->ptrNM->pM,   pM,   usePin, debug, os);
@@ -9180,8 +9182,8 @@ FUNCTION int checkParams(int debug, ostream& os)
     res += checkParams(ptrMPI->ptrRec->pDevsLnR,pDevsLnR,debug,os);
 
     //initial N-at-Z parameters
-    res += checkParams(ptrMPI->ptrINs->pIniRec, pIniRec, debug,os);
-    res += checkParams(ptrMPI->ptrINs->pvInitNatZ,pvInitNatZ,debug,os);
+    res += checkParams(ptrMPI->ptrINs->pLnBaseInitN, pLnBaseInitN, debug,os);
+    res += checkParams(ptrMPI->ptrINs->pvLnInitNatZ,pvLnInitNatZ,debug,os);
     
     //natural mortality parameters
     res += checkParams(ptrMPI->ptrNM->pM, pM, debug,os);
@@ -9425,8 +9427,8 @@ FUNCTION void writeMCMCtoR(ofstream& mcmc)
         writeMCMCtoR(mcmc,ptrMPI->ptrRec->pDevsLnR); mcmc<<cc<<endl;
 
         //initial N-at-Z values
-        writeMCMCtoR(mcmc,ptrMPI->ptrINs->pIniRec);    mcmc<<cc<<endl;
-        writeMCMCtoR(mcmc,ptrMPI->ptrINs->pvInitNatZ); mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrINs->pLnBaseInitN);    mcmc<<cc<<endl;
+        writeMCMCtoR(mcmc,ptrMPI->ptrINs->pvLnInitNatZ); mcmc<<cc<<endl;
         
         //natural mortality parameters
         writeMCMCtoR(mcmc,ptrMPI->ptrNM->pM);   mcmc<<cc<<endl;
@@ -9918,8 +9920,8 @@ FUNCTION void setAllVectorVectors(int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"setDevsVectorVector() for pDevsLnR"<<endl;
     tcsam::setDevsVectorVector(devsLnR, pDevsLnR, ptrMPI->ptrRec->pDevsLnR,debug,cout);
 
-    if (debug>=dbgAll) cout<<"setBoundedVectorVector() for pvInitNatZ"<<endl;
-    tcsam::setBoundedVectorVector(matInitNatZ, pvInitNatZ, ptrMPI->ptrINs->pvInitNatZ,debug,cout);
+    if (debug>=dbgAll) cout<<"setBoundedVectorVector() for pvLnInitNatZ"<<endl;
+    tcsam::setBoundedVectorVector(matLnInitNatZ, pvLnInitNatZ, ptrMPI->ptrINs->pvLnInitNatZ,debug,cout);
 
     if (debug>=dbgAll) cout<<"setBoundedVectorVector() for pvLgtPrM2M"<<endl;
     tcsam::setBoundedVectorVector(matLgtPrM2M, pvLgtPrM2M, ptrMPI->ptrM2M->pvLgtPrM2M,debug,cout);
@@ -10216,9 +10218,9 @@ FUNCTION void updateMPI(int debug, ostream& cout)
      
     //recruitment parameters
     if (debug) cout<<"starting initial N-at-Z parameters"<<endl;
-    ptrMPI->ptrINs->pIniRec->setFinalValsFromParamVals(pIniRec);
-    for (int p=1;p<=ptrMPI->ptrINs->pvInitNatZ->getSize();p++) 
-        (*ptrMPI->ptrINs->pvInitNatZ)[p]->setFinalValsFromParamVals(matInitNatZ(p));
+    ptrMPI->ptrINs->pLnBaseInitN->setFinalValsFromParamVals(pLnBaseInitN);
+    for (int p=1;p<=ptrMPI->ptrINs->pvLnInitNatZ->getSize();p++) 
+        (*ptrMPI->ptrINs->pvLnInitNatZ)[p]->setFinalValsFromParamVals(matLnInitNatZ(p));
     if (debug) cout<<"finished initial N-at-Z parameters"<<endl;
     
     //natural mortality parameters
@@ -10477,8 +10479,8 @@ FUNCTION void writeParameters(ostream& os,int toF, int willBeActive, int phase)
     //initial numbers-at-size parameters
     ctg1="population processes";
     ctg2="N-at-Z";
-    tcsam::writeParameters(os,pIniRec,ctg1,ctg2,ptrMPI->ptrINs->pIniRec,toF,willBeActive,phase);      
-    tcsam::writeParameters(os,matInitNatZ,ctg1,ctg2,ptrMPI->ptrINs->pvInitNatZ,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,pLnBaseInitN,ctg1,ctg2,ptrMPI->ptrINs->pLnBaseInitN,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,matLnInitNatZ,ctg1,ctg2,ptrMPI->ptrINs->pvLnInitNatZ,toF,willBeActive,phase);      
     
     //natural mortality parameters
     ctg1="population processes";
