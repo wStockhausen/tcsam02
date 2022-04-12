@@ -104,7 +104,7 @@ void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& 
  * based on values of a param_init_bounded_number_vector.
  * 
  * @param devs  - the dvar_matrix
- * @param pDevs - the param_init_bounded_vector_vector
+ * @param pDevs - the param_init_bounded_number_vector
  * @param pI    - pointer to the associated DevsVectorVectorInfo object
  * @param debug - debugging level
  * @param os  - output stream object for debugging info
@@ -144,7 +144,7 @@ void setDevsVectorVector(dvar_matrix& devs, param_init_bounded_number_vector& pD
  * based on values of a param_init_bounded_number_vector.
  * 
  * @param mat   [output]  - the dvar_matrix
- * @param pDevs [input] - the param_init_bounded_vector_vector
+ * @param pDevs [input] - the param_init_bounded_numberr_vector
  * @param pI    [input] - pointer to the associated DevsVectorVectorInfo object
  * @param debug [input] - debugging level
  * @param os  - [input] output stream object for debugging info

@@ -38,6 +38,8 @@
  *             tail compression and Dirichlet-Multinomial options.
  * 20201203: Incremented tcsam::VERSION to "2020.12.03" reflecting revision of
  *             Dirichlet-Multinomial specification and use flags implementation.
+ * 20220410: Incremented tcsam::VERSION to "2022.04.10" reflecting implementation of
+ *             ability to estimate initial N's at size.
  */
 
 #pragma once
@@ -110,7 +112,7 @@ namespace tcsam{
     /* adstring indicating model name */
     const adstring MODEL = "tcsam02";
     /* adstring indicating model version */
-    const adstring VERSION = "2021.08.23";
+    const adstring VERSION = "2022.04.10";
     
     /* minimum debugging level that will print ALL debug info */
     const int dbgAll = 100;

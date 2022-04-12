@@ -10,7 +10,8 @@
 /*----------------------------------------------------------------------------\n
 **  Includes:
 **      ParametersGroupInfo\n
-**      RecruitmentInfo
+**      RecruitmentInfo\n
+**      InitialNatZInfo\n
 **      NaturalMortalityInfo\n
 **      GrowthInfo\n
 **      MaturityInfo\n
@@ -23,6 +24,7 @@
 **----------------------------------------------------------------------------*/
 int ParameterGroupInfo::debug   = 0;
 int RecruitmentInfo::debug      = 0;
+int InitialNatZInfo::debug      = 1;
 int NaturalMortalityInfo::debug = 0;
 int GrowthInfo::debug           = 0;
 int Molt2MaturityInfo::debug    = 0;
@@ -32,7 +34,7 @@ int SurveysInfo::debug          = 0;
 int MSE_Info::debug             = 0;
 int DirichletMultinomialInfo::debug = 0;
 int ModelParametersInfo::debug  = 0;
-const adstring ModelParametersInfo::version = "2020.11.29";
+const adstring ModelParametersInfo::version = "2022.04.10";
     
 /*----------------------------------------------------------------------------*/
 /**
@@ -1022,7 +1024,7 @@ void ParameterGroupInfo::writeToR(std::ostream& os){
 /*------------------------------------------------------------------------------
  * RecruitmentInfo
  -----------------------------------------------------------------------------*/
-adstring RecruitmentInfo::NAME = "recruitment";
+const adstring RecruitmentInfo::NAME = "recruitment";
 RecruitmentInfo::RecruitmentInfo(){
     if (debug) cout<<"starting RecruitmentInfo::RecruitmentInfo()"<<endl;
     name = NAME;//assign static NAME to ParameterGroupInfo::name
@@ -1259,6 +1261,166 @@ void RecruitmentInfo::writeToR(std::ostream & os){
             pRa->writeToR(os, "pRa", indent+1); os<<cc<<endl;
             pRb->writeToR(os, "pRb", indent+1); os<<cc<<endl;
             pDevsLnR->writeToR(os,"pDevsLnR",indent+1); os<<endl;
+        }
+    os<<")";
+}
+
+/*------------------------------------------------------------------------------
+ * InitialNatZInfo
+ -----------------------------------------------------------------------------*/
+const adstring InitialNatZInfo::NAME = "initialNatZ";
+/*------------------------------------------------------------------------------
+ * InitialNatZInfo\n
+ * Encapsulates the following parameters related to initial numbers-at-size:\n
+ *   pIniRec   : ln-scale number for base sex/maturity/hell condition/size class
+ *   pvInitNatZ: ln-scale offset for numbers-at-size in remaining sex/maturity/hell condition/size classes
+ *
+ * Notes:
+ *  1. SEX, MATURITY_STATE, SHELL_CONDITION, SIZE are the index variables for pvInitNatZ
+ * 
+*----------------------------------------------------------------------------*/
+InitialNatZInfo::InitialNatZInfo(){
+    if (debug) cout<<"starting InitialNatZInfo::InitialNatZInfo()"<<endl;
+    name = NAME;//assign static NAME to ParameterGroupInfo::name
+    
+    int k;
+    //create "independent variables" for parameter group assignment
+    ParameterGroupInfo::nIVs = 3;//number of independent variables
+    lblIVs.allocate(1,nIVs);
+    k=1;
+    lblIVs(k++) = tcsam::STR_SEX;
+    lblIVs(k++) = tcsam::STR_MATURITY_STATE;
+    lblIVs(k++) = tcsam::STR_SHELL_CONDITION;
+    //create index block sets for "BLOCKS" (e.g. year blocks)
+    nIBSs = 0;
+//    ibsIdxs.allocate(1,nIBSs);
+//    ibsIdxs(1) = 4; //SIZE_BLOCK
+//    ParameterGroupInfo::createIndexBlockSets();
+//    for (int i=1;i<=nIBSs;i++) ppIBSs[i-1]->setType(lblIVs(ibsIdxs(i)));
+    
+    ParameterGroupInfo::nPVs=2;
+    lblPVs.allocate(1,nPVs); dscPVs.allocate(1,nPVs);
+    k=1;
+    lblPVs(k) = "pIniRec";     dscPVs(k++) = "base N-at-Z";
+    lblPVs(k) = "pvInitNatZ";  dscPVs(k++) = "ln-scale initial N-at-Z offsets";
+    k=1;
+    pIniRec     = new BoundedNumberVectorInfo(lblPVs(k++));
+    pvInitNatZ  = new BoundedVectorVectorInfo(lblPVs(k++)); 
+    
+    //create "extra indices"
+    ParameterGroupInfo::nXIs=0;
+    
+    if (debug) cout<<"finished InitialNatZInfo::InitialNatZInfo()"<<endl;
+}
+
+InitialNatZInfo::~InitialNatZInfo(){
+    if (pIniRec)     delete pIniRec;     pIniRec=0;
+    if (pvInitNatZ)  delete pvInitNatZ;  pvInitNatZ=0;
+}
+
+void InitialNatZInfo::read(cifstream & is){
+    if (debug) cout<<"starting InitialNatZInfo::read(cifstream & is)"<<endl;
+    
+    adstring str;
+    is>>str;
+    rpt::echo<<str<<tb<<"#Required keyword ("<<NAME<<")"<<endl;
+    if (!(str==NAME)){
+        cout<<"Error in InitialNatZInfo::read(cifstream & is)"<<endl;
+        tcsam::readError(is,NAME,str);
+        exit(-1);
+    }
+    ParameterGroupInfo::read(is);
+    
+    if (nPCs>0){
+        is>>str;
+        rpt::echo<<str<<tb<<"#Required keyword (PARAMETERS)"<<endl;
+        if (str=="PARAMETERS"){
+            int k=1;
+            pIniRec     = ParameterGroupInfo::read(is,lblPVs(k),pIniRec);     
+            rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pIniRec)<<endl;  k++;
+            pvInitNatZ = ParameterGroupInfo::read(is,lblPVs(k),pvInitNatZ); 
+            rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pvInitNatZ)<<endl;  k++;
+        } else {
+            cout<<"Error reading InitialNatZInfo from "<<is.get_file_name()<<endl;
+            cout<<"Expected keyword 'PARAMETERS' but got '"<<str<<"'."<<endl;
+            cout<<"Aborting..."<<endl;
+            exit(-1);
+        }
+    }//nPCs>0
+    
+    if (debug){
+        cout<<"InitialNatZInfo object "<<this<<endl<<(*this)<<endl;
+        cout<<"finished InitialNatZInfo::read(cifstream & is)"<<endl;
+        cout<<"Enter 1 to continue: ";
+        cin>>debug;
+        if (debug<0) exit(1);
+    }
+}
+
+/**
+ * Sets the flags to write estimation phases for vector parameters to file 
+ * when writing parameter info to file.
+ * 
+ * @param flag - true/false to set to write estimation phases to file
+ */
+void InitialNatZInfo::setToWriteVectorEstimationPhases(bool flag){
+    if (pvInitNatZ){
+        for (int i=1;i<=pvInitNatZ->getSize();i++){
+            VectorInfo* vi = (*pvInitNatZ)[i];
+            vi->readPhases = flag ? INT_TRUE : INT_FALSE;        
+        }
+    }
+}
+
+/**
+ * Sets the flags to write initial values for vector parameters to file 
+ * when writing parameter info to file.
+ * 
+ * @param flag - true/false to set to write initial values to file
+ */
+void InitialNatZInfo::setToWriteVectorInitialValues(bool flag){
+    if (pvInitNatZ){
+        for (int i=1;i<=pvInitNatZ->getSize();i++){
+            BoundedVectorInfo* vi = (*pvInitNatZ)[i];
+            vi->readVals = flag ? INT_TRUE : INT_FALSE;        
+        }
+    }
+}
+
+void InitialNatZInfo::write(std::ostream & os){
+    os<<NAME<<tb<<"#process name"<<endl;
+    ParameterGroupInfo::write(os);
+    
+    if (nPCs>0){
+        os<<"PARAMETERS"<<endl;
+
+        int k=1;
+        os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
+        os<<(*pIniRec)<<endl;
+        os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
+        os<<(*pvInitNatZ)<<endl;
+    }//nPCs>0
+ }
+
+void InitialNatZInfo::writeToPin(std::ostream & os){
+    os<<"#--initial N-at-Z parameters"<<endl;
+    if (nPCs>0){
+        pIniRec->writeToPin(os);
+        pvInitNatZ->writeToPin(os);
+    } else {
+        os<<"#pIniRec"<<endl<<0.0<<endl;
+        os<<"#pvInitNatZ"<<endl<<0.0<<endl;
+    }
+}
+
+void InitialNatZInfo::writeToR(std::ostream & os){
+    int indent=0;
+    os<<"initNs=list("<<endl;
+        ParameterGroupInfo::writeToR(os);
+        if (nPCs>0) {
+            os<<cc<<endl;
+            pIniRec->writeToR(os, "pIniRec", indent++); os<<cc<<endl;
+            pvInitNatZ->writeToR(os,"pvInitNatZ",indent++); os<<endl;
         }
     os<<")";
 }
@@ -3093,6 +3255,7 @@ void MSE_Info::writeToR(std::ostream & os){
 ModelParametersInfo::ModelParametersInfo(ModelConfiguration& mc){
     ptrMC=&mc;
     ptrRec=0;
+    ptrINs=0;
     ptrNM =0;
     ptrGrw=0;
     ptrM2M=0;
@@ -3105,6 +3268,7 @@ ModelParametersInfo::ModelParametersInfo(ModelConfiguration& mc){
 
 ModelParametersInfo::~ModelParametersInfo(){
     if (ptrRec) {delete ptrRec;     ptrRec  = 0;}
+    if (ptrINs) {delete ptrINs;     ptrINs  = 0;}
     if (ptrNM)  {delete ptrNM;      ptrNM   = 0;}
     if (ptrGrw) {delete ptrGrw;     ptrGrw  = 0;}
     if (ptrM2M) {delete ptrM2M;     ptrM2M  = 0;}
@@ -3122,6 +3286,7 @@ ModelParametersInfo::~ModelParametersInfo(){
  */
 void ModelParametersInfo::setMaxYear(int mxYr){
     if (ptrRec) ptrRec->setMaxYear(mxYr);
+    //if (ptrINs) ptrINs->setMaxYear(mxYr); //not needed for initial N's info
     if (ptrNM)  ptrNM ->setMaxYear(mxYr);
     if (ptrGrw) ptrGrw->setMaxYear(mxYr+1); //need +1 in case one has growth info from current surveys
     if (ptrM2M) ptrM2M->setMaxYear(mxYr+1); //need +1 in case one has maturity info from current surveys
@@ -3152,6 +3317,7 @@ void ModelParametersInfo::setMaxYear(int mxYr){
  */
 void ModelParametersInfo::setToWriteVectorEstimationPhases(bool flag){
     if (ptrRec) ptrRec->setToWriteVectorEstimationPhases(flag);
+    if (ptrINs) ptrINs->setToWriteVectorEstimationPhases(flag);
     if (ptrNM)  ptrNM ->setToWriteVectorEstimationPhases(flag); //not needed
     if (ptrGrw) ptrGrw->setToWriteVectorEstimationPhases(flag); //not needed
     if (ptrM2M) ptrM2M->setToWriteVectorEstimationPhases(flag); //not needed
@@ -3170,8 +3336,9 @@ void ModelParametersInfo::setToWriteVectorEstimationPhases(bool flag){
  */
 void ModelParametersInfo::setToWriteVectorInitialValues(bool flag){
     if (ptrRec) ptrRec->setToWriteVectorInitialValues(flag);
-    if (ptrNM)  ptrNM ->setToWriteVectorInitialValues(flag);
-    if (ptrGrw) ptrGrw->setToWriteVectorInitialValues(flag);
+    if (ptrINs) ptrINs->setToWriteVectorInitialValues(flag);
+    if (ptrNM)  ptrNM ->setToWriteVectorInitialValues(flag); //not needed
+    if (ptrGrw) ptrGrw->setToWriteVectorInitialValues(flag); //not needed
     if (ptrM2M) ptrM2M->setToWriteVectorInitialValues(flag);
     if (ptrSel) ptrSel->setToWriteVectorInitialValues(flag);
     if (ptrFsh) ptrFsh->setToWriteVectorInitialValues(flag);
@@ -3202,6 +3369,12 @@ void ModelParametersInfo::read(cifstream & is){
     ptrRec = new RecruitmentInfo();
     is>>(*ptrRec);
     rpt::echo<<"#---created  RecruitmentInfo object"<<endl;
+    
+    //read niital numbers-at-size parameters
+    rpt::echo<<"#---reading  Initial NatZ Info"<<endl;
+    ptrINs = new InitialNatZInfo();
+    is>>(*ptrINs);
+    rpt::echo<<"#---created  InitialNatZInfo object"<<endl;
     
     //read natural mortality parameters
     rpt::echo<<"#---reading Natural Mortality Info"<<endl;
@@ -3263,6 +3436,11 @@ void ModelParametersInfo::write(std::ostream & os){
     os<<(*ptrRec)<<endl;
     
     os<<"#-------------------------------"<<endl;
+    os<<"# Initial N-at-Z parameters  "<<endl;
+    os<<"#-------------------------------"<<endl;
+    os<<(*ptrINs)<<endl;
+    
+    os<<"#-------------------------------"<<endl;
     os<<"# Natural mortality parameters  "<<endl;
     os<<"#-------------------------------"<<endl;
     os<<(*ptrNM)<<endl;
@@ -3310,6 +3488,11 @@ void ModelParametersInfo::writePin(std::ostream & os){
     ptrRec->writeToPin(os); os<<endl;
     
     os<<"#-------------------------------"<<endl;
+    os<<"# Initial N-at-Z parameters  "<<endl;
+    os<<"#-------------------------------"<<endl;
+    ptrINs->writeToPin(os); os<<endl;
+    
+    os<<"#-------------------------------"<<endl;
     os<<"# Natural mortality parameters  "<<endl;
     os<<"#-------------------------------"<<endl;
     ptrNM->writeToPin(os); os<<endl;
@@ -3354,6 +3537,9 @@ void ModelParametersInfo::addNextYearToInfo(int closed){
     //recruitment info
     ptrRec->addNextYearToInfo(closed);
     
+    //initial N-at-Z info
+    //ptrINs->addNextYearToInfo(closed); //no need to do this
+    
     //natural mortality info
     ptrNM->addNextYearToInfo(closed);
     
@@ -3384,6 +3570,7 @@ void ModelParametersInfo::writeToR(std::ostream & os){
     int indent=0;
     os<<"mpi=list(version='"<<version<<"'"<<cc<<endl;
     ptrRec->writeToR(os); os<<cc<<endl;
+    ptrINs->writeToR(os); os<<cc<<endl;
     ptrNM->writeToR(os);  os<<cc<<endl;
     ptrGrw->writeToR(os); os<<cc<<endl;
     ptrM2M->writeToR(os); os<<cc<<endl;

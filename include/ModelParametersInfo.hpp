@@ -13,6 +13,7 @@
  *  <li> SelectivityInfo
  *  <li> FisheriesInfo
  *  <li> SurveysInfo
+ *  <li> InitialNsInfo
  *  <li> ModelParametersInfo
  * </ul>
  */
@@ -373,7 +374,7 @@ class RecruitmentInfo: public ParameterGroupInfo {
     public:
         static int debug;
     protected:
-        static adstring NAME;//"recruitment"
+        const static adstring NAME;//"recruitment"
     public:        
         /** pointer to a vector of bounded parameters for the ln-scale mean recruitment */
         BoundedNumberVectorInfo* pLnR;
@@ -453,6 +454,89 @@ class RecruitmentInfo: public ParameterGroupInfo {
         
         friend cifstream& operator >>(cifstream & is, RecruitmentInfo & obj){obj.read(is); return is;}
         friend std::ostream& operator <<(std::ostream & os, RecruitmentInfo & obj){obj.write(os); return os;}
+};
+
+/*------------------------------------------------------------------------------
+ * InitialNatZInfo\n
+ * Encapsulates the following parameters related to initial numbers-at-size:\n
+ *   pIniRec     : log-scale initial recruitment (numbers in base size class)
+ *   pvInitNatZ  : log-scale offset numbers-at-size
+ * Notes:
+ * Notes:
+ * <ol type="1">
+ *  <li> index variables for pvInitNatZ
+ *    <ol type="a">
+ *      <li> SEX
+ *      <li> MATURITY
+ *      <li> SHELL
+ *      <li> SIZE_BLOCK
+ *    </ol>
+ *  </li>
+ * </ol>
+*----------------------------------------------------------------------------*/
+class InitialNatZInfo : public ParameterGroupInfo {
+    public:
+        static int debug;//flag to print debugging info
+    protected:
+        const static adstring NAME;//"initialNatZ"
+    public:
+        /** ln-scale numbers in base sex/maturity/shell condition/size class ("initial" recruitment) */
+        BoundedNumberVectorInfo* pIniRec;
+        /** ln-scale offset for numbers-at-size in other sex/maturity/shell condition/size classes */
+        BoundedVectorVectorInfo* pvInitNatZ;
+        
+        InitialNatZInfo();
+        ~InitialNatZInfo();
+        
+        /**
+         * Reads the ParameterGroupInfo for initial N-at-Z from an input filestream in ADMB format.
+         * 
+         * @param is - the input filestream
+         */
+        void read(cifstream & is);
+        /**
+         * Sets the flags to write estimation phases for vector parameters to file 
+         * when writing parameter info to file.
+         * 
+         * @param flag - true/false to set to write estimation phases to file
+         */
+        void setToWriteVectorEstimationPhases(bool flag);
+        /**
+         * Sets the flags to write initial values for vector parameters to file 
+         * when writing parameter info to file.
+         * 
+         * @param flag - true/false to set to write initial values to file
+         */
+        void setToWriteVectorInitialValues(bool flag);
+        /**
+         * Writes to an output stream in ADMB format.
+         * 
+         * @param os - output stream
+         * @param projected - flag to write for "next" year
+         * @param closed - flag that directed fishery will be closed "next" year 
+         */
+        void write(std::ostream & os);
+        /**
+         * Writes parameter values to an output stream in ADMB pin-file format.
+         * 
+         * @param os - output stream
+         * @param projected - flag to write for "next" year
+         * @param closed - flag that directed fishery will be closed "next" year 
+         */
+        void writeToPin(std::ostream & os);
+        /**
+         * update InitialNatZInfo for a 1-year projected scenario.
+         * NOTE: this function does NOTHING. 
+         * 
+         * @param closed - flag indicating whether directed fishery is closed
+         */
+        void addNextYearToInfo(int closed){}
+        /**
+         * Writes to an output stream in R format.
+         * 
+         * @param os - output stream
+         */
+        void writeToR(std::ostream & os);
 };
 
 /**
@@ -1276,12 +1360,14 @@ class MSE_Info : public ParameterGroupInfo {
  * The following "parameter groups" are incorporated here:
  * <ul>
  *  <li> recruitment       (ptrRec)
+ *  <li> Initial Ns        (ptrINs)
  *  <li> natural mortality (ptrNM)
  *  <li> growth            (ptrGrw)
  *  <li> molt-to-maturity  (ptrM2M)
  *  <li> selectivity       (ptrSel)
  *  <li> fisheries         (ptrFsh)
  *  <li> surveys           (ptrSrv)
+ *  <li> DMs               (ptrDM)
  *  <li> MSE               (ptrMSE)
  * </ul>
  */
@@ -1296,6 +1382,7 @@ class ModelParametersInfo{
         ModelConfiguration* ptrMC;
         
         RecruitmentInfo*      ptrRec; //pointer to recruitment info
+        InitialNatZInfo*      ptrINs; //pointer to initial N's info
         NaturalMortalityInfo* ptrNM;  //pointer to natural mortality info
         GrowthInfo*           ptrGrw; //pointer to growth info
         Molt2MaturityInfo*    ptrM2M; //pointer to molt-to-maturity info
