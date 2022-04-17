@@ -24,7 +24,7 @@
 **----------------------------------------------------------------------------*/
 int ParameterGroupInfo::debug   = 0;
 int RecruitmentInfo::debug      = 0;
-int InitialNatZInfo::debug      = 1;
+int InitialNatZInfo::debug      = 0;
 int NaturalMortalityInfo::debug = 0;
 int GrowthInfo::debug           = 0;
 int Molt2MaturityInfo::debug    = 0;

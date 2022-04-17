@@ -553,11 +553,15 @@ ModelOptions::ModelOptions(ModelConfiguration& mc){
     ptrMC=&mc;
     
     //initial n-at-z options
-    optsInitNatZ.allocate(0,3);
+    optsInitNatZ.allocate(0,7);
     optsInitNatZ(0) = "build up n-at-z from recruitments (like TCSAM2013)"; 
     optsInitNatZ(1) = "calculate initial n-at-z using equilibrium calculations (like Gmacs)";
-    optsInitNatZ(2) = "estimate initial n-at-z, initialize using input values";
-    optsInitNatZ(3) = "estimate initial n-at-z, initialize using equilibrium calculations";
+    optsInitNatZ(2) = "estimate initial n-at-z using LN-SCALE params:       initialize using input values";
+    optsInitNatZ(3) = "estimate initial n-at-z using LOGISTIC-SCALE params: initialize using input values";
+    optsInitNatZ(4) = "estimate initial n-at-z using LN-SCALE params:       initialize using equilibrium calculations (unless using pin file)";
+    optsInitNatZ(5) = "estimate initial n-at-z using LOGISTIC-SCALE params: initialize using equilibrium calculations (unless using pin file)";
+    optsInitNatZ(6) = "estimate initial n-at-z using LN-SCALE params:       initialize using equilibrium calculations (ignore pin file values)";
+    optsInitNatZ(7) = "estimate initial n-at-z using LOGISTIC-SCALE params: initialize using equilibrium calculations (ignore pin file values)";
     
     //options for natural mortality parameterization
     optsParamNM.allocate(0,1);
