@@ -716,6 +716,10 @@
 //              5. Corresponding pLnBaseInitZ values are either 
 //                    a. ln-scale abundance in first category or
 //                    b. total ln-scale abundance.
+//-2022-04-19: 1. Revised constructors for several ModelData classes to take an adstring 
+//                  (the associated fleet name) as an input to help identify debugging output.
+//             2. Added check for tail compression identifying identical min/max bins.
+//             3. Turned off debugging info in several functions in ModeData classes
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -2790,7 +2794,7 @@ PRELIMINARY_CALCS_SECTION
             calcSelectivities(dbgLevel+100,rpt::echo);
 
             PRINT2B1("testing calcFisheryFs():")
-            calcFisheryFs(dbgLevel,rpt::echo);
+            calcFisheryFs(dbgLevel+100,rpt::echo);
 
             PRINT2B1("testing calcSurveyQs():")
             calcSurveyQs(dbgLevel+100,rpt::echo);

@@ -32,7 +32,7 @@ const adstring AggregateCatchData::KW_BIOMASS_DATA   = "AGGREGATE_BIOMASS";
  * fitting in the objective function.
  */
 void AggregateCatchData::aggregateData(void){
-    if (debug) os<<"starting AggregateCatchData::aggregateData()"<<endl;
+    if (debug) os<<"starting AggregateCatchData::aggregateData() on "<<name<<endl;
     //get conversion factor to millions (abundance) or thousands mt (biomass)
     double convFac = 1.0;
     if (type==KW_ABUNDANCE_DATA){
@@ -134,7 +134,7 @@ void AggregateCatchData::aggregateData(void){
             }//s
         }//m
     }//x
-    if (debug) os<<"finished AggregateCatchData::aggregateData()"<<endl;
+    if (debug) os<<"finished AggregateCatchData::aggregateData() on "<<name<<endl;
 }
 
 /****************************************************************
@@ -149,7 +149,7 @@ void AggregateCatchData::aggregateData(void){
  * @param newC_yxms - d4_array of new catch data
  */
 void AggregateCatchData::replaceCatchData(int iSeed,random_number_generator& rng,d4_array& newC_yxms){
-    if (debug) os<<"starting AggregateCatchData::replaceCatchData(d4_array& newC_yxms)"<<std::endl;
+    if (debug) os<<"starting AggregateCatchData::replaceCatchData(d4_array& newC_yxms) on "<<name<<std::endl;
     //get conversion factor to millions (abundance) or thousands mt (biomass)
     double convFac = 1.0;
     if (type==KW_ABUNDANCE_DATA){
@@ -251,7 +251,7 @@ void AggregateCatchData::replaceCatchData(int iSeed,random_number_generator& rng
     
     aggregateData();
     
-    if (debug) os<<"finished AggregateCatchData::replaceCatchData(d4_array& newC_yxms)"<<std::endl;
+    if (debug) os<<"finished AggregateCatchData::replaceCatchData(d4_array& newC_yxms) on "<<name<<std::endl;
 }
 
 /**
@@ -264,7 +264,7 @@ void AggregateCatchData::replaceCatchData(int iSeed,random_number_generator& rng
  * @param newC_xms - d3_array of new catch data
  */
 void AggregateCatchData::addCatchData(int y, d3_array& newC_xms){
-    if (debug) os<<"starting AggregateCatchData::addCatchData(d3_array& newC_xms)"<<std::endl;
+    if (debug) os<<"starting AggregateCatchData::addCatchData(d3_array& newC_xms) on "<<name<<std::endl;
     //get conversion factor to millions (abundance) or thousands mt (biomass)
     double convFac = 1.0;
     if (type==KW_ABUNDANCE_DATA){
@@ -356,7 +356,7 @@ void AggregateCatchData::addCatchData(int y, d3_array& newC_xms){
     
     aggregateData();
     
-    if (debug) os<<"finished AggregateCatchData::addCatchData(d3_array& newC_xms)"<<std::endl;
+    if (debug) os<<"finished AggregateCatchData::addCatchData(d3_array& newC_xms) on "<<name<<std::endl;
 }
 
 /**
@@ -366,8 +366,8 @@ void AggregateCatchData::addCatchData(int y, d3_array& newC_xms){
  */
 void AggregateCatchData::setMaxYear(int mxYr){
     if (debug) {
-        cout     <<"Starting AggregateCatchData::setMaxYear("<<mxYr<<")"<<endl;
-        rpt::echo<<"Starting AggregateCatchData::setMaxYear("<<mxYr<<")"<<endl;
+        cout     <<"Starting AggregateCatchData::setMaxYear("<<mxYr<<") on "<<name<<endl;
+        rpt::echo<<"Starting AggregateCatchData::setMaxYear("<<mxYr<<") on "<<name<<endl;
     }
     //determine number of years to keep
     int nyp = 0;
@@ -448,8 +448,8 @@ void AggregateCatchData::setMaxYear(int mxYr){
     debug = old_debug;
     
     if (debug) {
-        cout     <<"Finished AggregateCatchData::setMaxYear("<<mxYr<<")"<<endl;
-        rpt::echo<<"Finished AggregateCatchData::setMaxYear("<<mxYr<<")"<<endl;
+        cout     <<"Finished AggregateCatchData::setMaxYear("<<mxYr<<") on "<<name<<endl;
+        rpt::echo<<"Finished AggregateCatchData::setMaxYear("<<mxYr<<") on "<<name<<endl;
     }
 }
 
@@ -458,13 +458,13 @@ void AggregateCatchData::setMaxYear(int mxYr){
 ***************************************************************/
 void AggregateCatchData::read(cifstream & is){
     if (debug) {
-        std::cout<<"start AggregateCatchData::read(...) "<<this<<std::endl;
+        std::cout<<"start AggregateCatchData::read(...) on "<<name<<std::endl;
         std::cout<<"#------------------------------------------"<<std::endl;
         std::cout<<"#file name is "<<is.get_file_name()<<std::endl;
         std::cout<<"#------------------------------------------"<<std::endl;
     }
     if (!is) {
-        std::cout<<"Apparent error reading AggregateCatchData."<<std::endl;
+        std::cout<<"Apparent error reading AggregateCatchData for "<<name<<std::endl;
         std::cout<<"#file name is "<<is.get_file_name()<<std::endl;
         std::cout<<"File stream is 'bad'--file may not exist!"<<std::endl;
         std::cout<<"Terminating!!"<<std::endl;
@@ -551,13 +551,13 @@ void AggregateCatchData::read(cifstream & is){
     
     aggregateData();
     
-    if (debug) std::cout<<"end AggregateCatchData::read(...) "<<this<<std::endl;
+    if (debug) std::cout<<"end AggregateCatchData::read(...) on "<<name<<std::endl;
 }
 /***************************************************************
 *   write.                                                     *
 ***************************************************************/
 void AggregateCatchData::write(ostream & os){
-    if (debug) std::cout<<"start AggregateCatchData::write(...) "<<this<<std::endl;
+    if (debug) std::cout<<"start AggregateCatchData::write(...) on "<<name<<std::endl;
     os<<type<<tb<<"#required keyword"<<std::endl;
     os<<tcsam::getFitType(optFit)<<tb<<"#objective function fitting option"<<std::endl;
     os<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood type"<<std::endl;
@@ -576,13 +576,13 @@ void AggregateCatchData::write(ostream & os){
         os<<"#use? year    value     cv"<<std::endl;
         os<<inpC_xmsyc(x,m,s)<<std::endl;
     }
-    if (debug) std::cout<<"end AggregateCatchData::write(...) "<<this<<std::endl;
+    if (debug) std::cout<<"end AggregateCatchData::write(...) on "<<name<<std::endl;
 }
 /***************************************************************
 *   Function to write object to R list.                        *
 ***************************************************************/
 void AggregateCatchData::writeToR(ostream& os, std::string nm, int indent) {
-    if (debug) std::cout<<"AggregateCatchData::writing to R"<<std::endl;
+    if (debug) std::cout<<"AggregateCatchData::writing to R on "<<name<<std::endl;
     
     adstring str; adstring unitsp;
     if (type==KW_ABUNDANCE_DATA) {
@@ -618,7 +618,7 @@ void AggregateCatchData::writeToR(ostream& os, std::string nm, int indent) {
         wts::writeToR(os,uf_xmsy,x,m,s,y); os<<std::endl;
     for (int n=0;n<indent;n++) os<<tb;
          os<<")";
-    if (debug) std::cout<<"AggregateCatchData::done writing to R"<<std::endl;
+    if (debug) std::cout<<"AggregateCatchData::done writing to R on "<<name<<std::endl;
 }
 /////////////////////////////////end AggregateCatchData/////////////////////////
 //----------------------------------------------------------------------
@@ -633,7 +633,7 @@ const adstring SizeFrequencyData::KW_SIZEFREQUENCY_DATA = "SIZE_FREQUENCY_DATA";
  * @cout - output stream to print debugging info to
  */
 void SizeFrequencyData::calcReWeightingFactors(d3_array& newF_xms,int debug,ostream& cout){
-    if (debug) cout<<"#--starting SizeFrequencyData::calcReWeightingFactors(...)"<<endl;
+    if (debug) cout<<"#--starting SizeFrequencyData::calcReWeightingFactors(...) on "<<name<<endl;
     for (int x=newF_xms.indexmin();x<=newF_xms.indexmax();x++){
         dmatrix newF_ms = newF_xms(x);
         int mnX= x; int mxX=x;
@@ -659,7 +659,7 @@ void SizeFrequencyData::calcReWeightingFactors(d3_array& newF_xms,int debug,ostr
     if (debug>0) {
         cout<<"Iterative reweighting factors = " <<endl; wts::print(itrF_xms,cout,0); cout<<endl;
         cout<<"Cumulative reweighting factors = "<<endl; wts::print(cumF_xms,cout,0); cout<<endl;
-        cout<<"#--finished SizeFrequencyData::calcReWeightingFactors(...)"<<endl;
+        cout<<"#--finished SizeFrequencyData::calcReWeightingFactors(...) on "<<name<<endl;
     }
     if (debug<0) {
         ivector bnds = wts::getBounds(itrF_xms);
@@ -670,7 +670,7 @@ void SizeFrequencyData::calcReWeightingFactors(d3_array& newF_xms,int debug,ostr
         cout<<"\titFacs="; wts::writeToR(cout,itrF_xms,x,m,s); cout<<","<<endl;
         cout<<"\tcmFacs="; wts::writeToR(cout,cumF_xms,x,m,s); cout<<endl;
         cout<<")"<<endl;
-        cout<<"#--finished SizeFrequencyData::calcReWeightingFactors(...)"<<endl;
+        cout<<"#--finished SizeFrequencyData::calcReWeightingFactors(...) on "<<name<<endl;
     }
 }
 
@@ -680,6 +680,7 @@ void SizeFrequencyData::calcReWeightingFactors(d3_array& newF_xms,int debug,ostr
  * 
  */
 void SizeFrequencyData::applyReWeightingFactors(){
+    if (debug) os<<"Starting SizeFrequencyData::applyReWeightingFactors() on "<<name<<endl;
     for (int x=cumF_xms.indexmin();x<=cumF_xms.indexmax();x++){
         dmatrix f_ms = cumF_xms(x);
         for (int m=f_ms.indexmin();m<=f_ms.indexmax();m++){
@@ -690,13 +691,14 @@ void SizeFrequencyData::applyReWeightingFactors(){
         }//m
     }//x
     aggregateRawNatZ();//update ss_xmsy
+    if (debug) os<<"Finished SizeFrequencyData::applyReWeightingFactorse() on "<<name<<endl;
 }
 
 /**
  * Normalize the size frequency data to sum to 1 over all x,m,s,z.
  */
 void SizeFrequencyData::normalize(void){
-    if (debug) os<<"Starting SizeFrequencyData::normalize()"<<endl;
+    if (debug) os<<"Starting SizeFrequencyData::normalize() on "<<name<<endl;
     
     aggPatZ_xmsyz.deallocate();
     aggPatZ_xmsyz.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,nZCs-1);
@@ -711,13 +713,15 @@ void SizeFrequencyData::normalize(void){
             }
         }
         //normalize numbers-at-size by total numbers
-        for (int x=1;x<=tcsam::ALL_SXs;x++){
-            for (int m=1;m<=tcsam::ALL_MSs;m++){
-                for (int s=1;s<=tcsam::ALL_SCs;s++) aggPatZ_xmsyz(x,m,s,y) = aggNatZ_xmsyz(x,m,s,y)/nT(y);//norm over size bins
+        if (nT(y)>0.0){
+            for (int x=1;x<=tcsam::ALL_SXs;x++){
+                for (int m=1;m<=tcsam::ALL_MSs;m++){
+                    for (int s=1;s<=tcsam::ALL_SCs;s++) aggPatZ_xmsyz(x,m,s,y) = aggNatZ_xmsyz(x,m,s,y)/nT(y);//norm over size bins
+                }
             }
         }
     }
-    if (debug) os<<"Finished SizeFrequencyData::normalize()"<<endl;
+    if (debug) os<<"Finished SizeFrequencyData::normalize() on "<<name<<endl;
 }
 
 /**
@@ -727,8 +731,8 @@ void SizeFrequencyData::normalize(void){
  */
 void SizeFrequencyData::doTailCompression(void){
     int olddebug=debug;
-    debug=1;
-    if (debug) rpt::echo<<"starting SizeFrequencyData::doTailCompression() "<<this<<std::endl;
+    debug=0;
+    if (debug) rpt::echo<<"starting SizeFrequencyData::doTailCompression() "<<this->name<<std::endl;
     
     tc_xmsyc.deallocate();
     tc_xmsyc.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny,1,2);
@@ -752,6 +756,10 @@ void SizeFrequencyData::doTailCompression(void){
                     tc_xmsyc(x,m,s,y)(2) = mxZ;//--default max value
                     double nT = sum(aggNatZ_xmsyz(x,m,s,y));//sum over size bins for xmsy
                     if (nT>0.0){
+                        if (debug) {
+                            rpt::echo<<yrs[y]<<tb<<tcsam::getSexType(x)<<tb<<tcsam::getMaturityType(m)<<tb<<tcsam::getShellType(s)<<tb<<"nT = "<<nT<<endl;
+                            rpt::echo<<"aggNatZ_xmsyz = "<<aggNatZ_xmsyz(x,m,s,y)<<endl;
+                        }
                         //find tail compression limits
                         dvector cumsum = aggNatZ_xmsyz(x,m,s,y)/nT;
                         int imnFound = 0; int imxFound = 0;
@@ -763,12 +771,16 @@ void SizeFrequencyData::doTailCompression(void){
                             if ((!imxFound)&&((1-tc_limits(2))<=cumsum(i))) {tc_xmsyc(x,m,s,y)(2) = i; imxFound=1;}
                         }
                         if (!imxFound) tc_xmsyc(x,m,s,y)(2) = mxZ;
+                        if (debug) {
+                            rpt::echo<<"cumsum = "<<cumsum<<endl;
+                            rpt::echo<<"limits = "<<tc_xmsyc(x,m,s,y)(1)<<tb<<tc_xmsyc(x,m,s,y)(2)<<endl;
+                        }
                         
                         //apply limits
                         int mnZp = tc_xmsyc(x,m,s,y)(1);
                         int mxZp = tc_xmsyc(x,m,s,y)(2);
                         tcdNatZ_xmsyz(x,m,s,y)(mnZp)          = sum(aggNatZ_xmsyz(x,m,s,y)(1,mnZp));
-                        tcdNatZ_xmsyz(x,m,s,y)(mnZp+1,mxZp-1) = aggNatZ_xmsyz(x,m,s,y)(mnZp+1,mxZp-1);
+                        if (mnZp<mxZp) tcdNatZ_xmsyz(x,m,s,y)(mnZp+1,mxZp-1) = aggNatZ_xmsyz(x,m,s,y)(mnZp+1,mxZp-1);
                         tcdNatZ_xmsyz(x,m,s,y)(mxZp)          = sum(aggNatZ_xmsyz(x,m,s,y)(mxZp,nZCs-1));
                         
                         if (debug){
@@ -785,7 +797,7 @@ void SizeFrequencyData::doTailCompression(void){
         }//--x
     }//--y
     
-    if (debug) rpt::echo<<"finished SizeFrequencyData::doTailCompression() "<<this<<std::endl;
+    if (debug) rpt::echo<<"finished SizeFrequencyData::doTailCompression() "<<this->name<<std::endl;
     debug=olddebug;
 }
 
@@ -840,8 +852,8 @@ int SizeFrequencyData::setDM(int x,int m,int s,int y,int dm,int inpDM){
  */
 void SizeFrequencyData::aggregateRawNatZ(void){
     int olddebug=debug;
-    debug=1;
-    if (debug) rpt::echo<<"Starting aggregateRawNatZ()"<<endl;
+    debug=0;
+    if (debug) rpt::echo<<"Starting aggregateRawNatZ() for "<<name<<endl;
     
     //working use flags
     uf_xmsy.deallocate();
@@ -866,6 +878,19 @@ void SizeFrequencyData::aggregateRawNatZ(void){
     int nMSs = tcsam::nMSs; int ALL_MSs = tcsam::ALL_MSs;
     int nSCs = tcsam::nSCs; int ALL_SCs = tcsam::ALL_SCs;
     
+    if (debug){
+        rpt::echo<<"aggNatZ_xmsyz.initialize():"<<endl;
+        for (int iy=1;iy<=ny;iy++){
+            for (int x=1;x<=ALL_SXs;x++){
+                for (int m=1;m<=ALL_MSs;m++) {
+                    for (int s=1;s<=ALL_SCs;s++) {
+                        rpt::echo<<yrs[iy]<<tb<<tcsam::getSexType(x)<<tb<<tcsam::getMaturityType(m)<<tb<<tcsam::getShellType(s)<<aggNatZ_xmsyz(x,m,s,iy)<<endl;
+                    }                    
+                }
+            }
+        }
+    }
+    
     int y;
     int uf; 
     int dm;
@@ -877,7 +902,7 @@ void SizeFrequencyData::aggregateRawNatZ(void){
     if (optFit==tcsam::FIT_BY_TOT){
         for (int iy=1;iy<=yrs.size();iy++) {
             y = yrs[iy];
-            if (debug) rpt::echo<<"y = "<<y<<endl;
+            if (debug) rpt::echo<<"y = "<<iy<<tb<<yrs[iy]<<endl;
             uf = 0;
             dm = 0;
             ss = 0;
@@ -890,6 +915,7 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                         ss   += inpSS_xmsy(x,m,s,iy);
 //                        oP_z += rawNatZ_xmsyz(x,m,s,iy);
                         int mxZB = ModelConfiguration::maxZBs[x];
+                        if (debug) rpt::echo<<yrs[iy]<<tb<<tcsam::getSexType(x)<<tb<<tcsam::getMaturityType(m)<<tb<<tcsam::getShellType(s)<<tb<<rawNatZ_xmsyz(x,m,s,iy)<<std::endl;
                         for (int z=1;   z<mxZB; z++) oP_z[z]    += rawNatZ_xmsyz(x,m,s,iy,z);
                         for (int z=mxZB;z<=nZBs;z++) oP_z[mxZB] += rawNatZ_xmsyz(x,m,s,iy,z);
                     }
@@ -900,9 +926,10 @@ void SizeFrequencyData::aggregateRawNatZ(void){
             ss_xmsy(ALL_SXs,ALL_MSs,ALL_SCs,iy) = ss;
             aggNatZ_xmsyz(ALL_SXs,ALL_MSs,ALL_SCs,iy) = oP_z;
             if (debug){
-                rpt::echo<<"x, m, s = "<<tcsam::getSexType(ALL_SXs)<<cc<<tcsam::getMaturityType(ALL_MSs)<<cc<<tcsam::getShellType(ALL_SCs)<<std::endl;
+                rpt::echo<<"y, x, m, s = "<<yrs[iy]<<cc<<tcsam::getSexType(ALL_SXs)<<cc<<tcsam::getMaturityType(ALL_MSs)<<cc<<tcsam::getShellType(ALL_SCs)<<std::endl;
                 rpt::echo<<"uf, dm, ss = "<<uf<<cc<<dm<<cc<<ss<<std::endl;
-                rpt::echo<<"aggNatZ_xmsyz(x,m,s,iy) = "<<oP_z<<endl;
+                rpt::echo<<"oP_z                    = "<<oP_z<<endl;
+                rpt::echo<<"aggNatZ_xmsyz(x,m,s,iy) = "<<aggNatZ_xmsyz(ALL_SXs,ALL_MSs,ALL_SCs,iy)<<endl;
             }
         } //loop over iy
         //FIT_BY_TOT
@@ -910,7 +937,7 @@ void SizeFrequencyData::aggregateRawNatZ(void){
     if ((optFit==tcsam::FIT_BY_X)||(optFit==tcsam::FIT_BY_XE)){
         for (int iy=1;iy<=yrs.size();iy++) {
             y = yrs[iy];
-            if (debug) rpt::echo<<"y = "<<y<<endl;
+            if (debug) rpt::echo<<"y = "<<iy<<tb<<yrs[iy]<<endl;
             for (int x=1;x<=nSXs;x++) {
                 uf = 0;
                 dm = 0;
@@ -920,9 +947,10 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                     for (int s=1;s<=ALL_SCs;s++) {
                         uf   += inpUF_xmsy(x,m,s,iy);
                         dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
-                        ss += inpSS_xmsy(x,m,s,iy);
+                        ss   += inpSS_xmsy(x,m,s,iy);
 //                        oP_z += rawNatZ_xmsyz(x,m,s,iy);
                         int mxZB = ModelConfiguration::maxZBs[x];
+                        if (debug) rpt::echo<<yrs[iy]<<tb<<tcsam::getSexType(x)<<tb<<tcsam::getMaturityType(m)<<tb<<tcsam::getShellType(s)<<tb<<rawNatZ_xmsyz(x,m,s,iy)<<std::endl;
                         for (int z=1;   z<mxZB; z++) oP_z[z]    += rawNatZ_xmsyz(x,m,s,iy,z);
                         for (int z=mxZB;z<=nZBs;z++) oP_z[mxZB] += rawNatZ_xmsyz(x,m,s,iy,z);
                     }//--s
@@ -932,19 +960,20 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                 ss_xmsy(x,ALL_MSs,ALL_SCs,iy) = ss;
                 aggNatZ_xmsyz(x,ALL_MSs,ALL_SCs,iy) = oP_z;
                 if (debug){
-                    rpt::echo<<"x, m, s = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(ALL_MSs)<<cc<<tcsam::getShellType(ALL_SCs)<<std::endl;
+                    rpt::echo<<"y, x, m, s = "<<yrs[iy]<<cc<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(ALL_MSs)<<cc<<tcsam::getShellType(ALL_SCs)<<std::endl;
                     rpt::echo<<"uf, dm, ss = "<<uf<<cc<<dm<<cc<<ss<<std::endl;
-                    rpt::echo<<"aggNatZ_xmsyz(x,m,s,iy) = "<<oP_z<<endl;
+                    rpt::echo<<"oP_z                    = "<<oP_z<<endl;
+                    rpt::echo<<"aggNatZ_xmsyz(x,m,s,iy) = "<<aggNatZ_xmsyz(x,ALL_MSs,ALL_SCs,iy)<<endl;
                 }
             }//x
         } //loop over iy
         //FIT_BY_X
     } else 
     if ((optFit==tcsam::FIT_BY_XM)||(optFit==tcsam::FIT_BY_X_ME)||(optFit==tcsam::FIT_BY_XME)){
-        oP_z.allocate(1,nZBs);
+        //oP_z.allocate(1,nZBs);
         for (int iy=1;iy<=yrs.size();iy++) {
             y = yrs[iy];
-            if (debug) rpt::echo<<"y = "<<y<<endl;
+            if (debug) rpt::echo<<"y = "<<iy<<tb<<yrs[iy]<<endl;
             for (int x=1;x<=nSXs;x++) {
                 for (int m=1;m<=nMSs;m++){
                     uf = 0;
@@ -965,9 +994,10 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                     ss_xmsy(x,m,ALL_SCs,iy) = ss;
                     aggNatZ_xmsyz(x,m,ALL_SCs,iy) = oP_z;
                     if (debug){
-                        rpt::echo<<"x, m, s = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(ALL_SCs)<<std::endl;
+                        rpt::echo<<"y, x, m, s = "<<yrs[iy]<<cc<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(ALL_SCs)<<std::endl;
                         rpt::echo<<"uf, dm, ss = "<<uf<<cc<<dm<<cc<<ss<<std::endl;
-                        rpt::echo<<"aggNatZ_xmsyz(x,m,s,iy) = "<<oP_z<<endl;
+                        rpt::echo<<"oP_z                    = "<<oP_z<<endl;
+                        rpt::echo<<"aggNatZ_xmsyz(x,m,s,iy) = "<<aggNatZ_xmsyz(x,m,ALL_SCs,iy)<<endl;
                     }
                 }//m
             }//x
@@ -977,7 +1007,7 @@ void SizeFrequencyData::aggregateRawNatZ(void){
     if ((optFit==tcsam::FIT_BY_XS)||(optFit==tcsam::FIT_BY_X_SE)){
         for (int iy=1;iy<=yrs.size();iy++) {
             y = yrs[iy];
-            if (debug) rpt::echo<<"y = "<<y<<endl;
+            if (debug) rpt::echo<<"y = "<<iy<<tb<<yrs[iy]<<endl;
             for (int x=1;x<=nSXs;x++) {
                 for (int s=1;s<=nSCs;s++){
                     uf = 0;
@@ -1010,7 +1040,7 @@ void SizeFrequencyData::aggregateRawNatZ(void){
     if ((optFit==tcsam::FIT_BY_XMS)||(optFit==tcsam::FIT_BY_XM_SE)||(optFit==tcsam::FIT_BY_X_MSE)){
         for (int iy=1;iy<=yrs.size();iy++) {
             y = yrs[iy];
-            if (debug) rpt::echo<<"y = "<<y<<endl;
+            if (debug) rpt::echo<<"y = "<<iy<<tb<<yrs[iy]<<endl;
                 for (int x=1;x<=nSXs;x++) {
                     for (int m=1;m<=nMSs;m++){
                         for (int s=1;s<=nSCs;s++) {
@@ -1046,7 +1076,7 @@ void SizeFrequencyData::aggregateRawNatZ(void){
         std::cout<<"Aborting..."<<endl;
         exit(-1);
     }
-    if (debug) rpt::echo<<"Finished aggregateRawNatZ()"<<endl;
+    if (debug) rpt::echo<<"Finished SizeFrequencyData::aggregateRawNatZ() for"<<name<<endl;
     debug=olddebug;
 }
 
@@ -1060,7 +1090,7 @@ void SizeFrequencyData::aggregateRawNatZ(void){
  * @param newNatZ_yxmsz - d5_array of numbers-at-size by yxmsz
  */
 void SizeFrequencyData::replaceSizeFrequencyData(int iSeed,random_number_generator& rng,d5_array& newNatZ_yxmsz){
-    if (debug) std::cout<<"starting SizeFrequencyData::replaceSizeFrequencyData(...) "<<this<<std::endl;
+    if (debug) std::cout<<"starting SizeFrequencyData::replaceSizeFrequencyData(...) for "<<name<<std::endl;
     
     //year limits on new data
     int mnY = newNatZ_yxmsz.indexmin();
@@ -1165,7 +1195,7 @@ void SizeFrequencyData::replaceSizeFrequencyData(int iSeed,random_number_generat
     aggregateRawNatZ();
     doTailCompression();
     normalize();
-    if (debug) std::cout<<"end SizeFrequencyData::replaceSizeFrequencyData(...) "<<this<<std::endl;
+    if (debug) std::cout<<"end SizeFrequencyData::replaceSizeFrequencyData(...) for "<<name<<std::endl;
 }
 
 /**
@@ -1176,7 +1206,7 @@ void SizeFrequencyData::replaceSizeFrequencyData(int iSeed,random_number_generat
  * @param newNatZ_xmsz - d4_array of numbers-at-size by xmsz
  */
 void SizeFrequencyData::addSizeFrequencyData(int y, d4_array& newNatZ_xmsz){
-    if (debug) os<<"starting SizeFrequencyData::addSizeFrequencyData(...) "<<this<<std::endl;
+    if (debug) os<<"starting SizeFrequencyData::addSizeFrequencyData(...) for "<<name<<std::endl;
     
     //copy old values to temporary variables
     if (debug) os<<"Copying old values to temporary storage"<<endl;
@@ -1280,7 +1310,7 @@ void SizeFrequencyData::addSizeFrequencyData(int y, d4_array& newNatZ_xmsz){
     doTailCompression();
     normalize();
     if (debug) os<<"Done reconstituting other arrays"<<endl;
-    if (debug) std::cout<<"end SizeFrequencyData::addSizeFrequencyData(...) "<<this<<std::endl;
+    if (debug) std::cout<<"end SizeFrequencyData::addSizeFrequencyData(...) for "<<name<<std::endl;
 }
 
 /**
@@ -1291,8 +1321,8 @@ void SizeFrequencyData::addSizeFrequencyData(int y, d4_array& newNatZ_xmsz){
 void SizeFrequencyData::setMaxYear(int mxYr){
     debug=1;
     if (debug) {
-        cout     <<"Starting SizeFrequencyData::setMaxYear("<<mxYr<<")"<<endl;
-        rpt::echo<<"Starting SizeFrequencyData::setMaxYear("<<mxYr<<")"<<endl;
+        cout     <<"Starting SizeFrequencyData::setMaxYear("<<mxYr<<") for "<<name<<endl;
+        rpt::echo<<"Starting SizeFrequencyData::setMaxYear("<<mxYr<<") for "<<name<<endl;
     }
     //determine number of years to keep
     int nyp = 0;
@@ -1408,8 +1438,8 @@ void SizeFrequencyData::setMaxYear(int mxYr){
     normalize();
     
     if (debug) {
-        cout     <<"Finished SizeFrequencyData::setMaxYear("<<mxYr<<")"<<endl;
-        rpt::echo<<"Finished SizeFrequencyData::setMaxYear("<<mxYr<<")"<<endl;
+        cout     <<"Finished SizeFrequencyData::setMaxYear("<<mxYr<<") for "<<name<<endl;
+        rpt::echo<<"Finished SizeFrequencyData::setMaxYear("<<mxYr<<") for "<<name<<endl;
     }
 }
 
@@ -1418,7 +1448,7 @@ void SizeFrequencyData::setMaxYear(int mxYr){
 ******************************************************/
 void SizeFrequencyData::read(cifstream & is){
     if (debug) {
-        std::cout<<"start SizeFrequencyData::read(...) "<<this<<std::endl;
+        std::cout<<"start SizeFrequencyData::read(...) for "<<name<<std::endl;
         std::cout<<"#------------------------------------------"<<std::endl;
         std::cout<<"#file name is "<<is.get_file_name()<<std::endl;
         std::cout<<"#------------------------------------------"<<std::endl;
@@ -1523,13 +1553,13 @@ void SizeFrequencyData::read(cifstream & is){
     doTailCompression();
     normalize();    
     
-    if (debug) std::cout<<"end SizeFrequencyData::read(...) "<<this<<std::endl;
+    if (debug) std::cout<<"end SizeFrequencyData::read(...) for "<<name<<std::endl;
 }
 /***************************************************************
 *   write.                                                     *
 ***************************************************************/
 void SizeFrequencyData::write(ostream & os){
-    if (debug) std::cout<<"start SizeFrequencyData::write(...) "<<this<<std::endl;
+    if (debug) std::cout<<"start SizeFrequencyData::write(...) for "<<name<<std::endl;
     os<<KW_SIZEFREQUENCY_DATA<<tb<<"#required keyword"<<std::endl;
     os<<tcsam::getFitType(optFit)<<tb<<"#objective function fitting option"<<std::endl;
     os<<tcsam::getLikelihoodType(llType)<<tb<<"#likelihood function type"<<std::endl;
@@ -1551,7 +1581,7 @@ void SizeFrequencyData::write(ostream & os){
         os<<"#use? dm  year  ss     "<<zBs<<std::endl;
         os<<inpNatZ_xmsyc(x,m,s)<<std::endl;
     }
-    if (debug) std::cout<<"end SizeFrequencyData::write(...) "<<this<<std::endl;
+    if (debug) std::cout<<"end SizeFrequencyData::write(...) for "<<name<<std::endl;
 }
 /***************************************************************
 *   Function to write object to R list.                        *

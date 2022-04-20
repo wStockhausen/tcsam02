@@ -23,9 +23,9 @@ ostream& FleetData::os  = std::cout;
 //          EffortData
 //----------------------------------------------------------------------
 const adstring EffortData::KW_EFFORT_DATA = "EFFORT_DATA";
-/***************************************************************
-*   destruction.                                               *
-***************************************************************/
+/**
+ * Class destructor.
+ */
 EffortData::~EffortData(){
     delete ptrAvgIB; ptrAvgIB=0;
 }
@@ -166,7 +166,8 @@ const adstring CatchData::KW_CATCH_DATA = "CATCH_DATA";
 /***************************************************************
 *   instantiation.                                             *
 ***************************************************************/
-CatchData::CatchData(){
+CatchData::CatchData(adstring& name_){
+    name = name_;
     hasN = 0;   ptrN = 0;
     hasB = 0;   ptrB = 0;
     hasZFD = 0; ptrZFD = 0;
@@ -188,7 +189,7 @@ CatchData::~CatchData(){
  */
 void CatchData::setMaxYear(int mxYr){
     if (debug) {
-        rpt::echo<<"Starting CatchData::setMaxYear("<<mxYr<<") for fleet data"<<endl;
+        rpt::echo<<"Starting CatchData::setMaxYear("<<mxYr<<") for "<<name<<" data"<<endl;
         AggregateCatchData::debug=1;
         SizeFrequencyData::debug=1;
     }
@@ -200,7 +201,7 @@ void CatchData::setMaxYear(int mxYr){
     if (debug) {
         AggregateCatchData::debug=0;
         SizeFrequencyData::debug=0;
-        rpt::echo<<"Finished CatchData::setMaxYear("<<mxYr<<") for fleet data"<<endl;
+        rpt::echo<<"Finished CatchData::setMaxYear("<<mxYr<<") for "<<name<<" data"<<endl;
     }
 }
 
@@ -375,7 +376,7 @@ void CatchData::read(cifstream & is){
     
     //ABUNDANCE
     if (hasN){
-        ptrN = new AggregateCatchData();
+        ptrN = new AggregateCatchData(name);
         rpt::echo<<"#---Reading abundance data"<<endl;
         //AggregateCatchData::debug=1;
         is>>(*ptrN);
@@ -385,7 +386,7 @@ void CatchData::read(cifstream & is){
     
     //BIOMASS
     if (hasB){
-        ptrB = new AggregateCatchData();
+        ptrB = new AggregateCatchData(name);
         rpt::echo<<"#---Reading biomass data"<<endl;
         //AggregateCatchData::debug=1;
         is>>(*ptrB);
@@ -395,7 +396,7 @@ void CatchData::read(cifstream & is){
     
     //NUMBERS-AT-SIZE 
     if (hasZFD){
-        ptrZFD = new SizeFrequencyData();
+        ptrZFD = new SizeFrequencyData(name);
         rpt::echo<<"#---Reading size frequency data"<<endl;
         is>>(*ptrZFD);
         rpt::echo<<"#---Read size frequency data"<<endl;
@@ -679,35 +680,35 @@ void FleetData::read(cifstream & is){
     
     //-----------Index Catch--------------------------
     if (hasICD){
-        ptrICD = new CatchData();
+        ptrICD = new CatchData(name);
         rpt::echo<<"#---Reading index catch data for "<<name<<endl;
         is>>(*ptrICD);
         rpt::echo<<"#---Read index catch data"<<endl;
     }
     //-----------Retained Catch--------------------------
     if (hasRCD){
-        ptrRCD = new CatchData();
+        ptrRCD = new CatchData(name);
         rpt::echo<<"#---Reading retained catch data for "<<name<<endl;
         is>>(*ptrRCD);
         rpt::echo<<"#---Read retained catch data"<<endl;
     }
     //-----------Discard Catch--------------------------
     if (hasDCD){
-        ptrDCD = new CatchData();
+        ptrDCD = new CatchData(name);
         rpt::echo<<"#---Reading discard catch data for "<<name<<endl;
         is>>(*ptrDCD);
         rpt::echo<<"#---Read discard catch data"<<endl;
     }
     //-----------Total catch--------------------------
     if (hasTCD){
-        ptrTCD = new CatchData();
+        ptrTCD = new CatchData(name);
         rpt::echo<<"#---Reading total catch data for"<<name<<endl;
         is>>(*ptrTCD);
         rpt::echo<<"#---Read total catch data"<<endl;
     }
     //-----------Effort--------------------------
     if (hasEff){
-        ptrEff = new EffortData();
+        ptrEff = new EffortData(name);
         rpt::echo<<"#---Reading effort data for "<<name<<endl;
         is>>(*ptrEff);
         rpt::echo<<"#---Read effort data"<<endl;

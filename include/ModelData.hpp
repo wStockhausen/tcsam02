@@ -75,6 +75,8 @@ class IndexBlock;
     public:
         /* type (abundance, biomass) of data */
         adstring type;  
+        /* fleet name */
+        adstring name;  
         /* objective function fitting option */
         int optFit;     
         /* likelihood function type */
@@ -91,7 +93,7 @@ class IndexBlock;
         d4_array uf_xmsy;  //use flags, by sex, maturity, shell_condition, year
         
     public:
-        AggregateCatchData(){}
+        AggregateCatchData(adstring& name_){name = name_;}
         ~AggregateCatchData(){}
         /**
          * Set the maximum year in which to fit the data.
@@ -146,6 +148,8 @@ class IndexBlock;
         /* keyword indicating effort data */
         const static adstring KW_EFFORT_DATA;
     public:
+        /** fleet name */
+        adstring name;
         /* likelihood function type */
         int llType; 
         /* likelihood weight (i.e., multiplier) */
@@ -166,7 +170,7 @@ class IndexBlock;
         /**
          * Constructor.
          */
-        EffortData(){ptrAvgIB=0;}
+        EffortData(adstring& name_){name=name_; ptrAvgIB=0;}
         /**
          * Destructor.
          */
@@ -227,6 +231,8 @@ class IndexBlock;
         /* input numbers-at-size data (sex,maturity state,shell condition,year,use+idxDM+year+sample_size+nAtZ) */
         d5_array inpNatZ_xmsyc;       
     public:
+        /** fleet name */
+        adstring name;
         /* objective function fitting option */
         int optFit; 
         /* likelihood function type */
@@ -284,7 +290,7 @@ class IndexBlock;
         /**
          * Constructor.
          */
-        SizeFrequencyData(){}
+        SizeFrequencyData(adstring& name_){name=name_;}
         /**
          * Destructor.
          */
@@ -466,7 +472,7 @@ class IndexBlock;
         /**
          * Constructor.
          */
-        CatchData();
+        CatchData(adstring& name_);
         /**
          * Destructor
          */
