@@ -720,6 +720,7 @@
 //                  (the associated fleet name) as an input to help identify debugging output.
 //             2. Added check for tail compression identifying identical min/max bins.
 //             3. Turned off debugging info in several functions in ModeData classes
+//-2022-04-21: 1. Revised how mcmc projections R file is opened to deal with compiler issue on Windows.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -9609,8 +9610,13 @@ FUNCTION void writeMCMCtoR(ofstream& mcmc)
             calcOFL(mxYr+1-yRetro,0,cout);//updates ptrOFLResults
             ptrOFLResults->writeToR(mcmc,ptrMC,"ptrOFLResults",0);//mcm<<cc<<endl;
             if (doProjections){
-                ofstream prjR; prjR.open("calcProjections.mcmc.R", (ctrMCMC==1)*ios::trunc+(ctrMCMC>1)*ios::app);
-                if (ctrMCMC==1) prjR<<"mcmc<-list();"<<endl;
+                ofstream prjR; 
+                if (ctrMCMC==1) {
+                    prjR.open("calcProjections.mcmc.R", ios::trunc);//start with new file
+                    prjR<<"mcmc<-list();"<<endl;
+                } else {
+                    prjR.open("calcProjections.mcmc.R", ios::app);//append to existing file
+                }
                 prjR<<"mcmc[["<<ctrMCMC<<"]]<-list(objFun="<<value(objFun)<<cc<<endl;
                 calcMultiYearProjections(mxYr+1-yRetro, ptrMOs->ptrProjOptsMCMC, -1, prjR); 
                 prjR<<");"<<endl;
