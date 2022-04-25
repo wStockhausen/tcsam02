@@ -721,6 +721,9 @@
 //             2. Added check for tail compression identifying identical min/max bins.
 //             3. Turned off debugging info in several functions in ModeData classes
 //-2022-04-21: 1. Revised how mcmc projections R file is opened to deal with compiler issue on Windows.
+//-2022-04-25: 1. Revised error message when fishery names don't match in MCI file and datasets.
+//             2. Added commandline option "-optInitialNs val" to override option for initial N's
+//                  specified in ModelOptions file.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -741,6 +744,7 @@
 //  -iSeed  val                    use val as random number generator (RNG) seed
 //  -fitSimData iSimDataSeed       flag to fit simulated data using RNG seed iSimDataSeed
 //  -mseMode type                  flag to use mseMode (type = "mseOpModMode" or "mseEstModMode")
+//  -optInitNs val                 val to use as option for initial N's calculation (overrides ModelOptions value)
 ///////----flags to print debugging info-----
 //  -debugModelConfig
 //  -debugModelParams
@@ -827,7 +831,8 @@ GLOBALS_SECTION
     int doOFL         = 0;///<flag (0/1) to do OFL calculations
     int doProjections = 0;///<flag (0/1) to do multi-year projections
     int doTAC         = 0;///<calculate TAC using harvest control rule indicated by value of doTAC
-    int doDynB0       = 0;//flag to run dynamic B0 calculations after final phase
+    int doDynB0       = 0;//<flag to run dynamic B0 calculations after final phase
+    int optInitialNs  = -1;//<model option for initial Ns (-1 = use value from ModelOptions file)
         
     int yRetro = 0; //number of years to decrement for retrospective model run
     int iSeed = -1; //default random number generator seed
@@ -1058,6 +1063,18 @@ DATA_SECTION
         }
         if (iSimDataSeed) rng.reinitialize(iSimDataSeed);
         rpt::echo<<"#Simulating data to fit using "<<iSimDataSeed<<endl;
+        rpt::echo<<"#-------------------------------------------"<<endl;
+        flg = 1;
+    }
+    //optInitialNs
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-optInitialNs"))>-1) {
+        cout<<"#overriding initial N's option specified in ModelOptions."<<endl;
+        rpt::echo<<"#overriding initial N's option specified in ModelOptions."<<endl;
+        if (on+1<argc) {
+            yRetro=atoi(ad_comm::argv[on+1]);
+            cout<<"#--Using option = "<<optInitialNs<<endl;
+            rpt::echo<<"#--Using option = "<<optInitialNs<<endl;
+        }
         rpt::echo<<"#-------------------------------------------"<<endl;
         flg = 1;
     }
@@ -1368,6 +1385,14 @@ DATA_SECTION
         ModelOptions::debug=debugModelOptions;
     }
     PRINT2B1("#--finished reading model options file---")
+    PRINT2B1("#--------check commandline options for Initial Ns----------")
+    if (optInitialNs>-1){
+        PRINT2B1("#---Using option from commandline")
+        ptrMOs->optInitNatZ = optInitialNs;
+    } else {
+        optInitialNs = ptrMOs->optInitNatZ;
+    }
+    PRINT2B2("optInitialNs",optInitialNs)
     PRINT2B1("#--------writing Model Options as check-----------")
     rpt::echo<<(*ptrMOs);
     PRINT2B1("#----finished writing Model Options as check------")
@@ -1485,6 +1510,7 @@ DATA_SECTION
          if (idx<1){
              cout<<"\n\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"<<endl;
              cout<<"Error specifying fishery names and labels in data file and config file."<<endl;
+             cout<<"Problem in file "<<ptrMDS->fnsFisheryData[f]<<endl;
              cout<<"Incorrect fishery name in data file is '"<<ptrMDS->ppFsh[f-1]<<"'"<<endl;
              cout<<"Please fix names in files!!"<<endl;
              exit(-1);
@@ -2507,10 +2533,10 @@ PRELIMINARY_CALCS_SECTION
         PRINT2B1("--NO effort averaging scenarios defined!")
     }
 
-    if (ptrMOs->optInitNatZ>3){
+    if (optInitialNs>3){
         //initialize parameter values for initial Ns using equilibrium calculations
         if (usePin) {
-            if ((ptrMOs->optInitNatZ==4)||(ptrMOs->optInitNatZ==5)){
+            if ((optInitialNs==4)||(optInitialNs==5)){
                 adstring resp;
                 rpt::echo<<endl<<endl<<"#########################"<<endl;
                 rpt::echo<<"Using pin values but also recalculating initial N's from equilibrium."<<endl;
@@ -2597,7 +2623,7 @@ PRELIMINARY_CALCS_SECTION
                 }
             }
         }
-        if ((ptrMOs->optInitNatZ==4)||(ptrMOs->optInitNatZ==6)){
+        if ((optInitialNs==4)||(optInitialNs==6)){
             --nPTs;//decrement by 1: pvLnInitNatZ has 1 less element than the number of non-zero elements in n_xmsz
         }
         
@@ -2626,7 +2652,7 @@ PRELIMINARY_CALCS_SECTION
                 }
             }
         }
-        if ((ptrMOs->optInitNatZ==4)||(ptrMOs->optInitNatZ==6)){
+        if ((optInitialNs==4)||(optInitialNs==6)){
             ++lbv(1);//increment lower bound of first vector by 1
         }
         ivector mxi = ubv-lbv+1;
@@ -2639,7 +2665,7 @@ PRELIMINARY_CALCS_SECTION
         }
         
         //update pLnBaseInitN
-        if ((ptrMOs->optInitNatZ==4)||(ptrMOs->optInitNatZ==6)){
+        if ((optInitialNs==4)||(optInitialNs==6)){
             //--UNSCALED version: pLnBaseInitN is ln-scale abundance in first non-zero size class
             pLnBaseInitN[1] = log(n_xmsz(1,1,1,lbv(1)-1));//--only one element to update
             //--pvLnInitNatZ are ln-scale additive offsets in non-zero size classes
@@ -3240,20 +3266,20 @@ FUNCTION void initAltPopDyMod(int debug, ostream& cout)
     calcFisheryFs(debug,cout);     //calculate fishery F's
     calcSurveyQs(debug,cout);      //calculate survey Q's
     
-    if (ptrMOs->optInitNatZ==0){
+    if (optInitialNs==0){
         //will build up population from recruitment (like TCSAM2013)
         //do nothing, because n_yxmsz has already been initialized to 0
-    } else if (ptrMOs->optInitNatZ==1){
+    } else if (optInitialNs==1){
         //use equilibrium calculation to set initial n-at-z (like gmacs)
         //assumes no fishing occurs before model start
         calcEqNatZF100(initMnR,mnYr,debug,cout);//calculate n_xmsz
         n_yxmsz(mnYr) = n_xmsz;
-    } else if (ptrMOs->optInitNatZ<8){
+    } else if (optInitialNs<8){
         //calculate initial n-at-z from estimated parameters
         estimateInitialNatZ(debug,cout);
         n_yxmsz(mnYr) = n_xmsz;
     } else {
-        cout<<"Unrecognized option for initial n-at-z: "<<ptrMOs->optInitNatZ<<endl;
+        cout<<"Unrecognized option for initial n-at-z: "<<optInitialNs<<endl;
         cout<<"Terminating!"<<endl;
         exit(-1);
     }
@@ -3659,20 +3685,20 @@ FUNCTION void initPopDyMod(int debug, ostream& cout)
     calcFisheryFs(debug,cout);     //calculate fishery F's
     calcSurveyQs(debug,cout);      //calculate survey Q's
     
-    if (ptrMOs->optInitNatZ==0){
+    if (optInitialNs==0){
         //will build up population from recruitment (like TCSAM2013)
         //do nothing, because n_yxmsz has already been initialized to 0
-    } else if (ptrMOs->optInitNatZ==1){
+    } else if (optInitialNs==1){
         //use equilibrium calculation to set initial n-at-z (like gmacs)
         //assumes no fishing occurs before model start
         calcEqNatZF100(initMnR,mnYr,debug,cout);//calculate n_xmsz
         n_yxmsz(mnYr) = n_xmsz;
-    } else if (ptrMOs->optInitNatZ<8){
+    } else if (optInitialNs<8){
         //calculate initial n-at-z from estimated parameters
         estimateInitialNatZ(debug,cout);
         n_yxmsz(mnYr) = n_xmsz;
     } else {
-        cout<<"Unrecognized option for initial n-at-z: "<<ptrMOs->optInitNatZ<<endl;
+        cout<<"Unrecognized option for initial n-at-z: "<<optInitialNs<<endl;
         cout<<"Terminating!"<<endl;
         exit(-1);
     }
@@ -4041,7 +4067,7 @@ FUNCTION void estimateInitialNatZ(int debug, ostream&cout)
             cout<<"rev indices = "<<idxr<<endl;
         }
 
-        if ((ptrMOs->optInitNatZ==2)||(ptrMOs->optInitNatZ==4)||(ptrMOs->optInitNatZ==6)){
+        if ((optInitialNs==2)||(optInitialNs==4)||(optInitialNs==6)){
             //UNSCALED version (log scale)
             if (debug>dbgCalcProcs) cout<<"x"<<tb<<"m"<<tb<<"s"<<tb<<"z"<<tb<<"i"<<tb<<"vLnInitNatZ(i)"<<endl;
             if (pc==1) {
