@@ -1,7 +1,9 @@
 #include <admodel.h>
+#include <qfclib.h>
 #include "wtsADMB.hpp"
 #include "ModelConstants.hpp"
 #include "ModelConfiguration.hpp"
+#include "ModelOptions.hpp"
 #include "ModelIndexBlocks.hpp"
 #include "ModelData.hpp"
 #include "SummaryFunctions.hpp"
@@ -89,6 +91,95 @@ void GrowthData::setMaxYear(int mxYr){
         rpt::echo<<"Finished GrowthData::setMaxYear("<<mxYr<<")"<<endl;
     }
 }
+
+/**
+ * Replace existing growth data with new values based on randomization.
+ * 
+ * @param rng - random_number_generator object
+ * @param ptrMOs - pointer to ModelOptions object
+ * @param grA_xy - matrix of estimated "a" parameters for mean growth, by xy
+ * @param grB_xy - matrix of estimated "b" parameters for mean growth, by xy
+ * @param grBeta_xy - matrix of estimated scale ("beta") parameters for growth, by xy
+ * @param zGrA_xy - dmatrix of pre-molt sizes corresponding to values in grA_xy
+ * @apram zGrB_xy - dmatrix of pre-molt sizes corresponding to values in grB_xy
+ * @param debug - flag to print debugging info
+ * @param cout - output stream for debugging info
+ * 
+ * @return nothing
+ * 
+ * @details Modifies column 5 of inpData_xcn (i.e., the observed postmolt sizes)
+ */
+void GrowthData::replaceGrowthData(random_number_generator& rng,
+                                    ModelOptions* ptrMOs,
+                                    dvar_matrix& grA_xy, 
+                                    dvar_matrix& grB_xy, 
+                                    dvar_matrix& grBeta_xy,
+                                    dmatrix& zGrA_xy,
+                                    dmatrix& zGrB_xy,
+                                    int debug, ostream& cout){
+    debug=1;
+    if (debug) cout<<"Starting GrowthData::replaceGrowthData(...)"<<endl;
+    double rfacGrw2 = ptrMOs->ptrSimOpts->grwMultFac*ptrMOs->ptrSimOpts->grwMultFac;//squared value
+    if (rfacGrw2>0){
+        if (ptrMOs->ptrSimOpts->grwRngSeed>0) rng.reinitialize(ptrMOs->ptrSimOpts->grwRngSeed);
+        for (int x=1;x<=nSXs;x++){
+            ivector year_n = obsYears_xn(x);
+            dvector zpre_n = inpData_xcn(x,2);//--premolt size
+            //rgamma(alpha,beta,rng): 
+            //--alpha = shape parameter = 1/CV^2
+            //--beta  = rate parameter (1/scale) = 1/(mean * CV^2)
+            //--mean  = alpha/beta = alpha*scale
+            //--var   = alpha/beta^2 = alpha*scale^2
+            //--pdf(x,alpha,beta) = (beta^alpha)/Gamma(alpha) * x^(alpha-1) * exp(-beta*x)
+            //--line 494 of qfc_sim.cpp
+            //to scale std dev (sigma) by factor f (sigma' = f*sigma):
+            //--alpha' = alpha/f^2
+            //--beta'  = beta/f^2
+            dvar_vector mnZ_n;
+            if (ptrMOs->optGrowthParam==0){
+                mnZ_n = mfexp(grA_xy(x)(year_n)+elem_prod(grB_xy(x)(year_n),log(zpre_n)));
+            } else if (ptrMOs->optGrowthParam==1){
+                mnZ_n = elem_prod(
+                            grA_xy(x)(year_n),
+                            mfexp(
+                                elem_prod(
+                                    elem_div(log(elem_div( grB_xy(x)(year_n), grA_xy(x)(year_n))),
+                                             log(elem_div(zGrB_xy(x)(year_n),zGrA_xy(x)(year_n)))),
+                                    log(elem_div(zpre_n,zGrA_xy(x)(year_n)))
+                                )
+                            )
+                        );
+            } else if (ptrMOs->optGrowthParam==2){
+                mnZ_n = elem_prod(
+                            grA_xy(x)(year_n),
+                            mfexp(
+                                elem_prod(
+                                    grB_xy(x)(year_n),
+                                    log(elem_div(zpre_n,zGrA_xy(x)(year_n)))
+                                )
+                            )
+                        );
+            } else {
+                //throw error
+                PRINT2B1(" ")
+                PRINT2B1("#---------------------")
+                PRINT2B2("Unknown growth parameterization option",ptrMOs->optGrowthParam)
+                PRINT2B1("Terminating model run. Please correct.")
+                ad_exit(-1);
+            }
+            /* multiplicative scale factor, by observation */
+            dvar_vector ibeta_n = 1.0/grBeta_xy(x)(year_n);
+            /* location factor, by observation */
+            dvar_vector alpha_n = elem_prod(mnZ_n-zpre_n,ibeta_n)/rfacGrw2;
+            for (int n=1;n<=nObs_x(x);n++){
+                double rg_inc = rgamma(value(alpha_n(n)),value(grBeta_xy(x,year_n(n)))/rfacGrw2,rng);
+                inpData_xcn(x,3,n) = zpre_n(n) + rg_inc;//--postmolt size
+            }
+        }//--x
+    }//--(rfacGrw2>0)
+    if (debug) cout<<"Finished GrowthData::replaceGrowthData(...)"<<endl;
+}
+
 /**
  * Read growth data from input file stream.
  * 
@@ -135,9 +226,9 @@ void GrowthData::read(cifstream & is){
         is>>tmp;
         rpt::echo<<"#year"<<tb<<"pre-molt size"<<tb<<"post-molt size"<<std::endl;
         rpt::echo<<tmp<<std::endl;
-        inpData_xcn(xp,1).allocate(1,nObs_x(xp));
-        inpData_xcn(xp,2).allocate(1,nObs_x(xp));
-        inpData_xcn(xp,3).allocate(1,nObs_x(xp));
+        inpData_xcn(xp,1).allocate(1,nObs_x(xp));//--year
+        inpData_xcn(xp,2).allocate(1,nObs_x(xp));//--premolt size
+        inpData_xcn(xp,3).allocate(1,nObs_x(xp));//--postmolt size
         inpData_xcn(xp) = trans(tmp);
         obsYears_xn(xp).allocate(1,nObs_x(xp));
         ivector itmp(inpData_xcn(xp,1));
@@ -448,6 +539,85 @@ void MaturityOgiveData::calcSizeBinRemapper(const dvector& zCs){
         rpt::echo<<"Finished MaturityOgiveData::calcSizeBinRemapper(zCs)"<<endl;
     }
 }
+/**
+ * Simulate the maturity ogive data using randomization
+ * 
+ * @param rng -  random_number_generator object
+ * @param vn_yxmsz - d5_array of model-predicted abundance (numbers) for the survey associated with this data, by y,x,m,s,z
+ * @param debug - flag to print debugging info
+ * @param cout - output stream for debugging info
+ * 
+ * @return nothing
+ * 
+ * @details Modifies column 5 of inpData_xcn and obsPrMat_n (i.e., the observed maturity ogive values).
+ * 
+ */
+void MaturityOgiveData::replaceMaturityOgiveData(random_number_generator& rng,
+                                                 SimOptions* ptrSOs,
+                                                 d5_array& vn_yxmsz,
+                                                 int debug, ostream& cout){
+    if (debug) cout<<"Starting MaturityOgiveData::replaceMaturityOgiveData(...)"<<endl;
+    double rfacMOD = ptrSOs->modDivFac;
+    if (rfacMOD>0){
+        if (ptrSOs->modRngSeed>0) rng.reinitialize(ptrSOs->modRngSeed);
+        if (debug) cout<<"nObs= "<<nObs<<tb;
+        if (nObs>0) {
+            const int SEX = sex;
+            /* year corresponding to observed fractions */
+            const ivector y_n = obsYear_n;
+           /* observation size bin corresponding to observation */
+            const ivector obsZ_n = obsSize_n;
+           /* observation size bin index for size corresponding to observation */
+            const ivector obsIZ_n = obsZBI_n;
+            /* sample sizes for observed fractions */
+            const dvector ss_n = obsSS_n/rfacMOD;
+            /* observed fractions of new shell mature crab at size */
+            const dvector obsPM_n = obsPrMat_n;
+
+            /* calculate model-predicted ratios by year for 
+             * all observed size bins */
+            int mny = vn_yxmsz.indexmin();
+            int mxy = vn_yxmsz.indexmax();
+            if (debug) cout<<"mny = "<<mny<<tb<<"mxy = "<<mxy<<tb<<"nZBs = "<<nZBs<<tb<<"nCutPts = "<<cutpts.size()<<endl;
+            dmatrix modPrMat_yzp(mny,mxy,1,nZBs); modPrMat_yzp.initialize();
+    //                dvector vmMat_z(1,nZBs);
+    //                dvector vmTot_z(1,nZBs);
+            for (int y=mny;y<=mxy;y++){
+                dvector vmMat_z  = vn_yxmsz(y,SEX,MATURE,NEW_SHELL);
+                dvector vmTot_z  = vmMat_z + vn_yxmsz(y,SEX,IMMATURE,NEW_SHELL);
+                if (debug) cout<<"indexmin(vmMat_z) = "<<vmMat_z.indexmin()<<tb<<"indexmax(vmMat_z) = "<<vmMat_z.indexmax()<<endl;
+                if (debug) cout<<y<<" got here"<<endl;
+                if (debug) cout<<"zbRemapper indices: "<<zbRemapper.indexmin()<<tb<<zbRemapper.indexmax()<<endl;
+                if (debug) cout<<"bounds(zbRemapper) = "<<wts::getBounds(zbRemapper)<<endl;
+                dvector tmp = elem_div(zbRemapper*vmMat_z,
+                                           zbRemapper*vmTot_z+1.0e-10);//--predicted maturity ogive (NOTE: small value added)
+                if (debug) cout<<"indexmin(tmp) = "<<tmp.indexmin()<<tb<<"indexmax(tmp) = "<<tmp.indexmax()<<endl;
+                modPrMat_yzp(y) = tmp;
+                if (debug) cout<<y<<tb<<modPrMat_yzp(y)<<endl;
+            }
+
+            //extract model predictions corresponding to observations and simulate a random sample
+            dvector modPM_n(1,nObs);  modPM_n.initialize();
+            if (debug) cout<<"n"<<tb<<"y"<<tb<<"z"<<tb<<"iz"<<tb<<"ss"<<tb<<"obsPM"<<tb<<"modPM"<<endl;
+            for (int n=1;n<=nObs;n++){
+                if (debug) cout<<n<<tb<<y_n(n)<<tb<<obsZ_n(n)<<tb<<obsIZ_n(n)<<tb<<ss_n(n)<<tb<<obsPM_n(n)<<tb;
+                    modPM_n(n) = modPrMat_yzp(y_n(n),obsIZ_n(n));//--predicted maturity ratio for size bin
+                    if (debug) cout<<modPM_n(n)<<tb;
+                    if ((modPM_n(n)>0.0)&(modPM_n(n)<1.0)){
+                        int ss  = min(1,(int)round(ss_n(n)));//sample size
+                        int tmp = 0;
+                        for (int s=1;s<=ss;s++) tmp += (randu(rng)<=modPM_n(n));
+                        inpData_nc(n,5) = ((double)tmp)/((double)ss);
+                    } else {
+                        inpData_nc(n,5) = modPM_n(n);
+                    }
+            }//loop over n
+        }//nObs>0
+    }//(rfacMOD>0)
+    obsPrMat_n = column(inpData_nc,5);
+    if (debug) cout<<"Finished MaturityOgiveData::replaceMaturityOgiveData(...)"<<endl;
+}
+
 /**
  * Read maturity ogive data from input file stream.
  * 

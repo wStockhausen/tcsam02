@@ -23,6 +23,9 @@
 #ifndef MODELDATA_HPP
 #define MODELDATA_HPP
 
+#include <fvar.hpp>
+
+
 //**********************************************************************
 //  Includes
 //      AggregateCatchData
@@ -36,7 +39,11 @@
 //      MaturtyOgiveData
 //      ModelDatasets
 //**********************************************************************
-class ModelConfiguration; //forward definition
+//forward definitions
+class ModelConfiguration; 
+class ModelOptions;
+class SimOptions;
+class CatchDataSimOptions;
 class IndexBlock;
 
 //--------------------------------------------------------------------------------
@@ -104,13 +111,14 @@ class IndexBlock;
         /**
          * Replace catch data C_xmsy with new data. 
          * Also modifies inpC_xmsyc to reflect new data.
-         * Error-related quantities remain the same.
+         * Error-related quantities are re-scaled or replaced.
          * 
-         * @param iSeed - flag (!=0) to add random noise
          * @param rng - random number generator
+         * @param iSeed - flag (!=0) to add random noise
+         * @param expFac - cv expansion factor (re-scales or replaces cv's)
          * @param newC_xmsy - d4_array with new catch data
          */
-        void replaceCatchData(int iSeed,random_number_generator& rng,d4_array& newC_xmsy);
+        void replaceCatchData(random_number_generator& rng,int iSeed,double expFac,d4_array& newC_xmsy);
         /**
          * Update catch data C_xmsy with data for new year 
          * Also modifies inpC_xmsyc to reflect new data.
@@ -306,11 +314,12 @@ class IndexBlock;
          * Also modifies inpNatZ_xmsyc to reflect new data.
          * Error-related quantities remain the same.
          * 
-         * @param iSeed - flag (!=0) to add random noise
          * @param rng - random number generator
+         * @param iSeed - flag (!=0) to add random noise
+         * @param expFac - error expansion factor (divides sample sizes)
          * @param newNatZ_yxmsz - d5_array with new numbers-at-size data
          */
-        void replaceSizeFrequencyData(int iSeed,random_number_generator& rng,d5_array& newNatZ_xmsyz);
+        void replaceSizeFrequencyData(random_number_generator& rng,int iSeed,double expFac,d5_array& newNatZ_xmsyz);
         /**
          * Update catch-at-size data NatZ_xmsyz with new data for year y. 
          * Also modifies inpNatZ_xmsyc to reflect new data.
@@ -486,12 +495,12 @@ class IndexBlock;
         /**
          * Replace catch data based on newNatZ_yxmsz.
          * 
-         * @param iSeed - flag (!=0) to add random noise
          * @param rng - random number generator
+         * @param ptrMOs - pointer to ModelOptions object
          * @param newNatZ_yxmsz - d5_array of catch-at-size by sex/maturity/shell condition/year
          * @param wAtZ_xmz - d3_array of weight-at-size by sex/maturity
          */
-        virtual void replaceCatchData(int iSeed,random_number_generator& rng,d5_array& newNatZ_yxmsz, d3_array& wAtZ_xmz);
+        virtual void replaceCatchData(random_number_generator& rng, CatchDataSimOptions* ptrCDSOs, d5_array& newNatZ_yxmsz, d3_array& wAtZ_xmz);
         /**
          * Adds a new year of catch data based on dvar4_array newNatZ_xmsz to existing data.
          * 
@@ -614,22 +623,37 @@ class IndexBlock;
         /**
          * Replace existing index catch data with new values.
          * 
-         * @param iSeed - flag (!=0) to add random noise
          * @param rng - random number generator
+         * @param ptrMOs - pointer to ModelOptions object
          * @param newNatZ_yxmsz - catch data array
          * @param wAtZ_xmz - weight-at-size array
+         * @param debug - flag to print debugging info
+         * @param cout - output stream for debugging info
          */
-        void replaceIndexCatchData(int iSeed,random_number_generator& rng,d5_array& newNatZ_yxmsz, d3_array& wAtZ_xmz);
+        void replaceIndexCatchData(random_number_generator& rng,
+                                    SimOptions* ptrSOs,
+                                    d5_array& newNatZ_yxmsz, 
+                                    d3_array& wAtZ_xmz,
+                                    int debug=0, 
+                                    ostream& cout=std::cout);
         /**
          * Replace existing fishery catch (retained, discarded, total) data with new values.
          * 
-         * @param iSeed - flag (!=0) to add random noise
          * @param rng - random number generator
+         * @param ptrSOs - pointer to SimOptions object
          * @param newCatZ_yxmsz - total catch data array
          * @param newRatZ_yxmsz - retained catch data array
          * @param wAtZ_xmz      - weight-at-size array
+         * @param debug - flag to print debugging info
+         * @param cout - output stream for debugging info
          */
-        void replaceFisheryCatchData(int iSeed,random_number_generator& rng,d5_array& newCatZ_yxmsz,d5_array& newRatZ_yxmsz,d3_array& wAtZ_xmz);
+        void replaceFisheryCatchData(random_number_generator& rng,
+                                     SimOptions* ptrSOs,
+                                     d5_array& newCatZ_yxmsz,
+                                     d5_array& newRatZ_yxmsz,
+                                     d3_array& wAtZ_xmz,
+                                     int debug=0, 
+                                     ostream& cout=std::cout);
         /**
          * Add a new year of index catch data to existing data.
          * 
@@ -691,6 +715,8 @@ class IndexBlock;
 //--------------------------------------------------------------------------------
 //          GrowthData
 //--------------------------------------------------------------------------------
+    class ModelOptions;//forward definition
+    
     /**
      * Class encapsulating growth data.
      */
@@ -732,6 +758,32 @@ class IndexBlock;
          * @param mxYr - the max year to include data
          */
         void setMaxYear(int mxYr);
+        /**
+         * Replace existing growth data with new values based on randomization.
+         * 
+         * @param rng - random_number_generator object
+         * @param ptrMOs - pointer to ModelOptions object
+         * @param grA_xy - matrix of estimated "a" parameters for mean growth, by xy
+         * @param grB_xy - matrix of estimated "b" parameters for mean growth, by xy
+         * @param grBeta_xy - matrix of estimated scale ("beta") parameters for growth, by xy
+         * @param zGrA_xy - dmatrix of pre-molt sizes corresponding to values in grA_xy
+         * @apram zGrB_xy - dmatrix of pre-molt sizes corresponding to values in grB_xy
+         * @param debug - flag to print debugging info
+         * @param cout - output stream for debugging info
+         * 
+         * @return nothing
+         * 
+         * @details Modifies column 5 of inpData_xcn (i.e., the observed postmolt sizes)
+         */
+        void replaceGrowthData(random_number_generator& rng,
+                                ModelOptions* ptrMOs,
+                                dvar_matrix& grA_xy, 
+                                dvar_matrix& grB_xy,
+                                dvar_matrix& grBeta_xy,
+                                dmatrix& zGrA_xy,  
+                                dmatrix& zGrB_xy,  
+                                int debug=0, 
+                                ostream& cout=std::cout);
         /**
          * Read input data in ADMB format from a file stream
          * 
@@ -908,6 +960,25 @@ class IndexBlock;
          * @param zCs - model size bin cutpoints
          */
         void calcSizeBinRemapper(const dvector& zCs);
+        /**
+         * Simulate the maturity ogive data using randomization
+         * 
+         * @param rng -  random_number_generator object
+         * @param ptrMOs - pointer to ModelOptions object
+         * @param vn_yxmsz - d5_array of model-predicted abundance (numbers) for the survey associated with this data, by y,x,m,s,z
+         * @param debug - flag to print debugging info
+         * @param cout - output stream for debugging info
+         * 
+         * @return nothing
+         * 
+         * @details Modifies column 5 of inpData_xcn and obsPrMat_n (i.e., the observed maturity ogive values).
+         * 
+         */
+        void replaceMaturityOgiveData(random_number_generator& rng,
+                                      SimOptions* ptrSOs,
+                                      d5_array& vn_yxmsz,
+                                      int debug=0, 
+                                      ostream& cout=std::cout);
         /**
          * Read input data in ADMB format from a file stream
          * 

@@ -724,6 +724,8 @@
 //-2022-04-25: 1. Revised error message when fishery names don't match in MCI file and datasets.
 //             2. Added commandline option "-optInitialNs val" to override option for initial N's
 //                  specified in ModelOptions file.
+//-2022-08-02: 1. Revised createSimData, ModeOptions classes, and ModelData classes to incorporate
+//                  new simulation options
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -1511,8 +1513,9 @@ DATA_SECTION
              cout<<"\n\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"<<endl;
              cout<<"Error specifying fishery names and labels in data file and config file."<<endl;
              cout<<"Problem in file "<<ptrMDS->fnsFisheryData[f]<<endl;
-             cout<<"Incorrect fishery name in data file is '"<<ptrMDS->ppFsh[f-1]<<"'"<<endl;
-             cout<<"Please fix names in files!!"<<endl;
+             cout<<"Fishery names (from ModelConfiguration) are: "<<ptrMC->lblsFsh<<endl;
+             cout<<"Incorrect fishery name in data file is '"<<ptrMDS->ppFsh[f-1]->name<<"'"<<endl;
+             cout<<"Please fix names in fishery data file!!"<<endl;
              exit(-1);
          }
          mapD2MFsh(f)   = idx;//map from fishery data object f to model fishery idx
@@ -1533,8 +1536,10 @@ DATA_SECTION
          if (idx<1){
              cout<<"\n\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"<<endl;
              cout<<"Error specifying survey names and labels in data file and config file."<<endl;
-             cout<<"Incorrect survey name in data file is '"<<ptrMDS->ppSrv[v-1]<<"'"<<endl;
-             cout<<"Please fix names in files!!"<<endl;
+             cout<<"Problem in survey data file "<<ptrMDS->fnsSurveyData[v]<<endl;
+             cout<<"Survey names (from ModelConfiguration) are: "<<ptrMC->lblsSrv<<endl;
+             cout<<"Incorrect survey name in survey data file is '"<<ptrMDS->ppSrv[v-1]->name<<"'"<<endl;
+             cout<<"Please fix names in survey file!!"<<endl;
              exit(-1);
          }
          mapD2MSrv(v)   = idx;//map from survey data object v to model survey idx
@@ -1583,6 +1588,7 @@ DATA_SECTION
          }
          mapD2MMOd(v)   = idx;//map from maturity ogive dataset object v to model survey index
          ptrMDS->ppMOD[v-1]->calcSizeBinRemapper(ptrMC->zCutPts);
+         ptrSimMDS->ppMOD[v-1]->calcSizeBinRemapper(ptrMC->zCutPts);
      }
      PRINT2B2("maturity ogive datasets map to model surveys: ",mapD2MMOd)
     }
@@ -2930,7 +2936,7 @@ PRELIMINARY_CALCS_SECTION
             if (fitSimData){
                 int dbgLevel = 0;
                 PRINT2B1("creating sim data to fit in model")
-                createSimData(dbgLevel,rpt::echo,iSimDataSeed,ptrMDS);//stochastic if iSimDataSeed<>0
+                createSimData(ptrMDS,dbgLevel,rpt::echo);//stochastic if iSimDataSeed<>0
                 {
                     PRINT2B1("re-writing data to R")
                     ofstream echo1; echo1.open("ModelData.R", ios::trunc);
@@ -2957,9 +2963,9 @@ PRELIMINARY_CALCS_SECTION
             }
 
             {
-                PRINT2B1("writing model sim data to file")
-                int dbgLevel = 0;
-                createSimData(dbgLevel,rpt::echo,0,ptrSimMDS);//deterministic
+                PRINT2B1("writing model sim data to file 2960")
+                int dbgLevel = 1000;
+                createSimData(ptrSimMDS,dbgLevel,rpt::echo);//deterministic
                 ofstream echo1; echo1.open("ModelData.Sim.init.dat", ios::trunc);
                 echo1.precision(12);
                 writeSimData(echo1,0,rpt::echo,ptrSimMDS);
@@ -9654,32 +9660,67 @@ FUNCTION void writeMCMCtoR(ofstream& mcmc)
     mcmc.close();
     
 //******************************************************************************
-FUNCTION void createSimData(int debug, ostream& cout, int iSimDataSeed, ModelDatasets* ptrSim)
-    if (debug)cout<<"simulating model results as data"<<endl;
-    d6_array vn_vyxmsz = wts::value(n_vyxmsz);
-    d6_array vcN_fyxmsz = wts::value(cpN_fyxmsz);
-    d6_array vrmN_fyxmsz = wts::value(rmN_fyxmsz);
+FUNCTION void createSimData(ModelDatasets* ptrSim, int debug, ostream& cout)
+    debug=100;
+    if (debug){
+        cout<<"simulating model results as data"<<endl;
+        AggregateCatchData::debug=100;
+        SizeFrequencyData::debug=100;
+    }
+    d6_array vn_vyxmsz = wts::value(n_vyxmsz);    //--drop derivative info from model-predicted survey abundance
+    d6_array vcN_fyxmsz = wts::value(cpN_fyxmsz); //--drop derivative info from model-predicted fishery capture abundance
+    d6_array vrmN_fyxmsz = wts::value(rmN_fyxmsz);//--drop derivative info from model-predicted fishery retained abundance
     for (int f=1;f<=nFsh;f++) {
         if (debug) cout<<"fishery f: "<<f<<endl;
-        (ptrSim->ppFsh[f-1])->replaceFisheryCatchData(iSimDataSeed,rngSimData,vcN_fyxmsz(f),vrmN_fyxmsz(f),ptrSim->ptrBio->wAtZ_xmz);
+        (ptrSim->ppFsh[f-1])->replaceFisheryCatchData(rngSimData,ptrMOs->ptrSimOpts,vcN_fyxmsz(f),vrmN_fyxmsz(f),ptrSim->ptrBio->wAtZ_xmz);
     }
     for (int v=1;v<=nSrv;v++) {
-        if (debug) cout<<"survey "<<v<<endl;
-        (ptrSim->ppSrv[v-1])->replaceIndexCatchData(iSimDataSeed,rngSimData,vn_vyxmsz(v),ptrSim->ptrBio->wAtZ_xmz);
+        if (debug) cout<<"survey v: "<<v<<endl;
+        (ptrSim->ppSrv[v-1])->replaceIndexCatchData(rngSimData,ptrMOs->ptrSimOpts,vn_vyxmsz(v),ptrSim->ptrBio->wAtZ_xmz);
     }
-    if (debug) cout<<"finished simulating model results as data"<<endl;
+    for (int g=1;g<=ptrSim->nGrw;g++){
+        if (debug) cout<<"growth data g: "<<g<<endl;
+        (ptrSim->ppGrw[g-1])->replaceGrowthData(rngSimData,ptrMOs,
+                                                grA_xy,grB_xy,grBeta_xy,
+                                                zGrA_xy,zGrB_xy);
+    }
+    for (int o=0;o<ptrSim->nMOD;o++){
+        if (debug) cout<<"maturity ogive data o: "<<o<<endl;
+        MaturityOgiveData* pMOD = ptrSim->ppMOD[o];
+        int v = mapD2MMOd(o+1);//
+        if (debug) cout<<tb<<"v= "<<v<<tb<<"survey: "<<ptrMC->lblsSrv[v]<<endl;
+        pMOD->replaceMaturityOgiveData(rngSimData,ptrMOs->ptrSimOpts,vn_vyxmsz(v),debug,cout);
+    }
+    if (debug) {
+        AggregateCatchData::debug=0;
+        SizeFrequencyData::debug=0;
+        cout<<"finished simulating model results as data"<<endl;
+    }
      
 //******************************************************************************
 FUNCTION void writeSimData(ostream& os, int debug, ostream& cout, ModelDatasets* ptrSim)
+    debug=100;
     if (debug)cout<<"writing model results as data"<<endl;
     for (int v=1;v<=nSrv;v++) {
         os<<"#------------------------------------------------------------"<<endl;
         os<<(*(ptrSim->ppSrv[v-1]))<<endl;
+        os<<"#--EOF"<<endl;
     }
     //     cout<<4<<endl;
     for (int f=1;f<=nFsh;f++) {
         os<<"#------------------------------------------------------------"<<endl;
         os<<(*(ptrSim->ppFsh[f-1]))<<endl;
+        os<<"#--EOF"<<endl;
+    }
+    for (int g=1;g<=ptrSim->nGrw;g++){
+        os<<"#------------------------------------------------------------"<<endl;
+        os<<(*(ptrSim->ppGrw[g-1]))<<endl;
+        os<<"#--EOF"<<endl;
+    }
+    for (int o=1;o<=ptrSim->nMOD;o++){
+        os<<"#------------------------------------------------------------"<<endl;
+        os<<(*(ptrSim->ppMOD[o-1]))<<endl;
+        os<<"#--EOF"<<endl;
     }
     if (debug) cout<<"finished writing model results as data"<<endl;
      

@@ -4,6 +4,7 @@
 #include "ModelConfiguration.hpp"
 #include "ModelIndexBlocks.hpp"
 #include "ModelData.hpp"
+#include "ModelOptions.hpp"
 
 using namespace tcsam;
 
@@ -208,10 +209,12 @@ void CatchData::setMaxYear(int mxYr){
 /*************************************************\n
  * Replaces catch data based on newNatZ_yxmsz.
  * 
+ * @param rng - random number generator object
+ * @param ptrCDSOs - pointer to CatchDataSumOptions object
  * @param newNatZ_yxmsz - POINTER to d5_array of catch-at-size by sex/maturity/shell condition/year
  * @param wAtZ_xmz - weight-at-size by sex/maturity
  */
-void CatchData::replaceCatchData(int iSeed,random_number_generator& rng,d5_array& newNatZ_yxmsz, d3_array& wAtZ_xmz){
+void CatchData::replaceCatchData(random_number_generator& rng,CatchDataSimOptions* ptrCDSOs,d5_array& newNatZ_yxmsz, d3_array& wAtZ_xmz){
     cout<<"***Replacing catch data for "<<name<<endl;
     int mnY = newNatZ_yxmsz.indexmin();
     int mxY = newNatZ_yxmsz.indexmax();
@@ -227,7 +230,7 @@ void CatchData::replaceCatchData(int iSeed,random_number_generator& rng,d5_array
                 }
             }                
         }
-        ptrN->replaceCatchData(iSeed,rng,newN_yxms);
+        ptrN->replaceCatchData(rng,ptrCDSOs->rngSeed,ptrCDSOs->expFacBio,newN_yxms);
         if (debug) cout<<"replaced abundance data"<<endl;
     }
     if (hasB){
@@ -241,12 +244,12 @@ void CatchData::replaceCatchData(int iSeed,random_number_generator& rng,d5_array
                 }
             }
         }
-        ptrB->replaceCatchData(iSeed,rng,newB_yxms);
+        ptrB->replaceCatchData(rng,ptrCDSOs->rngSeed,ptrCDSOs->expFacBio,newB_yxms);
         if (debug) cout<<"replaced biomass data"<<endl;
     }
     if (hasZFD){
         if (debug) cout<<"replacing n-at-size data"<<endl;
-        ptrZFD->replaceSizeFrequencyData(iSeed,rng,newNatZ_yxmsz);
+        ptrZFD->replaceSizeFrequencyData(rng,ptrCDSOs->rngSeed,ptrCDSOs->expFacZCs,newNatZ_yxmsz);
         if (debug) cout<<"replaced n-at-size data"<<endl;
     }
 }
@@ -492,43 +495,57 @@ void FleetData::setMaxYear(int mxYr){
 /**
  * Replace existing index (survey) catch data with new values.
  * 
- * @param iSeed - random number seed
- * @param rng - random number generator
- * @param newNatZ_yxmsz - index catch data array
- * @param wAtZ_xmz - weight-at-size array
+* @param rng - random number generator
+* @param ptrSOs - pointer to SimOptions object
+* @param newNatZ_yxmsz - catch data array
+* @param wAtZ_xmz - weight-at-size array
+* @param debug - flag to print debugging info
+* @param cout - output stream for debugging info
  */
-void FleetData::replaceIndexCatchData(int iSeed,
-                                      random_number_generator& rng,
+void FleetData::replaceIndexCatchData(random_number_generator& rng,
+                                      SimOptions* ptrSOs,
                                       d5_array& newNatZ_yxmsz, 
-                                      d3_array& wAtZ_xmz){
+                                      d3_array& wAtZ_xmz,
+                                      int debug, 
+                                      ostream& cout){
     if (hasICD) {
         if (debug) cout<<"replacing index catch data"<<endl;
-        ptrICD->replaceCatchData(iSeed,rng,newNatZ_yxmsz,wAtZ_xmz);
+        int vi = 0;
+        for (int v=0;v<=ptrSOs->nIdxCatch-1;v++) {if (name==ptrSOs->ppIdxCatch[v]->name) vi=v;}
+        if (vi) ptrICD->replaceCatchData(rng,ptrSOs->ppIdxCatch[vi],newNatZ_yxmsz,wAtZ_xmz);
         if (debug) cout<<"replaced index catch data"<<endl;
     }
 }
 /**
  * Replace existing fishery catch (retained, discarded, total) data with new values.
  * 
- * @param iSeed - seed for random number generator
  * @param rng - random number generator
+ * @param ptrSOs - pointer to SimOptions object
  * @param newCatZ_yxmsz - total catch data array
  * @param newRatZ_yxmsz - retained catch data array
  * @param wAtZ_xmz      - weight-at-size array
+ * @param debug - flag to print debugging info
+ * @param cout - output stream for debugging info
  */
-void FleetData::replaceFisheryCatchData(int iSeed,
-                                        random_number_generator& rng,
+void FleetData::replaceFisheryCatchData(random_number_generator& rng,
+                                        SimOptions* ptrSOs,
                                         d5_array& newCatZ_yxmsz,
                                         d5_array& newRatZ_yxmsz,
-                                        d3_array& wAtZ_xmz){
+                                        d3_array& wAtZ_xmz,
+                                        int debug, 
+                                        ostream& cout){
     if (hasTCD) {
         if (debug) cout<<"replacing total catch data"<<endl;
-        ptrTCD->replaceCatchData(iSeed,rng,newCatZ_yxmsz,wAtZ_xmz);
+        int vi = 0;
+        for (int v=0;v<=ptrSOs->nTotCatch-1;v++) {if (name==ptrSOs->ppTotCatch[v]->name) vi=v;}
+        if (vi) ptrTCD->replaceCatchData(rng,ptrSOs->ppTotCatch[vi],newCatZ_yxmsz,wAtZ_xmz);
         if (debug) cout<<"replaced total catch data"<<endl;
     }
     if (hasRCD) {
         if (debug) cout<<"replacing retained catch data"<<endl;
-        ptrRCD->replaceCatchData(iSeed,rng,newRatZ_yxmsz,wAtZ_xmz);
+        int vi = 0;
+        for (int v=0;v<=ptrSOs->nRetCatch-1;v++) {if (name==ptrSOs->ppRetCatch[v]->name) vi=v;}
+        if (vi) ptrRCD->replaceCatchData(rng,ptrSOs->ppRetCatch[vi],newRatZ_yxmsz,wAtZ_xmz);
         if (debug) cout<<"replaced retained catch data"<<endl;
     }
     if (hasDCD) {
@@ -551,7 +568,9 @@ void FleetData::replaceFisheryCatchData(int iSeed,
                 }
             }
         }
-        ptrDCD->replaceCatchData(iSeed,rng,newDatZ_yxmsz,wAtZ_xmz);
+        int vi = 0;
+        for (int v=0;v<=ptrSOs->nDscCatch-1;v++) {if (name==ptrSOs->ppDscCatch[v]->name) vi=v;}
+        if (vi) ptrDCD->replaceCatchData(rng,ptrSOs->ppDscCatch[vi],newDatZ_yxmsz,wAtZ_xmz);
         if (debug) cout<<"replaced discard catch data"<<endl;
     }
 }

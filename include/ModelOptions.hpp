@@ -455,6 +455,72 @@ public:
 };
 
 /**
+ * CatchDataSimOptions class
+ */
+class CatchDataSimOptions{
+public:
+    static int debug; //debugging flag
+    adstring name;    //fleet name
+    long rngSeed;     //seed for random number generator 
+    double expFacAbd; //expansion factor for catch abundance data
+    double expFacBio; //expansion factor for catch biomass data
+    double expFacZCs; //expansion factor for size composition data
+    
+    CatchDataSimOptions();
+    ~CatchDataSimOptions();
+    void read(cifstream & is);
+    void write(std::ostream & os);
+    void writeToR(std::ostream & os);    
+    
+    friend cifstream& operator >>(cifstream & is, CatchDataSimOptions & obj){obj.read(is); return is;}
+    friend std::ostream& operator <<(std::ostream & os, CatchDataSimOptions & obj){obj.write(os); return os;}
+};
+
+/**
+ * SimOptions class definition.
+ */
+class SimOptions {
+public:
+    /** flag to print debugging info */
+    static int debug;
+    
+public:
+    /** pointer to ModelConfiguration object */
+    int nRetCatch;
+    int nTotCatch;
+    int nDscCatch;
+    int nIdxCatch;
+    CatchDataSimOptions** ppRetCatch;
+    CatchDataSimOptions** ppTotCatch;
+    CatchDataSimOptions** ppDscCatch;
+    CatchDataSimOptions** ppIdxCatch;
+    
+    /** random number generator flag for growth data */
+    int grwRngSeed;//--if not 0, reset rng seed to this when generating random numbers
+    /* CV multiplier for growth data */
+    double grwMultFac;
+    /** random number generator flag for maturity ogive data */
+    int modRngSeed;//--if not 0, reset rng seed to this when generating random numbers
+    /* sample size divisor for maturity ogive data */
+    double modDivFac;
+    /**
+     * Class constructor.
+     */
+    SimOptions();
+    /**
+     * Class destructor for projection scenarios.
+     */
+    ~SimOptions();
+
+    void read(cifstream & is);
+    void write(std::ostream & os);
+    void writeToR(std::ostream & os);
+
+    friend cifstream& operator >>(cifstream & is, SimOptions & obj){obj.read(is); return is;}
+    friend std::ostream& operator <<(std::ostream & os, SimOptions & obj){obj.write(os); return os;}
+};
+
+/**
  * ModelOptions class definition.
  */
     class ModelOptions {
@@ -577,6 +643,9 @@ public:
         ProjectionOptions* ptrProjOpts;
         /** pointer to projection options for MCMC runs */
         ProjectionOptions* ptrProjOptsMCMC;
+        
+        /** pointer to simulation options */
+        SimOptions* ptrSimOpts;
  
     public:
         /**

@@ -462,7 +462,7 @@ void CapRateAvgScenarios::writeToR(std::ostream& os){
 //--------------------------------------------------------------------------------
 //          EffXtrapOptions
 //--------------------------------------------------------------------------------
-int EffXtrapScenarios::debug = 0;
+int EffXtrapScenarios::debug = 1;
 EffXtrapScenarios::EffXtrapScenarios(ModelConfiguration& mc){
     ptrMC = &mc;
     ptrEffAvgScenarios = new EffAvgScenarios(*ptrMC);
@@ -512,7 +512,7 @@ void EffXtrapScenarios::writeToR(std::ostream& os){
 //--------------------------------------------------------------------------------
 //          ProjectionOptions
 //--------------------------------------------------------------------------------
-int ProjectionOptions::debug = 0;
+int ProjectionOptions::debug = 1;
 ProjectionOptions::ProjectionOptions(){};
 void ProjectionOptions::read(cifstream& is){
     is>>nReps;
@@ -544,10 +544,218 @@ void ProjectionOptions::writeToR(std::ostream& os){
     os<<tb<<"nFMs="<<nFMs<<cc<<"FMs="; wts::writeToR(os,FMs); os<<")";
 }
 //--------------------------------------------------------------------------------
+//          CatchDataSimOptions
+//--------------------------------------------------------------------------------
+int CatchDataSimOptions::debug = 0;
+CatchDataSimOptions::CatchDataSimOptions(){
+    if (debug) {
+        rpt::echo<<"in CatchDataSimOptions constructor"<<endl;
+        rpt::echo<<"name = '"<<name<<"'"<<endl;
+    }
+}
+CatchDataSimOptions::~CatchDataSimOptions(){
+    if (debug) {
+        rpt::echo<<"in CatchDataSimOptions destructor"<<endl;
+        rpt::echo<<"name = '"<<name<<"'"<<endl;
+    }
+}
+void CatchDataSimOptions::read(cifstream & is){
+    if (debug) {
+        rpt::echo<<"Starting CatchDataSimOptions::read()"<<endl;
+        rpt::echo<<name<<"  is the name before"<<endl;
+        rpt::echo<<is.get_file_name()<<endl;
+    }
+    is>>name;      if (debug) rpt::echo<<name<<tb;
+    is>>rngSeed;   if (debug) rpt::echo<<rngSeed<<tb;
+    is>>expFacAbd; if (debug) rpt::echo<<expFacAbd<<tb;
+    is>>expFacBio; if (debug) rpt::echo<<expFacBio<<tb;
+    is>>expFacZCs; if (debug) rpt::echo<<expFacZCs<<endl;
+    if (debug) rpt::echo<<"Finished CatchDataSimOptions::read()"<<endl;
+}
+void CatchDataSimOptions::write(ostream & os){
+    if (debug) rpt::echo<<"starting CatchDataSimOptions::write() "<<endl;
+    os<<name<<tb<<rngSeed<<tb<<expFacAbd<<tb<<expFacBio<<tb<<expFacZCs;
+}
+void CatchDataSimOptions::writeToR(ostream & os){
+    if (debug) rpt::echo<<"starting CatchDataSimOptions::writeToR() "<<endl;
+    os<<"list(name="<<name<<cc<<"rngSeed="<<rngSeed<<"expFacAbd="<<expFacAbd<<cc<<
+            "expFacBio="<<expFacBio<<cc<<"expFacZCs="<<expFacZCs<<")";
+}
+//--------------------------------------------------------------------------------
+//          SimOptions
+//--------------------------------------------------------------------------------
+int SimOptions::debug = 0;
+SimOptions::SimOptions(){
+    if (debug) rpt::echo<<"starting SimOptions::SimOptions "<<endl;
+    ppRetCatch = 0;
+    ppTotCatch = 0;
+    ppDscCatch = 0;
+    ppIdxCatch = 0;
+    if (debug) rpt::echo<<"finished SimOptions::SimOptions "<<endl;
+}
+SimOptions::~SimOptions(){
+    if (debug) rpt::echo<<"starting SimOptions::~SimOptions "<<endl;
+    if (ppRetCatch) {                                                        
+        for (int f=0;f<nRetCatch;f++) delete ppRetCatch[f];
+        delete ppRetCatch; ppRetCatch = 0;
+    } 
+    if (ppTotCatch) {                                                        
+        for (int f=0;f<nTotCatch;f++) delete ppTotCatch[f];
+        delete ppTotCatch; ppTotCatch = 0;
+    } 
+    if (ppDscCatch) {                                                        
+        for (int f=0;f<nDscCatch;f++) delete ppDscCatch[f];
+        delete ppDscCatch; ppDscCatch = 0;
+    } 
+    if (ppIdxCatch) {                                                        
+        for (int f=0;f<nIdxCatch;f++) delete ppIdxCatch[f];
+        delete ppIdxCatch; ppIdxCatch = 0;
+    } 
+    if (debug) rpt::echo<<"finished SimOptions::~SimOptions "<<endl;
+}
+void SimOptions::read(cifstream& is){
+    if (debug) rpt::echo<<"#--starting SimOptions::read()"<<std::endl;
+    is>>nRetCatch; if (debug) rpt::echo<<"nRetCatch = "<<nRetCatch<<endl;
+    if (nRetCatch){
+        if (debug) rpt::echo<<"#-------Retained Catch SimOptions---------"<<std::endl;
+        if (debug) rpt::echo<<"#--Creating retained catch SimOptions pointer array"<<std::endl;        
+        ppRetCatch = new CatchDataSimOptions*[nRetCatch];
+        if (debug) rpt::echo<<"#--Created retained CatchDataSimOptions pointer array"<<std::endl;        
+        for (int i=0;i<nRetCatch;i++) {
+            ppRetCatch[i] = new CatchDataSimOptions();
+            if (debug) rpt::echo<<"Attempting to read "<<i<<"th retained CatchDataSimOption object "<<ppRetCatch[i]<<endl;
+            is>>*(ppRetCatch[i]);
+        }
+    }
+    is>>nTotCatch; if (debug) rpt::echo<<"nTotCatch = "<<nTotCatch<<endl;
+    if (nTotCatch){
+        if (debug) rpt::echo<<"#-------Total Catch SimOptions---------"<<std::endl;
+        ppTotCatch = new CatchDataSimOptions*[nTotCatch];
+        for (int i=0;i<nTotCatch;i++) {
+            ppTotCatch[i] = new CatchDataSimOptions();
+            is>>(*ppTotCatch[i]);
+        }
+    }
+    is>>nDscCatch; if (debug) rpt::echo<<"nDscCatch = "<<nDscCatch<<endl;
+    if (nDscCatch){
+        if (debug) rpt::echo<<"#-------Discard Catch SimOptions---------"<<std::endl;
+        ppDscCatch = new CatchDataSimOptions*[nDscCatch];
+        for (int i=0;i<nDscCatch;i++) {
+            ppDscCatch[i] = new CatchDataSimOptions();
+            is>>(*ppDscCatch[i]);
+        }
+    }
+    is>>nIdxCatch; if (debug) rpt::echo<<"nIdxCatch = "<<nIdxCatch<<endl;
+    if (nIdxCatch){
+        if (debug) rpt::echo<<"#-------Index Catch SimOptions---------"<<std::endl;
+        ppIdxCatch = new CatchDataSimOptions*[nIdxCatch];
+        for (int i=0;i<nIdxCatch;i++) {
+            ppIdxCatch[i] = new CatchDataSimOptions();
+            is>>(*ppIdxCatch[i]);
+        }
+    }
+    is>>grwRngSeed;  if (debug) rpt::echo<<"grwRngSeed = "<<grwRngSeed<<endl;
+    is>>grwMultFac;  if (debug) rpt::echo<<"grwMultFac = "<<grwMultFac<<endl;
+    is>>modRngSeed;  if (debug) rpt::echo<<"modRngSeed = "<<modRngSeed<<endl;
+    is>>modDivFac;   if (debug) rpt::echo<<"modDivFac  = "<<modDivFac<<endl;
+}
+void SimOptions::write(std::ostream& os){
+    if (debug) rpt::echo<<"#--starting SimOptions::write()"<<std::endl;
+    os<<"#--Simulation Options"<<endl;
+    os<<"#--RNG seed: 0 = use default"<<endl;
+    os<<"#--expansion factors:"<<endl;
+    os<<"#---- =0: no observation noise added"<<endl;
+    os<<"#---- >0: multiply CV"<<endl;
+    os<<"#---- <0: replace CV"<<endl;
+    os<<"#--retained catch fishery data"<<endl;
+    os<<nRetCatch<<tb<<"#--number of fleets";
+    if (nRetCatch){
+        if (debug) rpt::echo<<"#-------Retained Catch SimOptions---------"<<std::endl;
+        for (int i=0;i<nRetCatch;i++) os<<(*ppRetCatch[i])<<endl;
+    }
+    os<<"#--total catch fishery data"<<endl;
+    os<<nTotCatch<<tb<<"#--number of fleets";
+    if (nTotCatch){
+        if (debug) rpt::echo<<"#-------Total Catch SimOptions---------"<<std::endl;
+        for (int i=0;i<nTotCatch;i++) os<<(*ppTotCatch[i])<<endl;
+    }
+    os<<"#--discard catch fishery data"<<endl;
+    os<<nDscCatch<<tb<<"#--number of fleets";
+    if (nDscCatch){
+        if (debug) rpt::echo<<"#-------Discard Catch SimOptions---------"<<std::endl;
+        for (int i=0;i<nDscCatch;i++) os<<(*ppDscCatch[i])<<endl;
+    }
+    os<<"#--index catch data"<<endl;
+    os<<nIdxCatch<<tb<<"#--number of fleets";
+    if (nIdxCatch){
+        if (debug) rpt::echo<<"#-------Index Catch SimOptions---------"<<std::endl;
+        for (int i=0;i<nIdxCatch;i++) os<<(*ppIdxCatch[i])<<endl;
+    }
+    os<<"#----Growth data"<<endl;
+    os<<grwRngSeed<<tb<<"#--RNG seed (0: don't reset seed)"<<endl;
+    os<<grwMultFac   <<tb<<"#--observation noise scale factor (CV multiplier)"<<endl;
+    os<<"#----Maturity ogive data"<<endl;
+    os<<modRngSeed<<tb<<"#--RNG seed (0: don't reset seed)"<<endl;
+    os<<modDivFac   <<tb<<"#--observation noise scale factor (reduces input sample sizes)"<<endl;
+    if (debug) rpt::echo<<"#--finished SimOptions::write()"<<std::endl;
+}
+void SimOptions::writeToR(std::ostream& os){
+    if (debug) rpt::echo<<"#--starting SimOptions::writeToR()"<<std::endl;
+    os<<"list("<<endl;
+    os<<tb<<"ret=list("<<endl;
+    if (nRetCatch){
+        for (int i=0;i<(nRetCatch-1);i++) {
+            adstring name = ppRetCatch[i]->name;
+            os<<tb<<tb<<name<<"="; ppRetCatch[i]->writeToR(os); os<<endl;
+        }
+        adstring name = ppRetCatch[nRetCatch-1]->name;
+        os<<tb<<tb<<name<<"="; ppRetCatch[nRetCatch-1]->writeToR(os); os<<endl;
+        os<<"),"<<endl;
+    }
+    //
+    os<<tb<<"tot=list("<<endl;
+    if (nTotCatch){
+        for (int i=0;i<(nTotCatch-1);i++) {
+            adstring name = ppTotCatch[i]->name;
+            os<<tb<<tb<<name<<"="; ppTotCatch[i]->writeToR(os); os<<endl;
+        }
+        adstring name = ppTotCatch[nTotCatch-1]->name;
+        os<<tb<<tb<<name<<"="; ppTotCatch[nTotCatch-1]->writeToR(os); os<<endl;
+    }
+    os<<"),"<<endl;
+    //
+    os<<tb<<"dsc=list("<<endl;
+    if (nDscCatch){
+        for (int i=0;i<(nDscCatch-1);i++) {
+            adstring name = ppDscCatch[i]->name;
+            os<<tb<<tb<<name<<"="; ppDscCatch[i]->writeToR(os); os<<endl;
+        }
+        adstring name = ppDscCatch[nDscCatch-1]->name;
+        os<<tb<<tb<<name<<"="; ppDscCatch[nDscCatch-1]->writeToR(os); os<<endl;
+    }
+    os<<"),"<<endl;
+    //
+    os<<tb<<"idx=list("<<endl;
+    if (nIdxCatch){
+        for (int i=0;i<(nIdxCatch-1);i++) {
+            adstring name = ppIdxCatch[i]->name;
+            os<<tb<<tb<<name<<"="; ppIdxCatch[i]->writeToR(os); os<<endl;
+        }
+        adstring name = ppIdxCatch[nIdxCatch-1]->name;
+        os<<tb<<tb<<name<<"="; ppIdxCatch[nIdxCatch-1]->writeToR(os); os<<endl;
+    }
+    os<<"),"<<endl;
+    //
+    os<<tb<<"grw=list(rngSeed ="<<grwRngSeed<<cc<<"multFac ="<<grwMultFac<<")"<<cc<<endl;
+    os<<tb<<"mod=list(rngSeed ="<<modRngSeed<<cc<<"divFac ="<<modDivFac<<")"<<endl;
+    os<<")";
+    if (debug) rpt::echo<<"#--finished SimOptions::writeToR()"<<std::endl;
+}
+//--------------------------------------------------------------------------------
 //          ModelOptions
 //--------------------------------------------------------------------------------
 int ModelOptions::debug = 0;
-const adstring ModelOptions::VERSION = "2022.04.10";
+const adstring ModelOptions::VERSION = "2022.08.02";
 
 ModelOptions::ModelOptions(ModelConfiguration& mc){
     ptrMC=&mc;
@@ -618,6 +826,9 @@ ModelOptions::ModelOptions(ModelConfiguration& mc){
     //options for projections
     ptrProjOpts     = new ProjectionOptions();
     ptrProjOptsMCMC = new ProjectionOptions();
+    
+    //options for simulations
+    ptrSimOpts = new SimOptions();
 }
 /**
  * Read from input stream in ADMB format.
@@ -625,7 +836,7 @@ ModelOptions::ModelOptions(ModelConfiguration& mc){
  * @param is - input stream
  */
 void ModelOptions::read(cifstream & is) {
-    if (debug) cout<<"ModelOptions::read(cifstream & is)"<<endl;
+    cout<<"ModelOptions::read(cifstream & is)"<<endl;
     int idx;
     adstring str;
     is>>str;
@@ -807,12 +1018,22 @@ void ModelOptions::read(cifstream & is) {
     is>>(*ptrProjOpts);     cout<<"#--non-MCMC options"<<endl<<(*ptrProjOpts)    <<endl;
     is>>(*ptrProjOptsMCMC); cout<<"#--    MCMC options"<<endl<<(*ptrProjOptsMCMC)<<endl;
     
-    if (debug) cout<<"end ModelOptions::read(cifstream & is)"<<endl;
+//    if (debug){
+//        cout<<"enter 1 to continue : ";
+//        cin>>debug;
+//        if (debug<0) exit(1);
+//    }
+    
+    //Simulation options
+    cout<<"#In ModelOptions, reading simulation-related options"<<endl;
+    is>>(*ptrSimOpts); cout<<"#--Simulation options"<<endl<<(*ptrSimOpts)<<endl;
+    
     if (debug){
         cout<<"enter 1 to continue : ";
         cin>>debug;
         if (debug<0) exit(1);
     }
+    if (debug) cout<<"end ModelOptions::read(cifstream & is)"<<endl;
 }
 
 /***************************************************************
@@ -987,6 +1208,10 @@ void ModelOptions::write(ostream & os) {
     os<<"#------    MCMC projection options "<<endl;
     os<<(*ptrProjOptsMCMC);
     
+    //projection options
+    os<<"#----Simulation Options"<<endl;
+    os<<(*ptrSimOpts);
+    
     os<<"#---------------------"<<endl<<endl;
     
     if (debug) cout<<"#end ModelOptions::write(ostream)"<<endl;
@@ -1031,7 +1256,8 @@ void ModelOptions::writeToR(ostream& os, std::string nm, int indent) {
             os<<"maxIts="<<maxIterations;
         os<<")"<<cc<<endl;
         os<<"projOpts=";     ptrProjOpts->writeToR(os);     os<<cc<<endl;
-        os<<"projOptsMCMC="; ptrProjOptsMCMC->writeToR(os); os<<endl;
+        os<<"projOptsMCMC="; ptrProjOptsMCMC->writeToR(os); os<<cc<<endl;
+        os<<"simOpts=";      ptrSimOpts->writeToR(os);      os<<endl;
     indent--;
     for (int n=0;n<indent;n++) os<<tb;
         os<<")";

@@ -144,11 +144,12 @@ void AggregateCatchData::aggregateData(void){
  * Error-related quantities remain the same.
  * Use flags remain the same.
  * 
- * @param iSeed - flag to add noise to data (if !=0)
  * @param rng - random number generator
- * @param newC_yxms - d4_array of new catch data
+ * @param iSeed - flag to add noise to data (if !=0)
+ * @param expFac - error expansion factor (or replacement)
+  * @param newC_yxms - d4_array of new catch data
  */
-void AggregateCatchData::replaceCatchData(int iSeed,random_number_generator& rng,d4_array& newC_yxms){
+void AggregateCatchData::replaceCatchData(random_number_generator& rng,int iSeed,double expFac,d4_array& newC_yxms){
     if (debug) os<<"starting AggregateCatchData::replaceCatchData(d4_array& newC_yxms) on "<<name<<std::endl;
     //get conversion factor to millions (abundance) or thousands mt (biomass)
     double convFac = 1.0;
@@ -168,11 +169,13 @@ void AggregateCatchData::replaceCatchData(int iSeed,random_number_generator& rng
     int oldNY = ny;
     ivector oldYrs(1,oldNY); oldYrs = yrs;
     d4_array oldSD_xmsy(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,oldNY);
+    d4_array oldCV_xmsy(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,oldNY);
     d5_array oldInpC_xmsyc(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,oldNY,1,4);
     for (int x=1;x<=tcsam::ALL_SXs;x++){
         for (int m=1;m<=tcsam::ALL_MSs;m++){
             for (int s=1;s<=tcsam::ALL_SCs;s++) {
                 oldSD_xmsy(x,m,s)    = sd_xmsy(x,m,s);
+                oldCV_xmsy(x,m,s)    = cv_xmsy(x,m,s);
                 oldInpC_xmsyc(x,m,s) = inpC_xmsyc(x,m,s);
             }
         }
@@ -205,11 +208,16 @@ void AggregateCatchData::replaceCatchData(int iSeed,random_number_generator& rng
                 int m = tcsam::getMaturityType(factors(i,2));
                 int s = tcsam::getShellType(factors(i,3));
                 double v = tcsam::extractFromYXMS(yr,x,m,s,newC_yxms);//aggregate as necessary
+                double cv = oldCV_xmsy(x,m,s,y);
+                double sd = oldSD_xmsy(x,m,s,y);
                 if (iSeed) {
-                    double sd = oldSD_xmsy(x,m,s,y);
+                    cv = abs(expFac);
+                    if (expFac>0) cv = expFac*oldCV_xmsy(x,m,s,y);
                     if (llType==tcsam::LL_LOGNORMAL){
+                        sd = sqrt(log(1.0 + square(cv)));
                         v *= exp(wts::drawSampleNormal(rng,0.0,sd)-0.5*sd*sd);
                     } else {
+                        sd = cv*v;
                         v += wts::drawSampleNormal(rng,0.0,sd);
                     }
                 }
@@ -1085,11 +1093,12 @@ void SizeFrequencyData::aggregateRawNatZ(void){
  * Also modifies inpNatZ_xmsyc to reflect new data.
  * Error-related quantities remain the same.
  * 
- * @param iSeed - flag to add noise to data (if !=0)
  * @param rng - random number generator
+ * @param iSeed - flag to add noise to data (if !=0)
+ * @param expFac - error expansion factor
  * @param newNatZ_yxmsz - d5_array of numbers-at-size by yxmsz
  */
-void SizeFrequencyData::replaceSizeFrequencyData(int iSeed,random_number_generator& rng,d5_array& newNatZ_yxmsz){
+void SizeFrequencyData::replaceSizeFrequencyData(random_number_generator& rng,int iSeed,double expFac,d5_array& newNatZ_yxmsz){
     if (debug) std::cout<<"starting SizeFrequencyData::replaceSizeFrequencyData(...) for "<<name<<std::endl;
     
     //year limits on new data
@@ -1132,7 +1141,10 @@ void SizeFrequencyData::replaceSizeFrequencyData(int iSeed,random_number_generat
                 for (int m=1;m<=tcsam::ALL_MSs;m++){
                     for (int s=1;s<=tcsam::ALL_SCs;s++) {
                         dvector n_z = tcsam::extractFromYXMSZ(yr,x,m,s,newNatZ_yxmsz);
+                        double ss = oldInpNatZ_xmsyc(x,m,s,y,4);//original sample size
                         if (iSeed){
+                            ss = abs(expFac);//fix sample size
+                            if (expFac>0) ss = expFac*oldInpNatZ_xmsyc(x,m,s,y,4);//expand input sample size 
                             //add stochastic component by resampling using input sample size
                             double n = sum(n_z);
                             if ((n>0)&&(inpSS_xmsy(x,m,s,y)>0)){
@@ -1145,7 +1157,8 @@ void SizeFrequencyData::replaceSizeFrequencyData(int iSeed,random_number_generat
                                 cout<<"new n_z = "<<n_z<<endl;
                             }
                         }
-                        inpNatZ_xmsyc(x,m,s,yctr)(1,LAST_COL) = oldInpNatZ_xmsyc(x,m,s,y)(1,LAST_COL);//old use flag, DM, year, ss
+                        inpNatZ_xmsyc(x,m,s,yctr)(1,LAST_COL-1) = oldInpNatZ_xmsyc(x,m,s,y)(1,LAST_COL-1);//old use flag, DM, year
+                        inpNatZ_xmsyc(x,m,s,yctr)(LAST_COL)     = ss; //new sample size
                         inpNatZ_xmsyc(x,m,s,yctr)(LAST_COL+1,LAST_COL+nZCs-1).shift(1) = n_z;//new size frequency
                     }
                 }
