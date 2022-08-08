@@ -155,7 +155,7 @@ void setDevsVectorVector(dvar_matrix& devs, param_init_bounded_number_vector& pD
  * 
  */
 void setBoundedVectorVector(dvar_matrix& mat, param_init_bounded_number_vector& pVals, BoundedVectorVectorInfo* pI, int debug, std::ostream& os){
-    if (debug>=dbgAll) os<<"starting setVectorVector(mat,pVals,pI)"<<std::endl;
+    if (debug>=dbgAll) os<<"starting setVectorVector(mat,pVals,pI) for "<<pVals(1).label()<<tb<<pI->name<<std::endl;
     mat.initialize();
     if (pI->getSize()){
         int nv = pI->getSize();//number of devs vectors defined
@@ -163,8 +163,13 @@ void setBoundedVectorVector(dvar_matrix& mat, param_init_bounded_number_vector& 
         ivector mxiv = pI->getMaxIndices();
         int ctr = 1;
         for (int v=1;v<=nv;v++){
+            if (debug>=dbgAll) os<<tb<<"v: "<<v<<". mni: "<<mniv(v)<<". mxi(v): "<<mxiv(v)<<endl;
             dvar_vector ps(mniv(v),mxiv(v));
+            int ctr_start = ctr;
             for (int j=mniv(v);j<=mxiv(v);j++) ps(j) = pVals(ctr++);
+            int ctr_end = ctr;
+            if (debug>=dbgAll) os<<tb<<"ctr_start: "<<ctr_start<<tb<<"ctr_end: "<<ctr_end<<endl;
+            if (debug>=dbgAll) os<<tb<<"ps: "<<ps<<endl;
             mat(v) = (*pI)[v]->calcArithScaleVals(ps);
             if (debug>=(dbgAll)) os<<v<<":  "<<mat(v)<<endl;
         }
@@ -172,7 +177,7 @@ void setBoundedVectorVector(dvar_matrix& mat, param_init_bounded_number_vector& 
             std::cout<<"Enter 1 to continue >>";
             std::cin>>nv;
             if (nv<0) exit(-1);
-            os<<"finished setVectorVector(mat,pVals,pI)"<<std::endl;
+            os<<"finished setVectorVector(mat,pVals,pI) for "<<pVals(1).label()<<tb<<pI->name<<std::endl;
         }
     } else {
         if (debug>=(dbgAll)) os<<"size=0, so no values to set"<<endl;

@@ -533,10 +533,20 @@ public:
         /** pointer to model configuration object */
         ModelConfiguration* ptrMC; 
         
-        /** labels for initial n-at-z options */
-        adstring_array optsInitNatZ;
-        /** selected option for initial n-at-z calculations */
-        int optInitNatZ;               
+        /** labels for initial n-at-z Option 1 */
+        adstring_array opts1_InitNatZ;
+        /** selected value for Option 1 for initial n-at-z calculations */
+        int opt1_InitNatZ;
+        /** labels for initial n-at-z Option 1 */
+        adstring_array opts2_InitNatZ;
+        /** selected value for Option 1 for initial n-at-z calculations */
+        int opt2_InitNatZ;
+        /** labels for initial n-at-z Option 1 */
+        adstring_array opts3_InitNatZ;
+        /** selected value for Option 1 for initial n-at-z calculations */
+        int opt3_InitNatZ;
+        /** penalty on sum-to-1 for logistic scale initial N-at-Z parameters */
+        double wgtSumTo1_InitNatZ;
         
         /** labels for options for natural mortality parameterization */
         adstring_array optsParamNM;

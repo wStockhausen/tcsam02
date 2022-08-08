@@ -755,21 +755,27 @@ void SimOptions::writeToR(std::ostream& os){
 //          ModelOptions
 //--------------------------------------------------------------------------------
 int ModelOptions::debug = 0;
-const adstring ModelOptions::VERSION = "2022.08.02";
+const adstring ModelOptions::VERSION = "2022.08.05";
 
 ModelOptions::ModelOptions(ModelConfiguration& mc){
     ptrMC=&mc;
     
-    //initial n-at-z options
-    optsInitNatZ.allocate(0,7);
-    optsInitNatZ(0) = "build up n-at-z from recruitments (like TCSAM2013)"; 
-    optsInitNatZ(1) = "calculate initial n-at-z using equilibrium calculations (like Gmacs)";
-    optsInitNatZ(2) = "estimate initial n-at-z using LN-SCALE params:       initialize using input values";
-    optsInitNatZ(3) = "estimate initial n-at-z using LOGISTIC-SCALE params: initialize using input values";
-    optsInitNatZ(4) = "estimate initial n-at-z using LN-SCALE params:       initialize using equilibrium calculations (unless using pin file)";
-    optsInitNatZ(5) = "estimate initial n-at-z using LOGISTIC-SCALE params: initialize using equilibrium calculations (unless using pin file)";
-    optsInitNatZ(6) = "estimate initial n-at-z using LN-SCALE params:       initialize using equilibrium calculations (ignore pin file values)";
-    optsInitNatZ(7) = "estimate initial n-at-z using LOGISTIC-SCALE params: initialize using equilibrium calculations (ignore pin file values)";
+    //labels for initial n-at-z option 1
+    opts1_InitNatZ.allocate(0,3);
+    opts1_InitNatZ(0) = "#0 - build up n-at-z from recruitments (like TCSAM2013)"; 
+    opts1_InitNatZ(1) = "#1 - calculate initial n-at-z using equilibrium calculations (like Gmacs)";
+    opts1_InitNatZ(2) = "#2 - estimate initial n-at-z parameters on log scale      ('UNSCALED' version: pLnBaseInitN is ln-scale abundance in 1st population size bin)";
+    opts1_InitNatZ(3) = "#3 - estimate initial n-at-z parameters on logistic scale (  'SCALED' version: pLnBaseInitN is ln-scale total abundance in 1st population size bin)";
+    
+    //labels for initial n-at-z option 2
+    opts2_InitNatZ.allocate(1,2);
+    opts2_InitNatZ(1) = "#1 - initialize using input values from MPI or pin file"; 
+    opts2_InitNatZ(2) = "#2 - initialize using equilibrium calculations, ignore pin file values";
+    
+    //labels for initial n-at-z option 3
+    opts3_InitNatZ.allocate(1,2);
+    opts3_InitNatZ(1) = "#1 - normalize relative abundances to sum to 1         (guarantees sum-to-1)"; 
+    opts3_InitNatZ(2) = "#2 - impose sum-to-1 constraint on relative abundances (does not guarantee sum-to-1)";
     
     //options for natural mortality parameterization
     optsParamNM.allocate(0,1);
@@ -850,9 +856,18 @@ void ModelOptions::read(cifstream & is) {
     cout<<ModelOptions::VERSION<<tb<<"# Model Options version"<<endl;
     
     //initial numbers-at-size options
-    if (debug) cout<<"##Initial numbers-at-size options:"<<endl;
-    is>>optInitNatZ;
-    cout<<optInitNatZ<<tb<<"#"<<optsInitNatZ(optInitNatZ)<<endl;
+    if (debug) cout<<"##Initial numbers-at-size Option 1:"<<endl;
+    is>>opt1_InitNatZ;
+    cout<<opt1_InitNatZ<<tb<<"#"<<opts1_InitNatZ(opt1_InitNatZ)<<endl;
+    if (debug) cout<<"##Initial numbers-at-size Option 2:"<<endl;
+    is>>opt2_InitNatZ;
+    cout<<opt1_InitNatZ<<tb<<"#"<<opts1_InitNatZ(opt2_InitNatZ)<<endl;
+    if (debug) cout<<"##Initial numbers-at-size Option 3:"<<endl;
+    is>>opt3_InitNatZ;
+    cout<<opt1_InitNatZ<<tb<<"#"<<opts1_InitNatZ(opt3_InitNatZ)<<endl;
+    if (debug) cout<<"##Initial numbers-at-size sum-to-1 penalty weight:"<<endl;
+    is>>wgtSumTo1_InitNatZ;
+    cout<<wgtSumTo1_InitNatZ<<endl;
     
     //natural mortality options
     cout << "##Natural mortality options:"<<endl;
@@ -1047,11 +1062,26 @@ void ModelOptions::write(ostream & os) {
     os<<ModelOptions::VERSION<<tb<<"# Model Options version"<<endl;
 
     //initial n-at-z options
-    os<<"#----Initial Numbers-At-Size Options"<<endl;
-    for (int o=optsInitNatZ.indexmin();o<=optsInitNatZ.indexmax();o++) {
-        os<<"#"<<o<<" - "<<optsInitNatZ(o)<<endl;
+    os<<"#----Initial Numbers-At-Size Options: Option 1"<<endl;
+    for (int o=opts1_InitNatZ.indexmin();o<=opts1_InitNatZ.indexmax();o++) {
+        os<<opts1_InitNatZ(o)<<endl;
     }
-    os<<optInitNatZ<<tb<<"#selected option"<<endl;
+    os<<opt1_InitNatZ<<tb<<"#selected option"<<endl;
+    os<<endl;
+    os<<"#----Initial Numbers-At-Size Options: Option 2 (applies if Option 1 is 2 or 3)"<<endl;
+    for (int o=opts2_InitNatZ.indexmin();o<=opts2_InitNatZ.indexmax();o++) {
+        os<<opts2_InitNatZ(o)<<endl;
+    }
+    os<<opt2_InitNatZ<<tb<<"#selected option"<<endl;
+    os<<endl;
+    os<<"#----Initial Numbers-At-Size Options: Option 3 (applies if Option 1 is 3)"<<endl;
+    for (int o=opts3_InitNatZ.indexmin();o<=opts3_InitNatZ.indexmax();o++) {
+        os<<opts3_InitNatZ(o)<<endl;
+    }
+    os<<opt3_InitNatZ<<tb<<"#selected option"<<endl;
+    os<<endl;
+    os<<"#----Initial Numbers-At-Size Options: Option 4 (applies if Option 1 is 3 and Option 3 is 2)"<<endl;
+    os<<wgtSumTo1_InitNatZ<<tb<<"#--penalty weight on sum-to-1 constraint"<<endl;
     os<<endl;
     
     //natural mortality options
@@ -1229,7 +1259,8 @@ void ModelOptions::writeToR(ostream& os, std::string nm, int indent) {
         os<<nm<<"=list("<<endl;
     indent++;
         for (int n=0;n<indent;n++) os<<tb;
-        os<<"initNatZ="<<optInitNatZ<<cc<<"natmort="<<optParamNM<<cc<<endl;
+        os<<"initNatZ=list(opt1="<<opt1_InitNatZ<<cc<<"opt2="<<opt2_InitNatZ<<cc<<"opt3="<<opt3_InitNatZ<<cc<<"pen_wgt="<<wgtSumTo1_InitNatZ<<")"<<cc<<endl;
+        os<<"natmort="<<optParamNM<<cc<<endl;
         os<<"growth=list(";
             os<<"optGrowthPDF="<<optGrowthPDF<<cc<<endl;
             os<<"maxGrowthZBEx="<<maxGrowthZBEx;
