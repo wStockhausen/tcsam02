@@ -746,6 +746,8 @@
 //                  normalizing the values to sum-to-1 when initializing them from the MPI or pin file changed
 //                  them enough that the model no longer started from the exact parameter values/likelihood that
 //                  it had previously ended with.
+//              3. Moved initial/final diagnostic printing for initializing pvLnInitNatZ so it occurs
+//                  only when it's estimated (otherwise program terminates)
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -2470,30 +2472,32 @@ PRELIMINARY_CALCS_SECTION
     }
     setInitVals(0,rpt::echo);
     PRINT2B1("Initial values set at 2463");
-    PRINT2B1("--initial values for pvLnInitNatZ BEFORE APPLYING ModelOptions")
-    {
-        PRINT2B1("----before setBoundedVectorVector() for pvLnInitNatZ")
-        int ctr = 1;
-        for (int i=1;i<=npLnInitNatZ;i++) {
-            BoundedVectorInfo* ptrI = static_cast<BoundedVectorInfo*>((*ptrMPI->ptrINs->pvLnInitNatZ)[i]);
-            dvector pnvls = ptrI->getInitValsOnParamScale();
-            rpt::echo<<i<<tb<<"from parameter info  : "<<pnvls<<endl;//initial values on parameter scale from parameter info
-            rpt::echo<<i<<tb<<"from parameter vector: "<<tb;
-            for (int j=pnvls.indexmin();j<=pnvls.indexmax();j++) rpt::echo<<pvLnInitNatZ(ctr++)<<tb;
-            rpt::echo<<endl;
-            rpt::echo<<i<<tb<<"from matrix          : "<<tb<<matLnInitNatZ(i)<<endl;//<-has not been "set" yet!
-        }
-        tcsam::setBoundedVectorVector(matLnInitNatZ, pvLnInitNatZ, ptrMPI->ptrINs->pvLnInitNatZ,0,cout);
-        PRINT2B1("----before setBoundedVectorVector() for pvLnInitNatZ")
-        ctr = 1;
-        for (int i=1;i<=npLnInitNatZ;i++) {
-            BoundedVectorInfo* ptrI = static_cast<BoundedVectorInfo*>((*ptrMPI->ptrINs->pvLnInitNatZ)[i]);
-            dvector pnvls = ptrI->getInitValsOnParamScale();
-            rpt::echo<<i<<tb<<"from parameter info  : "<<pnvls<<endl;//initial values on parameter scale from parameter info
-            rpt::echo<<i<<tb<<"from parameter vector: "<<tb;
-            for (int j=pnvls.indexmin();j<=pnvls.indexmax();j++) rpt::echo<<pvLnInitNatZ(ctr++)<<tb;
-            rpt::echo<<endl;
-            rpt::echo<<i<<tb<<"from matrix          : "<<tb<<matLnInitNatZ(i)<<endl;//<-has not been "set" yet!
+    if (ptrMOs->opt1_InitNatZ>1){
+        PRINT2B1("--initial values for pvLnInitNatZ BEFORE APPLYING ModelOptions")
+        {
+            PRINT2B1("----before setBoundedVectorVector() for pvLnInitNatZ")
+            int ctr = 1;
+            for (int i=1;i<=npLnInitNatZ;i++) {
+                BoundedVectorInfo* ptrI = static_cast<BoundedVectorInfo*>((*ptrMPI->ptrINs->pvLnInitNatZ)[i]);
+                dvector pnvls = ptrI->getInitValsOnParamScale();
+                rpt::echo<<i<<tb<<"from parameter info  : "<<pnvls<<endl;//initial values on parameter scale from parameter info
+                rpt::echo<<i<<tb<<"from parameter vector: "<<tb;
+                for (int j=pnvls.indexmin();j<=pnvls.indexmax();j++) rpt::echo<<pvLnInitNatZ(ctr++)<<tb;
+                rpt::echo<<endl;
+                rpt::echo<<i<<tb<<"from matrix          : "<<tb<<matLnInitNatZ(i)<<endl;//<-has not been "set" yet!
+            }
+            tcsam::setBoundedVectorVector(matLnInitNatZ, pvLnInitNatZ, ptrMPI->ptrINs->pvLnInitNatZ,0,cout);
+            PRINT2B1("----before setBoundedVectorVector() for pvLnInitNatZ")
+            ctr = 1;
+            for (int i=1;i<=npLnInitNatZ;i++) {
+                BoundedVectorInfo* ptrI = static_cast<BoundedVectorInfo*>((*ptrMPI->ptrINs->pvLnInitNatZ)[i]);
+                dvector pnvls = ptrI->getInitValsOnParamScale();
+                rpt::echo<<i<<tb<<"from parameter info  : "<<pnvls<<endl;//initial values on parameter scale from parameter info
+                rpt::echo<<i<<tb<<"from parameter vector: "<<tb;
+                for (int j=pnvls.indexmin();j<=pnvls.indexmax();j++) rpt::echo<<pvLnInitNatZ(ctr++)<<tb;
+                rpt::echo<<endl;
+                rpt::echo<<i<<tb<<"from matrix          : "<<tb<<matLnInitNatZ(i)<<endl;//<-has not been "set" yet!
+            }
         }
     }
     
@@ -2888,23 +2892,23 @@ PRELIMINARY_CALCS_SECTION
             rpt::echo<<"total initial abundance (check) = "<<sum(n_xmsz)<<endl;
             PRINT2B1("--finished re-initializing pLnBaseInitN and pvLnInitNatZ based on equilibrium calculations")
         }//--ptrMOs->opt2_InitNatZ==2
-    }//--ptrMOs->opt1_InitNatZ>1
-    PRINT2B1("")
-    PRINT2B1("--final initial values for pvLnInitNatZ")
-    {
-        int ctr = 1;
-        for (int i=1;i<=npLnInitNatZ;i++) {
-            BoundedVectorInfo* ptrI = static_cast<BoundedVectorInfo*>((*ptrMPI->ptrINs->pvLnInitNatZ)[i]);
-            dvector pnvls = ptrI->getInitValsOnParamScale();
-            rpt::echo<<i<<tb<<"from parameter info  : "<<pnvls<<endl;//initial values on parameter scale from parameter info
-            rpt::echo<<i<<tb<<"from parameter vector: "<<tb;
-            for (int j=pnvls.indexmin();j<=pnvls.indexmax();j++) rpt::echo<<pvLnInitNatZ(ctr++)<<tb;
-            rpt::echo<<endl;
-            rpt::echo<<i<<tb<<"from matrix          : "<<tb<<matLnInitNatZ(i)<<endl;
+        PRINT2B1("")
+        PRINT2B1("--final initial values for pvLnInitNatZ")
+        {
+            int ctr = 1;
+            for (int i=1;i<=npLnInitNatZ;i++) {
+                BoundedVectorInfo* ptrI = static_cast<BoundedVectorInfo*>((*ptrMPI->ptrINs->pvLnInitNatZ)[i]);
+                dvector pnvls = ptrI->getInitValsOnParamScale();
+                rpt::echo<<i<<tb<<"from parameter info  : "<<pnvls<<endl;//initial values on parameter scale from parameter info
+                rpt::echo<<i<<tb<<"from parameter vector: "<<tb;
+                for (int j=pnvls.indexmin();j<=pnvls.indexmax();j++) rpt::echo<<pvLnInitNatZ(ctr++)<<tb;
+                rpt::echo<<endl;
+                rpt::echo<<i<<tb<<"from matrix          : "<<tb<<matLnInitNatZ(i)<<endl;
+            }
         }
-    }
-    PRINT2B1("")
-    PRINT2B1("")
+        PRINT2B1("")
+        PRINT2B1("")
+    }//--ptrMOs->opt1_InitNatZ>1
     
     if (!mseMode){
 //---------PRELIMINARY_CALCS: NON-MSE MODEL RUNS ONLY---------------------------    
