@@ -746,8 +746,10 @@
 //                  normalizing the values to sum-to-1 when initializing them from the MPI or pin file changed
 //                  them enough that the model no longer started from the exact parameter values/likelihood that
 //                  it had previously ended with.
-//              3. Moved initial/final diagnostic printing for initializing pvLnInitNatZ so it occurs
+//             3. Moved initial/final diagnostic printing for initializing pvLnInitNatZ so it occurs
 //                  only when it's estimated (otherwise program terminates)
+//-2022-08-22: 1. Added estimated recruitment, MMB and MFB time series to multi-year projection output
+//                  for plots in R.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -6076,10 +6078,10 @@ FUNCTION void calcOFL(int yrp, int debug, ostream& cout)
 //*****************************************************************************/
 FUNCTION void calcMultiYearProjections(int yrp, ProjectionOptions* ptrProjOpts, int debug, ostream& cout)
     if (debug>0) cout<<"starting calcMultiYearProjections(yrp,ptrProjOpts,debug,cout)"<<endl;
-    int yr = yrp-1;//determine fishery conditions and popoulation rates using year prior to projection year
+    int yr = yrp-1;//determine fishery conditions and population rates using year prior to projection year
     //1. Determine fishery conditions for next year based on averages for recent years
     //--should be same calculations as for determining the OFL
-    int oflAvgPeriodYrs = 5;  //TODO: this should be an input (at least same of OFL calculations)
+    int oflAvgPeriodYrs = 5;  //TODO: this should be an input (at least same as OFL calculations)
     //assumption here is that ALL fisheries EXCEPT the first are bycatch fisheries
     //a. Calculate average handling mortality, retention curves and capture rates
     int ny;   //number of years fishery is active
@@ -6184,6 +6186,7 @@ FUNCTION void calcMultiYearProjections(int yrp, ProjectionOptions* ptrProjOpts, 
     recs_y.shift(1);
     if (debug>0) cout<<recs_y.indexmin()<<":"<<recs_y.indexmax()<<endl;
     if (debug>0) cout<<"recs to resample: "<<recs_y<<endl;
+    adstring dims_rec = str(mnYrAR)+":"+str(mxYrAR);
   
     //loop over fishing mortality scenarios
     if (ptrProjOpts->nFs>0){
@@ -6192,6 +6195,8 @@ FUNCTION void calcMultiYearProjections(int yrp, ProjectionOptions* ptrProjOpts, 
         if (debug<0) {
             cout<<"projFsList=list(";
             cout<<"yr="<<yrp<<cc<<"nYrs="<<ptrProjOpts->nYrs<<cc<<"nReps="<<ptrProjOpts->nReps<<cc<<endl;
+            cout<<"recruitment=";    wts::writeToR(cout,value(recs_y),dims_rec);  cout<<cc<<endl;
+            cout<<"MB_yx    =";      wts::writeToR(cout,value(spB_yx),yDms,xDms); cout<<cc<<endl;
             cout<<"Fmsy="<<ptrOFLResults->Fmsy<<cc<<"Bmsy="<<ptrOFLResults->Bmsy<<cc<<"Fofl="<<ptrOFLResults->Fofl<<cc<<endl;
             cout<<"listFs=list(";
         }
@@ -6231,6 +6236,8 @@ FUNCTION void calcMultiYearProjections(int yrp, ProjectionOptions* ptrProjOpts, 
         if (debug<0) {
             cout<<"projFMsList=list(";
             cout<<"yr="<<yrp<<cc<<"nYrs="<<ptrProjOpts->nYrs<<cc<<"nReps="<<ptrProjOpts->nReps<<cc<<endl;
+            cout<<"recruitment=";    wts::writeToR(cout,value(recs_y),dims_rec);  cout<<cc<<endl;
+            cout<<"MB_yx    =";      wts::writeToR(cout,value(spB_yx),yDms,xDms); cout<<cc<<endl;
             cout<<"Fmsy="<<ptrOFLResults->Fmsy<<cc<<"Bmsy="<<ptrOFLResults->Bmsy<<cc<<"Fofl="<<ptrOFLResults->Fofl<<cc<<endl;
             cout<<"listFs=list(";
         }
@@ -10855,13 +10862,13 @@ FUNCTION void ReportToR(ostream& os, double maxGrad, int debug, ostream& cout)
             os<<","<<endl;
             ptrOFLResults->writeToR(os,ptrMC,"ptrOFLResults",0);
             os<<tb<<"#end of ptrOFLResults"<<endl;
-            if (doProjections){
-                cout<<"ReportToR: starting multi-year projection calculations"<<endl;
-                ofstream prjR; prjR.open("calcProjections.last.R", ios::trunc);
-                calcMultiYearProjections(mxYr+1-yRetro, ptrMOs->ptrProjOpts, -1, prjR);
-                prjR.close();
-                cout<<"ReportToR: finished multi-year projection calculations"<<endl;
-            }
+//            if (doProjections){
+//                cout<<"ReportToR: starting multi-year projection calculations"<<endl;
+//                ofstream prjR; prjR.open("calcProjections.last.R", ios::trunc);
+//                calcMultiYearProjections(mxYr+1-yRetro, ptrMOs->ptrProjOpts, -1, prjR);
+//                prjR.close();
+//                cout<<"ReportToR: finished multi-year projection calculations"<<endl;
+//            }
             cout<<"ReportToR: finished OFL calculations"<<endl;
         }
 
@@ -11898,7 +11905,7 @@ FINAL_SECTION
                     PRINT2B1("#----Finished OFL calculations")
                     if (doProjections){
                         PRINT2B1("Starting multi-year projections")
-                        ofstream prjR; prjR.open("calcProjections.final.R", ios::app);
+                        ofstream prjR; prjR.open("calcProjections.final.R", ios::trunc);
                         calcMultiYearProjections(mxYr+1-yRetro, ptrMOs->ptrProjOpts, -1, prjR);
                         prjR.close();
                         PRINT2B1("Finished multi-year projections")
