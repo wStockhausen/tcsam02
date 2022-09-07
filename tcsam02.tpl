@@ -750,6 +750,7 @@
 //                  only when it's estimated (otherwise program terminates)
 //-2022-08-22: 1. Added estimated recruitment, MMB and MFB time series to multi-year projection output
 //                  for plots in R.
+//-2022-09-01: 1. Added Fofl to sd_report output as sdrFofl
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -2424,6 +2425,7 @@ PARAMETER_SECTION
     sdreport_number sdrMSY;
     sdreport_number sdrCurB;
     sdreport_number sdrPrjB;
+    sdreport_number sdrFofl;
     sdreport_number sdrOFL;
     
     //likelihood profile numbers
@@ -6023,6 +6025,7 @@ FUNCTION void calcOFL(int yrp, int debug, ostream& cout)
         sdrMSY    = ptrOFLResults->MSY;
         sdrCurB   = spB_yx(mxYr,MALE);
         sdrPrjB   = ptrOFLResults->prjB;
+        sdrFofl  = ptrOFLResults->Fofl;
         sdrOFL    = ptrOFLResults->OFL;
 //        //assign likelihood profile variables
 //        lkAvgRec = sum(ptrOFLResults->avgRec_x);
