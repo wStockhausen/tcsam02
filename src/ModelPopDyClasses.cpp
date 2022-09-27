@@ -415,63 +415,70 @@ dvariable CatchInfo::findMaxTargetCaptureRate(ostream& cout){
  * 
  */
 dvar3_array CatchInfo::applyFM(dvariable dirF, dvar3_array& n_msz, ostream& cout){
-    if (debug) cout<<"starting CatchInfo::calcCatch(dvariable dirF, dvar3_array n_msz)"<<endl;
+    if (debug) cout<<"starting CatchInfo::applyFM(dvariable dirF, dvar3_array n_msz)"<<endl;
     RETURN_ARRAYS_INCREMENT();
     dvariable ratF = 1.0;        //default target fishery (f=1) scaling ratio
     if ((dirF>=0.0)&&(maxF>0.0)) 
         ratF = dirF/maxF;        //target fishery (f=1) scaling ratio, if target fishery is open   (maxF>0)
     dvar3_array np_msz(1,nMSs,1,nSCs,1,nZBs);
     np_msz.initialize();//number surviving fisheries
-    rmF_fmsz.initialize();//retained catch mortality rates
-    dmF_fmsz.initialize();//discards catch mortality rates
     cmN_msz.initialize();//total catch mortality (abundance)
-    cpN_fmsz.initialize();//capture abundance, by fishery
-    rmN_fmsz.initialize();//retained catch mortality (abundance)
-    dmN_fmsz.initialize();//discards catch mortality (abundance)
-    
-    dvector     tdF_z(1,nZBs);//for use in calculating fishing rate components
-    dvar_vector tvF_z(1,nZBs);//for use in calculating fishing rate components
-    dvar_vector tfF_z(1,nZBs);//for use in calculating fishing rate components
-    for (int s=1;s<=nSCs;s++){
-        for (int m=1;m<=nMSs;m++){ 
-            //calculate fishery rates
-            totFM_z.initialize();
-            //--directed fishery
-            rmF_fmsz(1,m,s) = elem_prod(retF_fmsz(1,m,s),              ratF*cpF_fmsz(1,m,s));
-            dmF_fmsz(1,m,s) = elem_prod(hm_f(1)*(1.0-retF_fmsz(1,m,s)),ratF*cpF_fmsz(1,m,s));
-            totFM_z += rmF_fmsz(1,m,s)+dmF_fmsz(1,m,s);
-            //--bycatch fisheries
-            for (int f=2;f<=nFsh;f++){
-                rmF_fmsz(f,m,s) = elem_prod(retF_fmsz(f,m,s),              cpF_fmsz(f,m,s));
-                dmF_fmsz(f,m,s) = elem_prod(hm_f(f)*(1.0-retF_fmsz(f,m,s)),cpF_fmsz(f,m,s));
-                totFM_z        += rmF_fmsz(f,m,s)+dmF_fmsz(f,m,s);
-            }
-            
-            //calculate numbers surviving and numbers killed
-            np_msz(m,s) = elem_prod(mfexp(-totFM_z),n_msz(m,s));//survival after all fisheries
-            cmN_msz(m,s) = n_msz(m,s)-np_msz(m,s);              //total catch mortality, all fisheries
-            
-            //calculate capture abundance, retained abundance, and discard abundance mortality
-            tdF_z = value(totFM_z);
-            tvF_z = elem_prod(1-wts::isEQ(tdF_z,0.0),totFM_z) + wts::isEQ(tdF_z,0.0);//= totFM_z(z)                     if totFM_z(z) > 0, else = 1
-            tfF_z = elem_div(1.0-mfexp(-totFM_z),tvF_z);                             //= (1-exp(-totFM_z(z))/totFM_z(z) if totFM_z(z) > 0, else = 1
-            //--directed fishery
-            cpN_fmsz(1,m,s) = elem_prod(elem_prod(ratF*cpF_fmsz(1,m,s),tfF_z),n_msz(m,s));
-            //retained catch mortality (abundance), directed fishery
-            rmN_fmsz(1,m,s) = elem_prod(elem_prod(     rmF_fmsz(1,m,s),tfF_z),n_msz(m,s));
-            //discard catch mortality (abundance), directed fishery
-            dmN_fmsz(1,m,s) = elem_prod(elem_prod(     dmF_fmsz(1,m,s),tfF_z),n_msz(m,s));
-            //--bycatch fisheries
-            for (int f=2;f<=nFsh;f++){
-                //total capture abundance
-                cpN_fmsz(f,m,s) = elem_prod(elem_prod(cpF_fmsz(f,m,s),tfF_z),n_msz(m,s));
-                //retained catch mortality (abundance)
-                rmN_fmsz(f,m,s) = elem_prod(elem_prod(rmF_fmsz(f,m,s),tfF_z),n_msz(m,s));
-                //discard catch mortality (abundance)
-                dmN_fmsz(f,m,s) = elem_prod(elem_prod(dmF_fmsz(f,m,s),tfF_z),n_msz(m,s));
-            }//f
-        }//m
-    }//s
+    if (nFsh){
+        rmF_fmsz.initialize();//retained catch mortality rates
+        dmF_fmsz.initialize();//discards catch mortality rates
+        cpN_fmsz.initialize();//capture abundance, by fishery
+        rmN_fmsz.initialize();//retained catch mortality (abundance)
+        dmN_fmsz.initialize();//discards catch mortality (abundance)
+
+        dvector     tdF_z(1,nZBs);//for use in calculating fishing rate components
+        dvar_vector tvF_z(1,nZBs);//for use in calculating fishing rate components
+        dvar_vector tfF_z(1,nZBs);//for use in calculating fishing rate components
+        for (int s=1;s<=nSCs;s++){
+            for (int m=1;m<=nMSs;m++){ 
+                //calculate fishery rates
+                totFM_z.initialize();
+                //--directed fishery
+                rmF_fmsz(1,m,s) = elem_prod(retF_fmsz(1,m,s),              ratF*cpF_fmsz(1,m,s));
+                dmF_fmsz(1,m,s) = elem_prod(hm_f(1)*(1.0-retF_fmsz(1,m,s)),ratF*cpF_fmsz(1,m,s));
+                totFM_z += rmF_fmsz(1,m,s)+dmF_fmsz(1,m,s);
+                //--bycatch fisheries
+                for (int f=2;f<=nFsh;f++){
+                    rmF_fmsz(f,m,s) = elem_prod(retF_fmsz(f,m,s),              cpF_fmsz(f,m,s));
+                    dmF_fmsz(f,m,s) = elem_prod(hm_f(f)*(1.0-retF_fmsz(f,m,s)),cpF_fmsz(f,m,s));
+                    totFM_z        += rmF_fmsz(f,m,s)+dmF_fmsz(f,m,s);
+                }
+
+                //calculate numbers surviving and numbers killed
+                np_msz(m,s) = elem_prod(mfexp(-totFM_z),n_msz(m,s));//survival after all fisheries
+                cmN_msz(m,s) = n_msz(m,s)-np_msz(m,s);              //total catch mortality, all fisheries
+
+                //calculate capture abundance, retained abundance, and discard abundance mortality
+                tdF_z = value(totFM_z);
+                tvF_z = elem_prod(1-wts::isEQ(tdF_z,0.0),totFM_z) + wts::isEQ(tdF_z,0.0);//= totFM_z(z)                     if totFM_z(z) > 0, else = 1
+                tfF_z = elem_div(1.0-mfexp(-totFM_z),tvF_z);                             //= (1-exp(-totFM_z(z))/totFM_z(z) if totFM_z(z) > 0, else = 1
+                //--directed fishery
+                cpN_fmsz(1,m,s) = elem_prod(elem_prod(ratF*cpF_fmsz(1,m,s),tfF_z),n_msz(m,s));
+                //retained catch mortality (abundance), directed fishery
+                rmN_fmsz(1,m,s) = elem_prod(elem_prod(     rmF_fmsz(1,m,s),tfF_z),n_msz(m,s));
+                //discard catch mortality (abundance), directed fishery
+                dmN_fmsz(1,m,s) = elem_prod(elem_prod(     dmF_fmsz(1,m,s),tfF_z),n_msz(m,s));
+                //--bycatch fisheries
+                for (int f=2;f<=nFsh;f++){
+                    //total capture abundance
+                    cpN_fmsz(f,m,s) = elem_prod(elem_prod(cpF_fmsz(f,m,s),tfF_z),n_msz(m,s));
+                    //retained catch mortality (abundance)
+                    rmN_fmsz(f,m,s) = elem_prod(elem_prod(rmF_fmsz(f,m,s),tfF_z),n_msz(m,s));
+                    //discard catch mortality (abundance)
+                    dmN_fmsz(f,m,s) = elem_prod(elem_prod(dmF_fmsz(f,m,s),tfF_z),n_msz(m,s));
+                }//f
+            }//m
+        }//s
+    } else {
+        if (debug) cout<<"no fisheries defined"<<endl;
+        for (int s=1;s<=nSCs;s++){
+            for (int m=1;m<=nMSs;m++) np_msz(m,s) = n_msz(m,s);
+        }
+    }
     if (debug) {
         cout<<"#--In CatchInfo::calcCatch"<<endl;
         cout<<"dirF, maxCapF,ratF    = "<<dirF<<cc<<maxF<<cc<<ratF<<endl;
@@ -717,10 +724,10 @@ dvar3_array PopProjector::project(dvariable dirF, dvar3_array& n_msz, ostream& c
         if (debug) cout<<"dtF(<=dtM) = "<<dtF<<endl;
         //apply natural mortality BEFORE fisheries
         n1_msz = pPI->applyNM(dtF, n_msz,cout);
-        //if (debug) cout<<1<<endl;
+        if (debug) cout<<1<<endl;
         //apply fisheries
         n2_msz = pCI->applyFM(dirF, n1_msz,cout);
-        //if (debug) cout<<2<<endl;
+        if (debug) cout<<2<<endl;
         //apply natural mortality after fisheries but before molting/growth
         if (dtF==dtM){
             n3_msz = n2_msz;
@@ -960,8 +967,9 @@ void MultiYearPopProjector::project(int n, dvariable R, dvariable dirF, dvar3_ar
     rm_yf.initialize();
     dm_yf.initialize();
     n_ymsz(0) = n_msz;
-//    if (debug){PopProjector::debug=1;PopDyInfo::debug=1;}
+    if (debug){PopProjector::debug=1;PopDyInfo::debug=1;}
     for (int y=1;y<=n;y++){
+        if (debug) cout<<"y = "<<y<<endl;
         dvar3_array np_msz = pPP->project(dirF,n_ymsz(y-1),cout);
         if (debug) cout<<"n_ymsz(y-1) = "<<&(n_ymsz(y-1))<<endl<<"np_msz = "<<&np_msz<<endl;
         matBio_y(y) = pPP->matBio;
@@ -973,7 +981,7 @@ void MultiYearPopProjector::project(int n, dvariable R, dvariable dirF, dvar3_ar
         totCM_y(y) = pPP->pPI->calcTotalBiomass(pPP->pCI->cmN_msz,cout);
         n_ymsz(y)  = pPP->addRecruitment(R,np_msz,cout);
     }
-//    if (debug){PopProjector::debug=0;PopDyInfo::debug=0;}
+    if (debug){PopProjector::debug=0;PopDyInfo::debug=0;}
     if (debug){
         cout<<"matBio_y = "<<endl<<matBio_y<<endl;
         cout<<"totCM_y  = "<<endl<<totCM_y<<endl;
@@ -1003,9 +1011,11 @@ void MultiYearPopProjector::project(dvar_vector R, dvariable dirF, dvar3_array& 
     n_ymsz.allocate(0,n,1,pPP->nMSs,1,pPP->nSCs,1,pPP->nZBs);
     matBio_y.allocate(1,n);
     totCM_y.allocate(1,n);
-    cp_yf.allocate(0,n,1,pPP->nFsh);
-    rm_yf.allocate(0,n,1,pPP->nFsh);
-    dm_yf.allocate(0,n,1,pPP->nFsh);
+    int npFsh = pPP->nFsh;
+    if (!npFsh) npFsh = 1;
+    cp_yf.allocate(0,n,1,npFsh);
+    rm_yf.allocate(0,n,1,npFsh);
+    dm_yf.allocate(0,n,1,npFsh);
     n_ymsz.initialize();
     matBio_y.initialize();
     totCM_y.initialize();
@@ -1013,8 +1023,9 @@ void MultiYearPopProjector::project(dvar_vector R, dvariable dirF, dvar3_array& 
     rm_yf.initialize();
     dm_yf.initialize();
     n_ymsz(0) = n_msz;
-//    if (debug){PopProjector::debug=1;PopDyInfo::debug=1;}
+    if (debug){PopProjector::debug=1;PopDyInfo::debug=1;}
     for (int y=1;y<=n;y++){
+        if (debug) cout<<"y = "<<y<<endl;
         dvar3_array np_msz = pPP->project(dirF,n_ymsz(y-1),cout);
         if (debug) cout<<"n_ymsz(y-1) = "<<&(n_ymsz(y-1))<<endl<<"np_msz = "<<&np_msz<<endl;
         matBio_y(y) = pPP->matBio;
@@ -1026,7 +1037,7 @@ void MultiYearPopProjector::project(dvar_vector R, dvariable dirF, dvar3_array& 
         totCM_y(y) = pPP->pPI->calcTotalBiomass(pPP->pCI->cmN_msz,cout);
         n_ymsz(y)  = pPP->addRecruitment(R[y],np_msz,cout);
     }
-//    if (debug){PopProjector::debug=0;PopDyInfo::debug=0;}
+    if (debug){PopProjector::debug=0;PopDyInfo::debug=0;}
     if (debug){
         cout<<"matBio_y = "<<endl<<matBio_y<<endl;
         cout<<"totCM_y  = "<<endl<<totCM_y<<endl;

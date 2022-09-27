@@ -259,7 +259,7 @@ namespace tcsam {
      * 
      * @return extracted vector (indices consistent with z's)
      */
-    dvector extractFromYXMSZ(int y, int x, int m, int s, d5_array& n_yxmsz);
+    dvector extractFromYXMSZ(int y, int x, int m, int s, const d5_array& n_yxmsz);
     
     /**
      * Get a matrix capable of rebinning one binned vector to another

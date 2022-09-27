@@ -214,7 +214,7 @@ void CatchData::setMaxYear(int mxYr){
  * @param newNatZ_yxmsz - POINTER to d5_array of catch-at-size by sex/maturity/shell condition/year
  * @param wAtZ_xmz - weight-at-size by sex/maturity
  */
-void CatchData::replaceCatchData(random_number_generator& rng,CatchDataSimOptions* ptrCDSOs,d5_array& newNatZ_yxmsz, d3_array& wAtZ_xmz){
+void CatchData::replaceCatchData(random_number_generator& rng,CatchDataSimOptions* ptrCDSOs,const d5_array& newNatZ_yxmsz, const d3_array& wAtZ_xmz){
     cout<<"***Replacing catch data for "<<name<<endl;
     int mnY = newNatZ_yxmsz.indexmin();
     int mxY = newNatZ_yxmsz.indexmax();
@@ -504,8 +504,8 @@ void FleetData::setMaxYear(int mxYr){
  */
 void FleetData::replaceIndexCatchData(random_number_generator& rng,
                                       SimOptions* ptrSOs,
-                                      d5_array& newNatZ_yxmsz, 
-                                      d3_array& wAtZ_xmz,
+                                      const d5_array& newNatZ_yxmsz, 
+                                      const d3_array& wAtZ_xmz,
                                       int debug, 
                                       ostream& cout){
     if (hasICD) {
@@ -529,9 +529,9 @@ void FleetData::replaceIndexCatchData(random_number_generator& rng,
  */
 void FleetData::replaceFisheryCatchData(random_number_generator& rng,
                                         SimOptions* ptrSOs,
-                                        d5_array& newCatZ_yxmsz,
-                                        d5_array& newRatZ_yxmsz,
-                                        d3_array& wAtZ_xmz,
+                                        const d5_array& newCatZ_yxmsz,
+                                        const d5_array& newRatZ_yxmsz,
+                                        const d3_array& wAtZ_xmz,
                                         int debug, 
                                         ostream& cout){
     if (hasTCD) {

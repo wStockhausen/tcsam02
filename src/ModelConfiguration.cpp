@@ -125,26 +125,38 @@ void ModelConfiguration::read(cifstream & is) {
     PRINT2B2("#size bin cut points (mm CW): ",zCutPts)
         
     is>>nFsh; //number of fisheries
-    lblsFsh.allocate(1,nFsh);
-    for (int i=1;i<=nFsh;i++) is>>lblsFsh(i); //labels for fisheries
-    if (debug){
-        cout<<nFsh<<tb<<"#number of fisheries"<<endl;
-        for (int i=1;i<=nFsh;i++) cout<<lblsFsh(i)<<tb;
-        cout<<tb<<"#labels for fisheries"<<endl;
+    if (nFsh){
+        lblsFsh.allocate(1,nFsh);
+        for (int i=1;i<=nFsh;i++) is>>lblsFsh(i); //labels for fisheries
+    }
+    PRINT2B2("#number of fisheries: ",nFsh);
+    if (nFsh){
+        PRINT2B1("#labels for fisheries:");
+        for (int i=1;i<=nFsh;i++) {
+            adstring tmp = lblsFsh(i);
+            PRINT2B1(tmp);
+        }
     }
     
     is>>nSrv; //number of surveys
-    lblsSrv.allocate(1,nSrv);
-    for (int i=1;i<=nSrv;i++) is>>lblsSrv(i);//labels for surveys
-    if (debug){
-        cout<<nSrv<<tb<<"#number of surveys"<<endl;
-        for (int i=1;i<=nSrv;i++) cout<<lblsSrv(i)<<tb;
-        cout<<tb<<"#labels for surveys"<<endl;
+    if (nSrv){
+        lblsSrv.allocate(1,nSrv);
+        for (int i=1;i<=nSrv;i++) is>>lblsSrv(i);//labels for surveys
+    }
+    PRINT2B2("#number of surveys: ",nSrv);
+    if (nSrv){
+        PRINT2B1("#labels for surveys:");
+        for (int i=1;i<=nSrv;i++) {
+            adstring tmp = lblsSrv(i);
+            PRINT2B1(tmp);
+        }
     }
     
     adstring str1;
     is>>str1; runOpMod    = wts::getBooleanType(str1);//run population model?
     is>>str1; fitToPriors = wts::getBooleanType(str1);//fit priors?
+    PRINT2B2("run operating model only? ",runOpMod)
+    PRINT2B2("fit to pripors?           ",fitToPriors)
     
     is>>fnMPI;//model parameters information file
     is>>fnMDS;//model datasets file
@@ -167,8 +179,8 @@ void ModelConfiguration::read(cifstream & is) {
     csvSCs=qt+tcsam::getShellType(1)   +qt; for (int i=2;i<=tcsam::nSCs;i++) csvSCs += cc+qt+tcsam::getShellType(i)   +qt;
     csvZCs=wts::to_qcsv(zCutPts);
     csvZBs=wts::to_qcsv(zMidPts);
-    csvFsh=wts::to_qcsv(lblsFsh);
-    csvSrv=wts::to_qcsv(lblsSrv);
+    if (nFsh) csvFsh=wts::to_qcsv(lblsFsh);
+    if (nSrv) csvSrv=wts::to_qcsv(lblsSrv);
     
     dimYrsToR   = "y=c("+csvYrs+")";
     dimYrsP1ToR = "y=c("+csvYrsP1+")";
@@ -178,8 +190,8 @@ void ModelConfiguration::read(cifstream & is) {
     dimZCsToR   = "zc=c("+wts::to_qcsv(zCutPts)+")";
     dimZBsToR   = "z=c("+wts::to_qcsv(zMidPts)+")";
     dimZPsToR   = "zp=c("+wts::to_qcsv(zMidPts)+")";
-    dimFshToR   = "f=c("+wts::to_qcsv(lblsFsh)+")";
-    dimSrvToR   = "v=c("+wts::to_qcsv(lblsSrv)+")";
+    if (nFsh) dimFshToR   = "f=c("+wts::to_qcsv(lblsFsh)+")";
+    if (nSrv) dimSrvToR   = "v=c("+wts::to_qcsv(lblsSrv)+")";
     
     if (debug){
         cout<<wts::getBooleanType(runOpMod)   <<"   #run operating model?"<<endl;
@@ -286,9 +298,13 @@ void ModelConfiguration::writeToR(ostream& os, std::string nm, int indent) {
         for (int n=0;n<indent;n++) os<<tb;
             os<<"zc=list(n="<<nZBs+1<<",nms=c("<<csvZCs<<"),vls=c("<<wts::to_csv(zCutPts)<<"))"<<cc<<endl;
         for (int n=0;n<indent;n++) os<<tb;
-            os<<"f=list(n="<<nFsh<<cc<<"nms=c("<<wts::replace('_',' ',csvFsh)<<"))"<<cc<<endl;
+            os<<"f=list(n="<<nFsh;
+            if (nFsh) os<<cc<<"nms=c("<<wts::replace('_',' ',csvFsh)<<")";
+            os<<")"<<cc<<endl;
         for (int n=0;n<indent;n++) os<<tb;
-            os<<"v=list(n="<<nSrv<<cc<<"nms=c("<<wts::replace('_',' ',csvSrv)<<"))"<<endl;
+            os<<"v=list(n="<<nSrv;
+            if (nSrv) os<<cc<<"nms=c("<<wts::replace('_',' ',csvSrv)<<")";
+            os<<")"<<endl;
         indent--;
     for (int n=0;n<indent;n++) os<<tb;
         os<<")"<<cc;

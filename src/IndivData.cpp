@@ -554,7 +554,7 @@ void MaturityOgiveData::calcSizeBinRemapper(const dvector& zCs){
  */
 void MaturityOgiveData::replaceMaturityOgiveData(random_number_generator& rng,
                                                  SimOptions* ptrSOs,
-                                                 d5_array& vn_yxmsz,
+                                                 const d5_array& vn_yxmsz,
                                                  int debug, ostream& cout){
     if (debug) cout<<"Starting MaturityOgiveData::replaceMaturityOgiveData(...)"<<endl;
     double rfacMOD = ptrSOs->modDivFac;

@@ -319,7 +319,7 @@ class IndexBlock;
          * @param expFac - error expansion factor (divides sample sizes)
          * @param newNatZ_yxmsz - d5_array with new numbers-at-size data
          */
-        void replaceSizeFrequencyData(random_number_generator& rng,int iSeed,double expFac,d5_array& newNatZ_xmsyz);
+        void replaceSizeFrequencyData(random_number_generator& rng,int iSeed,double expFac,const d5_array& newNatZ_xmsyz);
         /**
          * Update catch-at-size data NatZ_xmsyz with new data for year y. 
          * Also modifies inpNatZ_xmsyc to reflect new data.
@@ -500,7 +500,7 @@ class IndexBlock;
          * @param newNatZ_yxmsz - d5_array of catch-at-size by sex/maturity/shell condition/year
          * @param wAtZ_xmz - d3_array of weight-at-size by sex/maturity
          */
-        virtual void replaceCatchData(random_number_generator& rng, CatchDataSimOptions* ptrCDSOs, d5_array& newNatZ_yxmsz, d3_array& wAtZ_xmz);
+        virtual void replaceCatchData(random_number_generator& rng, CatchDataSimOptions* ptrCDSOs, const d5_array& newNatZ_yxmsz, const d3_array& wAtZ_xmz);
         /**
          * Adds a new year of catch data based on dvar4_array newNatZ_xmsz to existing data.
          * 
@@ -632,8 +632,8 @@ class IndexBlock;
          */
         void replaceIndexCatchData(random_number_generator& rng,
                                     SimOptions* ptrSOs,
-                                    d5_array& newNatZ_yxmsz, 
-                                    d3_array& wAtZ_xmz,
+                                    const d5_array& newNatZ_yxmsz, 
+                                    const d3_array& wAtZ_xmz,
                                     int debug=0, 
                                     ostream& cout=std::cout);
         /**
@@ -649,9 +649,9 @@ class IndexBlock;
          */
         void replaceFisheryCatchData(random_number_generator& rng,
                                      SimOptions* ptrSOs,
-                                     d5_array& newCatZ_yxmsz,
-                                     d5_array& newRatZ_yxmsz,
-                                     d3_array& wAtZ_xmz,
+                                     const d5_array& newCatZ_yxmsz,
+                                     const d5_array& newRatZ_yxmsz,
+                                     const d3_array& wAtZ_xmz,
                                      int debug=0, 
                                      ostream& cout=std::cout);
         /**
@@ -976,7 +976,7 @@ class IndexBlock;
          */
         void replaceMaturityOgiveData(random_number_generator& rng,
                                       SimOptions* ptrSOs,
-                                      d5_array& vn_yxmsz,
+                                      const d5_array& vn_yxmsz,
                                       int debug=0, 
                                       ostream& cout=std::cout);
         /**

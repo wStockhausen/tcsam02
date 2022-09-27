@@ -1098,7 +1098,7 @@ void SizeFrequencyData::aggregateRawNatZ(void){
  * @param expFac - error expansion factor
  * @param newNatZ_yxmsz - d5_array of numbers-at-size by yxmsz
  */
-void SizeFrequencyData::replaceSizeFrequencyData(random_number_generator& rng,int iSeed,double expFac,d5_array& newNatZ_yxmsz){
+void SizeFrequencyData::replaceSizeFrequencyData(random_number_generator& rng,int iSeed,double expFac,const d5_array& newNatZ_yxmsz){
     if (debug) std::cout<<"starting SizeFrequencyData::replaceSizeFrequencyData(...) for "<<name<<std::endl;
     
     //year limits on new data
