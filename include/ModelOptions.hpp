@@ -553,6 +553,15 @@ public:
         /** integer indicating option for natural mortality parameterization */
         int optParamNM;
         
+        /** labels for options for natural mortality devs smoothing */
+        adstring_array optsPenSmthDevsM;
+        /** number M-devs vectors defined (must match MPI)*/
+        int nDevsM;
+        /** integer indicating selected option for natural mortality devs smoothing */
+        int optPenSmthDevsM;
+        /** weight for penalties on M-devs smoothness */
+        dvector wgtPenSmthDevsM;      
+        
         /** labels for growth parameterization options */
         adstring_array optsGrowthParam;  
         /** selected option for growth parameterization */

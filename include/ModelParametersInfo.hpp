@@ -582,6 +582,8 @@ class NaturalMortalityInfo : public ParameterGroupInfo {
         BoundedNumberVectorInfo* pDM3;
         /* info for offset 4 */
         BoundedNumberVectorInfo* pDM4;
+        /** pointer to info for a vector of parameter vectors for annual mortality devs */
+        DevsVectorVectorInfo* pDevsM; 
         
         /**
          * Class constructor.
@@ -609,14 +611,14 @@ class NaturalMortalityInfo : public ParameterGroupInfo {
          * 
          * @param flag - true/false to set to write estimation phases to file
          */
-        void setToWriteVectorEstimationPhases(bool flag){}//does nothing, no devs vectors
+        void setToWriteVectorEstimationPhases(bool flag);
         /**
          * Sets the flags to write initial values for vector parameters to file 
          * when writing parameter info to file.
          * 
          * @param flag - true/false to set to write initial values to file
          */
-        void setToWriteVectorInitialValues(bool flag){}//does nothing, no vector parameters
+        void setToWriteVectorInitialValues(bool flag);
         /**
          * Writes to an output stream in ADMB format.
          * 

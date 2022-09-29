@@ -755,7 +755,7 @@ void SimOptions::writeToR(std::ostream& os){
 //          ModelOptions
 //--------------------------------------------------------------------------------
 int ModelOptions::debug = 0;
-const adstring ModelOptions::VERSION = "2022.08.05";
+const adstring ModelOptions::VERSION = "2022.09.27";
 
 ModelOptions::ModelOptions(ModelConfiguration& mc){
     ptrMC=&mc;
@@ -781,6 +781,10 @@ ModelOptions::ModelOptions(ModelConfiguration& mc){
     optsParamNM.allocate(0,1);
     optsParamNM(0) = "use log-scale parameterization (default)";
     optsParamNM(1) = "use TCSAM2013 parameterization (arithmetic scale)"; 
+    
+    //options for natural mortality devs smoothing
+    optsPenSmthDevsM.allocate(0,0);
+    optsPenSmthDevsM(0) = "use AR-1 smoothing (default)";
     
     //growth parameterization options
     optsGrowthParam.allocate(0,2);
@@ -867,12 +871,23 @@ void ModelOptions::read(cifstream & is) {
     cout<<opt1_InitNatZ<<tb<<"#"<<opts1_InitNatZ(opt3_InitNatZ)<<endl;
     if (debug) cout<<"##Initial numbers-at-size sum-to-1 penalty weight:"<<endl;
     is>>wgtSumTo1_InitNatZ;
-    cout<<wgtSumTo1_InitNatZ<<endl;
+    cout<<wgtSumTo1_InitNatZ<<tb<<"##Initial numbers-at-size sum-to-1 penalty weight"<<endl;
     
     //natural mortality options
     cout << "##Natural mortality options:"<<endl;
-    is>>optParamNM;
-    cout<<optParamNM<<tb<<"#"<<optsParamNM(optParamNM)<<endl;
+    {
+        is>>optParamNM;
+        cout<<optParamNM<<tb<<"#"<<optsParamNM(optParamNM)<<endl;
+        is>>nDevsM;
+        cout<<nDevsM<<tb<<"#number of defined M-devs vectors (must match MPI)"<<endl;
+        if (nDevsM){
+            is>>optPenSmthDevsM;
+            cout<<optPenSmthDevsM<<tb<<"#"<<optsPenSmthDevsM(optPenSmthDevsM)<<endl;
+            wgtPenSmthDevsM.allocate(1,nDevsM);
+            is>>wgtPenSmthDevsM;
+            cout<<wgtPenSmthDevsM<<tb<<"#weights for smoothness penalties on M-devs"<<endl;
+        }
+    }
     
     //growth parameterization options
     cout<<"##Growth parameterization options:"<<endl;
@@ -1090,6 +1105,19 @@ void ModelOptions::write(ostream & os) {
         os<<"#"<<o<<" - "<<optsParamNM(o)<<endl;
     }
     os<<optParamNM<<tb<<"#selected option"<<endl;
+    os<<"#----Options for M-devs"<<endl;
+    os<<nDevsM<<tb<<"#number of M-devs vectors (must match MPI)"<<endl;
+    os<<"#----Options for penalties on prM2M smoothness"<<endl;
+    for (int o=optsPenSmthDevsM.indexmin();o<=optsPenSmthDevsM.indexmax();o++) {
+        os<<"#"<<o<<" - "<<optsPenSmthDevsM(o)<<endl;
+    }
+    if (nDevsM){
+        os<<optPenSmthDevsM<<tb<<"#selected option"<<endl;
+        os<<wgtPenSmthDevsM<<tb<<"#weights for M-devs smoothness penalties"<<endl;
+    } else {
+        os<<"# dummy"<<tb<<"#selected option"<<endl;
+        os<<"# dummies"<<tb<<"#weight(s) for M-devs smoothness penalties"<<endl;
+    }
     os<<endl;
     
     //growth parameterization options
@@ -1260,7 +1288,15 @@ void ModelOptions::writeToR(ostream& os, std::string nm, int indent) {
     indent++;
         for (int n=0;n<indent;n++) os<<tb;
         os<<"initNatZ=list(opt1="<<opt1_InitNatZ<<cc<<"opt2="<<opt2_InitNatZ<<cc<<"opt3="<<opt3_InitNatZ<<cc<<"pen_wgt="<<wgtSumTo1_InitNatZ<<")"<<cc<<endl;
-        os<<"natmort="<<optParamNM<<cc<<endl;
+        os<<"natmort=list(";
+            os<<"optParamNM="<<optParamNM<<cc<<endl;
+            os<<"nDevsM"<<nDevsM;
+            if (nDevsM){
+                os<<cc;
+                os<<"optSmoothing="<<optPenSmthDevsM<<cc;
+                os<<"pen.smoothing="; wts::writeToR(os,wgtPenSmthDevsM);
+            }
+        os<<"),"<<endl;
         os<<"growth=list(";
             os<<"optGrowthPDF="<<optGrowthPDF<<cc<<endl;
             os<<"maxGrowthZBEx="<<maxGrowthZBEx;

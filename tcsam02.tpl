@@ -753,6 +753,8 @@
 //-2022-09-01: 1. Added Fofl to sd_report output as sdrFofl
 //-2022-09-22: 1. Corrected calcNormalNLL for indexing errors.
 //             2. Revised a number of files to accommodate survey-only (no fishery) data.
+//-2022-09-27: 1. Adding M devs for time-varying M.
+//-2022-09-28: 1. Finished adding M devs for time-varying M.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -1681,6 +1683,18 @@ DATA_SECTION
     
     number zMref;
     !!zMref = ptrMPI->ptrNM->zRef;
+    
+    int npDevsM; int nptDevsM;
+    ivector mniDevsM; ivector mxiDevsM; imatrix idxsDevsM;
+    vector lbDevsM;   vector ubDevsM;   ivector phsDevsM;
+    !!tcsam::setParameterInfo(ptrMPI->ptrNM->pDevsM,npDevsM,nptDevsM,mniDevsM,mxiDevsM,idxsDevsM,lbDevsM,ubDevsM,phsDevsM,rpt::echo);
+ LOCAL_CALCS
+    if (ptrMPI->ptrNM->pDevsM->getSize()>0){
+        rpt::echo<<"idxsDevsM"<<endl<<idxsDevsM<<endl;
+        for (int i=1;i<=npDevsM;i++) rpt::echo<<"fwdIndices["<<i<<"] = "<<(*(ptrMPI->ptrNM->pDevsM))[i]->getFwdIndices()<<endl;
+    }
+ END_CALCS
+    matrix likeFlagsDevsM(1,npDevsM,mniDevsM,mxiDevsM);
  LOCAL_CALCS    
     if (mseOpModMode) {
         phsM = -1;
@@ -1688,6 +1702,7 @@ DATA_SECTION
         phsDM2 = -1;
         phsDM3 = -1;
         phsDM4 = -1;
+        phsDevsM = -1;
     }
  END_CALCS    
         
@@ -1948,7 +1963,8 @@ DATA_SECTION
     int npcDM;   //number of Dirichlet-Multinomial parameter combinations
     !!npcDM = ptrMPI->ptrDM->nPCs;
     
-    ivector nDevsLnR_c(1,npcRec);              //number of recruit devs by parameter combination
+    ivector nDevsLnR_c(1,npcRec);//number of recruit devs by parameter combination
+    ivector nDevsM_c(1,npcNM);   //number of M devs by parameter combination
     
     //growth arrays
     matrix zGrA_xy(1,nSXs,mnYr,mxYr+1);//pre-molt size corresponding to pGrA in alt growth parameterization
@@ -2133,6 +2149,9 @@ PARAMETER_SECTION
     !!PRINT2B2("pDM3 = ",pDM3)
     init_bounded_number_vector pDM4(1,npDM4,lbDM4,ubDM4,phsDM4);//offset 4s
     !!PRINT2B2("pDM4 = ",pDM4)
+    init_bounded_number_vector pDevsM(1,nptDevsM,lbDevsM,ubDevsM,phsDevsM);//M devs
+    !!PRINTDEVS("pDevsM",M)
+    matrix devsM(1,npDevsM,mniDevsM,mxiDevsM);
     !!PRINT2B1("got past natural mortality parameters")
     
     //growth parameters
@@ -2312,6 +2331,9 @@ PARAMETER_SECTION
     
     //natural mortality-related quantities
     vector M_c(1,npcNM);                                   //natural mortality rate by parameter combination
+    matrix M_cz(1,npcNM,1,nZBs);                           //M size dependence, by parameter combination
+    matrix devsM_cy(1,npcNM,mnYr,mxYr);                    //M devs, by parameter combination and year
+    matrix M_cy(1,npcNM,mnYr,mxYr);                        //M by parameter combination and year (combines M_c and devsM_cy)
     5darray M_yxmsz(mnYr,mxYr,1,nSXs,1,nMSs,1,nSCs,1,nZBs);//size-specific natural mortality rate
     
     //maturity-related quantities
@@ -2396,6 +2418,8 @@ PARAMETER_SECTION
 
     //objective function penalties
     vector fPenRecDevs(1,npDevsLnR);//recruitment devs penalties
+    
+    vector fPenSmthDevsM(1,npDevsM);//smoothness penalties on temporally-varying M
     
     vector fPenSmoothLgtPrM2M(1,npLgtPrM2M);//smoothness penalties on pr(mature|z)
     vector fPenNonDecLgtPrM2M(1,npLgtPrM2M);//non-decreasing penalties on pr(mature|z)
@@ -2973,7 +2997,7 @@ PRELIMINARY_CALCS_SECTION
             calcRecruitment(dbgLevel,rpt::echo);
 
             PRINT2B1("testing calcNatMort():")
-            calcNatMort(dbgLevel,rpt::echo);
+            calcNatMort(dbgLevel+100,rpt::echo);
 
             PRINT2B1("testing calcGrowth():")
             calcGrowth(dbgLevel,rpt::echo);
@@ -4330,12 +4354,13 @@ FUNCTION void estimateInitialNatZ_LogisticScale(int debug, ostream&cout)
     if (debug>=dbgPopDy) cout<<"finished void estimateInitialNatZ_LogisticScale()"<<endl;
 
 //******************************************************************************
-//* Function: void calcNatMort(void)
+//* Function: void calcNatMort(int debug, ostream& cout)
 //* 
 //* Description: Calculates natural mortality rates for all years.
 //* 
 //* Inputs:
-//*  none
+//*  debug - (integer) level at which to print debugging info
+//*  cout - output stream to print to
 //* Returns:
 //*  void
 //* Alters:
@@ -4347,9 +4372,12 @@ FUNCTION void calcNatMort(int debug, ostream& cout)
     NaturalMortalityInfo* ptrNM = ptrMPI->ptrNM;
     
     dvariable lnM;
-    dvar_vector M_z(1,nZBs);
     
     M_c.initialize();
+    M_cz.initialize();
+    nDevsM_c.initialize();
+    devsM_cy.initialize();
+    M_cy.initialize();
     M_yxmsz.initialize();
 
     int y; int mnx; int mxx; int mnm; int mxm; int mns; int mxs;
@@ -4421,20 +4449,38 @@ FUNCTION void calcNatMort(int debug, ostream& cout)
         }//optParamNM
         
         //convert from ln-scale to arithmetic scale
-        M_c(pc) = mfexp(lnM);
+        M_c(pc)  = mfexp(lnM);
+        M_cy(pc) = M_c(pc);
         if (debug>dbgCalcProcs) cout<<"lnM= "<<lnM<<tb<<"M_c = "<<M_c(pc)<<endl;
         
+        //determine whether or not to use devs
+        int useDevs = pids[k]; k++;
+        if (debug>dbgCalcProcs) cout<<"useDevs = "<<useDevs<<endl;
+        
         //add in size-scaling, if requested
-        M_z.initialize();
         //cout<<"k = "<<k<<tb<<"pids[k] = "<<pids[k]<<endl;
         if (pids[k]&&(current_phase()>=pids[k])) {
             if (debug>dbgCalcProcs) cout<<"adding size scaling"<<endl;
-            M_z = M_c(pc)*(zMref/zBs);//factor in size dependence
+            M_cz(pc) = M_c(pc)*(zMref/zBs);//factor in size dependence
         } else {
             if (debug>dbgCalcProcs) cout<<"not adding size scaling"<<endl;
-            M_z = M_c(pc);//no size dependence
+            M_cz(pc) = M_c(pc);//no size dependence
         }
         if (debug>dbgCalcProcs) cout<<"finished scaling"<<endl;
+        
+        //determine devs
+        dvar_vector dvsM;
+        ivector idxDevsM;
+        if (useDevs) {
+            if (debug>dbgCalcProcs) cout<<"using devs from index = "<<useDevs<<endl;
+            dvsM     = devsM(useDevs);
+            idxDevsM = idxsDevsM(useDevs);
+            if (debug>dbgCalcProcs) {
+                cout<<"lims(dvsM) = "<<dvsM.indexmin()<<cc<<dvsM.indexmax()<<endl;
+                cout<<"idx(dvsM) = "<<idxDevsM<<endl;
+                cout<<"dvsM = "<<dvsM<<endl;
+            }
+        }
         
         //loop over model indices as defined in the index blocks
         imatrix idxs = ptrNM->getModelIndices(pc);
@@ -4449,11 +4495,23 @@ FUNCTION void calcNatMort(int debug, ostream& cout)
                 if (mns==tcsam::ALL_SCs){mns = 1; mxs = tcsam::nSCs;}
                 for (int x=mnx;x<=mxx;x++){
                     for (int m=mnm;m<=mxm;m++){
-                        for (int s=mns;s<=mxs;s++) M_yxmsz(y,x,m,s) = 1.0*M_z;
-                    }
+                        for (int s=mns;s<=mxs;s++) {
+                            M_yxmsz(y,x,m,s) = 1.0*M_cz(pc);
+                            if (useDevs) {
+                                if (debug>dbgCalcProcs) cout<<idx<<cc<<y<<cc<<x<<cc<<m<<cc<<s<<cc<<idxDevsM[y]<<cc<<dvsM[idxDevsM[y]]<<endl;
+                                M_yxmsz(y,x,m,s) *= mfexp(dvsM[idxDevsM[y]]);
+                            }
+                        }//--s
+                    }//--m
+                }//--x
+                if (useDevs){
+                    nDevsM_c(pc)++;//increment count of M devs for this pc
+                    if (debug>dbgCalcProcs) cout<<"nDevsM_c(pc) = "<<nDevsM_c(pc)<<endl;
+                    M_cy(pc,y)    *= mfexp(dvsM[idxDevsM[y]]); //size-independent M by pc and year
+                    devsM_cy(pc,y) = dvsM(idxDevsM(y));        //M devs by pc and year
                 }
-            }
-        }
+            }//--if((mnYr<=y)&&(y<=mxYr))
+        }//--idx
     }//loop over pcs
     if (debug>dbgCalcProcs) {
         for (int y=mnYr;y<=mxYr;y++){
@@ -4463,6 +4521,8 @@ FUNCTION void calcNatMort(int debug, ostream& cout)
                 }
             }
         }
+        cout<<"nDevs = "<<nDevsM_c<<endl;
+        cout<<"devs  = "<<devsM_cy<<endl;
         cout<<"Finished calcNatMort()"<<endl;
     }
     
@@ -6389,6 +6449,42 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
         if (debug<0) cout<<tb<<tb<<"))"<<cc<<"#end of initial N's sum-to-1 penalties"<<endl;//end of growth penalties list
     }//--penalties related to initial N fractions sum-to-1 constraint
 
+    //M-related penalties
+    if (debug>dbgObjFun) cout<<"calculating M-related penalties"<<endl;
+    if (debug<0) cout<<tb<<"M=list("<<endl;//start of M-related penalties list
+    if (npDevsM){
+        //smoothness penalties
+        dvector penWgtSmthDevsM = ptrMOs->wgtPenSmthDevsM;
+        if (ptrMOs->optPenSmthDevsM==0){
+            if (debug>dbgObjFun) cout<<"--calculating smoothness penalties on M-devs"<<endl;
+            //smoothness penalties on M-devs
+            fPenSmthDevsM.initialize();
+            if (debug<0) cout<<tb<<tb<<"smoothness=list(";//start of smoothness penalties list
+            //if (debug>dbgObjFun) cout<<"npDevsM = "<<npDevsM<<endl;
+            for (int i=1;i<npDevsM;i++){
+                //if (debug>dbgObjFun) cout<<"i = "<<i<<endl;
+                dvar_vector v = 1.0*devsM(i);
+                //if (debug>dbgObjFun) cout<<"v = "<<v<<endl;
+                fPenSmthDevsM(i) = 0.5*norm2(calc2ndDiffs(v));
+                //if (debug>dbgObjFun) cout<<"fPenSmthDevsM(i) = "<<fPenSmthDevsM(i)<<tb<<penWgtSmthDevsM(i)<<endl;
+                objFun += penWgtSmthDevsM(i)*fPenSmthDevsM(i);
+                if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthDevsM(i)<<cc<<"pen="<<fPenSmthDevsM(i)<<cc<<"objfun="<<penWgtSmthDevsM(i)*fPenSmthDevsM(i)<<"),"<<endl;
+            }
+            {
+                int i = npDevsM;
+                //if (debug>dbgObjFun) cout<<"i = "<<i<<endl;
+                dvar_vector v = 1.0*devsM(i);
+                //if (debug>dbgObjFun) cout<<"v = "<<v<<endl;
+                fPenSmthDevsM(i) = 0.5*norm2(calc2ndDiffs(v));
+                //if (debug>dbgObjFun) cout<<"fPenSmthDevsM(i) = "<<fPenSmthDevsM(i)<<tb<<penWgtSmthDevsM(i)<<endl;
+                objFun += penWgtSmthDevsM(i)*fPenSmthDevsM(i);
+                if (debug<0) cout<<tb<<tb<<tb<<"'"<<i<<"'=list(wgt="<<penWgtSmthDevsM(i)<<cc<<"pen="<<fPenSmthDevsM(i)<<cc<<"objfun="<<penWgtSmthDevsM(i)*fPenSmthDevsM(i)<<")"<<endl;
+            }
+            if (debug<0) cout<<tb<<tb<<")"<<"#--end of smoothness penalties"<<endl;//end of smoothness penalties list
+        }//--ptrMOs->optPenSmthM
+        if (debug<0) cout<<tb<<tb<<")"<<cc<<"#--end of M penalties"<<endl;//end of M penalties list
+    }//--npDevsM!=0
+
     //growth-related penalties
     if (debug>dbgObjFun) cout<<"calculating growth-related penalties"<<endl;
     if (debug<0) cout<<tb<<"growth=list(negativeGrowth=list("<<endl;//start of growth penalties list
@@ -6637,6 +6733,16 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
         }
         if (debug<0) cout<<tb<<tb<<"pDevsLnR=";
         calcDevsPenalties(debug,cout,penWgt,likeFlagsDevsLnR,devsLnR);        
+        if (debug<0) cout<<cc<<endl;
+    }
+    //M devs
+    if (ptrMPI->ptrNM->pDevsM->getSize()){
+        if (debug>dbgObjFun) {
+            rpt::echo<<"pDevsM: "<<endl;
+            for (int i=1;i<=devsM.indexmax();i++) rpt::echo<<tb<<"["<<i<<"]="<<likeFlagsDevsM[i]*devsM[i]<<endl;//dot product?
+        }
+        if (debug<0) cout<<tb<<tb<<"pDevsM=";
+        calcDevsPenalties(debug,cout,penWgt,likeFlagsDevsM,devsM);        
         if (debug<0) cout<<cc<<endl;
     }
     //S1 devs
@@ -10385,8 +10491,11 @@ FUNCTION void setDevsLikelihoodFlags(const ivector& phsDevs, dmatrix& likeFlags,
 FUNCTION void setAllDevsLikelihoodFlags(int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"starting setAllDevsLikelihoodFlags()"<<endl;
 
-    if (debug>=dbgAll) cout<<"setDevsLikelihoodFlags() for pLnR"<<endl;
+    if (debug>=dbgAll) cout<<"setDevsLikelihoodFlags() for pDevsLnR"<<endl;
     setDevsLikelihoodFlags(phsDevsLnR, likeFlagsDevsLnR, debug, cout);
+
+    if (debug>=dbgAll) cout<<"setDevsLikelihoodFlags() for pDevsM"<<endl;
+    setDevsLikelihoodFlags(phsDevsM, likeFlagsDevsM, debug, cout);
 
     if (debug>=dbgAll) cout<<"setDevsLikelihoodFlags() for pDevsS1"<<endl;
     setDevsLikelihoodFlags(phsDevsS1, likeFlagsDevsS1, debug, cout);
@@ -10412,6 +10521,9 @@ FUNCTION void setAllVectorVectors(int debug, ostream& cout)
 
     if (debug>=dbgAll) cout<<"setDevsVectorVector() for pDevsLnR"<<endl;
     tcsam::setDevsVectorVector(devsLnR, pDevsLnR, ptrMPI->ptrRec->pDevsLnR,debug,cout);
+
+    if (debug>=dbgAll) cout<<"setDevsVectorVector() for pDevsM"<<endl;
+    tcsam::setDevsVectorVector(devsM, pDevsM, ptrMPI->ptrNM->pDevsM,debug,cout);
 
     if (debug>=dbgAll) cout<<"setBoundedVectorVector() for pvLnInitNatZ"<<endl;
     if (debug>=dbgAll) {
@@ -10476,6 +10588,10 @@ FUNCTION void ReportToR_ModelProcesses(ostream& os, int debug, ostream& cout)
 //    wts::adstring_matrix aGr  = tcsam::convertPCs(ptrMPI->ptrGrw);
     os<<"mp=list("<<endl;
         os<<"M_c      ="; wts::writeToR(os,value(M_c),     adstring("pc=1:"+str(npcNM )));      os<<cc<<endl;
+        os<<"M_cz     ="; wts::writeToR(os,value(M_cz),    adstring("pc=1:"+str(npcNM )),zbDms);os<<cc<<endl;
+        os<<"M_cy     ="; wts::writeToR(os,value(M_cy),    adstring("pc=1:"+str(npcNM )), yDms);os<<cc<<endl;
+        if (npDevsM)
+          os<<"devsM_cy ="; wts::writeToR(os,value(devsM_cy),adstring("pc=1:"+str(npcNM )), yDms);os<<cc<<endl;
         os<<"prM2M_cz ="; wts::writeToR(os,value(prM2M_cz),adstring("pc=1:"+str(npcM2M)),zbDms);os<<cc<<endl;
         os<<"sel_cz   ="; wts::writeToR(os,value(sel_cz),  adstring("pc=1:"+str(npcSel)),zbDms);os<<cc<<endl;
         os<<"M_yxmsz  ="; wts::writeToR(os,wts::value(M_yxmsz),   yDms,xDms,mDms,sDms,zbDms);   os<<cc<<endl;
@@ -10737,7 +10853,7 @@ FUNCTION void updateMPI(int debug, ostream& cout)
         (*ptrMPI->ptrRec->pDevsLnR)[p]->setFinalValsFromParamVals(devsLnR(p));
     if (debug) cout<<"finished recruitment parameters"<<endl;
      
-    //recruitment parameters
+    //initial numbers-at-size parameters
     if (debug) cout<<"starting initial N-at-Z parameters"<<endl;
     ptrMPI->ptrINs->pLnBaseInitN->setFinalValsFromParamVals(pLnBaseInitN);
     for (int p=1;p<=ptrMPI->ptrINs->pvLnInitNatZ->getSize();p++) 
@@ -10751,6 +10867,9 @@ FUNCTION void updateMPI(int debug, ostream& cout)
     ptrMPI->ptrNM->pDM2->setFinalValsFromParamVals(pDM2);
     ptrMPI->ptrNM->pDM3->setFinalValsFromParamVals(pDM3);
     ptrMPI->ptrNM->pDM4->setFinalValsFromParamVals(pDM4);
+    if (debug) cout<<"setting final vals for pDevsM"<<endl;
+    for (int p=1;p<=ptrMPI->ptrNM->pDevsM->getSize();p++) 
+        (*ptrMPI->ptrNM->pDevsM)[p]->setFinalValsFromParamVals(devsM(p));
     if (debug) cout<<"finished natural mortality parameters"<<endl;
     
     //growth parameters
@@ -11011,6 +11130,7 @@ FUNCTION void writeParameters(ostream& os,int toF, int willBeActive, int phase)
     tcsam::writeParameters(os,pDM2,ctg1,ctg2,ptrMPI->ptrNM->pDM2,toF,willBeActive,phase);      
     tcsam::writeParameters(os,pDM3,ctg1,ctg2,ptrMPI->ptrNM->pDM3,toF,willBeActive,phase);      
     tcsam::writeParameters(os,pDM4,ctg1,ctg2,ptrMPI->ptrNM->pDM4,toF,willBeActive,phase);      
+    tcsam::writeParameters(os,devsM,ctg1,ctg2,ptrMPI->ptrNM->pDevsM,toF,willBeActive,phase);      
     
     //growth parameters
     ctg1="population processes";

@@ -34,7 +34,7 @@ int SurveysInfo::debug          = 0;
 int MSE_Info::debug             = 0;
 int DirichletMultinomialInfo::debug = 0;
 int ModelParametersInfo::debug  = 0;
-const adstring ModelParametersInfo::version = "2022.04.10";
+const adstring ModelParametersInfo::version = "2022.09.27";
     
 /*----------------------------------------------------------------------------*/
 /**
@@ -1453,14 +1453,15 @@ NaturalMortalityInfo::NaturalMortalityInfo(){
     if (debug) cout<<3<<endl;
     
     //define parameters
-    nPVs=5;
+    nPVs=6;
     lblPVs.allocate(1,nPVs); dscPVs.allocate(1,nPVs);
     k=1;
     lblPVs(k) = "pM";   dscPVs(k++) = "base natural mortality rate";
-    lblPVs(k) = "pDM1"; dscPVs(k++) = "offset 1";
-    lblPVs(k) = "pDM2"; dscPVs(k++) = "offset 2";
-    lblPVs(k) = "pDM3"; dscPVs(k++) = "offset 3";
-    lblPVs(k) = "pDM4"; dscPVs(k++) = "offset 4";
+    lblPVs(k) = "pDM1"; dscPVs(k++) = "M offset 1";
+    lblPVs(k) = "pDM2"; dscPVs(k++) = "M offset 2";
+    lblPVs(k) = "pDM3"; dscPVs(k++) = "M offset 3";
+    lblPVs(k) = "pDM4"; dscPVs(k++) = "M offset 4";
+    lblPVs(k) = "pDevsM";dscPVs(k++) = "M devs";    
     if (debug) cout<<3<<endl;
     k=1;
     pM   = new BoundedNumberVectorInfo(lblPVs(k++));
@@ -1468,6 +1469,7 @@ NaturalMortalityInfo::NaturalMortalityInfo(){
     pDM2 = new BoundedNumberVectorInfo(lblPVs(k++));
     pDM3 = new BoundedNumberVectorInfo(lblPVs(k++));
     pDM4 = new BoundedNumberVectorInfo(lblPVs(k++));
+    pDevsM = new DevsVectorVectorInfo(lblPVs(k++));
     if (debug) cout<<4<<endl;
     
     //define "extra" indices
@@ -1484,6 +1486,7 @@ NaturalMortalityInfo::~NaturalMortalityInfo(){
     if (pDM2) delete pDM2;  pDM2 =0;
     if (pDM3) delete pDM3;  pDM3 =0;
     if (pDM4) delete pDM4;  pDM4 =0;
+    if (pDevsM) delete pDevsM; pDevsM = 0;
 }
 
 /**
@@ -1498,10 +1501,12 @@ void NaturalMortalityInfo::setMaxYear(int mxYr){
     if (pDM2) tcsam::adjustParamPhase(pDM2,this,k++,mxYr,1);
     if (pDM3) tcsam::adjustParamPhase(pDM3,this,k++,mxYr,1);
     if (pDM4) tcsam::adjustParamPhase(pDM4,this,k++,mxYr,1);
+    if (pDevsM) tcsam::adjustParamPhase(pDevsM,mxYr,1);
 }
 
 void NaturalMortalityInfo::addNextYearToInfo(int closed){
     if (debug) cout<<"starting void NaturalMortalityInfo::project("<<closed<<")"<<endl;
+    int idxDevsM = nIVs+6;
     //find pcs corresponding to mxYr
     int mxYr = ModelConfiguration::mxYr;
     ivector pcs = ParameterGroupInfo::getPCsForYear(mxYr);
@@ -1509,8 +1514,29 @@ void NaturalMortalityInfo::addNextYearToInfo(int closed){
         if (pcs.size()) cout<<"PCs "<<pcs<<" apply to "<<mxYr<<endl;
         else cout<<"No PCs apply to <<"<<mxYr<<endl;
     }
+    //define ivector to track which vectors in pDevsLnR have been modified
+    ivector idsDevsM(pcs.indexmin(),pcs.indexmax());
+    idsDevsM = 0;
     for (int i=1;i<=pcs.size();i++){
         ParameterGroupInfo::addYearToPC(pcs[i],mxYr+1);
+        ivector ids = ParameterGroupInfo::getPCIDs(pcs[i]);
+        if (debug) cout<<"PC IDs for pc "<<pcs[i]<<" = "<<ids<<endl;
+        if (pDevsM->getSize()){
+            if (debug) cout<<"extending pDevsLnR["<<ids[idxDevsM]<<"]"<<endl<<(*pDevsM)[ids[idxDevsM]]->getInitVals()<<endl;
+            //Need to make sure not to addValue multiple times to same devs vector.
+            int sumdsp = 0;//if sumdsp>0, then already added value to indexed devs vector
+            for (int j=pcs.indexmin();j<=pcs.indexmax();j++) sumdsp += (idsDevsM[j]==ids[idxDevsM]);
+            if (!sumdsp){
+                if (debug) cout<<"Adding value to pDevsM["<<ids[idxDevsM]<<"]"<<endl;
+                idsDevsM[i] = ids[idxDevsM];
+                DevsVectorInfo* pDVI = (*pDevsM)[ids[idxDevsM]];
+                if (debug) DevsVectorInfo::debug=1;
+                pDVI->addValueOnParameterScale(0.0,mxYr+1);
+                if (debug) DevsVectorInfo::debug=0;
+            } else {
+                if (debug) cout<<"Already added value to pDevsM["<<ids[idxDevsM]<<"]"<<endl;
+            }
+        }
     }
     if (debug) cout<<"finished void NaturalMortalityInfo::project("<<closed<<")"<<endl;
 }
@@ -1547,6 +1573,8 @@ void NaturalMortalityInfo::read(cifstream & is){
             rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDM3)<<endl;  k++;
             pDM4 = ParameterGroupInfo::read(is,lblPVs(k),pDM4); 
             rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDM4)<<endl; k++;
+            pDevsM = ParameterGroupInfo::read(is,lblPVs(k),pDevsM); 
+            rpt::echo<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; rpt::echo<<(*pDevsM)<<endl; k++;
         } else {
             cout<<"Error reading NaturalMortalityInfo from "<<is.get_file_name()<<endl;
             cout<<"Expected keyword 'PARAMETERS' but got '"<<str<<"'."<<endl;
@@ -1561,6 +1589,36 @@ void NaturalMortalityInfo::read(cifstream & is){
         cout<<"Enter 1 to continue: ";
         cin>>debug;
         if (debug<0) exit(1);
+    }
+}
+
+/**
+ * Sets the flags to write estimation phases for vector parameters to file 
+ * when writing parameter info to file.
+ * 
+ * @param flag - true/false to set to write estimation phases to file
+ */
+void NaturalMortalityInfo::setToWriteVectorEstimationPhases(bool flag){
+    if (pDevsM){
+        for (int i=1;i<=pDevsM->getSize();i++){
+            DevsVectorInfo* vi = (*pDevsM)[i];
+            vi->readPhases = flag ? INT_TRUE : INT_FALSE;        
+        }
+    }
+}
+
+/**
+ * Sets the flags to write initial values for vector parameters to file 
+ * when writing parameter info to file.
+ * 
+ * @param flag - true/false to set to write initial values to file
+ */
+void NaturalMortalityInfo::setToWriteVectorInitialValues(bool flag){
+    if (pDevsM){
+        for (int i=1;i<=pDevsM->getSize();i++){
+            DevsVectorInfo* vi = (*pDevsM)[i];
+            vi->readVals = flag ? INT_TRUE : INT_FALSE;        
+        }
     }
 }
 
@@ -1583,6 +1641,8 @@ void NaturalMortalityInfo::write(std::ostream & os){
         os<<(*pDM3)<<endl;
         os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
         os<<(*pDM4)<<endl;
+        os<<lblPVs(k)<<tb<<"#"<<dscPVs(k)<<endl; k++;
+        os<<(*pDevsM)<<endl;
     }
 }
 
@@ -1593,6 +1653,7 @@ void NaturalMortalityInfo::writeToPin(std::ostream & os){
     pDM2->writeToPin(os);
     pDM3->writeToPin(os);
     pDM4->writeToPin(os);
+    pDevsM->writeToPin(os);
 }
 
 void NaturalMortalityInfo::writeToR(std::ostream & os){
@@ -1605,7 +1666,8 @@ void NaturalMortalityInfo::writeToR(std::ostream & os){
             pDM1->writeToR(os,"pDM1", indent+1); os<<cc<<endl;
             pDM2->writeToR(os,"pDM2", indent+1); os<<cc<<endl;
             pDM3->writeToR(os,"pDM3", indent+1); os<<cc<<endl;
-            pDM4->writeToR(os,"pDM4", indent+1); os<<endl;
+            pDM4->writeToR(os,"pDM4", indent+1); os<<cc<<endl;
+            pDevsM->writeToR(os,"pDevsM", indent+1); os<<endl;
         }
     os<<")";
 }
