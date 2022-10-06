@@ -758,6 +758,9 @@
 //-2022-10-05: 1. Revised calcNLLs_MaturityOgiveData to correctly handle situation where 
 //                  assessment year is set less than the max year for maturity data.
 //             2. Revised GrowthData::replaceGrowthData to correctly simulate molt increment data.
+//-2022-10-06: 1. Adding M devs for time-varying M introduced an error when no M devs were defined 
+//                  (i.e., the previous situation and the baseline). Revised calcPenalties to handle 
+//                  this situation where no M devs vectors are defined. 
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -1692,6 +1695,7 @@ DATA_SECTION
     vector lbDevsM;   vector ubDevsM;   ivector phsDevsM;
     !!tcsam::setParameterInfo(ptrMPI->ptrNM->pDevsM,npDevsM,nptDevsM,mniDevsM,mxiDevsM,idxsDevsM,lbDevsM,ubDevsM,phsDevsM,rpt::echo);
  LOCAL_CALCS
+    rpt::echo<<"ptrMPI->ptrNM->pDevsM->getSize() = "<<ptrMPI->ptrNM->pDevsM->getSize()<<tb<<"npDevsM = "<<npDevsM<<tb<<"nptDevsM = "<<nptDevsM<<endl;
     if (ptrMPI->ptrNM->pDevsM->getSize()>0){
         rpt::echo<<"idxsDevsM"<<endl<<idxsDevsM<<endl;
         for (int i=1;i<=npDevsM;i++) rpt::echo<<"fwdIndices["<<i<<"] = "<<(*(ptrMPI->ptrNM->pDevsM))[i]->getFwdIndices()<<endl;
@@ -6455,7 +6459,7 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     //M-related penalties
     if (debug>dbgObjFun) cout<<"calculating M-related penalties"<<endl;
     if (debug<0) cout<<tb<<"M=list("<<endl;//start of M-related penalties list
-    if (npDevsM){
+    if (ptrMPI->ptrNM->pDevsM->getSize()){
         //smoothness penalties
         dvector penWgtSmthDevsM = ptrMOs->wgtPenSmthDevsM;
         if (ptrMOs->optPenSmthDevsM==0){
