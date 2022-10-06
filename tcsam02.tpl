@@ -755,6 +755,9 @@
 //             2. Revised a number of files to accommodate survey-only (no fishery) data.
 //-2022-09-27: 1. Adding M devs for time-varying M.
 //-2022-09-28: 1. Finished adding M devs for time-varying M.
+//-2022-10-05: 1. Revised calcNLLs_MaturityOgiveData to correctly handle situation where 
+//                  assessment year is set less than the max year for maturity data.
+//             2. Revised GrowthData::replaceGrowthData to correctly simulate molt increment data.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -3117,7 +3120,7 @@ PRELIMINARY_CALCS_SECTION
 
             if (fitSimData){
                 int dbgLevel = 0;
-                PRINT2B1("creating sim data to fit in model")
+                PRINT2B1("creating stochastic sim data to fit in model")
                 createSimData(ptrMDS,dbgLevel,rpt::echo);//stochastic if iSimDataSeed<>0
                 {
                     PRINT2B1("re-writing data to R")
@@ -3145,7 +3148,7 @@ PRELIMINARY_CALCS_SECTION
             }
 
             {
-                PRINT2B1("writing model sim data to file (line 2960)")
+                PRINT2B1("writing deterministic model sim data to file (line 3150)")
                 int dbgLevel = 1000;
                 createSimData(ptrSimMDS,dbgLevel,rpt::echo);//deterministic
                 ofstream echo1; echo1.open("ModelData.Sim.init.dat", ios::trunc);
@@ -7299,25 +7302,29 @@ FUNCTION void calcNLLs_MaturityOgiveData(int debug, ostream& cout)
                 }
                     
                 //compare model predictions with observations
+                int nzscrs = 0;
                 dvar_vector modPM_n(1,nObs);  modPM_n.initialize();
                 dvar_vector nlls_n(1,nObs);   nlls_n.initialize();
                 dvector zscrs_n(1,nObs);      zscrs_n.initialize();
                 if (debug>dbgObjFun) cout<<"n"<<tb<<"y"<<tb<<"z"<<tb<<"iz"<<tb<<"ss"<<tb<<"obsPM"<<tb<<"modPM"<<tb<<"nll"<<tb<<"zscr"<<endl;
                 for (int n=1;n<=nObs;n++){
-                    if (debug>dbgObjFun) cout<<n<<tb<<y_n(n)<<tb<<obsZ_n(n)<<tb<<obsIZ_n(n)<<tb<<ss_n(n)<<tb<<obsPM_n(n)<<tb;
-//                    if ((obsIZ(n)>0)&(obsIZ(n)<=nZBs)){
-//                        if (debug>dbgObjFun) cout<<y_n(n)<<tb;
-                        modPM_n(n) = modPrMat_yzp(y_n(n),obsIZ_n(n));
-                        if (debug>dbgObjFun) cout<<modPM_n(n)<<tb;
-                        if ((modPM_n(n)>0.0)&(modPM_n(n)<1.0)){
-                            if (obsPM_n(n)>0.0) nlls_n(n) -= ss_n(n)*obsPM_n(n)*(log(modPM_n(n))-log(obsPM_n(n)));
-                            if (obsPM_n(n)<1.0) nlls_n(n) -= ss_n(n)*(1.0-obsPM_n(n))*(log(1.0-modPM_n(n))-log(1.0-obsPM_n(n)));
-                            if (debug>dbgObjFun) cout<<nlls_n(n)<<tb;
-                            double modPMv = value(modPM_n(n));
-                            zscrs_n(n) = (obsPM_n(n)-modPMv)/sqrt(modPMv*(1.0-modPMv)/ss_n(n));
-                            if (debug>dbgObjFun) cout<<zscrs_n(n)<<endl;
-                        }
-//                    }
+                    if ((mny<=y_n(n))&&(y_n(n)<=mxy)){
+                        if (debug>dbgObjFun) cout<<n<<tb<<y_n(n)<<tb<<obsZ_n(n)<<tb<<obsIZ_n(n)<<tb<<ss_n(n)<<tb<<obsPM_n(n)<<tb;
+    //                    if ((obsIZ(n)>0)&(obsIZ(n)<=nZBs)){
+    //                        if (debug>dbgObjFun) cout<<y_n(n)<<tb;
+                            modPM_n(n) = modPrMat_yzp(y_n(n),obsIZ_n(n));
+                            if (debug>dbgObjFun) cout<<modPM_n(n)<<tb;
+                            if ((modPM_n(n)>0.0)&(modPM_n(n)<1.0)){
+                                if (obsPM_n(n)>0.0) nlls_n(n) -= ss_n(n)*obsPM_n(n)*(log(modPM_n(n))-log(obsPM_n(n)));
+                                if (obsPM_n(n)<1.0) nlls_n(n) -= ss_n(n)*(1.0-obsPM_n(n))*(log(1.0-modPM_n(n))-log(1.0-obsPM_n(n)));
+                                if (debug>dbgObjFun) cout<<nlls_n(n)<<tb;
+                                double modPMv = value(modPM_n(n));
+                                zscrs_n(n) = (obsPM_n(n)-modPMv)/sqrt(modPMv*(1.0-modPMv)/ss_n(n));
+                                nzscrs++;
+                                if (debug>dbgObjFun) cout<<zscrs_n(n)<<endl;
+                            }
+    //                    }
+                    }//if ((mny<=y_n(n))&&(y_n(n)<=mxy))
                 }//loop over n
                 dvariable nll = sum(nlls_n);
                 objFun += wgt*nll;
@@ -7334,7 +7341,7 @@ FUNCTION void calcNLLs_MaturityOgiveData(int debug, ostream& cout)
                     cout<<"modPM="; wts::writeToR(cout,value(modPM_n));  cout<<cc<<endl;
                     cout<<"nlls=";  wts::writeToR(cout,value(nlls_n));   cout<<cc<<endl;
                     cout<<"zscrs="; wts::writeToR(cout,zscrs_n);         cout<<cc<<endl;
-                    cout<<"rmse="<<sqrt(norm2(zscrs_n)/zscrs_n.size())<<"),"<<endl;
+                    cout<<"rmse="<<sqrt(norm2(zscrs_n)/nzscrs)<<"),"<<endl;
                 }
             }//nObs>0
         }//((pMOD->llWgt>0)||(debug<0))
@@ -10085,7 +10092,8 @@ FUNCTION void createSimData(ModelDatasets* ptrSim, int debug, ostream& cout)
         if (debug) cout<<"growth data g: "<<g<<endl;
         (ptrSim->ppGrw[g-1])->replaceGrowthData(rngSimData,ptrMOs,
                                                 grA_xy,grB_xy,grBeta_xy,
-                                                zGrA_xy,zGrB_xy);
+                                                zGrA_xy,zGrB_xy,
+                                                debug,cout);
     }
     for (int o=0;o<ptrSim->nMOD;o++){
         if (debug) cout<<"maturity ogive data o: "<<o<<endl;

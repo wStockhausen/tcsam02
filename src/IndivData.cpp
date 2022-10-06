@@ -120,11 +120,17 @@ void GrowthData::replaceGrowthData(random_number_generator& rng,
     debug=1;
     if (debug) cout<<"Starting GrowthData::replaceGrowthData(...)"<<endl;
     double rfacGrw2 = ptrMOs->ptrSimOpts->grwMultFac*ptrMOs->ptrSimOpts->grwMultFac;//squared value
+    if (debug) cout<<"rfacGrw2 = "<<rfacGrw2<<endl;
     if (rfacGrw2>0){
         if (ptrMOs->ptrSimOpts->grwRngSeed>0) rng.reinitialize(ptrMOs->ptrSimOpts->grwRngSeed);
         for (int x=1;x<=nSXs;x++){
+            if (debug){
+                cout<<"sex = "<<tb<<x<<tb<<"optGrowthParam = "<<ptrMOs->optGrowthParam<<endl;
+                cout<<"year"<<tb<<"zpre"<<tb<<"grA"<<tb<<"grB"<<tb<<"mnZ"<<tb<<"grBeta"<<tb<<"alpha"<<tb<<"rg_inc"<<tb<<"new zpst"<<tb<<"old zpst"<<endl;
+            }
             ivector year_n = obsYears_xn(x);
-            dvector zpre_n = inpData_xcn(x,2);//--premolt size
+            dvector zpre_n = inpData_xcn(x,2);    //--premolt size
+            dvector zpst_n = 1.0*inpData_xcn(x,3);//--original post-molt size
             //rgamma(alpha,beta,rng): 
             //--alpha = shape parameter = 1/CV^2
             //--beta  = rate parameter (1/scale) = 1/(mean * CV^2)
@@ -172,8 +178,13 @@ void GrowthData::replaceGrowthData(random_number_generator& rng,
             /* location factor, by observation */
             dvar_vector alpha_n = elem_prod(mnZ_n-zpre_n,ibeta_n)/rfacGrw2;
             for (int n=1;n<=nObs_x(x);n++){
-                double rg_inc = rgamma(value(alpha_n(n)),value(grBeta_xy(x,year_n(n)))/rfacGrw2,rng);
+                //double rg_inc = qfclib::rgamma(value(alpha_n(n)),value(grBeta_xy(x,year_n(n)))/rfacGrw2,rng);
+                double rg_inc = qfclib::rgamma(value(alpha_n(n)),rng)/(value(ibeta_n(n))/rfacGrw2);
                 inpData_xcn(x,3,n) = zpre_n(n) + rg_inc;//--postmolt size
+                if (debug) {
+                    int yn = year_n(n);
+                    cout<<yn<<tb<<zpre_n(n)<<tb<<grA_xy(x)(yn)<<tb<<grB_xy(x)(yn)<<tb<<mnZ_n(n)<<tb<<grBeta_xy(x)(yn)<<tb<<alpha_n(n)<<tb<<rg_inc<<tb<<inpData_xcn(x,3,n)<<tb<<zpst_n(n)<<endl;
+                }
             }
         }//--x
     }//--(rfacGrw2>0)
@@ -598,19 +609,24 @@ void MaturityOgiveData::replaceMaturityOgiveData(random_number_generator& rng,
 
             //extract model predictions corresponding to observations and simulate a random sample
             dvector modPM_n(1,nObs);  modPM_n.initialize();
-            if (debug) cout<<"n"<<tb<<"y"<<tb<<"z"<<tb<<"iz"<<tb<<"ss"<<tb<<"obsPM"<<tb<<"modPM"<<endl;
+            if (debug) cout<<"n"<<tb<<"y"<<tb<<"z"<<tb<<"iz"<<tb<<"ss"<<tb<<"obsPM"<<tb<<"modPM"<<tb<<"rndPM"<<endl;
             for (int n=1;n<=nObs;n++){
                 if (debug) cout<<n<<tb<<y_n(n)<<tb<<obsZ_n(n)<<tb<<obsIZ_n(n)<<tb<<ss_n(n)<<tb<<obsPM_n(n)<<tb;
+                if ((mny<=y_n(n))&&(y_n(n)<=mxy)){
                     modPM_n(n) = modPrMat_yzp(y_n(n),obsIZ_n(n));//--predicted maturity ratio for size bin
                     if (debug) cout<<modPM_n(n)<<tb;
                     if ((modPM_n(n)>0.0)&(modPM_n(n)<1.0)){
-                        int ss  = min(1,(int)round(ss_n(n)));//sample size
+                        int ss  = max(1,(int)round(ss_n(n)));//sample size
                         int tmp = 0;
                         for (int s=1;s<=ss;s++) tmp += (randu(rng)<=modPM_n(n));
                         inpData_nc(n,5) = ((double)tmp)/((double)ss);
                     } else {
                         inpData_nc(n,5) = modPM_n(n);
                     }
+                } else {
+                    if (debug) cout<<"NA"<<tb;
+                }//if !((mny<=y_n(n))&&(y_n(n)<=mxy))
+                if (debug) cout<<inpData_nc(n,5)<<endl;
             }//loop over n
         }//nObs>0
     }//(rfacMOD>0)
