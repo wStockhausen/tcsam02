@@ -759,7 +759,7 @@
 //                  assessment year is set less than the max year for maturity data.
 //             2. Revised GrowthData::replaceGrowthData to correctly simulate molt increment data.
 //-2022-10-06: 1. Adding M devs for time-varying M introduced an error when no M devs were defined 
-//                  (i.e., the previous situation and the baseline). Revised calcPenalties to handle 
+//                  (i.e., pre-time varying M and the baseline model). Revised calcPenalties to handle 
 //                  this situation where no M devs vectors are defined. 
 // =============================================================================
 // =============================================================================
@@ -6453,7 +6453,7 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
         if (debug<0) {
             cout<<tb<<tb<<tb<<"val="<<norm_fac<<cc<<"wgt="<<ptrMOs->wgtSumTo1_InitNatZ<<cc<<"pen="<<pen<<cc<<"objfun="<<ptrMOs->wgtSumTo1_InitNatZ*pen<<")"<<endl;
         }
-        if (debug<0) cout<<tb<<tb<<"))"<<cc<<"#end of initial N's sum-to-1 penalties"<<endl;//end of growth penalties list
+        if (debug<0) cout<<tb<<tb<<")),   #end of initial N's sum-to-1 penalties"<<endl;//end of initial n-at-z penalties list
     }//--penalties related to initial N fractions sum-to-1 constraint
 
     //M-related penalties
@@ -6491,6 +6491,7 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
         }//--ptrMOs->optPenSmthM
         if (debug<0) cout<<tb<<tb<<")"<<cc<<"#--end of M penalties"<<endl;//end of M penalties list
     }//--npDevsM!=0
+    if (debug<0) cout<<"),  #--end of M list"<<endl;//end of M-related penalties list
 
     //growth-related penalties
     if (debug>dbgObjFun) cout<<"calculating growth-related penalties"<<endl;
@@ -10816,24 +10817,24 @@ FUNCTION void ReportToR_ModelFits(ostream& os, double maxGrad, int debug, ostrea
         os<<tb<<"objfun="<<value(objFun)<<cc<<"maxGrad="<<maxGrad<<cc<<endl;
         //recalc objective function components and and write results to os
         objFun.initialize();
-        os<<tb<<"penalties="; calcPenalties(-1,os);      os<<cc<<endl;
-        os<<tb<<"#end of penalties"<<endl;
-        os<<tb<<"priors=";    calcAllPriors(-1,os);      os<<cc<<endl;
-        os<<tb<<"#end of priors"<<endl;
+        os<<tb<<"penalties="; calcPenalties(-1,os);      os<<endl;
+        os<<tb<<cc<<" #end of penalties"<<endl;
+        os<<tb<<"priors=";    calcAllPriors(-1,os);      os<<endl;
+        os<<tb<<cc<<" #end of priors"<<endl;
         os<<tb<<"components=list("<<endl;
             os<<tb<<tb<<"recruitment="; calcNLLs_Recruitment(-1,os); os<<endl;
-        os<<tb<<")"<<cc<<endl;
-        os<<tb<<"#end of components"<<endl;
-        os<<tb<<"fisheries=";  calcNLLs_Fisheries(-1,os);          os<<cc<<endl; 
-        os<<tb<<"#end of fisheries"<<endl;
-        os<<tb<<"surveys=";    calcNLLs_Surveys(-1,os);            os<<cc<<endl;  
-        os<<tb<<"#end of surveys"<<endl;
-        os<<tb<<"growthdata="; calcNLLs_GrowthData(-1,os);         os<<cc<<endl;
-        os<<tb<<"#end of growthdata"<<endl;
-        os<<tb<<"chelaheightdata="; calcNLLs_ChelaHeightData(-1,os);  os<<cc<<endl;
-        os<<tb<<"#end of chelaheightdata"<<endl;
-        os<<tb<<"maturityogivedata="; calcNLLs_MaturityOgiveData(-1,os);  os<<cc<<endl;
-        os<<tb<<"#end of maturityogivedata"<<endl;
+        os<<tb<<")"<<endl;
+        os<<tb<<cc<<" #end of components"<<endl;
+        os<<tb<<"fisheries=";  calcNLLs_Fisheries(-1,os);          os<<endl; 
+        os<<tb<<cc<<" #end of fisheries"<<endl;
+        os<<tb<<"surveys=";    calcNLLs_Surveys(-1,os);            os<<endl;  
+        os<<tb<<cc<<" #end of surveys"<<endl;
+        os<<tb<<"growthdata="; calcNLLs_GrowthData(-1,os);         os<<endl;
+        os<<tb<<cc<<" #end of growthdata"<<endl;
+        os<<tb<<"chelaheightdata="; calcNLLs_ChelaHeightData(-1,os);  os<<endl;
+        os<<tb<<cc<<" #end of chelaheightdata"<<endl;
+        os<<tb<<"maturityogivedata="; calcNLLs_MaturityOgiveData(-1,os);  os<<endl;
+        os<<tb<<cc<<" #end of maturityogivedata"<<endl;
         os<<tb<<"effortdata="; calcNLLs_ExtrapolatedEffort(-1,os); os<<endl;
         os<<tb<<"#end of effortdata"<<endl;
     os<<")";
