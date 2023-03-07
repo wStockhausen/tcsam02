@@ -761,6 +761,8 @@
 //-2022-10-06: 1. Adding M devs for time-varying M introduced an error when no M devs were defined 
 //                  (i.e., pre-time varying M and the baseline model). Revised calcPenalties to handle 
 //                  this situation where no M devs vectors are defined. 
+//-2023-03-07: 1. Added ability to calculate model predictions with different size bins than data.
+//                  Size bins for data should contain those for model, with no partial overlaps.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -8534,20 +8536,37 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
     dvariable nT;
     int mny = mA_yxmsz.indexmin();
     int mxy = mA_yxmsz.indexmax();//may NOT be mxYr
+    int nZBDs    = ptrZFD->zBs.size();//number of size bins for data
+    dvector zCs  = ptrMC->zCutPts;    //model cutpoints
+    dvector zCDs = ptrZFD->zCs;       //data cutpoints
+    dmatrix mZBtoZBDs(1,nZBDs,1,nZBs);//matrix to convert from model to data size bins
+    mZBtoZBDs.initialize();
+    for (int i=1;i<=nZBs;i++){
+      for (int j=1;j<=nZBDs;j++){
+        if ((zCDs[j]<=zCs[i])&&(zCs[i+1]<=zCDs[j+1])) mZBtoZBDs(j,i) = 1;
+      }
+    }
+    if (debug>=dbgNLLs){
+      cout<<"##############"<<endl;
+      cout<<"In calcNLLs_CatchNatZ(). mZBtoZBDs = "<<endl;
+      cout<<"j  zCDs[j] zCDs[j+1]  "<<zCs<<endl;
+      for (int j=1;j<=nZBDs;j++) {cout<<j<<tb<<zCDs[j]<<tb<<zCDs[j+1]<<tb<<mZBtoZBDs(j)<<endl;}
+      cout<<"##############"<<endl;
+    }
     dvector     oP_z;//observed size comp (aggregated,tail-compressed, normalized)[need to allocate as appropriate]
     dvar_vector mP_z;//model size comp.   (aggregated,tail-compressed, normalized)[need to allocate as appropriate]
-    dvector     oP_zp(1,nZBs);//intermediate vector for aggregating model comps [don't need to reallocate as size is always nZBs]
-    dvar_vector mP_zp(1,nZBs);//intermediate vector for aggregating model comps [don't need to reallocate as size is always nZBs]
-    dvector     oP_zpp(1,nZBs);//intermediate vector for "extended" model comps [don't need to reallocate as size is always nZBs]
-    dvar_vector mP_zpp(1,nZBs);//intermediate vector for "extended" model comps [don't need to reallocate as size is always nZBs]
+    dvector     oP_zp(1,nZBDs); //intermediate vector for aggregating observed comps [don't need to reallocate as size is always nZBDs]
+    dvar_vector mP_zp(1,nZBDs);  //intermediate vector for aggregating model comps [don't need to reallocate as size is always nZBDs]
+    dvector     oP_zpp(1,nZBDs);//intermediate vector for "extended" observed comps [don't need to reallocate as size is always nZBDs]
+    dvar_vector mP_zpp(1,nZBDs); //intermediate vector for "extended" model comps [don't need to reallocate as size is always nZBDs]
     if (debug<0) cout<<"list("<<endl;
     if (ptrZFD->optFit==tcsam::FIT_BY_TOT){
         effWgtComps_xmsyn.allocate(tcsam::ALL_SXs,tcsam::ALL_SXs,
                                tcsam::ALL_MSs,tcsam::ALL_MSs,
                                tcsam::ALL_SCs,tcsam::ALL_SCs,
                                mny,mxy,1,3);
-        oP_z.allocate(1,nZBs);
-        mP_z.allocate(1,nZBs);
+        oP_z.allocate(1,nZBDs);
+        mP_z.allocate(1,nZBDs);
         for (int iy=1;iy<=yrs.size();iy++) {
             y = yrs[iy];
             if (debug>=dbgNLLs) cout<<"y = "<<y<<endl;
@@ -8564,7 +8583,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                     for (int x=1;x<=nSXs;x++){
                         for (int m=1;m<=nMSs;m++) {
                             for (int s=1;s<=nSCs;s++) {
-                                mP_zp += mA_yxmsz(y,x,m,s);
+                                mP_zp += mZBtoZBDs*mA_yxmsz(y,x,m,s);//collapse model size bins to data size bins
                             }//--s
                         }//--m
                     }//--x
@@ -8628,7 +8647,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                         mP_zp.initialize();
                         for (int m=1;m<=nMSs;m++) {
                             for (int s=1;s<=nSCs;s++) {
-                                mP_zp += mA_yxmsz(y,x,m,s);
+                                mP_zp += mZBtoZBDs*mA_yxmsz(y,x,m,s);//collapse model size bins to data size bins
                             }//--s
                         }//--m
                         //--do tail compression on model size comp
@@ -8695,7 +8714,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             //--aggregate model size comp to x,m,ALL_SC
                             mP_zp.initialize();//model size comp.
                             for (int s=1;s<=nSCs;s++) {
-                                mP_zp += mA_yxmsz(y,x,m,s);
+                                mP_zp += mZBtoZBDs*mA_yxmsz(y,x,m,s);//collapse model size bins to data size bins
                             }//--s
                             if (debug>=dbgNLLs) cout<<"mP_zp = "<<mP_zp<<endl;
                             //--do tail compression on model size comp
@@ -8756,7 +8775,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             //--aggregate model size comp to x,ALL_MSs,s
                             mP_zp.initialize();
                             for (int m=1;m<=nMSs;m++) {
-                                mP_zp += mA_yxmsz(y,x,m,s);
+                                mP_zp += mZBtoZBDs*mA_yxmsz(y,x,m,s);//collapse model size bins to data size bins
                             }//--m
                             //--do tail compression on model size comp
                             int imn = ptrZFD->tc_xmsyc(x,ALL_MSs,s,iy)(1);
@@ -8816,7 +8835,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 //calculate model size comp
                                 //--aggregate model size comp to ALL_SXs,ALL_MSs,ALL_SC
                                 mP_zp.initialize();//model size comp.
-                                mP_zp += mA_yxmsz(y,x,m,s);
+                                mP_zp += mZBtoZBDs*mA_yxmsz(y,x,m,s);//collapse model size bins to data size bins
                                 //--do tail compression on model size comp
                                 int imn = ptrZFD->tc_xmsyc(x,m,s,iy)(1);
                                 int imx = ptrZFD->tc_xmsyc(x,m,s,iy)(2);
@@ -8885,7 +8904,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             mP_zpp.initialize();
                             for (int m=1;m<=nMSs;m++) {
                                 for (int s=1;s<=nSCs;s++) {
-                                    mP_zpp += mA_yxmsz(y,x,m,s);
+                                    mP_zpp += mZBtoZBDs*mA_yxmsz(y,x,m,s);//collapse model size bins to data size bins
                                 }//--s
                             }//--m
                             //--do tail compression on model size comp
@@ -8963,7 +8982,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 //--aggregate model size comp to x,m,ALL_SC
                                 mP_zpp.initialize();
                                 for (int s=1;s<=nSCs;s++) {
-                                    mP_zpp += mA_yxmsz(y,x,m,s);
+                                    mP_zpp += mZBtoZBDs*mA_yxmsz(y,x,m,s);//collapse model size bins to data size bins
                                 }//--s
                                 //--do tail compression on model size comp
                                 int imn = ptrZFD->tc_xmsyc(x,m,ALL_SCs,iy)(1);
@@ -9042,7 +9061,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 //--aggregate model size comp to x,ALL_MSs,s
                                 mP_zpp.initialize();
                                 for (int m=1;m<=nMSs;m++) {
-                                    mP_zpp += mA_yxmsz(y,x,m,s);
+                                    mP_zpp += mZBtoZBDs*mA_yxmsz(y,x,m,s);//collapse model size bins to data size bins
                                 }//--m
                                 //--do tail compression on model size comp
                                 int imn = ptrZFD->tc_xmsyc(x,ALL_MSs,s,iy)(1);
@@ -9120,7 +9139,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 //--aggregate model size comp to x,ALL_MSs,ALL_SC
                                 mP_zpp.initialize();
                                 for (int s=1;s<=nSCs;s++) {
-                                    mP_zpp += mA_yxmsz(y,x,m,s);
+                                    mP_zpp += mZBtoZBDs*mA_yxmsz(y,x,m,s);//collapse model size bins to data size bins
                                 }//--s
                                 //--do tail compression on model size comp
                                 int imn = ptrZFD->tc_xmsyc(x,m,ALL_SCs,iy)(1);
@@ -9200,7 +9219,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                     //calculate model size comp
                                     //--aggregate model size comp to x,m,s
                                     mP_zpp.initialize();
-                                    mP_zpp += mA_yxmsz(y,x,m,s);
+                                    mP_zpp += mZBtoZBDs*mA_yxmsz(y,x,m,s);//collapse model size bins to data size bins
                                     //--do tail compression on model size comp
                                     int imn = ptrZFD->tc_xmsyc(x,m,s,iy)(1);
                                     int imx = ptrZFD->tc_xmsyc(x,m,s,iy)(2);
@@ -9278,7 +9297,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                     //calculate model size comp
                                     //--aggregate model size comp to x,m,s
                                     mP_zpp.initialize();
-                                    mP_zpp += mA_yxmsz(y,x,m,s);
+                                    mP_zpp += mZBtoZBDs*mA_yxmsz(y,x,m,s);//collapse model size bins to data size bins
                                     //--do tail compression on model size comp
                                     int imn = ptrZFD->tc_xmsyc(x,m,s,iy)(1);
                                     int imx = ptrZFD->tc_xmsyc(x,m,s,iy)(2);
