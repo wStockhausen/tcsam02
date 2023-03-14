@@ -40,6 +40,8 @@
  *             Dirichlet-Multinomial specification and use flags implementation.
  * 20220410: Incremented tcsam::VERSION to "2022.04.10" reflecting implementation of
  *             ability to estimate initial N's at size.
+ * 20230307: Incremented tcsam::VERSION to "2023.03.07" reflecting implementation of
+ *             ability to have smaller model size bins than data size bins
  */
 
 #pragma once
@@ -112,7 +114,7 @@ namespace tcsam{
     /* adstring indicating model name */
     const adstring MODEL = "tcsam02";
     /* adstring indicating model version */
-    const adstring VERSION = "2022.04.10";
+    const adstring VERSION = "2023.03.07";
     
     /* minimum debugging level that will print ALL debug info */
     const int dbgAll = 100;

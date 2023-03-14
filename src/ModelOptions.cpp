@@ -30,11 +30,38 @@ EmpiricalSelFcn::~EmpiricalSelFcn(){
         
 void EmpiricalSelFcn::read(cifstream& is){
     if (debug) cout<<"starting EmpiricalSelFcn::read(cifstream& is)"<<endl;
-    zBs.allocate(1,ptrMC->nZBs);
-    esf.allocate(1,ptrMC->nZBs);
     is>>id;
-    is>>zBs;
-    is>>esf;
+    is>>nZBs;
+    zCs.allocate(1,nZBs+1);//--input size bin cutpoints
+    iesf.allocate(1,nZBs); //--input esf by input size bin
+    is>>zCs;
+    is>>iesf;
+    
+    //expand/collapse input esf to model sizez bins to get working esf
+    esf.allocate(1,ptrMC->nZBs);
+    esf.initialize();
+    if (nZBs<ptrMC->nZBs){
+      //expand values to model size bins
+      //if model bin falls within input bin, then model value is input value
+      for (int k=1;k<=nZBs;k++){
+        for (int i=1;i<=ptrMC->nZBs;i++){
+          if ((zCs(k)<=ptrMC->zCutPts(i))&&(ptrMC->zCutPts(i+1)<=zCs(k+1)))
+            esf(i) = iesf(k);
+        }
+      }
+    } else {
+      //collapse function to model size bins
+      //multiple input bins fall within model bin, so take average for model value
+      for (int i=1;i<=ptrMC->nZBs;i++){
+        int j = 0; double tmp = 0;
+        for (int k=1;k<=nZBs;k++){
+          if ((ptrMC->zCutPts(i)<=zCs(k))&&(zCs(k+1)<=ptrMC->zCutPts(i+1))){
+            tmp += iesf(k); j++;
+          }
+        }
+        if (j>0) esf(i) = tmp/j;
+      }
+    }
     
     if (debug) {
         cout<<"finished EmpiricalSelFcn::read(cifstream& is)"<<endl;
@@ -43,9 +70,9 @@ void EmpiricalSelFcn::read(cifstream& is){
 
 void EmpiricalSelFcn::write(std::ostream& os){
     if (debug) cout<<"starting EmpiricalSelFcn::write(ostream& os)"<<endl;
-    os<<id<<endl;
-    os<<zBs<<endl;
-    os<<esf<<endl;
+    os<<id<<tb<<nZBs<<endl;
+    os<<tb<<tb<<zCs<<endl;
+    os<<tb<<tb<<iesf<<endl;
     if (debug) cout<<"finished EmpiricalSelFcn::write(ostream& os)"<<endl;
 }
 
@@ -154,12 +181,41 @@ void EmpiricalSelFcnPrior::read(cifstream& is){
     is>>priorWgt;
     is>>priorType;
     setPriorType(priorType);
-    zBs.allocate(1,ptrMC->nZBs); zBs.initialize();
-    is>>zBs;
-    p1.allocate(1,ptrMC->nZBs);  p1.initialize();
-    is>>p1;
-    p2.allocate(1,ptrMC->nZBs);  p2.initialize();
-    is>>p2;
+    is>>nZBs;
+    zCs.allocate(1,nZBs+1); zCs.initialize();//input size bin cutpoints
+    is>>zCs;
+    ip1.allocate(1,nZBs); ip1.initialize();  //input p1 values for input size bins
+    is>>ip1;
+    ip2.allocate(1,nZBs); ip2.initialize();  //input p2 values for input size bins
+    is>>ip2;
+    
+    //expand/collapse input p1,p2 to get working p1,p2
+    p1.allocate(1,ptrMC->nZBs);  p1.initialize();//p1 values at model size bins
+    p2.allocate(1,ptrMC->nZBs);  p2.initialize();//p2 values at model size bins
+    if (nZBs<ptrMC->nZBs){
+      //expand values to model size bins
+      //if model bin falls within input bin, then model value is input value
+      for (int k=1;k<=nZBs;k++){
+        for (int i=1;i<=ptrMC->nZBs;i++){
+          if ((zCs(k)<=ptrMC->zCutPts(i))&&(ptrMC->zCutPts(i+1)<=zCs(k+1))){
+            p1(i) = ip1(k); p2(i) = ip2(k);
+          }
+        }
+      }
+    } else {
+      //collapse function to model size bins
+      //multiple input bins fall within model bin, so take average for model value
+      for (int i=1;i<=ptrMC->nZBs;i++){
+        int j = 0; double tmp1 = 0; double tmp2 = 0;
+        for (int k=1;k<=nZBs;k++){
+          if ((ptrMC->zCutPts(i)<=zCs(k))&&(zCs(k+1)<=ptrMC->zCutPts(i+1))){
+            tmp1 += ip1(k); tmp2 += ip2(k); j++;
+          }
+        }
+        if (j>0) {p1(i) = tmp1/j; p2(i) = tmp2/j;}
+      }
+    }
+    
     
     if (debug) {
         cout<<"finished EmpiricalSelFcnPrior::read(cifstream& is)"<<endl;
@@ -171,10 +227,11 @@ void EmpiricalSelFcnPrior::write(std::ostream& os){
     os<<id       <<tb<<"#  id for selectivity function prior"<<endl;
     os<<sel_id   <<tb<<"#  selectivity function id as defined in Model Parameters Info"<<endl;
     os<<priorWgt <<tb<<"#  multiplicative weight to apply to prior"<<endl;
-    os<<priorType<<tb<<"#name of prior to apply"<<endl;
-    os<<zBs      <<tb<<"#  sizes at which to prior function can be evaluated"<<endl;
-    os<<p1       <<tb<<"#  1st parameter values at which prior can be evaluated"<<endl;
-    os<<p2       <<tb<<"#  2nd parameter values at which prior can be evaluated"<<endl;
+    os<<priorType<<tb<<"#  name of prior to apply"<<endl;
+    os<<nZBs     <<tb<<"#  number of input size bins"<<endl;
+    os<<zCs      <<tb<<"#  size bin cutpoints at which prior function can be evaluated"<<endl;
+    os<<ip1      <<tb<<"#  1st parameter values at which prior can be evaluated"<<endl;
+    os<<ip2      <<tb<<"#  2nd parameter values at which prior can be evaluated"<<endl;
     if (debug) cout<<"finished EmpiricalSelFcnPrior::write(ostream& os)"<<endl;
 }
 
@@ -755,7 +812,7 @@ void SimOptions::writeToR(std::ostream& os){
 //          ModelOptions
 //--------------------------------------------------------------------------------
 int ModelOptions::debug = 0;
-const adstring ModelOptions::VERSION = "2022.09.27";
+const adstring ModelOptions::VERSION = "2023.03.07";
 
 ModelOptions::ModelOptions(ModelConfiguration& mc){
     ptrMC=&mc;

@@ -294,6 +294,9 @@ class IndexBlock;
         /* working (possibly re-weighted) sample sizes for size frequency data */
         d4_array ss_xmsy;   
         
+        /** quoted csv representation for size bins vector */
+        adstring qcsvZBs;
+        
     public:
         /**
          * Constructor.
@@ -421,14 +424,21 @@ class IndexBlock;
     public:
         /** flag to print debugging info */
         static int debug;
+        /** version */
+        const static adstring VERSION;
+        /** keyword */
+        const static adstring KW_BIO_DATA;
         /** stream to write debugging info */
         static std::ostream& os;
-        const static adstring KW_BIO_DATA;
     public:
-        int nZBins;           //number of size bin cut pts
-        dvector zBins;        //size bins
-        adstring unitsWatZ;   //units for weight-at-size
-        d3_array wAtZ_xmz;    //weight at size (in kg)
+        /** units for weight-at-size */
+        adstring unitsWatZ;   
+        /** alpha coefficient for W-L relationship */
+        dmatrix alpha_xm;
+        /** beta coefficient for W-L relationship */
+        dmatrix beta_xm;
+        /** weight at size (in kg) */
+        d3_array wAtZ_xmz;    
         
         int recLag;         //recruitment lag (in years)
         double fshTimingTypical;//typical midpoint of fishery seasons

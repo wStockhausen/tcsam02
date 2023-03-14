@@ -861,7 +861,10 @@ int SizeFrequencyData::setDM(int x,int m,int s,int y,int dm,int inpDM){
 void SizeFrequencyData::aggregateRawNatZ(void){
     int olddebug=debug;
     debug=0;
-    if (debug) rpt::echo<<"Starting aggregateRawNatZ() for "<<name<<endl;
+    if (debug) {
+      rpt::echo<<"Starting aggregateRawNatZ() for "<<name<<endl;
+      std::cout<<"Starting aggregateRawNatZ() for "<<name<<endl;
+    }
     
     //working use flags
     uf_xmsy.deallocate();
@@ -886,7 +889,7 @@ void SizeFrequencyData::aggregateRawNatZ(void){
     int nMSs = tcsam::nMSs; int ALL_MSs = tcsam::ALL_MSs;
     int nSCs = tcsam::nSCs; int ALL_SCs = tcsam::ALL_SCs;
     
-    if (debug){
+    if (debug>1){
         rpt::echo<<"aggNatZ_xmsyz.initialize():"<<endl;
         for (int iy=1;iy<=ny;iy++){
             for (int x=1;x<=ALL_SXs;x++){
@@ -922,7 +925,13 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                         dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
                         ss   += inpSS_xmsy(x,m,s,iy);
 //                        oP_z += rawNatZ_xmsyz(x,m,s,iy);
-                        int mxZB = ModelConfiguration::maxZBs[x];
+                        double mxZCm = ModelConfiguration::zCutPts[ModelConfiguration::maxZBs[x]+1];
+                        if (debug) rpt::echo<<"mxZCm = "<<mxZCm<<endl;
+                        int mxZB = 1;
+                        for (int z=1;z<ModelConfiguration::maxZBs[x];z++){
+                          if (zCs[z+1]>=mxZCm) {mxZB = z; break;}
+                        }
+                        if (debug) rpt::echo<<"mxZB = "<<mxZB<<tb<<"mxZ = "<<zCs[mxZB+1]<<endl;
                         if (debug) rpt::echo<<yrs[iy]<<tb<<tcsam::getSexType(x)<<tb<<tcsam::getMaturityType(m)<<tb<<tcsam::getShellType(s)<<tb<<rawNatZ_xmsyz(x,m,s,iy)<<std::endl;
                         for (int z=1;   z<mxZB; z++) oP_z[z]    += rawNatZ_xmsyz(x,m,s,iy,z);
                         for (int z=mxZB;z<=nZBs;z++) oP_z[mxZB] += rawNatZ_xmsyz(x,m,s,iy,z);
@@ -957,7 +966,13 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                         dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
                         ss   += inpSS_xmsy(x,m,s,iy);
 //                        oP_z += rawNatZ_xmsyz(x,m,s,iy);
-                        int mxZB = ModelConfiguration::maxZBs[x];
+                        double mxZCm = ModelConfiguration::zCutPts[ModelConfiguration::maxZBs[x]+1];
+                        if (debug) rpt::echo<<"mxZCm = "<<mxZCm<<endl;
+                        int mxZB = 1;
+                        for (int z=1;z<ModelConfiguration::maxZBs[x];z++){
+                          if (zCs[z+1]>=mxZCm) {mxZB = z; break;}
+                        }
+                        if (debug) rpt::echo<<"mxZB = "<<mxZB<<tb<<"mxZ = "<<zCs[mxZB+1]<<endl;
                         if (debug) rpt::echo<<yrs[iy]<<tb<<tcsam::getSexType(x)<<tb<<tcsam::getMaturityType(m)<<tb<<tcsam::getShellType(s)<<tb<<rawNatZ_xmsyz(x,m,s,iy)<<std::endl;
                         for (int z=1;   z<mxZB; z++) oP_z[z]    += rawNatZ_xmsyz(x,m,s,iy,z);
                         for (int z=mxZB;z<=nZBs;z++) oP_z[mxZB] += rawNatZ_xmsyz(x,m,s,iy,z);
@@ -993,7 +1008,13 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                         dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
                         ss += inpSS_xmsy(x,m,s,iy);
 //                        oP_z += rawNatZ_xmsyz(x,m,s,iy);
-                        int mxZB = ModelConfiguration::maxZBs[x];
+                        double mxZCm = ModelConfiguration::zCutPts[ModelConfiguration::maxZBs[x]+1];
+                        if (debug) rpt::echo<<"mxZCm = "<<mxZCm<<endl;
+                        int mxZB = 1;
+                        for (int z=1;z<ModelConfiguration::maxZBs[x];z++){
+                          if (zCs[z+1]>=mxZCm) {mxZB = z; break;}
+                        }
+                        if (debug) rpt::echo<<"mxZB = "<<mxZB<<tb<<"mxZ = "<<zCs[mxZB+1]<<endl;
                         for (int z=1;   z<mxZB; z++) oP_z[z]    += rawNatZ_xmsyz(x,m,s,iy,z);
                         for (int z=mxZB;z<=nZBs;z++) oP_z[mxZB] += rawNatZ_xmsyz(x,m,s,iy,z);
                     }//--s
@@ -1027,7 +1048,13 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                         dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
                         ss += inpSS_xmsy(x,m,s,iy);
 //                        oP_z += rawNatZ_xmsyz(x,m,s,iy);
-                        int mxZB = ModelConfiguration::maxZBs[x];
+                        double mxZCm = ModelConfiguration::zCutPts[ModelConfiguration::maxZBs[x]+1];
+                        if (debug) rpt::echo<<"mxZCm = "<<mxZCm<<endl;
+                        int mxZB = 1;
+                        for (int z=1;z<ModelConfiguration::maxZBs[x];z++){
+                          if (zCs[z+1]>=mxZCm) {mxZB = z; break;}
+                        }
+                        if (debug) rpt::echo<<"mxZB = "<<mxZB<<tb<<"mxZ = "<<zCs[mxZB+1]<<endl;
                         for (int z=1;   z<mxZB; z++) oP_z[z]    += rawNatZ_xmsyz(x,m,s,iy,z);
                         for (int z=mxZB;z<=nZBs;z++) oP_z[mxZB] += rawNatZ_xmsyz(x,m,s,iy,z);
                     }//--m
@@ -1060,7 +1087,13 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                             dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
                             ss += inpSS_xmsy(x,m,s,iy);
 //                            oP_z += rawNatZ_xmsyz(x,m,s,iy);
-                            int mxZB = ModelConfiguration::maxZBs[x];
+                            double mxZCm = ModelConfiguration::zCutPts[ModelConfiguration::maxZBs[x]+1];
+                            if (debug) rpt::echo<<"mxZCm = "<<mxZCm<<endl;
+                            int mxZB = 1;
+                            for (int z=1;z<ModelConfiguration::maxZBs[x];z++){
+                              if (zCs[z+1]>=mxZCm) {mxZB = z; break;}
+                            }
+                            if (debug) rpt::echo<<"mxZB = "<<mxZB<<tb<<"mxZ = "<<zCs[mxZB+1]<<endl;
                             for (int z=1;   z<mxZB; z++) oP_z[z]    += rawNatZ_xmsyz(x,m,s,iy,z);
                             for (int z=mxZB;z<=nZBs;z++) oP_z[mxZB] += rawNatZ_xmsyz(x,m,s,iy,z);
                             uf_xmsy(x,m,s,iy) = uf;
@@ -1084,7 +1117,10 @@ void SizeFrequencyData::aggregateRawNatZ(void){
         std::cout<<"Aborting..."<<endl;
         exit(-1);
     }
-    if (debug) rpt::echo<<"Finished SizeFrequencyData::aggregateRawNatZ() for"<<name<<endl;
+    if (debug) {
+      rpt::echo<<"Finished SizeFrequencyData::aggregateRawNatZ() for"<<name<<endl;
+      std::cout<<"Finished SizeFrequencyData::aggregateRawNatZ() for"<<name<<endl;
+    }
     debug=olddebug;
 }
 
@@ -1460,6 +1496,7 @@ void SizeFrequencyData::setMaxYear(int mxYr){
 *   read from input stream.\n
 ******************************************************/
 void SizeFrequencyData::read(cifstream & is){
+  debug=1;
     if (debug) {
         std::cout<<"start SizeFrequencyData::read(...) for "<<name<<std::endl;
         std::cout<<"#------------------------------------------"<<std::endl;
@@ -1506,6 +1543,8 @@ void SizeFrequencyData::read(cifstream & is){
     zBs.allocate(1,nZCs-1);
     zBs = 0.5*(zCs(1,nZCs-1)+(--zCs(2,nZCs)));
     if (debug) std::cout<<zBs<<tb<<"#zBins"<<std::endl;
+    
+    qcsvZBs = wts::to_qcsv(zBs);//--size bin centers as comma-separated string of quoted values
     
     yrs.allocate(1,ny);
     inpUF_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
@@ -1562,8 +1601,11 @@ void SizeFrequencyData::read(cifstream & is){
         }
     }
 
+    if (debug) std::cout<<"starting aggregateRawNatZ"<<endl;
     aggregateRawNatZ();
+    if (debug) std::cout<<"starting doTailCompression"<<endl;
     doTailCompression();
+    if (debug) std::cout<<"starting normalize"<<endl;
     normalize();    
     
     if (debug) std::cout<<"end SizeFrequencyData::read(...) for "<<name<<std::endl;
@@ -1651,6 +1693,7 @@ void SizeFrequencyData::writeToR(ostream& os, std::string nm, int indent) {
 //          BioData
 //----------------------------------------------------------------------
 const adstring BioData::KW_BIO_DATA = "BIO_DATA";
+const adstring BioData::VERSION     = "2023.03.07";
 /***************************************************************
 *   read.                                                      *
 ***************************************************************/
@@ -1678,23 +1721,29 @@ void BioData::read(cifstream & is){
     }
     rpt::echo<<str<<tb<<"#required keyword"<<std::endl;
     
+    is>>str;
+    if (!(str==VERSION)){
+        std::cout<<"#Error reading bio data from "<<is.get_file_name()<<std::endl;
+        std::cout<<"Expected version '"<<VERSION<<"' but got '"<<str<<"'"<<std::endl;
+        std::cout<<"Aborting..."<<std::endl;
+        exit(-1);
+    }
+    rpt::echo<<str<<tb<<"#version"<<std::endl;
+    
     //RECRUITMENT LAG
     is>>recLag;
     rpt::echo<<recLag<<tb<<"#recLag"<<std::endl;
-    
-    //SIZE BINS
-    is>>nZBins;
-    rpt::echo<<nZBins<<tb<<"#nZBins"<<std::endl;
-    zBins.allocate(1,nZBins);
-    is>>zBins;
-    rpt::echo<<zBins<<tb<<"#zBins (mm CW)"<<std::endl;
     
     //WEIGHT-AT-SIZE
     {is>>unitsWatZ;
     rpt::echo<<unitsWatZ<<tb<<"#unitsWatZ"<<std::endl;
     double convToKG = tcsam::getConversionMultiplier(unitsWatZ,tcsam::UNITS_KG);
     rpt::echo<<"#using conversion factor from "<<unitsWatZ<<" to kg: "<<convToKG<<std::endl;
-    wAtZ_xmz.allocate(1,tcsam::nSXs,1,tcsam::nMSs,1,nZBins);
+    alpha_xm.allocate(1,tcsam::nSXs,1,tcsam::nMSs);
+    alpha_xm.initialize();
+    beta_xm.allocate(1,tcsam::nSXs,1,tcsam::nMSs);
+    beta_xm.initialize();
+    wAtZ_xmz.allocate(1,tcsam::nSXs,1,tcsam::nMSs,1,ModelConfiguration::nZBs);
     wAtZ_xmz.initialize();
     int nc;
     is>>nc; //number of factor combinations to read in data for
@@ -1706,12 +1755,15 @@ void BioData::read(cifstream & is){
         int mat   = tcsam::getMaturityType(factors(2));
         rpt::echo<<factors(1)<<tb<<factors(2)<<tb<<"#factors"<<std::endl;
         if (sex||mat){
-            is>>wAtZ_xmz(sex,mat);
+            is>>alpha_xm(sex,mat);
+            is>>beta_xm(sex,mat);
+            wAtZ_xmz(sex,mat) = alpha_xm(sex,mat)*pow(ModelConfiguration::zMidPts,beta_xm(sex,mat));
             rpt::echo<<wAtZ_xmz(sex,mat)<<std::endl;
             wAtZ_xmz(sex,mat) *= convToKG;//convert to kg
             if (debug) {
+                std::cout<<"#"<<factors(1)<<cc<<factors(2)<<": alpha = "<<alpha_xm(sex,mat)<<" beta = "<<beta_xm(sex,mat)<<std::endl;
                 std::cout<<"#wAtZ_xmz("<<factors(1)<<cc<<factors(2)<<") [kg] ="<<std::endl;
-                std::cout<<"#"<<zBins<<std::endl;
+                std::cout<<"#"<<ModelConfiguration::zMidPts<<std::endl;
                 std::cout<<wAtZ_xmz(sex,mat)<<std::endl;
             }
         } else {
@@ -1763,21 +1815,16 @@ void BioData::write(ostream & os){
     os<<"#-----------RECRUITMENT LAG---------------------------#"<<std::endl;
     os<<recLag<<tb<<"#recLag (recruitment lag in years)"<<std::endl;
     
-    os<<"#-----------SIZE BINS---------------------------------#"<<std::endl;
-    os<<nZBins<<tb<<"#number of size bins"<<std::endl;
-    os<<"#size bins (mm CW)"<<std::endl<<zBins<<std::endl;
-    
     {os<<"#-----------WEIGHT-AT-SIZE----------------------------#"<<std::endl;
     os<<unitsWatZ<<tb<<"#units for weight-at-size"<<std::endl;
     os<<tcsam::nSXs*tcsam::nMSs<<tb<<"#number of factor combinations (sex x maturity state)"<<std::endl;
+    os<<"# sex   maturity   alpha   beta"<<endl;
     adstring_array factors(1,2);
     for (int sex=1;sex<=tcsam::nSXs;sex++){
         factors(1) = tcsam::getSexType(sex);
         for (int mat=1;mat<=tcsam::nMSs;mat++){
             factors(2) = tcsam::getMaturityType(mat);
-            os<<"#-------"<<factors(1)<<cc<<factors(2)<<std::endl;
-            os<<factors(1)<<tb<<factors(2)<<std::endl;
-            os<<wAtZ_xmz(sex,mat)<<std::endl;
+            os<<factors(1)<<tb<<factors(2)<<tb<<alpha_xm(sex,mat)<<tb<<beta_xm(sex,mat)<<std::endl;
         }
     }}
     
@@ -1798,6 +1845,7 @@ void BioData::write(ostream & os){
  * @param indent - the number of tabs to indent, initially
  */
 void BioData::writeToR(ostream& os, string nm, int indent) {
+    dvector zBins = ModelConfiguration::zMidPts;
     for (int n=0;n<indent;n++) os<<tb;
         os<<nm<<"=list("<<std::endl;
     indent++;

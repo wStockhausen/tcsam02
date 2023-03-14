@@ -508,13 +508,65 @@ void FleetData::replaceIndexCatchData(random_number_generator& rng,
                                       const d3_array& wAtZ_xmz,
                                       int debug, 
                                       ostream& cout){
+    if (debug) cout<<"starting FleetData::replaceIndexCatchData for "<<this->name<<endl;
     if (hasICD) {
         if (debug) cout<<"replacing index catch data"<<endl;
         int vi = 0;
-        for (int v=0;v<=ptrSOs->nIdxCatch-1;v++) {if (name==ptrSOs->ppIdxCatch[v]->name) vi=v;}
-        if (vi) ptrICD->replaceCatchData(rng,ptrSOs->ppIdxCatch[vi],newNatZ_yxmsz,wAtZ_xmz);
+        for (int v=1;v<=ptrSOs->nIdxCatch;v++) {
+          if (debug) cout<<"v = "<<v<<tb<<"ptrSOs->ppIdxCatch[v-1]->name = "<<ptrSOs->ppIdxCatch[v-1]->name<<endl;
+          if (name==ptrSOs->ppIdxCatch[v-1]->name) vi=v;
+          break;
+        }
+        if (vi) {
+          if (ptrICD->hasZFD){
+            //need to convert from model bins to data bins
+            dvector zCDs = ptrICD->ptrZFD->zCs;         //data cutpoints
+            dvector zCs  = ModelConfiguration::zCutPts; //model cutpoints
+            int nZBDs    = zCDs.size()-1;               //number of data size bins 
+            int nZBs     = zCs.size()-1;                //number of model size bins
+            dmatrix mZBtoZBDs(1,nZBDs,1,nZBs);          //matrix to convert from model to data size bins
+            mZBtoZBDs.initialize();
+            for (int i=1;i<=nZBs;i++){
+              for (int j=1;j<=nZBDs;j++){
+                if ((zCDs[j]<=zCs[i])&&(zCs[i+1]<=zCDs[j+1])) mZBtoZBDs(j,i) = 1;
+              }
+            }
+            if (debug) cout<<"FleetData::replaceIndexCatchData: got here 1"<<endl;
+            d3_array wAtZD_xmz(1,tcsam::nSXs,1,tcsam::nMSs,1,nZBDs);
+            wAtZD_xmz.initialize();
+            for (int x=1;x<=tcsam::nSXs;x++){
+              for (int m=1;m<=tcsam::nMSs;m++){
+                wAtZD_xmz(x,m) = mZBtoZBDs * wAtZ_xmz(x,m);
+              }
+            }
+            if (debug) cout<<"FleetData::replaceIndexCatchData: got here 2"<<endl;
+            ivector bnds = wts::getBounds(newNatZ_yxmsz);
+            if (debug) cout<<"bounds = "<<bnds<<endl;
+            d5_array newNatZD_yxmsz(bnds[1],bnds[2],bnds[3],bnds[4],bnds[5],bnds[6],bnds[7],bnds[8],1,nZBDs);
+            for (int y=bnds[1];y<=bnds[2];y++){
+              for (int x=bnds[3];x<=bnds[4];x++){
+                for (int m=bnds[5];m<=bnds[6];m++){
+                  for (int s=bnds[7];s<=bnds[8];s++){
+                    if (debug) {
+                      cout<<"y,x,m,s = "<<y<<tb<<x<<tb<<m<<tb<<s<<endl;
+                      cout<<newNatZ_yxmsz(y,x,m,s)<<endl;
+                    }
+                    newNatZD_yxmsz(y,x,m,s) = mZBtoZBDs * newNatZ_yxmsz(y,x,m,s);
+                    if (debug) cout<<"newNatZD_yxmsz(y,x,m,s) = "<<newNatZD_yxmsz(y,x,m,s)<<endl;
+                  }
+                }
+              }
+            }
+            if (debug) cout<<"FleetData::replaceIndexCatchData: got here 3"<<endl;
+            ptrICD->replaceCatchData(rng,ptrSOs->ppIdxCatch[vi-1],newNatZD_yxmsz,wAtZD_xmz);
+            if (debug) cout<<"FleetData::replaceIndexCatchData: got here 4"<<endl;
+          } else {
+            ptrICD->replaceCatchData(rng,ptrSOs->ppIdxCatch[vi-1],newNatZ_yxmsz,wAtZ_xmz);
+          }
+        }
         if (debug) cout<<"replaced index catch data"<<endl;
     }
+    if (debug) cout<<"finished FleetData::replaceIndexCatchData for "<<this->name<<endl;
 }
 /**
  * Replace existing fishery catch (retained, discarded, total) data with new values.
@@ -534,18 +586,113 @@ void FleetData::replaceFisheryCatchData(random_number_generator& rng,
                                         const d3_array& wAtZ_xmz,
                                         int debug, 
                                         ostream& cout){
+    if (debug) cout<<"Starting FleetData::replaceFisheryCatchData for fishery "<<this->name<<endl;
     if (hasTCD) {
         if (debug) cout<<"replacing total catch data"<<endl;
         int vi = 0;
-        for (int v=0;v<=ptrSOs->nTotCatch-1;v++) {if (name==ptrSOs->ppTotCatch[v]->name) vi=v;}
-        if (vi) ptrTCD->replaceCatchData(rng,ptrSOs->ppTotCatch[vi],newCatZ_yxmsz,wAtZ_xmz);
+        for (int v=1;v<=ptrSOs->nTotCatch;v++) {
+          if (debug) cout<<"v = "<<v<<tb<<"ptrSOs->ppTotCatch[v-1]->name = "<<ptrSOs->ppTotCatch[v-1]->name<<endl;
+          if (name==ptrSOs->ppTotCatch[v-1]->name) vi=v;
+          break;
+        }
+        if (vi) {//found a matching fleet name in ptrSOs->ppTotCatch[v]
+          if (ptrTCD->hasZFD){
+            //need to convert from model bins to data bins
+            dvector zCDs = ptrTCD->ptrZFD->zCs;         //data cutpoints
+            dvector zCs  = ModelConfiguration::zCutPts; //model cutpoints
+            int nZBDs    = zCDs.size()-1;               //number of data size bins 
+            int nZBs     = zCs.size()-1;                //number of model size bins
+            dmatrix mZBtoZBDs(1,nZBDs,1,nZBs);          //matrix to convert from model to data size bins
+            mZBtoZBDs.initialize();
+            for (int i=1;i<=nZBs;i++){
+              for (int j=1;j<=nZBDs;j++){
+                if ((zCDs[j]<=zCs[i])&&(zCs[i+1]<=zCDs[j+1])) mZBtoZBDs(j,i) = 1;
+              }
+            }
+            if (debug) cout<<"FleetData::replaceFisheryCatchData got here 1"<<endl;
+            d3_array wAtZD_xmz(1,tcsam::nSXs,1,tcsam::nMSs,1,nZBDs);
+            wAtZD_xmz.initialize();
+            for (int x=1;x<=tcsam::nSXs;x++){
+              for (int m=1;m<=tcsam::nMSs;m++){
+                wAtZD_xmz(x,m) = mZBtoZBDs * wAtZ_xmz(x,m);
+              }
+            }
+            if (debug) cout<<"FleetData::replaceFisheryCatchData got here 2"<<endl;
+            ivector bnds = wts::getBounds(newCatZ_yxmsz);
+            d5_array newCatZD_yxmsz(bnds[1],bnds[2],bnds[3],bnds[4],bnds[5],bnds[6],bnds[7],bnds[8],1,nZBDs);
+            if (debug) cout<<"FleetData::replaceFisheryCatchData got here 3"<<endl;
+            for (int y=bnds[1];y<=bnds[2];y++){
+              for (int x=bnds[3];x<=bnds[4];x++){
+                for (int m=bnds[5];m<=bnds[6];m++){
+                  for (int s=bnds[7];s<=bnds[8];s++){
+                    if (debug) cout<<"y,x,m,s = "<<y<<tb<<x<<tb<<m<<tb<<s<<endl;
+                    newCatZD_yxmsz(y,x,m,s) = mZBtoZBDs * newCatZ_yxmsz(y,x,m,s);
+                    if (debug) cout<<"newCatZD_yxmsz(y,x,m,s) = "<<newCatZD_yxmsz(y,x,m,s)<<endl;
+                  }
+                }
+              }
+            }
+            if (debug) cout<<"FleetData::replaceFisheryCatchData got here 4"<<endl;
+            ptrTCD->replaceCatchData(rng,ptrSOs->ppTotCatch[vi-1],newCatZD_yxmsz,wAtZD_xmz);
+            if (debug) cout<<"FleetData::replaceFisheryCatchData got here 5"<<endl;
+          } else {
+            ptrTCD->replaceCatchData(rng,ptrSOs->ppTotCatch[vi-1],newCatZ_yxmsz,wAtZ_xmz);
+          }
+        }
         if (debug) cout<<"replaced total catch data"<<endl;
     }
     if (hasRCD) {
         if (debug) cout<<"replacing retained catch data"<<endl;
         int vi = 0;
-        for (int v=0;v<=ptrSOs->nRetCatch-1;v++) {if (name==ptrSOs->ppRetCatch[v]->name) vi=v;}
-        if (vi) ptrRCD->replaceCatchData(rng,ptrSOs->ppRetCatch[vi],newRatZ_yxmsz,wAtZ_xmz);
+        for (int v=1;v<=ptrSOs->nRetCatch;v++) {
+          if (debug) cout<<"v = "<<v<<tb<<"ptrSOs->ppRetCatch[v-1]->name = "<<ptrSOs->ppRetCatch[v-1]->name<<endl;
+          if (name==ptrSOs->ppRetCatch[v-1]->name) vi=v;
+          break;
+        }
+        if (vi) {
+          if (ptrRCD->hasZFD){
+            //need to convert from model bins to data bins
+            dvector zCDs = ptrRCD->ptrZFD->zCs;         //data cutpoints
+            dvector zCs  = ModelConfiguration::zCutPts; //model cutpoints
+            int nZBDs    = zCDs.size()-1;               //number of data size bins 
+            int nZBs     = zCs.size()-1;                //number of model size bins
+            dmatrix mZBtoZBDs(1,nZBDs,1,nZBs);          //matrix to convert from model to data size bins
+            mZBtoZBDs.initialize();
+            for (int i=1;i<=nZBs;i++){
+              for (int j=1;j<=nZBDs;j++){
+                if ((zCDs[j]<=zCs[i])&&(zCs[i+1]<=zCDs[j+1])) mZBtoZBDs(j,i) = 1;
+              }
+            }
+            if (debug) cout<<"FleetData::replaceFisheryCatchData ret catch got here 1"<<endl;
+            d3_array wAtZD_xmz(1,tcsam::nSXs,1,tcsam::nMSs,1,nZBDs);
+            wAtZD_xmz.initialize();
+            for (int x=1;x<=tcsam::nSXs;x++){
+              for (int m=1;m<=tcsam::nMSs;m++){
+                wAtZD_xmz(x,m) = mZBtoZBDs * wAtZ_xmz(x,m);
+              }
+            }
+            if (debug) cout<<"FleetData::replaceFisheryCatchData ret catch got here 2"<<endl;
+            ivector bnds = wts::getBounds(newCatZ_yxmsz);
+            d5_array newCatZD_yxmsz(bnds[1],bnds[2],bnds[3],bnds[4],bnds[5],bnds[6],bnds[7],bnds[8],1,nZBDs);
+            if (debug) cout<<"FleetData::replaceFisheryCatchData got here 3"<<endl;
+            for (int y=bnds[1];y<=bnds[2];y++){
+              for (int x=bnds[3];x<=bnds[4];x++){
+                for (int m=bnds[5];m<=bnds[6];m++){
+                  for (int s=bnds[7];s<=bnds[8];s++){
+                    if (debug) cout<<"y,x,m,s = "<<y<<tb<<x<<tb<<m<<tb<<s<<endl;
+                    newCatZD_yxmsz(y,x,m,s) = mZBtoZBDs * newCatZ_yxmsz(y,x,m,s);
+                    if (debug) cout<<"newCatZD_yxmsz(y,x,m,s) = "<<newCatZD_yxmsz(y,x,m,s)<<endl;
+                  }
+                }
+              }
+            }
+            if (debug) cout<<"FleetData::replaceFisheryCatchData ret catch got here 4"<<endl;
+            ptrRCD->replaceCatchData(rng,ptrSOs->ppRetCatch[vi-1],newCatZD_yxmsz,wAtZD_xmz);
+            if (debug) cout<<"FleetData::replaceFisheryCatchData got here 5"<<endl;
+          } else {
+            ptrRCD->replaceCatchData(rng,ptrSOs->ppRetCatch[vi-1],newCatZ_yxmsz,wAtZ_xmz);
+          }
+        }
         if (debug) cout<<"replaced retained catch data"<<endl;
     }
     if (hasDCD) {
@@ -553,26 +700,69 @@ void FleetData::replaceFisheryCatchData(random_number_generator& rng,
         ivector bnds = wts::getBounds(newCatZ_yxmsz);
         d5_array newDatZ_yxmsz(bnds(1),bnds(2),bnds(3),bnds(4),bnds(5),bnds(6),bnds(7),bnds(8),bnds(9),bnds(10)); 
         newDatZ_yxmsz.initialize();
-        for (int y=newDatZ_yxmsz.indexmin();y<=newDatZ_yxmsz.indexmax();y++){
-            for (int x=1;x<=nSXs;x++){
-                for (int m=1;m<=nMSs;m++){
-                    for (int s=1;s<=nSCs;s++) {
-//                        cout<<y<<tb<<x<<tb<<m<<tb<<s<<endl;
-                        newDatZ_yxmsz(y,x,m,s) = newCatZ_yxmsz(y,x,m,s)-newRatZ_yxmsz(y,x,m,s);
-//                        {
-//                            cout<<"newCatZ = "<<newCatZ_yxmsz(y,x,m,s)<<endl;
-//                            cout<<"newRatZ = "<<newRatZ_yxmsz(y,x,m,s)<<endl;
-//                            cout<<"newDatZ = "<<newDatZ_yxmsz(y,x,m,s)<<endl;
-//                        }
-                    }
-                }
+        for (int y=bnds[1];y<=bnds[2];y++){
+          for (int x=bnds[3];x<=bnds[4];x++){
+            for (int m=bnds[5];m<=bnds[6];m++){
+              for (int s=bnds[7];s<=bnds[8];s++){
+                newDatZ_yxmsz(y,x,m,s) = newCatZ_yxmsz(y,x,m,s)-newRatZ_yxmsz(y,x,m,s);
+              }
             }
+          }
         }
+        if (debug) cout<<"FleetData::replaceFisheryCatchData got here 1"<<endl;
         int vi = 0;
-        for (int v=0;v<=ptrSOs->nDscCatch-1;v++) {if (name==ptrSOs->ppDscCatch[v]->name) vi=v;}
-        if (vi) ptrDCD->replaceCatchData(rng,ptrSOs->ppDscCatch[vi],newDatZ_yxmsz,wAtZ_xmz);
-        if (debug) cout<<"replaced discard catch data"<<endl;
+        for (int v=1;v<=ptrSOs->nDscCatch;v++) {
+          if (debug) cout<<"v = "<<v<<tb<<"ptrSOs->ppDscCatch[v-1]->name = "<<ptrSOs->ppDscCatch[v-1]->name<<endl;
+          if (name==ptrSOs->ppDscCatch[v-1]->name) vi=v;
+          break;
+        }
+        if (debug) cout<<"FleetData::replaceFisheryCatchData got here 2"<<endl;
+        if (vi) {
+          if (ptrDCD->hasZFD){
+            //need to convert from model bins to data bins
+            dvector zCDs = ptrDCD->ptrZFD->zCs;         //data cutpoints
+            dvector zCs  = ModelConfiguration::zCutPts; //model cutpoints
+            int nZBDs    = zCDs.size()-1;               //number of data size bins 
+            int nZBs     = zCs.size()-1;                //number of model size bins
+            dmatrix mZBtoZBDs(1,nZBDs,1,nZBs);          //matrix to convert from model to data size bins
+            mZBtoZBDs.initialize();
+            for (int i=1;i<=nZBs;i++){
+              for (int j=1;j<=nZBDs;j++){
+                if ((zCDs[j]<=zCs[i])&&(zCs[i+1]<=zCDs[j+1])) mZBtoZBDs(j,i) = 1;
+              }
+            }
+            if (debug) cout<<"FleetData::replaceFisheryCatchData got here 3"<<endl;
+            d3_array wAtZD_xmz(1,tcsam::nSXs,1,tcsam::nMSs,1,nZBDs);
+            wAtZD_xmz.initialize();
+            for (int x=1;x<=tcsam::nSXs;x++){
+              for (int m=1;m<=tcsam::nMSs;m++){
+                wAtZD_xmz(x,m) = mZBtoZBDs * wAtZ_xmz(x,m);
+              }
+            }
+            if (debug) cout<<"FleetData::replaceFisheryCatchData got here 4"<<endl;
+            ivector bnds = wts::getBounds(newDatZ_yxmsz);
+            d5_array newDatZD_yxmsz(bnds[1],bnds[2],bnds[3],bnds[4],bnds[5],bnds[6],bnds[7],bnds[8],1,nZBDs);
+            for (int y=bnds[1];y<=bnds[2];y++){
+              for (int x=bnds[3];x<=bnds[4];x++){
+                for (int m=bnds[5];m<=bnds[6];m++){
+                  for (int s=bnds[7];s<=bnds[8];s++){
+                    if (debug) cout<<"y,x,m,s = "<<y<<tb<<x<<tb<<m<<tb<<s<<endl;
+                    newDatZD_yxmsz(y,x,m,s) = mZBtoZBDs * newDatZ_yxmsz(y,x,m,s);
+                    if (debug) cout<<"newDatZD_yxmsz(y,x,m,s) = "<<newDatZD_yxmsz(y,x,m,s)<<endl;
+                  }
+                }
+              }
+            }
+            if (debug) cout<<"FleetData::replaceFisheryCatchData got here 5"<<endl;
+            ptrDCD->replaceCatchData(rng,ptrSOs->ppDscCatch[vi-1],newDatZD_yxmsz,wAtZD_xmz);
+            if (debug) cout<<"FleetData::replaceFisheryCatchData got here 6"<<endl;
+          } else {
+            ptrDCD->replaceCatchData(rng,ptrSOs->ppDscCatch[vi-1],newDatZ_yxmsz,wAtZ_xmz);
+          }
+        }
+        if (debug) if (debug) cout<<"replaced discard catch data"<<endl;
     }
+    if (debug) cout<<"Finished FleetData::replaceFisheryCatchData for fishery "<<this->name<<endl;
 }
 /**
  * Add new year of index (survey) catch data to existing data.
@@ -592,12 +782,44 @@ void FleetData::addIndexCatchData(int y,
                                   double cv, 
                                   double ss,
                                   random_number_generator& rng){
-    if (debug) cout<<"starting FleetData::updateIndexCatchData("<<y<<",...)"<<endl;
+    if (debug) cout<<"starting FleetData::addIndexCatchData("<<y<<",...)"<<endl;
     if (debug) CatchData::debug = 1;
     if (hasICD) {
-        if (debug) cout<<"updating index catch data for year "<<y<<endl;
-        ptrICD->addCatchData(y, newNatZ_xmsz, wAtZ_xmz, cv, ss, rng);
-        if (debug) cout<<"updated index catch data"<<endl;
+        if (debug) cout<<"adding index catch data for year "<<y<<endl;
+          if (ptrICD->hasZFD){
+            //need to convert from model bins to data bins
+            dvector zCDs = ptrICD->ptrZFD->zCs;         //data cutpoints
+            dvector zCs  = ModelConfiguration::zCutPts; //model cutpoints
+            int nZBDs    = zCDs.size()-1;               //number of data size bins 
+            int nZBs     = zCs.size()-1;                //number of model size bins
+            dmatrix mZBtoZBDs(1,nZBDs,1,nZBs);          //matrix to convert from model to data size bins
+            mZBtoZBDs.initialize();
+            for (int i=1;i<=nZBs;i++){
+              for (int j=1;j<=nZBDs;j++){
+                if ((zCDs[j]<=zCs[i])&&(zCs[i+1]<=zCDs[j+1])) mZBtoZBDs(j,i) = 1;
+              }
+            }
+            d3_array wAtZD_xmz(1,tcsam::nSXs,1,tcsam::nMSs,1,nZBDs);
+            wAtZD_xmz.initialize();
+            for (int x=1;x<=tcsam::nSXs;x++){
+              for (int m=1;m<=tcsam::nMSs;m++){
+                wAtZD_xmz(x,m) = mZBtoZBDs * wAtZ_xmz(x,m);
+              }
+            }
+            ivector bnds = wts::getBounds(newNatZ_xmsz);
+            d4_array newNatZD_xmsz(bnds[1],bnds[2],bnds[3],bnds[4],bnds[5],bnds[6],1,nZBDs);
+            for (int x=bnds[1];x<=bnds[2];x++){
+              for (int m=bnds[3];m<=bnds[4];m++){
+                for (int s=bnds[5];s<=bnds[6];s++){
+                  newNatZD_xmsz(x,m,s) = mZBtoZBDs * value(newNatZ_xmsz(x,m,s));
+                }
+              }
+            }
+            ptrICD->addCatchData(y, newNatZD_xmsz, wAtZD_xmz, cv, ss, rng);
+          } else {
+            ptrICD->addCatchData(y, newNatZ_xmsz, wAtZ_xmz, cv, ss, rng);
+          }
+        if (debug) cout<<"added index catch data"<<endl;
     }
     if (debug) CatchData::debug = 0;
     if (debug) cout<<"finished FleetData::updateIndexCatchData("<<y<<",...)"<<endl;
@@ -626,12 +848,76 @@ void FleetData::addFisheryCatchData(int y,
     if (debug) CatchData::debug = 1;
     if (hasTCD) {
         if (debug) cout<<"adding total catch data"<<endl;
-        ptrTCD->addCatchData(y, newCatZ_xmsz, wAtZ_xmz, cv, ss, rng);
+        if (ptrTCD->hasZFD){
+            //need to convert from model bins to data bins
+            dvector zCDs = ptrTCD->ptrZFD->zCs;         //data cutpoints
+            dvector zCs  = ModelConfiguration::zCutPts; //model cutpoints
+            int nZBDs    = zCDs.size()-1;               //number of data size bins 
+            int nZBs     = zCs.size()-1;                //number of model size bins
+            dmatrix mZBtoZBDs(1,nZBDs,1,nZBs);          //matrix to convert from model to data size bins
+            mZBtoZBDs.initialize();
+            for (int i=1;i<=nZBs;i++){
+              for (int j=1;j<=nZBDs;j++){
+                if ((zCDs[j]<=zCs[i])&&(zCs[i+1]<=zCDs[j+1])) mZBtoZBDs(j,i) = 1;
+              }
+            }
+            d3_array wAtZD_xmz(1,tcsam::nSXs,1,tcsam::nMSs,1,nZBDs);
+            wAtZD_xmz.initialize();
+            for (int x=1;x<=tcsam::nSXs;x++){
+              for (int m=1;m<=tcsam::nMSs;m++){
+                wAtZD_xmz(x,m) = mZBtoZBDs * wAtZ_xmz(x,m);
+              }
+            }
+            ivector bnds = wts::getBounds(newCatZ_xmsz);
+            d4_array newCatZD_xmsz(bnds[1],bnds[2],bnds[3],bnds[4],bnds[5],bnds[6],1,nZBDs);
+            for (int x=bnds[1];x<=bnds[2];x++){
+              for (int m=bnds[3];m<=bnds[4];m++){
+                for (int s=bnds[5];s<=bnds[6];s++){
+                  newCatZD_xmsz(x,m,s) = mZBtoZBDs * value(newCatZ_xmsz(x,m,s));
+                }
+              }
+            }
+            ptrTCD->addCatchData(y, newCatZD_xmsz, wAtZD_xmz, cv, ss, rng);
+        } else {
+            ptrTCD->addCatchData(y, newCatZ_xmsz, wAtZ_xmz, cv, ss, rng);
+        }
         if (debug) cout<<"added total catch data"<<endl;
     }
     if (hasRCD) {
         if (debug) cout<<"adding retained catch data"<<endl;
-        ptrRCD->addCatchData(y, newRatZ_xmsz, wAtZ_xmz, cv, ss, rng);
+        if (ptrRCD->hasZFD){
+            //need to convert from model bins to data bins
+            dvector zCDs = ptrRCD->ptrZFD->zCs;         //data cutpoints
+            dvector zCs  = ModelConfiguration::zCutPts; //model cutpoints
+            int nZBDs    = zCDs.size()-1;               //number of data size bins 
+            int nZBs     = zCs.size()-1;                //number of model size bins
+            dmatrix mZBtoZBDs(1,nZBDs,1,nZBs);          //matrix to convert from model to data size bins
+            mZBtoZBDs.initialize();
+            for (int i=1;i<=nZBs;i++){
+              for (int j=1;j<=nZBDs;j++){
+                if ((zCDs[j]<=zCs[i])&&(zCs[i+1]<=zCDs[j+1])) mZBtoZBDs(j,i) = 1;
+              }
+            }
+            d3_array wAtZD_xmz(1,tcsam::nSXs,1,tcsam::nMSs,1,nZBDs);
+            wAtZD_xmz.initialize();
+            for (int x=1;x<=tcsam::nSXs;x++){
+              for (int m=1;m<=tcsam::nMSs;m++){
+                wAtZD_xmz(x,m) = mZBtoZBDs * wAtZ_xmz(x,m);
+              }
+            }
+            ivector bnds = wts::getBounds(newRatZ_xmsz);
+            d4_array newRatZD_xmsz(bnds[1],bnds[2],bnds[3],bnds[4],bnds[5],bnds[6],1,nZBDs);
+            for (int x=bnds[1];x<=bnds[2];x++){
+              for (int m=bnds[3];m<=bnds[4];m++){
+                for (int s=bnds[5];s<=bnds[6];s++){
+                  newRatZD_xmsz(x,m,s) = mZBtoZBDs * value(newRatZ_xmsz(x,m,s));
+                }
+              }
+            }
+            ptrRCD->addCatchData(y, newRatZD_xmsz, wAtZD_xmz, cv, ss, rng);
+        } else {
+            ptrRCD->addCatchData(y, newRatZ_xmsz, wAtZ_xmz, cv, ss, rng);
+        }
         if (debug) cout<<"added retained catch data"<<endl;
     }
     if (hasDCD) {
@@ -646,7 +932,39 @@ void FleetData::addFisheryCatchData(int y,
                 }
             }
         }
-        ptrDCD->addCatchData(y, newDatZ_xmsz, wAtZ_xmz, cv, ss, rng);
+        if (ptrDCD->hasZFD){
+            //need to convert from model bins to data bins
+            dvector zCDs = ptrDCD->ptrZFD->zCs;         //data cutpoints
+            dvector zCs  = ModelConfiguration::zCutPts; //model cutpoints
+            int nZBDs    = zCDs.size()-1;               //number of data size bins 
+            int nZBs     = zCs.size()-1;                //number of model size bins
+            dmatrix mZBtoZBDs(1,nZBDs,1,nZBs);          //matrix to convert from model to data size bins
+            mZBtoZBDs.initialize();
+            for (int i=1;i<=nZBs;i++){
+              for (int j=1;j<=nZBDs;j++){
+                if ((zCDs[j]<=zCs[i])&&(zCs[i+1]<=zCDs[j+1])) mZBtoZBDs(j,i) = 1;
+              }
+            }
+            d3_array wAtZD_xmz(1,tcsam::nSXs,1,tcsam::nMSs,1,nZBDs);
+            wAtZD_xmz.initialize();
+            for (int x=1;x<=tcsam::nSXs;x++){
+              for (int m=1;m<=tcsam::nMSs;m++){
+                wAtZD_xmz(x,m) = mZBtoZBDs * wAtZ_xmz(x,m);
+              }
+            }
+            ivector bnds = wts::getBounds(newDatZ_xmsz);
+            d4_array newDatZD_xmsz(bnds[1],bnds[2],bnds[3],bnds[4],bnds[5],bnds[6],1,nZBDs);
+            for (int x=bnds[1];x<=bnds[2];x++){
+              for (int m=bnds[3];m<=bnds[4];m++){
+                for (int s=bnds[5];s<=bnds[6];s++){
+                  newDatZD_xmsz(x,m,s) = mZBtoZBDs * value(newDatZ_xmsz(x,m,s));
+                }
+              }
+            }
+            ptrDCD->addCatchData(y, newDatZD_xmsz, wAtZD_xmz, cv, ss, rng);
+        } else {
+            ptrDCD->addCatchData(y, newDatZ_xmsz, wAtZ_xmz, cv, ss, rng);
+        }
         if (debug) cout<<"added discard catch data"<<endl;
     }
     if (debug) CatchData::debug = 0;

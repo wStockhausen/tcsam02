@@ -25,13 +25,17 @@ class EmpiricalSelFcn{
     public:
         /** id associated with the empirical selectivity function */
         int id;
+        /** number of size bins */
+        int nZBs;
         /* sizes at which the empirical sel function was evaluated */
-        dvector zBs;
+        dvector zCs;
+        /** input values for empirical sel function */
+        dvector iesf;
         /** values for empirical sel function */
         dvector esf;
     public:
         /**
-         * Class instantiator
+         * Class constructor
          * 
          * @param mc - pointer to the model configuration object
          */
@@ -112,19 +116,25 @@ class EmpiricalSelFcnPrior{
         int sel_id;
         /* weight to assign to prior probability */
         double priorWgt;
-        /* pdf type for prior */
+        /** pdf type for prior */
         adstring priorType;
-        /* vector of size bins for likelihood function */
-        dvector zBs;
-        /* vector of first parameter values for likelihood function */
+        /** number of size bins */
+        int nZBs;
+        /** vector of size bin cutpoints for likelihood function */
+        dvector zCs;
+        /** input vector of first parameter values for likelihood function */
+        dvector ip1;
+        /** input vector of second parameter values for likelihood function */
+        dvector ip2;
+        /** vector of first parameter values for likelihood function */
         dvector p1;
-        /* vector of second parameter values for likelihood function */
+        /** vector of second parameter values for likelihood function */
         dvector p2;
-        /* */
+        /* pointer to pdf info object */
         ModelPDFInfo* pMPI;
     public:
         /**
-         * Class instantiator
+         * Class constructor
          * 
          * @param mc - pointer to the model configuration object
          */

@@ -28,6 +28,8 @@
  *             2. Incremented VERSION to '2021.04.09'.
  * 2021-04-10: 1. Added maxZs dvector for sex-specific max sizes
  *             2. Incremented VERSION to '2021.04.10'.
+ * 2023-03-07: 1. Replaced vector of model size bin cutpoints with min cutpoint and bin size
+ *             2. Incremented VERSION to '2023.03.13'.
  */
 
 #ifndef MODELCONFIGURATION_HPP
@@ -52,7 +54,17 @@
         /* index to max possible size bin for recruitment */
         static int maxZBRec;
         /* number of size bins */
-        static int nZBs;//number of size bins 
+        static int nZBs;
+        /* maximum size bin cutpoint */
+        static double maxZC;
+        /* minimum size bin cutpoint */
+        static double minZC;
+        /* bin size */
+        static double delZ;
+        /* size bin midpoints (CW in mm) */
+        static dvector zMidPts;
+        /* size bin cutpoints (CW in mm) */
+        static dvector zCutPts; 
         /* min model year */
         static int mnYr;//min model year
         /* assessment year (final pop numbers given for July 1, asYr) */
@@ -87,10 +99,6 @@
         /* flag to fit to priors */
         int fitToPriors; //flag to fit to priors
         
-        /* size bin midpoints (CW in mm) */
-        dvector zMidPts;     //size bin midpoints (CW in mm)
-        /* size bin cutpoints (CW in mm) */
-        dvector zCutPts;     //size bin cutpoints (CW in mm)
         /* vector of 1's same size as zMidPts */
         dvector onesZMidPts; //vector of 1's same size as zMidPts
 

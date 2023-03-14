@@ -34,7 +34,7 @@ int SurveysInfo::debug          = 0;
 int MSE_Info::debug             = 0;
 int DirichletMultinomialInfo::debug = 0;
 int ModelParametersInfo::debug  = 0;
-const adstring ModelParametersInfo::version = "2022.09.27";
+const adstring ModelParametersInfo::version = "2023.03.10";
     
 /*----------------------------------------------------------------------------*/
 /**

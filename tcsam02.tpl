@@ -763,6 +763,23 @@
 //                  this situation where no M devs vectors are defined. 
 //-2023-03-07: 1. Added ability to calculate model predictions with different size bins than data.
 //                  Size bins for data should contain those for model, with no partial overlaps.
+//             2. Changed ModelConfiguration input of model size bins from specifying vector to min cutpoint and bin size. 
+//                  Also changed zMidPts and zCutPts fields to static class members so other classes can use them.
+//             3. In BioData class, revised input of weight-at-size in input file from population component-specific 
+//                   vector to W-L coefficients, added version string.
+//             4. Changed model version to "2023.03.07".
+//             5. Modified ModelOptions classes EmpiricalSelFcn and EmpiricalSelFcnPrior to handle 
+//                  cases where size bins for input vectors are different from those for the model. 
+//-2023-03-10: 1. Added "sandbox" in DATA_SECTION to facilitate testing
+//             2. Changed ModelParametersInfo::version to "2023.03.10".
+//-2023-03-13: 1. Revised inputs to ModelConfigurationInfo, updated version to "2023.03.13".
+//             2. Revised SizeFrequencyData::aggregateRawNatZ for model/data size bin differences.
+//             3. Revised FleetData methods replaceIndexCatchData, replaceFisheryCatchData, addIndexCatchData, addFisheryCatchData 
+//                  for same.
+//             4. Minor revisions to createSimData for same.
+//-2023-03-14: 1. Added adstring qcsvZBs (quoted csv string for size bin centers) to SizeFrequencyData class.
+//             2. Revised size frequency NLL info written to R to use ptrZFD->qcsvZBs (data size bins) 
+//                  rather than ptrMC->csvZBs (model size bins) now that model and data size bins may differ.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -1282,6 +1299,46 @@ DATA_SECTION
     }
  END_CALCS
  
+    //----Testing Sandbox-------//
+ LOCAL_CALCS
+    if (runSandbox){
+        PRINT2B1(" ")
+        PRINT2B1("#--Starting sandbox in DATA_SECTION")
+          
+        PRINT2B2("#--Reading configuration file ",fnConfigFile)
+        ad_comm::change_datafile_name(fnConfigFile);
+        ptrMC = new ModelConfiguration();
+        ptrMC->read(*(ad_comm::global_datafile));
+        PRINT2B1("#--Finished reading configuration file")
+        PRINT2B1("#---------writing Model Configuration as check-----------------")
+        rpt::echo<<(*ptrMC);
+        PRINT2B1("#-----finished writing Model Configuration as check------------")
+          
+        PRINT2B2("#--Reading model options file ",ptrMC->fnMOs)
+        if (debugModelOptions) {
+            ModelOptions::debug=1;
+        }
+        ptrMOs = new ModelOptions(*ptrMC);
+        ad_comm::change_datafile_name(ptrMC->fnMOs);
+        ptrMOs->read(*(ad_comm::global_datafile));
+        if (debugModelOptions) {
+            cout<<"enter 1 to continue : ";
+            cin>>debugModelOptions;
+            if (debugModelOptions<0) exit(1);
+            ModelOptions::debug=debugModelOptions;
+        }
+        PRINT2B1("#--finished reading model options file---")
+        PRINT2B1("#--------writing Model Options as check-----------")
+        rpt::echo<<(*ptrMOs);
+        PRINT2B1("#----finished writing Model Options as check------")
+      
+        PRINT2B1("#--Finished sandbox in DATA_SECTION")
+        PRINT2B1(" ")
+        exit(-1);
+    }
+ END_CALCS
+   
+    //--begin model inputs
     int nZBs;  //number of model size bins
     int mnYr;  //min model year
     int mxYr;  //max model year
@@ -2043,7 +2100,7 @@ PARAMETER_SECTION
     //----Testing Sandbox-------//
     if (runSandbox){
         PRINT2B1(" ")
-        PRINT2B1("#--Starting sandbox")
+        PRINT2B1("#--Starting sandbox in PARAMETER_SECTION")
         dvector z(1,32);
         for (int i=z.indexmin();i<=z.indexmax();i++) z(i) = 27.5+(i-1)*5.0;
         PRINT2B1("--Cubic Spline")
@@ -3154,7 +3211,7 @@ PRELIMINARY_CALCS_SECTION
             }
 
             {
-                PRINT2B1("writing deterministic model sim data to file (line 3150)")
+                PRINT2B1("writing deterministic model sim data to file (line 3208)")
                 int dbgLevel = 1000;
                 createSimData(ptrSimMDS,dbgLevel,rpt::echo);//deterministic
                 ofstream echo1; echo1.open("ModelData.Sim.init.dat", ios::trunc);
@@ -3735,95 +3792,6 @@ FUNCTION void projectPopForZeroTAC(int debug, ostream& cout)
         cout<<"#----discards catch mortality (biomass): "<<endl<<prjDscCatchMortBio_fx<<endl;
     }
     if (debug>=dbgPopDy) cout<<"finished projectPopForZeroTAC()"<<endl;
-    
-/////**
-//// * MSE OpModMode ONLY:
-//// * Project the population from July 1, year to July 1, year+1 given that
-//// * the TAC is 0 and the directed fishery is closed.
-//// * 
-//// * This function is directly based on projectPopForTAC.
-//// * 
-//// */
-//FUNCTION void projectPopForZeroTAC(int debug, ostream& cout)
-//    if (debug>=dbgPopDy) cout<<"projectPopForZeroTAC()"<<endl;
-//
-//    prjRetCatchMortBio_fx.initialize();
-//    prjDscCatchMortBio_fx.initialize();
-//    prjTotCatchMortBio_fx.initialize();
-//    prj_cpN_fxmsz.initialize(); //capture abundance
-//    prj_rmN_fxmsz.initialize(); //retained mortality abundance
-//    prj_dmN_fxmsz.initialize(); //discard mortality abundance
-//    prj_dsN_fxmsz.initialize(); //total discard abundance
-//    
-//    dvariable maxCapF = 0.0;
-//    
-//    for (int x=1;x<=nSXs;x++){   
-//        //1. Update population rates, based on year and sex
-//        pPDI->w_mz  = ptrOMI->wAtZ_xmz(x);   //assign weight-at-length
-//        pPDI->R_z   = ptrOMI->R_z;           //relative recruitment-at-size
-//        pPDI->M_msz = ptrOMI->M_xmsz(x);     //rates of natural mortality
-//        pPDI->T_szz = ptrOMI->prGr_xszz(x);  //growth transition matrices
-//        //pr(terminal molt|size)
-//        for (int s=1;s<=nSCs;s++) pPDI->Th_sz(s) = ptrOMI->prM2M_xz(x);
-//        //if (debug) cout<<"updated pPDI for sex "<<x<<" in "<<y<<endl;
-//
-//        //2. Update fishery conditions based on year and sex
-//        prj_hmF_f = ptrOMI->hmF_f;
-//        prj_capF_fmsz.initialize();
-//        prj_retF_fmsz.initialize();
-//        prj_selF_fmsz.initialize();
-//        for (int f=1;f<=nFsh;f++){
-//            for (int m=1;m<=nMSs;m++){
-//                prj_capF_fmsz(f,m) = ptrOMI->cpF_fxmsz(f,x,m);
-//                prj_retF_fmsz(f,m) = ptrOMI->ret_fxmsz(f,x,m);
-//                prj_selF_fmsz(f,m) = ptrOMI->sel_fxmsz(f,x,m);
-//            }//m
-//        }//f
-//
-//        
-//        //directed fishery is closed,so set capture rates to 0
-//        prj_capF_fmsz(1) = 0.0*prj_selF_fmsz(1);
-//
-//        //update CatchInfo objects
-//        pCDI->setHandlingMortality(prj_hmF_f);
-//        pCDI->setCaptureRates(prj_capF_fmsz);
-//        pCDI->setRetentionFcns(prj_retF_fmsz);
-//        pCDI->setSelectivityFcns(prj_selF_fmsz);
-//        if (debug) cout<<"updated pCDI for sex "<<x<<endl;
-//
-//        //3. run PopProjector
-//        pPPr->dtF = ptrOMI->dtF; //time at which fishery occurs
-//        pPPr->dtM = ptrOMI->dtM; //time at which mating occurs
-//        dvariable dirF = -1.0;//don't change scale on directed fishery F's
-////        if (debug>=dbgPopDy) PopProjector::debug=1000;
-//        dvar3_array n_msz   = ptrOMI->n_xmsz(x);//sex "x" population abundance at start of year
-//        prj_n_xmsz(x)       = pPPr->project(dirF,n_msz,cout);
-////        if (debug>=dbgPopDy) PopProjector::debug=0;
-//        prj_n_xmsz(x,IMMATURE,NEW_SHELL) += prjR*ptrOMI->R_x(x)*ptrOMI->R_z;
-//        prj_spB_x(x)         = pPPr->getMatureBiomassAtMating();
-//        dvar4_array cpN_fmsz = pPPr->getFisheriesCaptureAbundance();
-//        dvar4_array rmN_fmsz = pPPr->getRetainedCatchMortality();
-//        dvar4_array dmN_fmsz = pPPr->getDiscardCatchMortality();
-//        for (int f=1;f<=nFsh;f++){
-//            for (int m=1;m<=nMSs;m++){
-//                prj_cpN_fxmsz(f,x,m) = cpN_fmsz(f,m); //capture abundance
-//                prj_rmN_fxmsz(f,x,m) = rmN_fmsz(f,m); //retained mortality abundance
-//                prj_dmN_fxmsz(f,x,m) = dmN_fmsz(f,m); //discard mortality abundance
-//                //total discard abundance
-//                prj_dsN_fxmsz(f,x,m) = prj_cpN_fxmsz(f,x,m)-prj_rmN_fxmsz(f,x,m);
-//                for (int s=1;s<=nSCs;s++){
-//                    //retained catch mortality (biomass)
-//                    prjRetCatchMortBio_fx(f,x) += prj_rmN_fxmsz(f,x,m,s)*ptrOMI->wAtZ_xmz(x,m);
-//                    //discarded catch mortality (biomass)
-//                    prjDscCatchMortBio_fx(f,x) += prj_dmN_fxmsz(f,x,m,s)*ptrOMI->wAtZ_xmz(x,m);
-//                }//s
-//            }//m
-//            prjTotCatchMortBio_fx(f,x) = prjRetCatchMortBio_fx(f,x) + prjDscCatchMortBio_fx(f,x);
-//        }//f
-//        if (debug) cout<<"ran pPPr for sex "<<x<<endl;
-//    }//x
-//    
-//    if (debug>=dbgPopDy) cout<<"finished projectPopForZeroTAC()"<<endl;
     
 //-------------------------------------------------------------------------------------
 FUNCTION void runPopDyMod(int debug, ostream& cout)
@@ -7824,10 +7792,10 @@ FUNCTION void calcNoneNLL_TS(double wgt, dvar_vector& mod, dvar_vector& xcv_y, d
     
 //-------------------------------------------------------------------------------------
 //Calculate multinomial NLL contribution to objective function
-FUNCTION void calcMultinomialNLL(double wgt, dvar_vector& mod, dvector& obs, double& ss, int& yr, int debug, ostream& cout)
+FUNCTION void calcMultinomialNLL(SizeFrequencyData* ptrZFD, dvar_vector& mod, dvector& obs, double& ss, int& yr, int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"Starting calcMultinomialNLL()"<<endl;
     dvariable nll = -ss*(obs*(log(mod+smlVal)-log(obs+smlVal)));//note dot-product sums
-    objFun += wgt*nll;
+    objFun += ptrZFD->llWgt*nll;
     if ((debug<0)||(debug>=dbgAll)){
         dvector vmod = value(mod);
         dvector nlls = -ss*(elem_prod(obs,log(vmod+smlVal)-log(obs+smlVal)));
@@ -7835,8 +7803,8 @@ FUNCTION void calcMultinomialNLL(double wgt, dvar_vector& mod, dvector& obs, dou
         double effN = 0.0;
         if ((ss>0)&&(norm2(obs-vmod)>0)) effN = (vmod*(1.0-vmod))/norm2(obs-vmod);
         if (debug<0){
-            cout<<"list(nll.type='multinomial',yr="<<yr<<cc<<"wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<"ss="<<ss<<cc<<"effN="<<effN<<cc<<endl; 
-            adstring dzbs = "size=c("+ptrMC->csvZBs+")";
+            cout<<"list(nll.type='multinomial',yr="<<yr<<cc<<"wgt="<<ptrZFD->llWgt<<cc<<"nll="<<nll<<cc<<"objfun="<<ptrZFD->llWgt*nll<<cc<<"ss="<<ss<<cc<<"effN="<<effN<<cc<<endl; 
+            adstring dzbs = "size=c("+ptrZFD->qcsvZBs+")";
             cout<<"nlls=";  wts::writeToR(cout,nlls, dzbs); cout<<cc<<endl;
             cout<<"obs=";   wts::writeToR(cout,obs,  dzbs); cout<<cc<<endl;
             cout<<"mod=";   wts::writeToR(cout,vmod, dzbs); cout<<cc<<endl;
@@ -7850,18 +7818,18 @@ FUNCTION void calcMultinomialNLL(double wgt, dvar_vector& mod, dvector& obs, dou
              cout<<"zscrs  = "<<zscrs<<endl;
              cout<<"nlls   = "<<nlls<<endl;
              cout<<"effN   = "<<effN<<endl;
-             cout<<"nll    = "<<nll<<tb<<"objFun = "<<wgt*nll<<endl;
+             cout<<"nll    = "<<nll<<tb<<"objFun = "<<ptrZFD->llWgt*nll<<endl;
          }
     }
     if (debug>=dbgAll) cout<<"Finished calcMultinomialNLL()"<<endl;
  
 //-------------------------------------------------------------------------------------
 //Calculate multinomialP NLL contribution to objective function
-FUNCTION void calcMultinomialPNLL(double wgt, dvar_vector& mod, dvector& obs, ivector& idx, double& ss, int& yr, int debug, ostream& cout)
+FUNCTION void calcMultinomialPNLL(SizeFrequencyData* ptrZFD, dvar_vector& mod, dvector& obs, ivector& idx, double& ss, int& yr, int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"Starting calcMultinomialPNLL()"<<endl;
     dvariable nll = 0.0;
     for (int i=idx.indexmin();i<=idx.indexmax();i++) nll += -ss*(obs[idx[i]]*(log(mod[idx[i]])-log(obs[idx[i]])));
-    objFun += wgt*nll;
+    objFun += ptrZFD->llWgt*nll;
     if ((debug<0)||(debug>=dbgAll)){
         dvector vmod = value(mod);
         dvector nlls = 0.0*vmod;
@@ -7871,8 +7839,8 @@ FUNCTION void calcMultinomialPNLL(double wgt, dvar_vector& mod, dvector& obs, iv
         double effN = 0.0;
         if ((ss>0)&&(norm2(obs-vmod)>0)) effN = (vmod*(1.0-vmod))/norm2(obs-vmod);
         if (debug<0){
-            cout<<"list(nll.type='multinomialp',yr="<<yr<<cc<<"wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<"ss="<<ss<<cc<<"effN="<<effN<<cc<<endl; 
-            adstring dzbs = "size=c("+ptrMC->csvZBs+")";
+            cout<<"list(nll.type='multinomialp',yr="<<yr<<cc<<"wgt="<<ptrZFD->llWgt<<cc<<"nll="<<nll<<cc<<"objfun="<<ptrZFD->llWgt*nll<<cc<<"ss="<<ss<<cc<<"effN="<<effN<<cc<<endl; 
+            adstring dzbs = "size=c("+ptrZFD->qcsvZBs+")";
             cout<<"nlls=";  wts::writeToR(cout,nlls, dzbs); cout<<cc<<endl;
             cout<<"obs=";   wts::writeToR(cout,obs,  dzbs); cout<<cc<<endl;
             cout<<"mod=";   wts::writeToR(cout,vmod, dzbs); cout<<cc<<endl;
@@ -7886,14 +7854,14 @@ FUNCTION void calcMultinomialPNLL(double wgt, dvar_vector& mod, dvector& obs, iv
              cout<<"zscrs  = "<<zscrs<<endl;
              cout<<"nlls   = "<<nlls<<endl;
              cout<<"effN   = "<<effN<<endl;
-             cout<<"nll    = "<<nll<<tb<<"objFun = "<<wgt*nll<<endl;
+             cout<<"nll    = "<<nll<<tb<<"objFun = "<<ptrZFD->llWgt*nll<<endl;
          }
     }
     if (debug>=dbgAll) cout<<"Finished calcMultinomialPNLL()"<<endl;
  
 //-------------------------------------------------------------------------------------
 ////Calculate Dirichlet NLL contribution to objective function
-FUNCTION void calcDirichletNLL(dvariable& theta, double wgt, dvar_vector& mod, dvector& obs, double& ss, int& yr, int debug, ostream& cout)
+FUNCTION void calcDirichletNLL(dvariable& theta, SizeFrequencyData* ptrZFD, dvar_vector& mod, dvector& obs, double& ss, int& yr, int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"Starting calcDirichletNLL()"<<endl;
     dvariable nll = 0.0;
     
@@ -7927,7 +7895,7 @@ FUNCTION void calcDirichletNLL(dvariable& theta, double wgt, dvar_vector& mod, d
         nll -= sum(gammln(n*obsp+thn*modp) - gammln(thn*modp));
     }
     
-    objFun += wgt*nll;
+    objFun += ptrZFD->llWgt*nll;
     
     if ((debug<0)||(debug>=dbgAll)){
         dvector vmod  = value(modp);
@@ -7942,9 +7910,9 @@ FUNCTION void calcDirichletNLL(dvariable& theta, double wgt, dvar_vector& mod, d
             zscrs = elem_div(obsp-vmod,sqrt(elem_prod(vmod,1.0-vmod)/nEff));//pearson residuals using nEff, not n (i.e., not ss)
         }
         if (debug<0){
-            cout<<"list(nll.type='DirichletMultinomial',yr="<<yr<<cc<<"wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc;
+            cout<<"list(nll.type='DirichletMultinomial',yr="<<yr<<cc<<"wgt="<<ptrZFD->llWgt<<cc<<"nll="<<nll<<cc<<"objfun="<<ptrZFD->llWgt*nll<<cc;
             cout<<"ss="<<ss<<cc<<"effN="<<effN<<cc<<"nEff="<<nEff<<cc<<"theta="<<value(theta)<<cc<<endl; 
-            adstring dzbs = "size=c("+ptrMC->csvZBs+")";
+            adstring dzbs = "size=c("+ptrZFD->qcsvZBs+")";
             cout<<"nlls=";  wts::writeToR(cout,nlls, dzbs); cout<<cc<<endl;
             cout<<"obs=";   wts::writeToR(cout,obsp, dzbs); cout<<cc<<endl;
             cout<<"mod=";   wts::writeToR(cout,vmod, dzbs); cout<<cc<<endl;
@@ -7960,13 +7928,13 @@ FUNCTION void calcDirichletNLL(dvariable& theta, double wgt, dvar_vector& mod, d
             cout<<"effN   = "<<effN<<endl;
             cout<<"theta  = "<<theta<<endl;
             cout<<"nEff   = "<<nEff<<endl;
-            cout<<"nll    = "<<nll<<tb<<"objFun = "<<wgt*nll<<endl;
+            cout<<"nll    = "<<nll<<tb<<"objFun = "<<ptrZFD->llWgt*nll<<endl;
         }
     }
     if (debug>=dbgAll) cout<<"Finished calcDirchletNLL()"<<endl;
  
 ////Calculate Dirichlet NLL contribution to objective function
-FUNCTION void calcDirichletPNLL(dvariable& theta, double wgt, dvar_vector& mod, dvector& obs, double& ss, int& yr, int debug, ostream& cout)
+FUNCTION void calcDirichletPNLL(dvariable& theta, SizeFrequencyData* ptrZFD, dvar_vector& mod, dvector& obs, double& ss, int& yr, int debug, ostream& cout)
     if (debug>=dbgAll) cout<<"Starting calcDirichletPNLL()"<<endl;
     dvariable nll = 0.0;
     
@@ -7981,7 +7949,7 @@ FUNCTION void calcDirichletPNLL(dvariable& theta, double wgt, dvar_vector& mod, 
         }
     }
     
-    objFun += wgt*nll;
+    objFun += ptrZFD->llWgt*nll;
     
     if ((debug<0)||(debug>=dbgAll)){
         dvector vmod  = value(mod);
@@ -7998,9 +7966,9 @@ FUNCTION void calcDirichletPNLL(dvariable& theta, double wgt, dvar_vector& mod, 
             zscrs = elem_div(obs-vmod,sqrt(elem_prod(vmod,1.0-vmod)/nEff));//pearson residuals using nEff, not n (i.e., not ss)
         }
         if (debug<0){
-            cout<<"list(nll.type='DirichletMultinomial',yr="<<yr<<cc<<"wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc;
+            cout<<"list(nll.type='DirichletMultinomialP',yr="<<yr<<cc<<"wgt="<<ptrZFD->llWgt<<cc<<"nll="<<nll<<cc<<"objfun="<<ptrZFD->llWgt*nll<<cc;
             cout<<"ss="<<ss<<cc<<"effN="<<effN<<cc<<"nEff="<<nEff<<cc<<"theta="<<value(theta)<<cc<<endl; 
-            adstring dzbs = "size=c("+ptrMC->csvZBs+")";
+            adstring dzbs = "size=c("+ptrZFD->qcsvZBs+")";
             cout<<"nlls=";  wts::writeToR(cout,nlls, dzbs); cout<<cc<<endl;
             cout<<"obs=";   wts::writeToR(cout,obs, dzbs); cout<<cc<<endl;
             cout<<"mod=";   wts::writeToR(cout,vmod, dzbs); cout<<cc<<endl;
@@ -8016,19 +7984,19 @@ FUNCTION void calcDirichletPNLL(dvariable& theta, double wgt, dvar_vector& mod, 
             cout<<"effN   = "<<effN<<endl;
             cout<<"theta  = "<<theta<<endl;
             cout<<"nEff   = "<<nEff<<endl;
-            cout<<"nll    = "<<nll<<tb<<"objFun = "<<wgt*nll<<endl;
+            cout<<"nll    = "<<nll<<tb<<"objFun = "<<ptrZFD->llWgt*nll<<endl;
         }
     }
     if (debug>=dbgAll) cout<<"Finished calcDirchletPNLL()"<<endl;
  
 //-------------------------------------------------------------------------------------
 //Pass through for no NLL contribution to objective function for size comps
-FUNCTION void calcNoneNLL_ZC(double wgt, dvar_vector& mod, dvector& obs, double& ss, int& yr, int debug, ostream& cout)
-    if (debug>=dbgAll) cout<<"Starting calcNoneNLL(size comps)"<<endl;
+FUNCTION void calcNoneNLL_ZC(SizeFrequencyData* ptrZFD, dvar_vector& mod, dvector& obs, double& ss, int& yr, int debug, ostream& cout)
+    if (debug>=dbgAll) cout<<"Starting calcNoneNLL_ZC(size comps)"<<endl;
     if (debug<0){
-        cout<<"list(nll.type='none',yr="<<yr<<cc<<"wgt="<<wgt<<cc<<"nll="<<0.0<<cc<<"objfun="<<0.0<<cc<<"ss="<<0<<cc<<"effN="<<0<<")";
+        cout<<"list(nll.type='none',yr="<<yr<<cc<<"wgt="<<ptrZFD->llWgt<<cc<<"nll="<<0.0<<cc<<"objfun="<<0.0<<cc<<"ss="<<0<<cc<<"effN="<<0<<")";
     }
-    if (debug>=dbgAll) cout<<"Finished calcNoneNLL(size comps)"<<endl;
+    if (debug>=dbgAll) cout<<"Finished calcNoneNLL_ZC()"<<endl;
  
 ///**
 // * Calculates a time series contribution to objective function
@@ -8072,24 +8040,24 @@ FUNCTION void calcNLL_TS(int llType, double wgt, dvar_vector& mod, dvar_vector& 
 FUNCTION void calcNLL_ZC(SizeFrequencyData* ptrZFD, dvar_vector& mod, dvector& obs, int idm, double ss, int yr, int debug, ostream& cout)
     switch (ptrZFD->llType){
         case tcsam::LL_NONE:
-            calcNoneNLL_ZC(ptrZFD->llWgt,mod,obs,ss,yr,debug,cout);
+            calcNoneNLL_ZC(ptrZFD,mod,obs,ss,yr,debug,cout);
             break;
         case tcsam::LL_MULTINOMIAL:
-            calcMultinomialNLL(ptrZFD->llWgt,mod,obs,ss,yr,debug,cout);
+            calcMultinomialNLL(ptrZFD,mod,obs,ss,yr,debug,cout);
             break;
         case tcsam::LL_MULTINOMIALP:
             {
                 int ctr = 0; for (int i=obs.indexmin(); i<=obs.indexmax();i++) {ctr += (obs[i]>0.0);}
                 ivector idx(1,ctr);
                 ctr = 1;     for (int i=obs.indexmin(); i<=obs.indexmax();i++) {if (obs[i]>0.0){idx[ctr++]=i;}}
-                calcMultinomialPNLL(ptrZFD->llWgt,mod,obs,idx,ss,yr,debug,cout);
+                calcMultinomialPNLL(ptrZFD,mod,obs,idx,ss,yr,debug,cout);
             }
             break;
         case tcsam::LL_DIRICHLET:
             {
                 if (idm){
                     dvariable theta = mfexp(pLnDirMul[idm]);
-                    calcDirichletNLL(theta,ptrZFD->llWgt,mod,obs,ss,yr,debug,cout);
+                    calcDirichletNLL(theta,ptrZFD,mod,obs,ss,yr,debug,cout);
                 } else {
                     cout<<"Required DIRICHLET_MULTINOMIAL but idm = 0"<<endl;
                     exit(-1);
@@ -8100,7 +8068,7 @@ FUNCTION void calcNLL_ZC(SizeFrequencyData* ptrZFD, dvar_vector& mod, dvector& o
             {
                 if (idm){
                     dvariable theta = mfexp(pLnDirMul[idm]);
-                    calcDirichletPNLL(theta,ptrZFD->llWgt,mod,obs,ss,yr,debug,cout);
+                    calcDirichletPNLL(theta,ptrZFD,mod,obs,ss,yr,debug,cout);
                 } else {
                     cout<<"Required DIRICHLET_MULTINOMIAL but idm = 0"<<endl;
                     exit(-1);
@@ -8527,7 +8495,7 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
 FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_yxmsz, int debug, ostream& cout)
     if (debug>=dbgNLLs) cout<<"Starting calcNLLs_CatchNatZ()"<<endl;
     d5_array effWgtComps_xmsyn;
-    if (debug>=dbgNLLs) cout<<"fit type = "<<ptrZFD->optFit<<endl;
+    if (debug>=dbgNLLs) cout<<"fit type = "<<tcsam::getFitType(ptrZFD->optFit)<<endl;
     if (ptrZFD->optFit==tcsam::FIT_NONE) return effWgtComps_xmsyn;
     ivector yrs = ptrZFD->yrs;
     int y;
@@ -8536,9 +8504,9 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
     dvariable nT;
     int mny = mA_yxmsz.indexmin();
     int mxy = mA_yxmsz.indexmax();//may NOT be mxYr
-    int nZBDs    = ptrZFD->zBs.size();//number of size bins for data
     dvector zCs  = ptrMC->zCutPts;    //model cutpoints
     dvector zCDs = ptrZFD->zCs;       //data cutpoints
+    int nZBDs    = zCDs.size()-1;     //number of size bins for data
     dmatrix mZBtoZBDs(1,nZBDs,1,nZBs);//matrix to convert from model to data size bins
     mZBtoZBDs.initialize();
     for (int i=1;i<=nZBs;i++){
@@ -8556,9 +8524,9 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
     dvector     oP_z;//observed size comp (aggregated,tail-compressed, normalized)[need to allocate as appropriate]
     dvar_vector mP_z;//model size comp.   (aggregated,tail-compressed, normalized)[need to allocate as appropriate]
     dvector     oP_zp(1,nZBDs); //intermediate vector for aggregating observed comps [don't need to reallocate as size is always nZBDs]
-    dvar_vector mP_zp(1,nZBDs);  //intermediate vector for aggregating model comps [don't need to reallocate as size is always nZBDs]
+    dvar_vector mP_zp(1,nZBDs); //intermediate vector for aggregating model comps [don't need to reallocate as size is always nZBDs]
     dvector     oP_zpp(1,nZBDs);//intermediate vector for "extended" observed comps [don't need to reallocate as size is always nZBDs]
-    dvar_vector mP_zpp(1,nZBDs); //intermediate vector for "extended" model comps [don't need to reallocate as size is always nZBDs]
+    dvar_vector mP_zpp(1,nZBDs);//intermediate vector for "extended" model comps [don't need to reallocate as size is always nZBDs]
     if (debug<0) cout<<"list("<<endl;
     if (ptrZFD->optFit==tcsam::FIT_BY_TOT){
         effWgtComps_xmsyn.allocate(tcsam::ALL_SXs,tcsam::ALL_SXs,
@@ -8597,7 +8565,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                     mP_z.initialize();
                     mP_z(imn)         += sum(mP_zp(1,imn));
                     mP_z(imn+1,imx-1) += mP_zp(imn+1,imx-1);
-                    mP_z(imx)         += sum(mP_zp(imx,nZBs));
+                    mP_z(imx)         += sum(mP_zp(imx,nZBDs));
                     //--normalize model size comp
                     mP_z /= nT;
                     if (debug>=dbgNLLs){
@@ -8611,7 +8579,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                         cout<<"y="<<y<<cc;
                         cout<<"x='"<<tcsam::getSexType(ALL_SXs)<<"'"<<cc;
                         cout<<"m='"<<tcsam::getMaturityType(ALL_MSs)<<"'"<<cc;
-                        cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
+                        cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc<<endl;
+                        cout<<"zBs="; wts::writeToR(cout,ptrZFD->zBs); cout<<cc<<endl;
                         cout<<"fit=";
                     }
                     //calculate likelihood contribution
@@ -8629,8 +8598,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                tcsam::ALL_MSs,tcsam::ALL_MSs,
                                tcsam::ALL_SCs,tcsam::ALL_SCs,
                                mny,mxy,1,3);
-        oP_z.allocate(1,nZBs);
-        mP_z.allocate(1,nZBs);
+        oP_z.allocate(1,nZBDs);
+        mP_z.allocate(1,nZBDs);
         for (int iy=1;iy<=yrs.size();iy++) {
             y = yrs[iy];
             if (debug>=dbgNLLs) cout<<"y = "<<y<<endl;
@@ -8660,7 +8629,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                         mP_z.initialize();
                         mP_z(imn)         += sum(mP_zp(1,imn));
                         mP_z(imn+1,imx-1) += mP_zp(imn+1,imx-1);
-                        mP_z(imx)         += sum(mP_zp(imx,nZBs));
+                        mP_z(imx)         += sum(mP_zp(imx,nZBDs));
                         //--normalize model size comp
                         mP_z /= nT;
                         if (debug>=dbgNLLs){
@@ -8674,7 +8643,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             cout<<"y="<<y<<cc;
                             cout<<"x='"<<tcsam::getSexType(x)<<"'"<<cc;
                             cout<<"m='"<<tcsam::getMaturityType(ALL_MSs)<<"'"<<cc;
-                            cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
+                            cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc<<endl;
+                            cout<<"zBs="; wts::writeToR(cout,ptrZFD->zBs); cout<<cc<<endl;
                             cout<<"fit=";
                         }
                         idm = (int) ptrZFD->dm_xmsy(x,ALL_MSs,ALL_SCs,iy);
@@ -8692,8 +8662,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                    1,nMSs,
                                    tcsam::ALL_SCs,tcsam::ALL_SCs,
                                    mny,mxy,1,3);
-        oP_z.allocate(1,nZBs);
-        mP_z.allocate(1,nZBs);
+        oP_z.allocate(1,nZBDs);
+        mP_z.allocate(1,nZBDs);
         for (int iy=1;iy<=yrs.size();iy++) {
             y = yrs[iy];
             if (debug>=dbgNLLs) cout<<"y = "<<y<<endl;
@@ -8727,7 +8697,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             mP_z.initialize();
                             mP_z(imn)         += sum(mP_zp(1,imn));
                             mP_z(imn+1,imx-1) += mP_zp(imn+1,imx-1);
-                            mP_z(imx)         += sum(mP_zp(imx,nZBs));
+                            mP_z(imx)         += sum(mP_zp(imx,nZBDs));
                             //--normalize model size comp
                             mP_z /= nT;
                             if (debug>=dbgNLLs) cout<<"mP_z = "<<mP_z<<endl;
@@ -8737,7 +8707,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 cout<<"y="<<y<<cc;
                                 cout<<"x='"<<tcsam::getSexType(x)<<"'"<<cc;
                                 cout<<"m='"<<tcsam::getMaturityType(m)<<"'"<<cc;
-                                cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
+                                cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc<<endl;
+                                cout<<"zBs="; wts::writeToR(cout,ptrZFD->zBs); cout<<cc<<endl;
                                 cout<<"fit=";
                             }
                             idm = (int) ptrZFD->dm_xmsy(x,m,ALL_SCs,iy);
@@ -8756,8 +8727,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                tcsam::ALL_MSs,tcsam::ALL_MSs,
                                1,nSCs,
                                mny,mxy,1,3);
-        oP_z.allocate(1,nZBs);
-        mP_z.allocate(1,nZBs);
+        oP_z.allocate(1,nZBDs);
+        mP_z.allocate(1,nZBDs);
         for (int iy=1;iy<=yrs.size();iy++) {
             y = yrs[iy];
             if (debug>=dbgNLLs) cout<<"y = "<<y<<endl;
@@ -8787,7 +8758,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             mP_z.initialize();
                             mP_z(imn)         += sum(mP_zp(1,imn));
                             mP_z(imn+1,imx-1) += mP_zp(imn+1,imx-1);
-                            mP_z(imx)         += sum(mP_zp(imx,nZBs));
+                            mP_z(imx)         += sum(mP_zp(imx,nZBDs));
                             //--normalize model size comp
                             mP_z /= nT;
                             if (debug>=dbgNLLs){
@@ -8801,7 +8772,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 cout<<"y="<<y<<cc;
                                 cout<<"x='"<<tcsam::getSexType(x)<<"'"<<cc;
                                 cout<<"m='"<<tcsam::getMaturityType(ALL_MSs)<<"'"<<cc;
-                                cout<<"s='"<<tcsam::getShellType(s)<<"'"<<cc;
+                                cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc<<endl;
+                                cout<<"zBs="; wts::writeToR(cout,ptrZFD->zBs); cout<<cc<<endl;
                                 cout<<"fit=";
                             }
                             idm = (int) ptrZFD->dm_xmsy(x,ALL_MSs,s,iy);      //index to Dirichlet-Multinomial parameter
@@ -8817,8 +8789,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
     } else 
     if (ptrZFD->optFit==tcsam::FIT_BY_XMS){
         effWgtComps_xmsyn.allocate(1,nSXs,1,nMSs,1,nSCs,mny,mxy,1,3);
-        oP_z.allocate(1,nZBs);
-        mP_z.allocate(1,nZBs);
+        oP_z.allocate(1,nZBDs);
+        mP_z.allocate(1,nZBDs);
         for (int iy=1;iy<=yrs.size();iy++) {
             y = yrs[iy];
             if (debug>=dbgNLLs) cout<<"y = "<<y<<endl;
@@ -8845,7 +8817,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 }
                                 mP_z(imn)         += sum(mP_zp(1,imn));
                                 mP_z(imn+1,imx-1) += mP_zp(imn+1,imx-1);
-                                mP_z(imx)         += sum(mP_zp(imx,nZBs));
+                                mP_z(imx)         += sum(mP_zp(imx,nZBDs));
                                 //--normalize model size comp
                                 mP_z /= nT;
                                 if (debug>=dbgNLLs){
@@ -8859,7 +8831,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                     cout<<"y="<<y<<cc;
                                     cout<<"x='"<<tcsam::getSexType(x)<<"'"<<cc;
                                     cout<<"m='"<<tcsam::getMaturityType(m)<<"'"<<cc;
-                                    cout<<"s='"<<tcsam::getShellType(s)<<"'"<<cc;
+                                    cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc<<endl;
+                                    cout<<"zBs="; wts::writeToR(cout,ptrZFD->zBs); cout<<cc<<endl;
                                     cout<<"fit=";
                                 }
                                 idm = (int) ptrZFD->dm_xmsy(x,m,s,iy);      //index to Dirichlet-Multinomial parameter
@@ -8879,8 +8852,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                tcsam::ALL_MSs,tcsam::ALL_MSs,
                                tcsam::ALL_SCs,tcsam::ALL_SCs,
                                mny,mxy,1,3);
-        oP_z.allocate(1,nSXs*nZBs);
-        mP_z.allocate(1,nSXs*nZBs);
+        oP_z.allocate(1,nSXs*nZBDs);
+        mP_z.allocate(1,nSXs*nZBDs);
         for (int iy=1;iy<=yrs.size();iy++) {
             y = yrs[iy];
             if (debug>=dbgNLLs) cout<<"y = "<<y<<endl;
@@ -8890,10 +8863,12 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                 if (value(nT)>0){
                     oP_z.initialize();//observed size comp.
                     mP_z.initialize();//model size comp.
+                    if (debug>=dbgNLLs) cout<<"dims(mPz) = "<<mP_z.indexmin()<<tb<<mP_z.indexmax()<<endl;
                     for (int x=1;x<=nSXs;x++) {
                         if (ptrZFD->uf_xmsy(x,ALL_MSs,ALL_SCs,iy)>0){
-                            int mnz = 1+(x-1)*nZBs;
-                            int mxz = x*nZBs;
+                            int mnz = 1+(x-1)*nZBDs;
+                            int mxz = x*nZBDs;
+                            if (debug>=dbgNLLs) cout<<"x, mnz, mxz = "<<x<<tb<<mnz<<tb<<mxz<<endl;
                             //get observed size comp (aggregated and tail compressed) and normalize it
                             ss    += ptrZFD->ss_xmsy(x,ALL_MSs,ALL_SCs,iy);      //sample size
                             oP_zp  = ptrZFD->tcdNatZ_xmsyz(x,ALL_MSs,ALL_SCs,iy);//--tail-compressed already
@@ -8917,7 +8892,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             mP_zp.initialize();
                             mP_zp(imn)         += sum(mP_zpp(1,imn));
                             mP_zp(imn+1,imx-1) += mP_zpp(imn+1,imx-1);
-                            mP_zp(imx)         += sum(mP_zpp(imx,nZBs));
+                            mP_zp(imx)         += sum(mP_zpp(imx,nZBDs));
                             mP_z(mnz,mxz).shift(1) += mP_zp;
                         }
                     }//x
@@ -8929,8 +8904,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                         cout<<"mP_z = "<<mP_z<<endl;
                     }
                     for (int x=1;x<=nSXs;x++) {
-                        int mnz = 1+(x-1)*nZBs;
-                        int mxz = x*nZBs;
+                        int mnz = 1+(x-1)*nZBDs;
+                        int mxz = x*nZBDs;
                         dvar_vector mPt = mP_z(mnz,mxz);
                         dvector oPt = oP_z(mnz,mxz);
                         if (debug<0) {
@@ -8939,7 +8914,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             cout<<"y="<<y<<cc;
                             cout<<"x='"<<tcsam::getSexType(x)<<"'"<<cc;
                             cout<<"m='"<<tcsam::getMaturityType(ALL_MSs)<<"'"<<cc;
-                            cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
+                            cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc<<endl;
+                            cout<<"zBs="; wts::writeToR(cout,ptrZFD->zBs); cout<<cc<<endl;
                             cout<<"fit=";
                         }
                         idm = (int) ptrZFD->dm_xmsy(x,ALL_MSs,ALL_SCs,iy);      //index to Dirichlet-Multinomial parameter
@@ -8957,8 +8933,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                tcsam::ALL_MSs,tcsam::ALL_MSs,
                                tcsam::ALL_SCs,tcsam::ALL_SCs,
                                mny,mxy,1,3);
-        oP_z.allocate(1,nMSs*nZBs);
-        mP_z.allocate(1,nMSs*nZBs);
+        oP_z.allocate(1,nMSs*nZBDs);
+        mP_z.allocate(1,nMSs*nZBDs);
         for (int iy=1;iy<=yrs.size();iy++) {
             y = yrs[iy];
             if (debug>=dbgNLLs) cout<<"y = "<<y<<endl;
@@ -8971,8 +8947,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                         mP_z.initialize();//model size comp.
                         for (int m=1;m<=nMSs;m++) {
                             if (ptrZFD->uf_xmsy(x,m,ALL_SCs,iy)>0){
-                                int mnz = 1+(m-1)*nZBs;
-                                int mxz = m*nZBs;
+                                int mnz = 1+(m-1)*nZBDs;
+                                int mxz = m*nZBDs;
                                 //get observed size comp (aggregated and tail compressed) and normalize it
                                 ss    += ptrZFD->ss_xmsy(x,m,ALL_SCs,iy);      //sample size
                                 oP_zp  = ptrZFD->tcdNatZ_xmsyz(x,m,ALL_SCs,iy);//--tail-compressed already
@@ -8994,7 +8970,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 mP_zp.initialize();
                                 mP_zp(imn)         += sum(mP_zpp(1,imn));
                                 mP_zp(imn+1,imx-1) += mP_zpp(imn+1,imx-1);
-                                mP_zp(imx)         += sum(mP_zpp(imx,nZBs));
+                                mP_zp(imx)         += sum(mP_zpp(imx,nZBDs));
                                 mP_z(mnz,mxz).shift(1) += mP_zp;
                             }
                         }//m
@@ -9007,8 +8983,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                         }
                         if (debug>=dbgNLLs) cout<<"mP_z = "<<mP_z<<endl;
                         for (int m=1;m<=nMSs;m++) {
-                            int mnz = 1+(m-1)*nZBs;
-                            int mxz = m*nZBs;
+                            int mnz = 1+(m-1)*nZBDs;
+                            int mxz = m*nZBDs;
                             dvar_vector mPt = mP_z(mnz,mxz);
                             dvector oPt = oP_z(mnz,mxz);
                             if (debug<0) {
@@ -9017,7 +8993,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 cout<<"y="<<y<<cc;
                                 cout<<"x='"<<tcsam::getSexType(x)<<"'"<<cc;
                                 cout<<"m='"<<tcsam::getMaturityType(m)<<"'"<<cc;
-                                cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
+                                cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc<<endl;
+                                cout<<"zBs="; wts::writeToR(cout,ptrZFD->zBs); cout<<cc<<endl;
                                 cout<<"fit=";
                             }
                             idm = (int) ptrZFD->dm_xmsy(x,m,ALL_SCs,iy);      //index to Dirichlet-Multinomial parameter
@@ -9036,8 +9013,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                tcsam::ALL_MSs,tcsam::ALL_MSs,
                                tcsam::ALL_SCs,tcsam::ALL_SCs,
                                mny,mxy,1,3);
-        oP_z.allocate(1,nSCs*nZBs);
-        mP_z.allocate(1,nSCs*nZBs);
+        oP_z.allocate(1,nSCs*nZBDs);
+        mP_z.allocate(1,nSCs*nZBDs);
         for (int iy=1;iy<=yrs.size();iy++) {
             y = yrs[iy];
             if (debug>=dbgNLLs) cout<<"y = "<<y<<endl;
@@ -9050,8 +9027,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                         mP_z.initialize();//model size comp.
                         for (int s=1;s<=nSCs;s++) {
                             if (ptrZFD->uf_xmsy(x,ALL_MSs,s,iy)>0){
-                                int mnz = 1+(s-1)*nZBs;
-                                int mxz = s*nZBs;
+                                int mnz = 1+(s-1)*nZBDs;
+                                int mxz = s*nZBDs;
                                 //get observed size comp (aggregated and tail compressed) and normalize it
                                 ss    += ptrZFD->ss_xmsy(x,ALL_MSs,s,iy);      //sample size
                                 oP_zp  = ptrZFD->tcdNatZ_xmsyz(x,ALL_MSs,s,iy);//--tail-compressed already
@@ -9073,7 +9050,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 mP_zp.initialize();
                                 mP_zp(imn)         += sum(mP_zpp(1,imn));
                                 mP_zp(imn+1,imx-1) += mP_zpp(imn+1,imx-1);
-                                mP_zp(imx)         += sum(mP_zpp(imx,nZBs));
+                                mP_zp(imx)         += sum(mP_zpp(imx,nZBDs));
                                 mP_z(mnz,mxz).shift(1) += mP_zp;
                             }
                         }//s
@@ -9085,8 +9062,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             cout<<"mP_z = "<<mP_z<<endl;
                         }
                         for (int s=1;s<=nSCs;s++) {
-                            int mnz = 1+(s-1)*nZBs;
-                            int mxz = s*nZBs;
+                            int mnz = 1+(s-1)*nZBDs;
+                            int mxz = s*nZBDs;
                             dvar_vector mPt = mP_z(mnz,mxz);
                             dvector oPt = oP_z(mnz,mxz);
                             if (debug<0) {
@@ -9095,7 +9072,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 cout<<"y="<<y<<cc;
                                 cout<<"x='"<<tcsam::getSexType(x)<<"'"<<cc;
                                 cout<<"m='"<<tcsam::getMaturityType(ALL_MSs)<<"'"<<cc;
-                                cout<<"s='"<<tcsam::getShellType(s)<<"'"<<cc;
+                                cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc<<endl;
+                                cout<<"zBs="; wts::writeToR(cout,ptrZFD->zBs); cout<<cc<<endl;
                                 cout<<"fit=";
                             }
                             idm = (int) ptrZFD->dm_xmsy(x,ALL_MSs,s,iy);      //index to Dirichlet-Multinomial parameter
@@ -9114,8 +9092,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                     tcsam::ALL_MSs,tcsam::ALL_MSs,
                                     tcsam::ALL_SCs,tcsam::ALL_SCs,
                                     mny,mxy,1,3);
-        oP_z.allocate(1,nSXs*nMSs*nZBs);
-        mP_z.allocate(1,nSXs*nMSs*nZBs);
+        oP_z.allocate(1,nSXs*nMSs*nZBDs);
+        mP_z.allocate(1,nSXs*nMSs*nZBDs);
         for (int iy=1;iy<=yrs.size();iy++) {
             y = yrs[iy];
             if (debug>=dbgNLLs) cout<<"y = "<<y<<endl;
@@ -9128,8 +9106,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                     for (int x=1;x<=nSXs;x++) {
                         for (int m=1;m<=nMSs;m++) {
                             if (ptrZFD->uf_xmsy(x,m,ALL_SCs,iy)>0){
-                                int mnz = 1+(m-1)*nZBs+(x-1)*nMSs*nZBs;
-                                int mxz = mnz+nZBs-1;
+                                int mnz = 1+(m-1)*nZBDs+(x-1)*nMSs*nZBDs;
+                                int mxz = mnz+nZBDs-1;
                                 //get observed size comp (aggregated and tail compressed) and normalize it
                                 ss    += ptrZFD->ss_xmsy(x,m,ALL_SCs,iy);      //sample size
                                 oP_zp  = ptrZFD->tcdNatZ_xmsyz(x,m,ALL_SCs,iy);//--tail-compressed already
@@ -9151,7 +9129,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 mP_zp.initialize();
                                 mP_zp(imn)         += sum(mP_zpp(1,imn));
                                 mP_zp(imn+1,imx-1) += mP_zpp(imn+1,imx-1);
-                                mP_zp(imx)         += sum(mP_zpp(imx,nZBs));
+                                mP_zp(imx)         += sum(mP_zpp(imx,nZBDs));
                                 mP_z(mnz,mxz).shift(1) += mP_zp;
                             }
                         }//--m
@@ -9165,8 +9143,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                     }
                     for (int x=1;x<=nSXs;x++) {
                         for (int m=1;m<=nMSs;m++) {
-                            int mnz = 1+(m-1)*nZBs+(x-1)*nMSs*nZBs;
-                            int mxz = mnz+nZBs-1;
+                            int mnz = 1+(m-1)*nZBDs+(x-1)*nMSs*nZBDs;
+                            int mxz = mnz+nZBDs-1;
                             dvar_vector mPt = mP_z(mnz,mxz);
                             dvector oPt = oP_z(mnz,mxz);
                             if (debug<0) {
@@ -9175,7 +9153,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 cout<<"y="<<y<<cc;
                                 cout<<"x='"<<tcsam::getSexType(x)<<"'"<<cc;
                                 cout<<"m='"<<tcsam::getMaturityType(m)<<"'"<<cc;
-                                cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc;
+                                cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc<<endl;
+                                cout<<"zBs="; wts::writeToR(cout,ptrZFD->zBs); cout<<cc<<endl;
                                 cout<<"fit=";
                             }
                             idm = (int) ptrZFD->dm_xmsy(x,m,ALL_SCs,iy);      //index to Dirichlet-Multinomial parameter
@@ -9194,8 +9173,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                    1,nMSs,
                                    tcsam::ALL_SCs,tcsam::ALL_SCs,
                                    mny,mxy,1,3);
-        oP_z.allocate(1,nSCs*nZBs);
-        mP_z.allocate(1,nSCs*nZBs);
+        oP_z.allocate(1,nSCs*nZBDs);
+        mP_z.allocate(1,nSCs*nZBDs);
         for (int iy=1;iy<=yrs.size();iy++) {
             y = yrs[iy];
             if (debug>=dbgNLLs) cout<<"y = "<<y<<endl;
@@ -9209,8 +9188,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             mP_z.initialize();//model size comp.
                             for (int s=1;s<=nSCs;s++) {
                                 if (ptrZFD->uf_xmsy(x,m,s,iy)>0){
-                                    int mnz = 1+(s-1)*nZBs;
-                                    int mxz = s*nZBs;
+                                    int mnz = 1+(s-1)*nZBDs;
+                                    int mxz = s*nZBDs;
                                     //get observed size comp (aggregated and tail compressed) and normalize it
                                     ss    += ptrZFD->ss_xmsy(x,m,s,iy);      //sample size
                                     oP_zp  = ptrZFD->tcdNatZ_xmsyz(x,m,s,iy);//--tail-compressed already
@@ -9230,7 +9209,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                     mP_zp.initialize();
                                     mP_zp(imn)         += sum(mP_zpp(1,imn));
                                     mP_zp(imn+1,imx-1) += mP_zpp(imn+1,imx-1);
-                                    mP_zp(imx)         += sum(mP_zpp(imx,nZBs));
+                                    mP_zp(imx)         += sum(mP_zpp(imx,nZBDs));
                                     mP_z(mnz,mxz).shift(1) += mP_zp;
                                 }
                             }//s
@@ -9242,8 +9221,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 cout<<"mP_z = "<<mP_z<<endl;
                             }
                             for (int s=1;s<=nSCs;s++) {
-                                int mnz = 1+(s-1)*nZBs;
-                                int mxz = s*nZBs;
+                                int mnz = 1+(s-1)*nZBDs;
+                                int mxz = s*nZBDs;
                                 dvar_vector mPt = mP_z(mnz,mxz);
                                 dvector oPt = oP_z(mnz,mxz);
                                 if (debug<0) {
@@ -9252,7 +9231,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                     cout<<"y="<<y<<cc;
                                     cout<<"x='"<<tcsam::getSexType(x)<<"'"<<cc;
                                     cout<<"m='"<<tcsam::getMaturityType(m)<<"'"<<cc;
-                                    cout<<"s='"<<tcsam::getShellType(s)<<"'"<<cc;
+                                    cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc<<endl;
+                                    cout<<"zBs="; wts::writeToR(cout,ptrZFD->zBs); cout<<cc<<endl;
                                     cout<<"fit=";
                                 }
                                 idm = (int) ptrZFD->dm_xmsy(x,m,s,iy);      //index to Dirichlet-Multinomial parameter
@@ -9272,8 +9252,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                tcsam::ALL_MSs,tcsam::ALL_MSs,
                                tcsam::ALL_SCs,tcsam::ALL_SCs,
                                mny,mxy,1,3);
-        oP_z.allocate(1,nMSs*nSCs*nZBs);
-        mP_z.allocate(1,nMSs*nSCs*nZBs);
+        oP_z.allocate(1,nMSs*nSCs*nZBDs);
+        mP_z.allocate(1,nMSs*nSCs*nZBDs);
         for (int iy=1;iy<=yrs.size();iy++) {
             y = yrs[iy];
             if (debug>=dbgNLLs) cout<<"y = "<<y<<endl;
@@ -9287,8 +9267,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                         for (int m=1;m<=nMSs;m++) {
                             for (int s=1;s<=nSCs;s++) {
                                 if (ptrZFD->uf_xmsy(x,m,s,iy)>0){
-                                    int mnz = 1+(s-1)*nZBs+(m-1)*nSCs*nZBs;
-                                    int mxz =       s*nZBs+(m-1)*nSCs*nZBs;
+                                    int mnz = 1+(s-1)*nZBDs+(m-1)*nSCs*nZBDs;
+                                    int mxz =       s*nZBDs+(m-1)*nSCs*nZBDs;
                                     //get observed size comp (aggregated and tail compressed) and normalize it
                                     ss    += ptrZFD->ss_xmsy(x,m,s,iy);      //sample size
                                     oP_zp  = ptrZFD->tcdNatZ_xmsyz(x,m,s,iy);//--tail-compressed already
@@ -9308,7 +9288,7 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                     mP_zp.initialize();
                                     mP_zp(imn)         += sum(mP_zpp(1,imn));
                                     mP_zp(imn+1,imx-1) += mP_zpp(imn+1,imx-1);
-                                    mP_zp(imx)         += sum(mP_zpp(imx,nZBs));
+                                    mP_zp(imx)         += sum(mP_zpp(imx,nZBDs));
                                     mP_z(mnz,mxz).shift(1) += mP_zp;
                                 }
                             }//s
@@ -9322,8 +9302,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                         }
                         for (int m=1;m<=nMSs;m++) {
                             for (int s=1;s<=nSCs;s++) {
-                                int mnz = 1+(s-1)*nZBs+(m-1)*nSCs*nZBs;
-                                int mxz =       s*nZBs+(m-1)*nSCs*nZBs;
+                                int mnz = 1+(s-1)*nZBs+(m-1)*nSCs*nZBDs;
+                                int mxz =       s*nZBs+(m-1)*nSCs*nZBDs;
                                 dvar_vector mPt = mP_z(mnz,mxz);
                                 dvector oPt = oP_z(mnz,mxz);
                                 if (debug<0) {
@@ -9332,7 +9312,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                     cout<<"y="<<y<<cc;
                                     cout<<"x='"<<tcsam::getSexType(x)<<"'"<<cc;
                                     cout<<"m='"<<tcsam::getMaturityType(m)<<"'"<<cc;
-                                    cout<<"s='"<<tcsam::getShellType(s)<<"'"<<cc;
+                                    cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc<<endl;
+                                    cout<<"zBs="; wts::writeToR(cout,ptrZFD->zBs); cout<<cc<<endl;
                                     cout<<"fit=";
                                 }
                                 idm = ptrZFD->dm_xmsy(x,m,s,iy);      //index to Dirichlet-Multinomial parameter
@@ -9831,7 +9812,6 @@ FUNCTION int checkParams(int debug, ostream& os)
 //*  none
 //******************************************************************************
 FUNCTION int checkParams(NumberVectorInfo* pI, param_init_number_vector& p, int debug, ostream& cout)
-//    debug=dbgAll;
     if (debug>=dbgAll) std::cout<<"Starting checkParams(NumberVectorInfo* pI, param_init_number_vector& p) for "<<p(1).label()<<endl; 
     int np = pI->getSize();
     int r = 0;
@@ -9865,7 +9845,6 @@ FUNCTION int checkParams(NumberVectorInfo* pI, param_init_number_vector& p, int 
 //*  none
 //******************************************************************************
 FUNCTION int checkParams(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p, int debug, ostream& cout)
-//    debug=dbgAll;
     if (debug>=dbgAll) std::cout<<"Starting checkParams(BoundedNumberVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
     int np = pI->getSize();
     int r = 0;
@@ -9883,42 +9862,6 @@ FUNCTION int checkParams(BoundedNumberVectorInfo* pI, param_init_bounded_number_
     }
     return r;
 
-////******************************************************************************
-////* Function: void checkParams(BoundedVectorVectorInfo* pI, param_init_bounded_vector_vector& p, int debug, ostream& cout)
-////* 
-////* Description: Checks values for a vector of parameter vectors.
-////*
-////* Inputs:
-////*  pI (BoundedVectorVectorInfo*) 
-////*     pointer to BoundedNumberVectorInfo object
-////*  p (param_init_bounded_vector_vector&)
-////*     parameter vector
-////* Returns:
-////*  int - 0 = all good, 1 = nan detected
-////* Alters:
-////*  none
-////******************************************************************************
-//FUNCTION int checkParams(BoundedVectorVectorInfo* pI, param_init_bounded_number_vector& p, int debug, ostream& cout)
-////    debug=dbgAll;
-//    if (debug>=dbgAll) std::cout<<"Starting checkParams(BoundedVectorVectorInfo* pI, param_init_number_vector_vector& p) for "<<p(1).label()<<endl; 
-//    int np = pI->getSize();
-//    int r = 0;
-//    if (np){
-//        for (int i=1;i<=np;i++) {
-//            for (int j=p(i).indexmin();j<=p(i).indexmax();j++) {
-//                if (isnan(value(p(i,j)))){
-//                    r++;
-//                    if (debug) cout<<"NaN detected in checkParams() for "<<p(1).label()<<"["<<i<<cc<<j<<"]"<<endl;
-//                }
-//            }
-//        }
-//    }
-//    
-//    if (debug>=dbgAll) {
-//        std::cout<<"Finished checkParams(BoundedVectorVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
-//    }
-//    return r;
-
 //******************************************************************************
 //* Function: void checkParams(VectorVectorInfo* pI, param_init_bounded_number_vector& p, int debug, ostream& cout)
 //* 
@@ -9935,7 +9878,6 @@ FUNCTION int checkParams(BoundedNumberVectorInfo* pI, param_init_bounded_number_
 //*  none
 //******************************************************************************
 FUNCTION int checkParams(VectorVectorInfo* pI, param_init_bounded_number_vector& p, int debug, ostream& cout)
-//    debug=dbgAll;
     if (debug>=dbgAll) std::cout<<"Starting checkParams(VectorVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
     int np = pI->getSize();
     int r = 0;
@@ -10083,9 +10025,8 @@ FUNCTION void writeMCMCtoR(ofstream& mcmc)
     
 //******************************************************************************
 FUNCTION void createSimData(ModelDatasets* ptrSim, int debug, ostream& cout)
-    debug=100;
     if (debug){
-        cout<<"simulating model results as data"<<endl;
+        cout<<"createSimData: simulating model results as data"<<endl;
         AggregateCatchData::debug=100;
         SizeFrequencyData::debug=100;
     }
@@ -10096,9 +10037,9 @@ FUNCTION void createSimData(ModelDatasets* ptrSim, int debug, ostream& cout)
 //    if (nFsh) vcN_fyxmsz  = wts::value(cpN_fyxmsz); //--drop derivative info from model-predicted fishery capture abundance
 //    cout<<"got here 1c"<<endl;
 //    if (nFsh) vrmN_fyxmsz = wts::value(rmN_fyxmsz); //--drop derivative info from model-predicted fishery retained abundance
-    cout<<"got here 1"<<endl;
+    if (debug) cout<<"createSimData: got here 1"<<endl;
     for (int f=1;f<=nFsh;f++) {
-        if (debug) cout<<"fishery f: "<<f<<endl;
+        if (debug) cout<<"createSimData: fishery f: "<<f<<endl;
         (ptrSim->ppFsh[f-1])->replaceFisheryCatchData(rngSimData,
                                                       ptrMOs->ptrSimOpts,
                                                       wts::value(cpN_fyxmsz(f)),
@@ -10106,21 +10047,22 @@ FUNCTION void createSimData(ModelDatasets* ptrSim, int debug, ostream& cout)
                                                       ptrSim->ptrBio->wAtZ_xmz);
     }
     for (int v=1;v<=nSrv;v++) {
-        if (debug) cout<<"survey v: "<<v<<endl;
+        if (debug) cout<<"createSimData: survey v: "<<v<<endl;
+        cout<<wts::value(n_vyxmsz(v))<<endl;
         (ptrSim->ppSrv[v-1])->replaceIndexCatchData(rngSimData,
                                                     ptrMOs->ptrSimOpts,
                                                     wts::value(n_vyxmsz(v)),
                                                     ptrSim->ptrBio->wAtZ_xmz);
     }
     for (int g=1;g<=ptrSim->nGrw;g++){
-        if (debug) cout<<"growth data g: "<<g<<endl;
+        if (debug) cout<<"createSimData: growth data g: "<<g<<endl;
         (ptrSim->ppGrw[g-1])->replaceGrowthData(rngSimData,ptrMOs,
                                                 grA_xy,grB_xy,grBeta_xy,
                                                 zGrA_xy,zGrB_xy,
                                                 debug,cout);
     }
     for (int o=0;o<ptrSim->nMOD;o++){
-        if (debug) cout<<"maturity ogive data o: "<<o<<endl;
+        if (debug) cout<<"createSimData: maturity ogive data o: "<<o<<endl;
         MaturityOgiveData* pMOD = ptrSim->ppMOD[o];
         int v = mapD2MMOd(o+1);//
         if (debug) cout<<tb<<"v= "<<v<<tb<<"survey: "<<ptrMC->lblsSrv[v]<<endl;
@@ -10129,12 +10071,11 @@ FUNCTION void createSimData(ModelDatasets* ptrSim, int debug, ostream& cout)
     if (debug) {
         AggregateCatchData::debug=0;
         SizeFrequencyData::debug=0;
-        cout<<"finished simulating model results as data"<<endl;
+        cout<<"createSimData: finished simulating model results as data"<<endl;
     }
      
 //******************************************************************************
 FUNCTION void writeSimData(ostream& os, int debug, ostream& cout, ModelDatasets* ptrSim)
-    debug=100;
     if (debug)cout<<"writing model results as data"<<endl;
     for (int v=1;v<=nSrv;v++) {
         os<<"#------------------------------------------------------------"<<endl;
@@ -10423,7 +10364,6 @@ FUNCTION void setInitVals(BoundedVectorVectorInfo* pI, param_init_bounded_number
 //*  @alters p - if usePin=0, the initial values will be updated 
 //******************************************************************************
 FUNCTION void setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_number_vector& p, int usePin, int debug, ostream& os)
-    //debug=dbgAll;
     os<<"Starting setInitVals(DevsVectorVectorInfo* pI, param_init_bounded_number_vector& p) for "<<p(1).label()<<endl; 
     int np = pI->getSize();
     if (np){

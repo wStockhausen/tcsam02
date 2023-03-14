@@ -9,7 +9,7 @@
 //**********************************************************************
 using namespace std;
 
-const adstring ModelConfiguration::VERSION = "2021.04.10";
+const adstring ModelConfiguration::VERSION = "2023.03.13";
 
 int ModelConfiguration::debug=0;
 //--------------------------------------------------------------------------------
@@ -24,6 +24,11 @@ int    ModelConfiguration::yRetro     =  0;//number of retrospective years
 int    ModelConfiguration::nSrv       = -1;//number of model surveys
 int    ModelConfiguration::nFsh       = -1;//number of model fisheries
 int    ModelConfiguration::nZBs       = -1;//number of model size bins
+double ModelConfiguration::maxZC      = -1;//max size bin cutpoint
+double ModelConfiguration::minZC      = -1;//min size bin cutpoint
+double ModelConfiguration::delZ       = -1;//size bin size
+dvector ModelConfiguration::zMidPts; /* size bin midpoints (CW in mm) */
+dvector ModelConfiguration::zCutPts; /* size bin cutpoints (CW in mm) */
 int    ModelConfiguration::jitter     = OFF;//flag to jitter initial parameter values
 double ModelConfiguration::jitFrac    = 1.0;//fraction to jitter bounded parameter values
 int    ModelConfiguration::resample   = OFF;//flag to resample initial parameter values
@@ -92,23 +97,31 @@ void ModelConfiguration::read(cifstream & is) {
     mxYr = asYr-1;       //max model year
     is>>mnYrAvgRec;      //min year to calculate average recruitment for OFL
     is>>mxYrOffsetAvgRec;//max year to calculate average recruitment for OFL
+    is>>maxZC;           //maximum size bin cutpoint
+    is>>minZC;           //minimum size bin cutpoint
+    is>>delZ;            //bin size
     is>>maxZs;           //sex-specific max sizes
     is>>maxZRec;         //max size at recruitment
-    is>>nZBs;            //number of model size bins
     if (debug){
         cout<<mnYr <<tb<<"#model min year"<<endl;
         cout<<mxYr <<tb<<"#model max year"<<endl;
         cout<<mnYrAvgRec       <<tb<<"#min year for OFL average recruitment calculation"<<endl;
         cout<<mxYrOffsetAvgRec <<tb<<"#offset from max year for OFL average recruitment calculation"<<endl;
+        cout<<maxZC   <<tb<<"#max size bin cutpoint"<<endl;
+        cout<<minZC  <<tb<<"#min size bin cutpoint"<<endl;
+        cout<<delZ   <<tb<<"#size bin size"<<endl;
         cout<<maxZs  <<tb<<"#max sizes, by sex"<<endl;
         cout<<maxZRec<<tb<<"#max size at recruitment"<<endl;
-        cout<<nZBs   <<tb<<"#number of size bins"<<endl;
     }
+    nZBs = (maxZC-minZC)/delZ;
     zMidPts.allocate(1,nZBs); 
     zCutPts.allocate(1,nZBs+1); 
     onesZMidPts.allocate(1,nZBs); onesZMidPts = 1.0;
-    is>>zCutPts;
-    for (int z=1;z<=nZBs;z++) zMidPts(z) = 0.5*(zCutPts(z)+zCutPts(z+1));
+    zCutPts(1) = minZC;
+    for (int z=1;z<=nZBs;z++) {
+      zCutPts(z+1) = zCutPts(z)+delZ;
+      zMidPts(z) = 0.5*(zCutPts(z)+zCutPts(z+1));
+    }
     maxZBs = nZBs;
     for (int x=1;x<=tcsam::nSXs;x++){
         for (int z=1;z<=nZBs;z++) 
@@ -238,11 +251,11 @@ void ModelConfiguration::write(ostream & os) {
     os<<asYr<<tb<<"#Assessment year"<<endl;
     os<<mnYrAvgRec<<tb<<"#Min year for OFL average recruitment calculation"<<endl;
     os<<mxYrOffsetAvgRec<<tb<<"#Offset to maxYr for OFL average recruitment calculation"<<endl;
+    os<<maxZC  <<tb<<"#maximum size bin cutpoint"<<endl;
+    os<<minZC  <<tb<<"#minimum size bin cutpoint"<<endl;
+    os<<delZ   <<tb<<"#size bin size"<<endl;
     os<<maxZs  <<tb<<"#max sizes, by sex"<<endl;
     os<<maxZRec<<tb<<"#max size at recruitment"<<endl;
-    os<<nZBs   <<tb<<"#Number of model size classes"<<endl;
-    os<<"#size bin cut points"<<endl;
-    os<<zCutPts <<endl;
     
     os<<nFsh<<tb<<"#number of fisheries"<<endl;
     for (int i=1;i<=nFsh;i++) cout<<lblsFsh(i)<<tb;
