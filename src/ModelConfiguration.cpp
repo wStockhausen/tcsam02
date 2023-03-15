@@ -76,6 +76,8 @@ void ModelConfiguration::write(const adstring & fn) {
 *   function to read from file in ADMB format                  *
 ***************************************************************/
 void ModelConfiguration::read(cifstream & is) {
+//    int olddebug=debug;
+//    debug=1;
     if (debug) cout<<"ModelConfiguration::read(cifstream & is)"<<endl;
     adstring strD; //use to create PRINT2B strings
     strD = "ModelConfiguration input file name: '"+is.get_file_name()+"'"; PRINT2B1(strD)
@@ -112,8 +114,18 @@ void ModelConfiguration::read(cifstream & is) {
         cout<<delZ   <<tb<<"#size bin size"<<endl;
         cout<<maxZs  <<tb<<"#max sizes, by sex"<<endl;
         cout<<maxZRec<<tb<<"#max size at recruitment"<<endl;
+        rpt::echo<<mnYr <<tb<<"#model min year"<<endl;
+        rpt::echo<<mxYr <<tb<<"#model max year"<<endl;
+        rpt::echo<<mnYrAvgRec       <<tb<<"#min year for OFL average recruitment calculation"<<endl;
+        rpt::echo<<mxYrOffsetAvgRec <<tb<<"#offset from max year for OFL average recruitment calculation"<<endl;
+        rpt::echo<<maxZC   <<tb<<"#max size bin cutpoint"<<endl;
+        rpt::echo<<minZC  <<tb<<"#min size bin cutpoint"<<endl;
+        rpt::echo<<delZ   <<tb<<"#size bin size"<<endl;
+        rpt::echo<<maxZs  <<tb<<"#max sizes, by sex"<<endl;
+        rpt::echo<<maxZRec<<tb<<"#max size at recruitment"<<endl;
     }
     nZBs = (maxZC-minZC)/delZ;
+    if (debug) rpt::echo<<"nZBs = "<<nZBs<<endl;
     zMidPts.allocate(1,nZBs); 
     zCutPts.allocate(1,nZBs+1); 
     onesZMidPts.allocate(1,nZBs); onesZMidPts = 1.0;
@@ -122,10 +134,15 @@ void ModelConfiguration::read(cifstream & is) {
       zCutPts(z+1) = zCutPts(z)+delZ;
       zMidPts(z) = 0.5*(zCutPts(z)+zCutPts(z+1));
     }
+    if (debug) rpt::echo<<"Determine maxZBs:"<<endl;
     maxZBs = nZBs;
     for (int x=1;x<=tcsam::nSXs;x++){
-        for (int z=1;z<=nZBs;z++) 
+        if (debug) rpt::echo<<"\tFor "<<tcsam::getSexType(x)<<":"<<endl;
+        if (debug) rpt::echo<<tb<<tb<<"z"<<tb<<"zCutPts[z]"<<tb<<"maxZs[x]"<<tb<<"zCutPts[z+1]"<<tb<<"maxZBs[x]"<<endl;
+        for (int z=1;z<=nZBs;z++) {
             if ((zCutPts[z]<=maxZs[x])&&(maxZs[x]<zCutPts[z+1])) maxZBs[x] = z;
+            if (debug) rpt::echo<<tb<<tb<<z<<tb<<zCutPts[z]<<tb<<maxZs[x]<<tb<<zCutPts[z+1]<<tb<<maxZBs[x]<<endl;
+        }
     }
     maxZBRec = nZBs;
     for (int z=1;z<=nZBs;z++) 
@@ -216,12 +233,15 @@ void ModelConfiguration::read(cifstream & is) {
         cout<<ModelConfiguration::jitFrac<<tb<<"#jitter fraction"<<endl;
         cout<<wts::getOnOffType(ModelConfiguration::resample)<<tb<<"#resmple?"<<endl;
         cout<<ModelConfiguration::vif<<tb<<"#variance inflation factor"<<endl;
-        cout<<"enter 1 to continue : ";
-        cin>>debug;
-        if (debug<0) exit(1);
+        if (debug>1){
+          cout<<"enter 1 to continue : ";
+          cin>>debug;
+          if (debug<0) exit(1);
+        }
     }
     
     if (debug) cout<<"end ModelConfiguration::read(cifstream & is)"<<endl;
+//    debug=olddebug;
 }
 
 ///**

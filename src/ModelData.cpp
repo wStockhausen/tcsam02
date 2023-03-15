@@ -739,7 +739,7 @@ void SizeFrequencyData::normalize(void){
  */
 void SizeFrequencyData::doTailCompression(void){
     int olddebug=debug;
-    debug=0;
+    debug=1;
     if (debug) rpt::echo<<"starting SizeFrequencyData::doTailCompression() "<<this->name<<std::endl;
     
     tc_xmsyc.deallocate();
@@ -860,7 +860,7 @@ int SizeFrequencyData::setDM(int x,int m,int s,int y,int dm,int inpDM){
  */
 void SizeFrequencyData::aggregateRawNatZ(void){
     int olddebug=debug;
-    debug=0;
+    debug=1;
     if (debug) {
       rpt::echo<<"Starting aggregateRawNatZ() for "<<name<<endl;
       std::cout<<"Starting aggregateRawNatZ() for "<<name<<endl;
@@ -925,11 +925,12 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                         dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
                         ss   += inpSS_xmsy(x,m,s,iy);
 //                        oP_z += rawNatZ_xmsyz(x,m,s,iy);
-                        double mxZCm = ModelConfiguration::zCutPts[ModelConfiguration::maxZBs[x]+1];
+                        if (debug) rpt::echo<<"ModelConfiguration::maxZBs[x] = "<<ModelConfiguration::maxZBs[x]<<endl;
+                        double mxZCm = ModelConfiguration::zCutPts[ModelConfiguration::maxZBs[x]+1];//righthand cut line
                         if (debug) rpt::echo<<"mxZCm = "<<mxZCm<<endl;
-                        int mxZB = 1;
-                        for (int z=1;z<ModelConfiguration::maxZBs[x];z++){
-                          if (zCs[z+1]>=mxZCm) {mxZB = z; break;}
+                        int mxZB = nZCs-1;//--index of largest size bin
+                        for (int z=1;z<nZCs-1;z++){
+                          if ((zCs[z]<=mxZCm)&&(mxZCm<zCs[z+1])) mxZB = z;
                         }
                         if (debug) rpt::echo<<"mxZB = "<<mxZB<<tb<<"mxZ = "<<zCs[mxZB+1]<<endl;
                         if (debug) rpt::echo<<yrs[iy]<<tb<<tcsam::getSexType(x)<<tb<<tcsam::getMaturityType(m)<<tb<<tcsam::getShellType(s)<<tb<<rawNatZ_xmsyz(x,m,s,iy)<<std::endl;
@@ -966,11 +967,12 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                         dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
                         ss   += inpSS_xmsy(x,m,s,iy);
 //                        oP_z += rawNatZ_xmsyz(x,m,s,iy);
+                        if (debug) rpt::echo<<"ModelConfiguration::maxZBs[x] = "<<ModelConfiguration::maxZBs[x]<<endl;
                         double mxZCm = ModelConfiguration::zCutPts[ModelConfiguration::maxZBs[x]+1];
                         if (debug) rpt::echo<<"mxZCm = "<<mxZCm<<endl;
-                        int mxZB = 1;
-                        for (int z=1;z<ModelConfiguration::maxZBs[x];z++){
-                          if (zCs[z+1]>=mxZCm) {mxZB = z; break;}
+                        int mxZB = nZCs-1;//--index of largest size bin
+                        for (int z=1;z<nZCs-1;z++){
+                          if ((zCs[z]<=mxZCm)&&(mxZCm<zCs[z+1])) mxZB = z;
                         }
                         if (debug) rpt::echo<<"mxZB = "<<mxZB<<tb<<"mxZ = "<<zCs[mxZB+1]<<endl;
                         if (debug) rpt::echo<<yrs[iy]<<tb<<tcsam::getSexType(x)<<tb<<tcsam::getMaturityType(m)<<tb<<tcsam::getShellType(s)<<tb<<rawNatZ_xmsyz(x,m,s,iy)<<std::endl;
@@ -1008,11 +1010,12 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                         dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
                         ss += inpSS_xmsy(x,m,s,iy);
 //                        oP_z += rawNatZ_xmsyz(x,m,s,iy);
+                        if (debug) rpt::echo<<"ModelConfiguration::maxZBs[x] = "<<ModelConfiguration::maxZBs[x]<<endl;
                         double mxZCm = ModelConfiguration::zCutPts[ModelConfiguration::maxZBs[x]+1];
                         if (debug) rpt::echo<<"mxZCm = "<<mxZCm<<endl;
-                        int mxZB = 1;
-                        for (int z=1;z<ModelConfiguration::maxZBs[x];z++){
-                          if (zCs[z+1]>=mxZCm) {mxZB = z; break;}
+                        int mxZB = nZCs-1;//--index of largest size bin
+                        for (int z=1;z<nZCs-1;z++){
+                          if ((zCs[z]<=mxZCm)&&(mxZCm<zCs[z+1])) mxZB = z;
                         }
                         if (debug) rpt::echo<<"mxZB = "<<mxZB<<tb<<"mxZ = "<<zCs[mxZB+1]<<endl;
                         for (int z=1;   z<mxZB; z++) oP_z[z]    += rawNatZ_xmsyz(x,m,s,iy,z);
@@ -1048,11 +1051,12 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                         dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
                         ss += inpSS_xmsy(x,m,s,iy);
 //                        oP_z += rawNatZ_xmsyz(x,m,s,iy);
+                        if (debug) rpt::echo<<"ModelConfiguration::maxZBs[x] = "<<ModelConfiguration::maxZBs[x]<<endl;
                         double mxZCm = ModelConfiguration::zCutPts[ModelConfiguration::maxZBs[x]+1];
                         if (debug) rpt::echo<<"mxZCm = "<<mxZCm<<endl;
-                        int mxZB = 1;
-                        for (int z=1;z<ModelConfiguration::maxZBs[x];z++){
-                          if (zCs[z+1]>=mxZCm) {mxZB = z; break;}
+                        int mxZB = nZCs-1;//--index of largest size bin
+                        for (int z=1;z<nZCs-1;z++){
+                          if ((zCs[z]<=mxZCm)&&(mxZCm<zCs[z+1])) mxZB = z;
                         }
                         if (debug) rpt::echo<<"mxZB = "<<mxZB<<tb<<"mxZ = "<<zCs[mxZB+1]<<endl;
                         for (int z=1;   z<mxZB; z++) oP_z[z]    += rawNatZ_xmsyz(x,m,s,iy,z);
@@ -1087,11 +1091,12 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                             dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
                             ss += inpSS_xmsy(x,m,s,iy);
 //                            oP_z += rawNatZ_xmsyz(x,m,s,iy);
+                            if (debug) rpt::echo<<"ModelConfiguration::maxZBs[x] = "<<ModelConfiguration::maxZBs[x]<<endl;
                             double mxZCm = ModelConfiguration::zCutPts[ModelConfiguration::maxZBs[x]+1];
                             if (debug) rpt::echo<<"mxZCm = "<<mxZCm<<endl;
-                            int mxZB = 1;
-                            for (int z=1;z<ModelConfiguration::maxZBs[x];z++){
-                              if (zCs[z+1]>=mxZCm) {mxZB = z; break;}
+                            int mxZB = nZCs-1;//--index of largest size bin
+                            for (int z=1;z<nZCs-1;z++){
+                              if ((zCs[z]<=mxZCm)&&(mxZCm<zCs[z+1])) mxZB = z;
                             }
                             if (debug) rpt::echo<<"mxZB = "<<mxZB<<tb<<"mxZ = "<<zCs[mxZB+1]<<endl;
                             for (int z=1;   z<mxZB; z++) oP_z[z]    += rawNatZ_xmsyz(x,m,s,iy,z);
@@ -1496,6 +1501,7 @@ void SizeFrequencyData::setMaxYear(int mxYr){
 *   read from input stream.\n
 ******************************************************/
 void SizeFrequencyData::read(cifstream & is){
+  int olddebug=debug;
   debug=1;
     if (debug) {
         std::cout<<"start SizeFrequencyData::read(...) for "<<name<<std::endl;
@@ -1601,14 +1607,18 @@ void SizeFrequencyData::read(cifstream & is){
         }
     }
 
-    if (debug) std::cout<<"starting aggregateRawNatZ"<<endl;
+    if (debug) {std::cout<<"starting aggregateRawNatZ"<<endl; rpt::echo<<"starting aggregateRawNatZ"<<endl;}
     aggregateRawNatZ();
-    if (debug) std::cout<<"starting doTailCompression"<<endl;
+    if (debug) {std::cout<<"starting doTailCompression"<<endl; rpt::echo<<"starting doTailCompression"<<endl;}
     doTailCompression();
-    if (debug) std::cout<<"starting normalize"<<endl;
+    if (debug) {std::cout<<"starting normalize"<<endl; rpt::echo<<"starting normalize"<<endl;}
     normalize();    
     
-    if (debug) std::cout<<"end SizeFrequencyData::read(...) for "<<name<<std::endl;
+    if (debug) {
+      std::cout<<"end SizeFrequencyData::read(...) for "<<name<<std::endl; 
+      rpt::echo<<"end SizeFrequencyData::read(...) for "<<name<<std::endl;
+    }
+    debug=olddebug;
 }
 /***************************************************************
 *   write.                                                     *
