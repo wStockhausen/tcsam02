@@ -9,7 +9,7 @@
 //**********************************************************************
 using namespace std;
 
-const adstring ModelConfiguration::VERSION = "2023.03.13";
+const adstring ModelConfiguration::VERSION = "2023.03.23";
 
 int ModelConfiguration::debug=0;
 //--------------------------------------------------------------------------------
@@ -99,8 +99,8 @@ void ModelConfiguration::read(cifstream & is) {
     mxYr = asYr-1;       //max model year
     is>>mnYrAvgRec;      //min year to calculate average recruitment for OFL
     is>>mxYrOffsetAvgRec;//max year to calculate average recruitment for OFL
-    is>>maxZC;           //maximum size bin cutpoint
     is>>minZC;           //minimum size bin cutpoint
+    is>>maxZC;           //maximum size bin cutpoint
     is>>delZ;            //bin size
     is>>maxZs;           //sex-specific max sizes
     is>>maxZRec;         //max size at recruitment
@@ -271,8 +271,8 @@ void ModelConfiguration::write(ostream & os) {
     os<<asYr<<tb<<"#Assessment year"<<endl;
     os<<mnYrAvgRec<<tb<<"#Min year for OFL average recruitment calculation"<<endl;
     os<<mxYrOffsetAvgRec<<tb<<"#Offset to maxYr for OFL average recruitment calculation"<<endl;
-    os<<maxZC  <<tb<<"#maximum size bin cutpoint"<<endl;
     os<<minZC  <<tb<<"#minimum size bin cutpoint"<<endl;
+    os<<maxZC  <<tb<<"#maximum size bin cutpoint"<<endl;
     os<<delZ   <<tb<<"#size bin size"<<endl;
     os<<maxZs  <<tb<<"#max sizes, by sex"<<endl;
     os<<maxZRec<<tb<<"#max size at recruitment"<<endl;

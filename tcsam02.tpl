@@ -780,6 +780,10 @@
 //-2023-03-14: 1. Added adstring qcsvZBs (quoted csv string for size bin centers) to SizeFrequencyData class.
 //             2. Revised size frequency NLL info written to R to use ptrZFD->qcsvZBs (data size bins) 
 //                  rather than ptrMC->csvZBs (model size bins) now that model and data size bins may differ.
+//-2023-03-23: 1. Revised input read order (minZ,maxZ) in ModelConfiguration, incremented version to 2023.03.23.
+//             2. Testing against 2022 assessment model and code (22_03 and 2022DevVersion branch) indicates only
+//                  very, very small differences between old version and new for 22_03 (i.e., size bins for all model
+//                  and data components are identical).
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -3060,7 +3064,7 @@ PRELIMINARY_CALCS_SECTION
             //this section runs for an "ordinary" model run
             int dbgLevel = 0; //set at dbgCalcProcs+1 to print debugging info 
             PRINT2B1("testing calcRecruitment():")
-            calcRecruitment(dbgLevel,rpt::echo);
+            calcRecruitment(dbgLevel+100,rpt::echo);
 
             PRINT2B1("testing calcNatMort():")
             calcNatMort(dbgLevel+100,rpt::echo);
