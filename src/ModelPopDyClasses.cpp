@@ -271,19 +271,21 @@ void CatchInfo::allocate(){
     totFM_z.deallocate();
     S_msz.deallocate();
     
-    hm_f.allocate(1,nFsh);
-    cpF_fms.allocate(1,nFsh,1,nMSs,1,nSCs);
-    cpF_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
-    selF_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
-    retF_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
+    int nFshp = nFsh;
+    if (nFsh==0) nFshp = 1;
+    hm_f.allocate(1,nFshp);
+    cpF_fms.allocate(1,nFshp,1,nMSs,1,nSCs);
+    cpF_fmsz.allocate(1,nFshp,1,nMSs,1,nSCs,1,nZBs);
+    selF_fmsz.allocate(1,nFshp,1,nMSs,1,nSCs,1,nZBs);
+    retF_fmsz.allocate(1,nFshp,1,nMSs,1,nSCs,1,nZBs);
     
-    rmF_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
-    dmF_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
+    rmF_fmsz.allocate(1,nFshp,1,nMSs,1,nSCs,1,nZBs);
+    dmF_fmsz.allocate(1,nFshp,1,nMSs,1,nSCs,1,nZBs);
     
     cmN_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
-    cpN_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
-    rmN_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
-    dmN_fmsz.allocate(1,nFsh,1,nMSs,1,nSCs,1,nZBs);
+    cpN_fmsz.allocate(1,nFshp,1,nMSs,1,nSCs,1,nZBs);
+    rmN_fmsz.allocate(1,nFshp,1,nMSs,1,nSCs,1,nZBs);
+    dmN_fmsz.allocate(1,nFshp,1,nMSs,1,nSCs,1,nZBs);
     
     totFM_z.allocate(1,nZBs);
     S_msz.allocate(1,nMSs,1,nSCs,1,nZBs);

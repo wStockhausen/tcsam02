@@ -784,6 +784,8 @@
 //             2. Testing against 2022 assessment model and code (22_03 and 2022DevVersion branch) indicates only
 //                  very, very small differences between old version and new for 22_03 (i.e., size bins for all model
 //                  and data components are identical).
+//-2023-04-18: 1. Changed number of size bins allocated to initial recruitment for calculating cohort progress in the REPORT_SECTION 
+//                  to 0, a flag indicating to use the normalized recruitment distribution.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -5662,6 +5664,7 @@ FUNCTION dvar3_array calcEqNatZ(dvar_vector& R_z,dvar3_array& S1_msz, dvar_matri
 // * @return 5d array of cohort abundance by yxmsz (n_yxmsz)
 // */
 FUNCTION d5_array calcCohortProgression(int yr, int nzp, int includeM, int includeF, int debug, ostream& cout)
+    debug=100;
     if (debug) {
         cout<<endl<<endl<<"#------------------------"<<endl;
         cout<<"starting calcCohortProgression(...)"<<endl;
@@ -5672,11 +5675,13 @@ FUNCTION d5_array calcCohortProgression(int yr, int nzp, int includeM, int inclu
     //1. set initial cohort abundance
     dvar5_array n_yxmsz(0,nyp,1,nSXs,1,nMSs,1,nSCs,1,nZBs);
     n_yxmsz.initialize();
+    if (nzp==0) nzp = nZBs;
     n_yxmsz(0,  MALE,IMMATURE,NEW_SHELL)(1,nzp) = R_yz(yr)(1,nzp)/sum(R_yz(yr)(1,nzp));//set initial abundance-at-size
     n_yxmsz(0,FEMALE,IMMATURE,NEW_SHELL)(1,nzp) = R_yz(yr)(1,nzp)/sum(R_yz(yr)(1,nzp));//set initial abundance-at-size
     
     //2. Determine population rates, based on yr
-    double dtF = dtF_y(yr);//time at which fisheries occur
+    double dtF = 0.0;
+    if (nFsh>0) dtF = dtF_y(yr); //time at which fisheries occur
     double dtM = dtM_y(yr);//time at which mating occurs
     
     if (debug) cout<<"creating PopDyInfo objects pPIM, pPIF"<<endl;
@@ -10967,8 +10972,8 @@ FUNCTION void ReportToR(ostream& os, double maxGrad, int debug, ostream& cout)
         ReportToR_ModelFits(os,maxGrad,debug,cout); os<<","<<endl;
         os<<tb<<"#end of modelfits"<<endl;
         
-         //cohort projections (recruits in 3 size bins, M+F included, no extra info)
-        ReportToR_CohortProgression(os,3,1,1,0,debug,cout);
+         //cohort projections (recruits by recruitment size distribution, M+F included, no extra info)
+        ReportToR_CohortProgression(os,0,1,1,0,debug,cout);
         os<<tb<<"#end of cohortprogression"<<endl;
         
         //do OFL calculations
