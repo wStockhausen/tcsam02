@@ -15,7 +15,7 @@
 // History:
 //  2014-02-11: created
 //  2014-05-23: renamed TCSAM2015
-//  2014-06-05: 1. moved setDevs() to ) to tcsam::setDevs() in ModelParameterFunctions.hpp/cpp
+//  2014-06-05: 1. moved setDevs() to tcsam::setDevs() in ModelParameterFunctions.hpp/cpp
 //              2. moved calcPriors(...) to tcsam::calcPriors(...) in ModelParameterFunctions.hpp/cpp
 //  2014-06-09: started review to make sure deep copies are implemented for objects that 
 //              should not be modified within a computational unit.
@@ -786,6 +786,10 @@
 //                  and data components are identical).
 //-2023-04-18: 1. Changed number of size bins allocated to initial recruitment for calculating cohort progress in the REPORT_SECTION 
 //                  to 0, a flag indicating to use the normalized recruitment distribution.
+//-2023-04-28: 1. Added check in calcNatMort on M devs indexing to avoid trying to apply an M dev to a year for which 
+//                  the devs are not defined. Thus, the years for which a parameter combination is defined does not have 
+//                  to match the years for which the associated devs are defined. Put another way, the devs can be applied to 
+//                  multiple parameter combinations defined for different time intervals.
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -4481,13 +4485,18 @@ FUNCTION void calcNatMort(int debug, ostream& cout)
                         for (int s=mns;s<=mxs;s++) {
                             M_yxmsz(y,x,m,s) = 1.0*M_cz(pc);
                             if (useDevs) {
-                                if (debug>dbgCalcProcs) cout<<idx<<cc<<y<<cc<<x<<cc<<m<<cc<<s<<cc<<idxDevsM[y]<<cc<<dvsM[idxDevsM[y]]<<endl;
-                                M_yxmsz(y,x,m,s) *= mfexp(dvsM[idxDevsM[y]]);
+                                if (debug>dbgCalcProcs) cout<<idx<<cc<<y<<cc<<x<<cc<<m<<cc<<s<<cc<<idxDevsM[y];
+                                if (idxDevsM[y]) {
+                                    if (debug>dbgCalcProcs) cout<<cc<<dvsM[idxDevsM[y]]<<endl;
+                                    M_yxmsz(y,x,m,s) *= mfexp(dvsM[idxDevsM[y]]);
+                                } else {
+                                    if (debug>dbgCalcProcs) cout<<cc<<"devs not defined for yxms"<<endl;
+                                }
                             }
                         }//--s
                     }//--m
                 }//--x
-                if (useDevs){
+                if (useDevs && idxDevsM[y]){
                     nDevsM_c(pc)++;//increment count of M devs for this pc
                     if (debug>dbgCalcProcs) cout<<"nDevsM_c(pc) = "<<nDevsM_c(pc)<<endl;
                     M_cy(pc,y)    *= mfexp(dvsM[idxDevsM[y]]); //size-independent M by pc and year
@@ -6468,9 +6477,8 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
             }
             if (debug<0) cout<<tb<<tb<<")"<<"#--end of smoothness penalties"<<endl;//end of smoothness penalties list
         }//--ptrMOs->optPenSmthM
-        if (debug<0) cout<<tb<<tb<<")"<<cc<<"#--end of M penalties"<<endl;//end of M penalties list
     }//--npDevsM!=0
-    if (debug<0) cout<<"),  #--end of M list"<<endl;//end of M-related penalties list
+    if (debug<0) cout<<"),  #--end of M-related penalties list"<<endl;//end of M-related penalties list
 
     //growth-related penalties
     if (debug>dbgObjFun) cout<<"calculating growth-related penalties"<<endl;
