@@ -1,0 +1,24 @@
+#####################################################################
+#TCSAM02 2023 Biological Info File                                  #
+#####################################################################
+BIO_DATA     #required keyword
+2023.03.07   #bio info file version
+#------------------
+#recruitment lag (in years)
+5  #recLag
+#------------------
+#WEIGHT-AT-SIZE (based on 2014 Trawl Survey Report parameters)
+GM   #units (grams)
+4     #number of factor combinations (sex x maturity state)
+# sex  maturity  alpha      beta
+MALE IMMATURE   0.00027    3.022134
+MALE MATURE     0.00027    3.022134
+FEMALE IMMATURE 0.000562   2.816928
+FEMALE MATURE   0.000441   2.898686
+#------------------
+#Timing of fisheries and mating
+0.625    #typical midPtFisheries
+0.625    #typical matingTime
+0   #number of atypical years
+#data for atypical years
+#year   midPtFisheries  matingTime

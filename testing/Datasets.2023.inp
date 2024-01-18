@@ -1,0 +1,21 @@
+#####################################################################
+#TCSAM02 22_03 (full 2023)
+#####################################################################
+Data.BioInfo.2023.inp 			#biological info file
+4   #number of fishery data files
+Data.Fishery.2023.TCF.inp 		     #2022/23 data file for tanner crab fishery  (TCF)                  <-2023
+Data.Fishery.2022.SCF.inp 		     #2021/22 data file for snow crab fishery    (SCF--not updated: no 2022/23 fishery) 
+Data.Fishery.2023.GF_All.inp       #2022/23 data file for (combined) groundfish fisheries (GF_All)    <-2023
+Data.Fishery.2022.RKF.inp 		     #2021/22 data file for BBRKC fishery        (RKF--not updated: no 2022/23 fishery) 
+6   #number of survey data files
+Data.Survey.2023.NMFS_M.inp       #data file for NMFS trawl survey for males without maturity info    <-2023
+Data.Survey.2023.NMFS_F.inp       #data file for NMFS trawl survey for females with maturity info     <-2023
+Data.Survey.2017.SBS_NMFS_M.inp   #data file for   male NMFS trawl survey data based on SBS stations  2013-2017 (not fit)
+Data.Survey.2017.SBS_NMFS_F.inp   #data file for female NMFS trawl survey data based on SBS stations  2013-2017 (not fit)
+Data.Survey.2017.SBS_BSFRF_M.inp  #data file for   male BSFRF trawl survey data based on SBS stations 2013-2017
+Data.Survey.2017.SBS_BSFRF_F.inp  #data file for female BSFRF trawl survey data based on SBS stations 2013-2017
+1   #number of growth datasets
+Data.Growth2000.EBS.inp                       #data file for EBS growth data, with all data attributed to 2000  <-No update
+0    #number of chela height datasets
+1   #number of maturity ogive datasets
+Data.Survey.2023.NMFS.MaleMaturityOgives.inp  #male maturity data from NMFS_M (included in likelihood)   <-2023

@@ -1,5 +1,6 @@
 /build/
 /dist/
+/_build/
 /tcsam02.cpp
 /tcsam02.htp
 /test/
@@ -9,3 +10,5 @@
 /nbproject/
 /nbproject.zip
 /oldExecutables/
+.DS_Store
+testing/run/

@@ -1,0 +1,277 @@
+###############################################
+#TCSAM02 Options (2023 22_03)
+###############################################
+2023.03.07   # Model Options version
+
+#----Initial Numbers-At-Size Options: Option 1
+#0 - build up n-at-z from recruitments (like TCSAM2013)
+#1 - calculate initial n-at-z using equilibrium calculations (like Gmacs)
+#2 - estimate initial n-at-z parameters on log scale      ("UNSCALED" version: pLnBaseInitN is ln-scale abundance in 1st population size bin)
+#3 - estimate initial n-at-z parameters on logistic scale (  "SCALED" version: pLnBaseInitN is ln-scale total abundance in 1st population size bin)
+0  #selected option   (22_01)
+
+#----Initial Numbers-At-Size Options: Option 2 (applies if Option 1 is 2 or 3)
+#1 - initialize using input values from MPI or pin file
+#2 - initialize using equilibrium calculations, ignore MPI/pin file values
+1  #selected option   (does not apply)
+
+#----Initial Numbers-At-Size Options: Option 3 (applies if Option 1 is 3)
+#1 - normalize relative abundances to sum to 1         (guarantees sum-to-1)
+#2 - impose sum-to-1 constraint on relative abundances (does not guarantee sum-to-1)
+2  #selected option   (does not apply)
+
+#----Initial Numbers-At-Size Options: Option 4 (applies if Option 1 is 3 and Option 3 is 2)
+1.0e+6 #--penalty weight on sum-to-1 constraint  (does not apply)
+
+#----Options for parameterizing natural mortality
+#0 - use log-scale parameterization (default)
+#1 - use TCSAM2013 parameterization (arithmetic scale)
+1    #selected option                                    (matches 2020 assessment 20.07)
+#----Penalties for M-devs
+0  #number of M-devs parameters combinations
+#----Options for penalty on M-devs smoothness
+#0 - use AR-1 smoothing (default)
+#0    #selected option                                    
+#0    #weights for M-devs smoothness penalties
+
+#----Mean Growth Parameterizaton Options
+#0 - TCSAM2013 parameterization (ln-scale intercept, slope)
+#1 - parameterization based on min, max pre-molt sizes
+1    #selected option                                    (matches 2020 assessment 20.07)
+
+#----Growth Probability Distribution Options
+#0 - use gamma probability distribution (like TCSAM2013)
+#1 - use cumulative gamma distribution (like Gmacs)
+1    #selected option                                    (matches 2020 assessment 20.07)
+#------
+11  #max extent of size bins for growth probabilities      
+
+#----Options for likelihood penalties on negative growth increments
+10.0   #min CW for positive growth constraint  (matches 2020 assessment 20.07)
+185    #max CW for positive growth constraint  (matches 2020 assessment 20.07)
+1.0e6  #likelihood weight for penalty on approaching negative growth increments          (matches 2020 assessment 20.07)
+1.0    #eps parameter in posfun() for penalty on approaching negative growth increments  (matches 2020 assessment 20.07)
+
+#----PrM2M Options
+#----Penalty weights for prM2M
+2  #number of prM2M parameter combinations
+#----Options for penalty on prM2M smoothness
+#0 - penalize prM2M parameters (like TCSAM2013)
+#1 - penalize prM2M ogive
+0    #selected option                                           (matches 2020 assessment 20.07)
+1  2    #weights for prM2M smoothness penalties (males, females; matches 2020 assessment 20.07)
+#----Options for penalty on non-decreasing prM2M
+#0 - use posfun function on prM2M parameters
+#1 - use exponential function on prM2M parameters
+#2 - use posfun function on prM2M ogives
+#3 - use exponential function on prM2M ogives
+0    #selected option                                                  (matches 2020 assessment 20.07)
+0  0    #weights for penalties on non-decreasing prM2M (males, females; matches 2020 assessment 20.07))
+
+#----Nonparametric Selectivity Options
+#----Penalty weights for NPSel
+10  #number of nonparametric selectivity functions
+#----Options for penalty on NPSel smoothness
+#0 - penalize NPSel parameters
+#1 - penalize NPSel functions
+0    #selected option    (matches 2020 assessment 20.07)                                    
+100 100 100 100 100
+100 100 100 100 100    #  (matches 2020 assessment 20.07)
+
+#----Empirical Selectivity Options   (matches 2021 assessment 21.22a)
+#------Empirical Selectivity Functions
+10   #number of empirical selectivity functions
+# id  nZBs z's  values
+#--BSFRF_availability_(males,_2013)
+1  32
+24.5  29.5  34.5  39.5  44.5  49.5  54.5  59.5  64.5  69.5  74.5  79.5  84.5  89.5  94.5  99.5  104.5 109.5 114.5 119.5 124.5 129.5 134.5 139.5 144.5 149.5 154.5 159.5 164.5 169.5 174.5 179.5 184.5 
+  0.055312299  0.05787104  0.06058702  0.063511937  0.066707801  0.070274661  0.074357  0.079131726  0.084790616  0.091488698  0.099400993  0.108748296  0.119879007  0.133294147  0.149652636  0.169628795  0.19359746  0.221814464  0.254309675  0.290213363  0.327586346  0.363443522  0.39268906  0.407587124  0.4007229  0.369203156  0.321337542  0.268062827  0.217441363  0.173316522  0.136564704  0.106988553  
+#--BSFRF_availability_(males,_2014)
+2  32
+24.5  29.5  34.5  39.5  44.5  49.5  54.5  59.5  64.5  69.5  74.5  79.5  84.5  89.5  94.5  99.5  104.5 109.5 114.5 119.5 124.5 129.5 134.5 139.5 144.5 149.5 154.5 159.5 164.5 169.5 174.5 179.5 184.5 
+  0.021736173  0.024815831  0.02833823  0.032375235  0.037012675  0.042358208  0.048547941  0.055750421  0.064168882  0.074033905  0.085620042  0.099252067  0.115233398  0.13382501  0.155259592  0.179728507  0.207375398  0.238249674  0.272305996  0.309698104  0.35076596  0.395922805  0.444098533  0.490879744  0.529958307  0.5549706  0.56596597  0.566475052  0.560768803  0.55183883  0.540969448  0  
+#--BSFRF_availability_(males,_2015)
+3  32
+24.5  29.5  34.5  39.5  44.5  49.5  54.5  59.5  64.5  69.5  74.5  79.5  84.5  89.5  94.5  99.5  104.5 109.5 114.5 119.5 124.5 129.5 134.5 139.5 144.5 149.5 154.5 159.5 164.5 169.5 174.5 179.5 184.5 
+  0.020440003  0.025239867  0.031133161  0.038319465  0.047016347  0.05755175  0.070447361  0.086437826  0.106064071  0.128106512  0.149546069  0.165917108  0.175055867  0.177728262  0.175727829  0.171494628  0.167915611  0.16773682  0.173619919  0.187300572  0.21085196  0.247943565  0.301487566  0.368842475  0.441099535  0.502002761  0.535335533  0.528793303  0.478546978  0.39929358  0.315372385  0.242346522  
+#--BSFRF_availability_(males,_2016)
+4  32
+24.5  29.5  34.5  39.5  44.5  49.5  54.5  59.5  64.5  69.5  74.5  79.5  84.5  89.5  94.5  99.5  104.5 109.5 114.5 119.5 124.5 129.5 134.5 139.5 144.5 149.5 154.5 159.5 164.5 169.5 174.5 179.5 184.5 
+  0.000297123  0.000818495  0.002224171  0.005881186  0.014917294  0.035354543  0.075483133  0.139920642  0.220012386  0.298198863  0.356505338  0.385095501  0.389487302  0.385098337  0.388623309  0.408672472  0.43626421  0.457851417  0.459309101  0.442026008  0.415783852  0.389508817  0.37018058  0.363381246  0.375103967  0.412705933  0.478520181  0.573126035  0.695234014  0.844815999  0  0  
+#--BSFRF_availability_(males,_2017)
+5  32
+24.5  29.5  34.5  39.5  44.5  49.5  54.5  59.5  64.5  69.5  74.5  79.5  84.5  89.5  94.5  99.5  104.5 109.5 114.5 119.5 124.5 129.5 134.5 139.5 144.5 149.5 154.5 159.5 164.5 169.5 174.5 179.5 184.5 
+  0.302207495  0.343750939  0.392943668  0.45364087  0.530809823  0.616338042  0.680565394  0.684407405  0.616792944  0.529865568  0.468017511  0.455419656  0.484234635  0.530878909  0.565912584  0.569562392  0.558775971  0.555980761  0.579724537  0.619523503  0.646419878  0.627749508  0.565085502  0.502646726  0.473736576  0.46005848  0.259152131  0.039417625  0.00077008  1.78E-06  0.00E+00  0.00E+00  
+#--BSFRF_availability_(females,_2013)
+6  32
+24.5  29.5  34.5  39.5  44.5  49.5  54.5  59.5  64.5  69.5  74.5  79.5  84.5  89.5  94.5  99.5  104.5 109.5 114.5 119.5 124.5 129.5 134.5 139.5 144.5 149.5 154.5 159.5 164.5 169.5 174.5 179.5 184.5 
+  0.016308874  0.016638449  0.016880389  0.016978211  0.017113337  0.01755615  0.018591647  0.020649589  0.025133926  0.035472784  0.055749519  0.086449495  0.130444727  0.214065086  0.384541619  0.639963247  0.817783495  0.656812359  0  0  0  0  0  0  0  0  0  0  0  0  0  0  
+#--BSFRF_availability_(females,_2014)
+7  32
+24.5  29.5  34.5  39.5  44.5  49.5  54.5  59.5  64.5  69.5  74.5  79.5  84.5  89.5  94.5  99.5  104.5 109.5 114.5 119.5 124.5 129.5 134.5 139.5 144.5 149.5 154.5 159.5 164.5 169.5 174.5 179.5 184.5 
+  0.015105084  0.018502979  0.02247483  0.026863712  0.03149524  0.036060879  0.039305524  0.039541512  0.03757639  0.035726746  0.035544487  0.03832244  0.048570018  0.082613646  0.181461741  0.378452895  0.597821452  0.710665265  0  0  0  0  0  0  0  0  0  0  0  0  0  0  
+#--BSFRF_availability_(females,_2015)
+8  32
+24.5  29.5  34.5  39.5  44.5  49.5  54.5  59.5  64.5  69.5  74.5  79.5  84.5  89.5  94.5  99.5  104.5 109.5 114.5 119.5 124.5 129.5 134.5 139.5 144.5 149.5 154.5 159.5 164.5 169.5 174.5 179.5 184.5 
+  0.010237435  0.014736094  0.020811209  0.02822881  0.035556059  0.040206961  0.040841065  0.038021894  0.034354303  0.032596269  0.0336986  0.038031753  0.04929715  0.08164309  0.170150026  0.362183819  0.658337065  0.941483365  1  0.990082369  0  0  0  0  0  0  0  0  0  0  0  0  
+#--BSFRF_availability_(females,_2016)
+9  32
+24.5  29.5  34.5  39.5  44.5  49.5  54.5  59.5  64.5  69.5  74.5  79.5  84.5  89.5  94.5  99.5  104.5 109.5 114.5 119.5 124.5 129.5 134.5 139.5 144.5 149.5 154.5 159.5 164.5 169.5 174.5 179.5 184.5 
+  1.68E-08  3.88E-05  0.011709293  0.101674958  0.110199968  0.13898679  0.227134223  0.212275868  0.139076062  0.145398274  0.25278382  0.389288116  0.424941071  0.431447469  0.48598833  0.59849369  0.766446763  0.932930915  1  0  0  0  0  0  0  0  0  0  0  0  0  0  
+#--BSFRF_availability_(females,_2017)
+10  32
+24.5  29.5  34.5  39.5  44.5  49.5  54.5  59.5  64.5  69.5  74.5  79.5  84.5  89.5  94.5  99.5  104.5 109.5 114.5 119.5 124.5 129.5 134.5 139.5 144.5 149.5 154.5 159.5 164.5 169.5 174.5 179.5 184.5 
+  0.447986461  0.422498627  0.435779218  0.520765975  0.639200865  0.686545622  0.655580279  0.613659384  0.605664291  0.662806457  0.755520904  0.76823818  0.689057278  0.63631703  0.558578941  0.293061816  0.020543386  5.28E-06  6.68E-13  0.00E+00  0.00E+00  0  0  0  0  0  0  0  0  0  0  0  
+#----Empirical Selectivity Priors
+0   #number of empirical selectivity priors  (matches 2021 assessment 22.22a)
+# id  selfcn_id prior_weight prior_type nZBs
+# size bin cutpoints (nZBs+1 values)
+# input p1 (mean/location) values
+# input p2 (uncertainty/scale) values
+#  1 2 1.0 normal 32
+# 24.5  29.5  34.5  39.5  44.5  49.5  54.5  59.5  64.5  69.5  74.5  79.5  84.5  89.5  94.5  99.5  104.5 109.5 114.5 119.5 124.5 129.5 134.5 139.5 144.5 149.5 154.5 159.5 164.5 169.5 174.5 179.5 184.5 
+#  0.363807274  0.398916063  0.435161857  0.472192152  0.509621886  0.547049018  0.584071616  0.620304943  0.655397005  0.689041282  0.720985757  0.751037846  0.779065333  0.804993823  0.828801452  0.850511774  0.870185653  0.887912944  0.903804532  0.917985141  0.930587148  0.941745498  0.951593696  0.960260815  0.967869371  0.974533944  0.98036039  0.985445515  0.989877104  0.993734191  0.997087501  1
+#  0.072761455  0.079783213  0.087032371  0.09443843  0.101924377  0.109409804  0.116814323  0.124060989  0.131079401  0.137808256  0.144197151  0.150207569  0.155813067  0.160998765  0.16576029  0.170102355  0.174037131  0.177582589  0.180760906  0.183597028  0.18611743  0.1883491  0.190318739  0.192052163  0.193573874  0.194906789  0.196072078  0.197089103  0.197975421  0.198746838  0.1994175  0.2
+
+#----Effort Extrapolation Options
+#-----fishery effort averaging scenarios
+2   #number of effort averaging periods
+# id   fishery  avg_year_block
+   1     SCF      [1992:2020]  #matches 2020 assessment (20.07)
+   2     RKF      [1992:2000]  #no 2021/22 fishery
+#----fishery capture rate averaging scenarios
+#-----options for avgOpt
+# 1 - average fully-selected capture rate
+# 2 - average mean size-specific capture rate
+4   #number of effort averaging periods
+# id   fishery  sex   maturity  shell  idParam  idAvgOptsEff   avgOpt   llWgt
+   1     SCF    MALE    ALL      ALL     0            1          1       1.0       #matches 2017 assessment
+   2     SCF   FEMALE   ALL      ALL     0            1          1       1.0       #matches 2017 assessment
+   3     RKF    MALE    ALL      ALL     0            2          1       1.0       #matches 2017 assessment
+   4     RKF   FEMALE   ALL      ALL     0            2          1       1.0       #matches 2017 assessment
+
+#----Regularization penalty on F-devs
+1.0  #cv during constant-penalty period                (matches 2020 assessment 20.07)
+0    #phase at which to start diminishing the penalty  (matches 2020 assessment 20.07)
+1    #phase at which to remove penalty                 (matches 2020 assessment 20.07)
+
+#----Penalty weight on squared-sum of dev values
+1.0e+4 #weight value to apply to squared-sum of devs values  (matches 2020 assessment 20.07)
+1      #min phase to apply penalty                           (matches 2020 assessment 20.07)
+
+#----Options for OFL calculations
+#------capture rate/selectivity function averaging options
+# 0 - average max capture rates, selectivity functions (like TCSAM2013)
+# 1 - average size-specific capture rates
+#fishery    option
+  TCF         0     #  (matches 2020 assessment 20.07)
+  SCF         0     #  (matches 2020 assessment 20.07)
+  GF_All      0     #  (matches 2020 assessment 20.07)
+  RKF         0     #  (matches 2020 assessment 20.07)
+#------averaging periods (years)
+#fishery    years
+  TCF         5     #  (matches 2020 assessment 20.07)
+  SCF         5     #  (matches 2020 assessment 20.07)
+  GF_All      5     #  (matches 2020 assessment 20.07)
+  RKF         5     #  (matches 2020 assessment 20.07)
+#------externally-calculated substitute max capture rates
+# rate <  0 : ignore and use internally-calculated rate
+# rate => 0 : use listed rate
+#fishery     rate
+  TCF        -1    #  (matches 2020 assessment 20.07)
+  SCF        -1    #  (matches 2020 assessment 20.07)
+  GF_All     -1    #  (matches 2020 assessment 20.07)
+  RKF        -1    #  (matches 2020 assessment 20.07)
+
+#----Options for iterative re-weighting of size composition data
+#------iterative re-weighting options
+# 0 - no iterative re-weighting
+# 1 - use harmonic means of McAllister-Ianelli effective N's
+# 2 - use Francis weights
+0    # selected option                                 #  (matches 2020 assessment 20.07)
+6    # phase at which to begin iterative re-weighting  #  (matches 2020 assessment 20.07)
+5    # maximum number of iterations                    #  (matches 2020 assessment 20.07)
+
+#----MSE options
+#------Time period for recruitment projection statistics
+#min, max year for statistics
+1982 2017
+#------Harvest Control Rule
+# 1 - HCR1: 
+# 2 - HCR2: 
+# 3 - HCR3: 
+# 4 - HCR4: 
+# 5 - HCR5: 
+# 6 - HCR6: 
+1  #selected HCR
+#---------HCR-specific options (uncomment for selected HCR)
+HCR1
+#min, max years for averaging
+1982 2017 #2017 last year for "real" recruitment
+#--
+#HCR2
+#Ramp ID: 1, 2 or 3
+#1  #Ramp ID
+
+#----Options for projections
+#------non-MCMC projections
+500   #--number of repetitions/parameter set
+20    #--number of years to project
+0     #--number of specific Fs
+#--vector of specific Fs would go here
+6     #--number of Fofl multipliers
+0.00 0.25  0.50  0.75  1.00  1.25
+#------MCMC projections
+5   #--number of repetitions/parameter set
+20    #--number of years to project
+0     #--number of specific Fs
+#--vector of specific Fs would go here
+6     #--number of Fofl multipliers
+0.00 0.25  0.50  0.75  1.00  1.25
+
+#----Options for simulations (new 2022-06-28)
+#--RNG seed: 0 = use default
+#--expansion factors:
+#---- =0: no observation noise added
+#---- >0: multiply CV
+#---- <0: replace CV
+#--retained catch fishery data
+1  #--number of fleets
+#                   catch abundance     catch biomass     size comps
+# fleet  RNG seed   expansion factor    expansion factor  expansion factor
+TCF       0             1                      1             1
+#--total catch fishery data
+4  #--number of fleets
+#                   catch abundance     catch biomass     size comps
+# fleet  RNG seed   expansion factor    expansion factor  expansion factor
+    TCF        0             1                1             1
+    SCF        0             1                1             1
+    GF_All     0             1                1             1
+    RKF        0             1                1             1
+#--discard catch fishery data
+0  #--number of fleets
+#                   catch abundance     catch biomass     size comps
+# fleet  RNG seed   expansion factor    expansion factor  expansion factor
+#--index catch (survey) data
+6  #--number of fleets
+#                      catch abundance     catch biomass     size comps
+# fleet    RNG seed   expansion factor    expansion factor  expansion factor
+  NMFS_M       0             1                    1               1
+  NMFS_F       0             1                    1               1 
+  SBS_BSFRF_M  0             1                    1               1 
+  SBS_BSFRF_F  0             1                    1               1 
+  SBS_NMFS_M   0             0                    0               0
+  SBS_NMFS_F   0             0                    0               0
+#--growth data
+0  #--RNG seed (0: use default)
+1  #--observation noise multiplier (increases variance)
+#--maturity ogive data
+0  #--RNG seed (0: use default)
+1  #--observation noise multiplier (reduces effective sample sizes)
+
+
+
+
+
+
+

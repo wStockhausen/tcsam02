@@ -1,0 +1,40 @@
+################################################################################################
+#TCSAM02 configuration file
+################################################################################################
+2023.03.23   # Model Configuration version
+22_03bf      # model scenario: not fitting 2023 survey data
+1948         # model start year (pop. model start year) 
+2023         # assessment year (final pop model numbers at size are given for July 1, assessment year) 
+1981         # min year for calculating OFL-related average recruitment
+2            # offset to assessment year for calculating OFL-related average recruitment
+24.5         # min size bin cutpoint
+184.5        # max size bin cutpoint
+ 5           # size bin size
+182  132     # max sizes (size bin midpoint), by sex (males, females)
+45           # max size for recruitment
+#--FiSHERIES
+4  #number of fisheries
+TCF                          #fishery 1: retained and bycatch in directed Tanner crab fishery
+SCF                          #fishery 2: bycatch in snow crab bycatch fishery
+GF_All                       #fishery 3: bycatch in groundfish fisheries
+RKF                          #fishery 4: bycatch in Bristol Bay red king crab fishery
+#--SURVEYS
+6  #number of surveys
+NMFS_M                       #survey 1: NMFS trawl survey, males without maturity info
+NMFS_F                       #survey 2: NMFS trawl survey, females with maturity info
+SBS_NMFS_M                   #survey 3:   male NMFS trawl survey results using SBS stations (not fit)
+SBS_NMFS_F                   #survey 4: female NMFS trawl survey results using SBS stations (not fit)
+SBS_BSFRF_M                  #survey 5:   male BSFRF trawl survey results using SBS stations
+SBS_BSFRF_F                  #survey 6: female BSFRF trawl survey results using SBS stations
+#--run options
+FALSE                     	 #run operating model only
+TRUE                      	 #fit to priors
+#--input files
+MPI.dat                     #model parameters info file
+Datasets.2023.inp           #model datasets file
+MOs.2023.22_03b.inp         #model options file
+#--parameter initialization options
+OFF                     #jitter resampling option (leave OFF to set using command line option)
+0.3                     #jitter range
+OFF                     #prior resampling option
+1                       #prior variance inflation factor

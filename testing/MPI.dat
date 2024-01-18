@@ -1,0 +1,576 @@
+2023.03.10   #model parameters info version
+#-------------------------------
+# Recruitment parameters  
+#-------------------------------
+recruitment   #process name
+PARAMETER_COMBINATIONS
+2   #number of parameter combinations
+#id  YEAR_BLOCK   pLnR   pRCV   pRX   pRa   pRb   pDevsLnR   nllWgt   label   
+1   [1948:1973]   1   1   1   1   1   1   0   historical_recruitment_period   
+2   [1974:2022]   2   1   1   1   1   2   0   current_recruitment_period   
+PARAMETERS
+pLnR   #ln-scale mean recruitment
+   2  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+1   ON   0   10   6.86171167455   ARITHMETIC   1   OFF   1   none   none      none      historical_recruitment_period      #no prior params. no prior consts. 
+2   ON   0   10   5.90093294218   ARITHMETIC   1   OFF   1   none   none      none      current_recruitment_period      #no prior params. no prior consts. 
+pRCV   #recruitment cv's
+   1  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+1   OFF   0.135335283   7.389056099   0.496585303791   LOG   -5   OFF   1   none   none      none      full_model_period      #no prior params. no prior consts. 
+pRX   #fraction males at recruitment
+   1  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+1   OFF   0.268941421   0.731058579   0.5   LOGIT   -1   OFF   1   none   none      none      full_model_period      #no prior params. no prior consts. 
+pRa   #size-at-recruitment parameter a
+   1  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+1   OFF   2.718281828   54.59815003   9.33733630138   LOG   5   OFF   1   none   none      none      fixed_value      #no prior params. no prior consts. 
+pRb   #size-at-recruitment parameter b
+   1  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+1   OFF   1   54.59815003   3.8647748116   LOG   5   OFF   1   none   none      none      fixed_value      #no prior params. no prior consts. 
+pDevsLnR   #ln-scale recruitment devs
+   2  #number of bounded parameters
+#     index index   read     read            lower upper initial  param        resample  prior   prior  prior   prior
+#id   type  block  phases?  values? jitter?  bound bound value   scale  phase  values?  weight  type   params  consts  label
+1   YEAR   [1948:1973]   TRUE   TRUE   ON   -5   5   0   ARITHMETIC   1   OFF   2   ar1_normal    0 1      none      historical_recruitment_period      #prior params are mean, stdv. no prior consts. 
+2   YEAR   [1974:2022]   TRUE   TRUE   ON   -5   5   0   ARITHMETIC   1   OFF   1   normal    0 1      none      current_recruitment_period      #prior params are mean, stdv. no prior consts. 
+#--id + phases and/or id + initial values:
+1    1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+1    -0.496041270775 -0.495254977282 -0.493424119106 -0.490208971366 -0.485162317745 -0.47769621749 -0.467039653209 -0.452187850313 -0.431853549593 -0.404428317148 -0.367946877923 -0.319875061663 -0.256300735096 -0.170718084288 -0.0520205645215 0.120383907778 0.386893710817 0.802340306104 1.36114531033 1.67823821202 1.20042131049 0.639900271171 0.35638070677 -0.0765816928164 -0.451692552368 -0.157270917071
+2    1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+2    1.36011109505 1.9773654214 1.62904846296 0.617930468558 -0.119102585666 -0.172923680621 -0.00270095214958 -0.160644971305 1.06911797805 0.773937796405 0.909292616323 0.942661406341 0.769014299405 0.394765211929 -0.370813893907 -1.08318259664 -1.36660827164 -1.29713617643 -1.29427934477 -1.11813634126 -0.62526044908 -0.855790093874 0.0690865646503 -0.943489460987 0.616355420279 -0.518315589514 1.00270100063 -0.225451396537 1.09870328092 0.530301575891 -0.604991161756 -1.06849287779 -0.516309385103 -0.0623345807941 1.39410650642 0.375140202298 -0.367191824832 -1.66661664111 -0.74153026334 -1.29117856127 -1.1295327877 -1.00657429257 0.796193083867 -0.122739364098 0.345800094784 -1.59134426616 0.789749058664 1.46813918132 1.39315165213
+
+#-------------------------------
+# Initial N-at-Z parameters  
+#-------------------------------
+initialNatZ   #process name
+PARAMETER_COMBINATIONS
+0   #number of parameter combinations
+
+#-------------------------------
+# Natural mortality parameters  
+#-------------------------------
+natural_mortality   #process name
+100   #reference size for scaling
+PARAMETER_COMBINATIONS
+5   #number of parameter combinations
+#id  YEAR_BLOCK   SEX   MATURITY_STATE   SHELL_CONDITION   pM   pDM1   pDM2   pDM3   pDM4   pDevsM   zScaling   label   
+1   [1948:2022]   ALL_SEX   IMMATURE   ALL_SHELL   1   1   0   0   0   0   0   standard_natural_mortality_multiplier_for_immature_crab   
+2   [1948:1979;1985:2022]   MALE   MATURE   ALL_SHELL   1   2   0   0   0   0   0   standard_natural_mortality_multiplier_for_mature_males   
+3   [1948:1979;1985:2022]   FEMALE   MATURE   ALL_SHELL   1   3   0   0   0   0   0   standard_natural_mortality_multiplier_for_mature_females   
+4   [1980:1984]   MALE   MATURE   ALL_SHELL   1   2   1   0   0   0   0   elevated_natural_mortality_multiplier_for_mature_males   
+5   [1980:1984]   FEMALE   MATURE   ALL_SHELL   1   3   2   0   0   0   0   elevated_natural_mortality_multiplier_for_mature_females   
+PARAMETERS
+pM   #base natural mortality rate
+   1  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+1   OFF   0.135335283   2.718281828   0.229999993114   LOG   -1   OFF   1   none   none      none      base_ln-scale_M      #no prior params. no prior consts. 
+pDM1   #M offset 1
+   3  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+1   ON   0.2   2   1.02870907324   ARITHMETIC   4   OFF   1   normal    1 0.05      none      multiplier_for_immature_crab      #prior params are mean, stdv. no prior consts. 
+2   ON   0.1   1.9   1.34938946888   ARITHMETIC   4   OFF   1   normal    1 0.05      none      multiplier_for_mature_males      #prior params are mean, stdv. no prior consts. 
+3   ON   0.1   1.9   1.3415635423   ARITHMETIC   4   OFF   1   normal    1 0.05      none      multiplier_for_mature_females      #prior params are mean, stdv. no prior consts. 
+pDM2   #M offset 2
+   2  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+1   ON   0.1   10   2.34392937248   ARITHMETIC   4   OFF   1   none   none      none      1980-1984_multiplier_for_mature_males      #no prior params. no prior consts. 
+2   ON   0.1   10   1.9655161056   ARITHMETIC   4   OFF   1   none   none      none      1980-1984_multiplier_for_mature_females      #no prior params. no prior consts. 
+pDM3   #M offset 3
+   0  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+
+pDM4   #M offset 4
+   0  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+
+pDevsM   #M devs
+   0  #number of bounded parameters
+#     index index   read     read            lower upper initial  param        resample  prior   prior  prior   prior
+#id   type  block  phases?  values? jitter?  bound bound value   scale  phase  values?  weight  type   params  consts  label
+
+
+#-------------------------------
+# Growth parameters  
+#-------------------------------
+growth   #process name
+PARAMETER_COMBINATIONS
+2   #number of parameter combinations
+#id  YEAR_BLOCK   SEX   pGrA   pGrB   pGrBeta   zScaleGrA   zScaleGrB   label   
+1   [1948:2022]   MALE   1   1   1   25   125   males_(entire_model_period)   
+2   [1948:2022]   FEMALE   2   2   1   25   100   females_(entire_model_period)   
+PARAMETERS
+pGrA   #mean growth coefficient 'a'
+   2  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+1   ON   25   40   32.3291025649   ARITHMETIC   4   OFF   1   none   none      none      males      #no prior params. no prior consts. 
+2   ON   25   40   33.6915374291   ARITHMETIC   4   OFF   1   none   none      none      females      #no prior params. no prior consts. 
+pGrB   #mean growth coefficient 'b'
+   2  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+1   ON   130   180   166.02080775   ARITHMETIC   4   OFF   1   none   none      none      males      #no prior params. no prior consts. 
+2   ON   110   150   114.86590141   ARITHMETIC   4   OFF   1   none   none      none      females      #no prior params. no prior consts. 
+pGrBeta   #growth transition matrix scale factor
+   1  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+1   ON   0.5   2   0.816771064386   ARITHMETIC   5   OFF   1   none   none      none      both_sexes      #no prior params. no prior consts. 
+
+#-------------------------------
+# Molt-to-maturity parameters  
+#-------------------------------
+molt_to_maturity   #process name
+PARAMETER_COMBINATIONS
+2   #number of parameter combinations
+#id  YEAR_BLOCK   SEX   pvLgtPrM2M   label   
+1   [1948:2022]   MALE   1   males_(entire_model_period)   
+2   [1948:2022]   FEMALE   2   females_(entire_model_period)   
+PARAMETERS
+pvLgtPrM2M   #logit-scale parameter vectors for Pr(molt-to-maturity|size)
+   2  #number of bounded parameters
+#     index index   read     read            lower upper initial  param        resample  prior   prior  prior   prior
+#id   type  block  phases?  values? jitter?  bound bound value   scale  phase  values?  weight  type   params  consts  label
+1   SIZE   [8:24]   FALSE   TRUE   OFF   -15   15   0   ARITHMETIC   4   OFF   1   none   none      none      males_60-150_mmCW_(entire_model_period)      #no prior params. no prior consts. 
+2   SIZE   [6:16]   FALSE   TRUE   OFF   -15   15   0   ARITHMETIC   4   OFF   1   none   none      none      females_50-105_mmCW_(entire_model_period)      #no prior params. no prior consts. 
+#--id + phases and/or id + initial values:
+1    -2.988083779 -3.56136741782 -3.01624566991 -2.13872029086 -1.34173631868 -1.236327899 -0.756560289054 -0.235746134373 -0.208035857816 0.141337074818 0.543886500686 1.02025730635 1.62010202762 2.63980710491 3.12864002897 3.7151605262 4.78628193452
+2    -5.42471249141 -4.15907331156 -2.93088206266 -1.71102069731 -0.584029350388 0.254388399651 0.572425138759 1.06318076679 1.94922465225 2.90393321821 3.92242200002
+
+#-------------------------------
+# Selectivity parameters  
+#-------------------------------
+selectivities   #process name
+PARAMETER_COMBINATIONS
+41   #number of parameter combinations
+#id  YEAR_BLOCK   pS1   pS2   pS3   pS4   pS5   pS6   pDevsS1   pDevsS2   pDevsS3   pDevsS4   pDevsS5   pDevsS6   pvNPSel   pvCubSplns   fsZ   selFcn   label   
+1   [1975:1981]   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   ascnormal   NMFS_survey_selectivity_(males,_pre-1982)   
+2   [1982:2023]   2   2   0   0   0   0   0   0   0   0   0   0   0   0   0   ascnormal   NMFS_survey_selectivity_(males,_1982+)   
+3   [1975:1981]   3   3   0   0   0   0   0   0   0   0   0   0   0   0   0   ascnormal   NMFS_survey_selectivity_(females,_pre-1982)   
+4   [1982:2023]   4   4   0   0   0   0   0   0   0   0   0   0   0   0   0   ascnormal   NMFS_survey_selectivity_(females,_1982+)   
+5   [1948:1990]   5   5   0   0   0   0   0   0   0   0   0   0   0   0   182   asclogistic   TCF_retention_(pre-1991)   
+6   [1991:1996]   6   6   0   0   0   0   0   0   0   0   0   0   0   0   182   asclogistic   TCF_retention_(1991-1996)   
+7   [1948:1990]   8   7   0   0   0   0   0   0   0   0   0   0   0   0   182   asclogisticln50   TCF_selectivity_(males,_pre-1991)   
+8   [1991:1996]   8   7   0   0   0   0   1   0   0   0   0   0   0   0   182   asclogisticln50   TCF_selectivity_(males,_1991-1996)   
+9   [2005:2022]   8   8   0   0   0   0   1   0   0   0   0   0   0   0   182   asclogisticln50   TCF_selectivity_(males,_2005+)   
+10   [1948:2022]   9   9   0   0   0   0   0   0   0   0   0   0   0   0   182   asclogistic   TCF_selectivity_(females)   
+11   [1948:1996]   10   10   1   1   0   0   0   0   0   0   0   0   0   0   182   dblnormal4a   SCF_selectivity_(males,_pre-1997)   
+12   [1997:2004]   11   11   2   2   0   0   0   0   0   0   0   0   0   0   182   dblnormal4a   SCF_selectivity_(males,_1997-2004)   
+13   [2005:2021]   12   12   3   3   0   0   0   0   0   0   0   0   0   0   182   dblnormal4a   SCF_selectivity_(males,_2005+)   
+14   [1948:1996]   13   13   0   0   0   0   0   0   0   0   0   0   0   0   182   asclogistic   SCF_selectivity_(females,_pre-1997)   
+15   [1997:2004]   14   14   0   0   0   0   0   0   0   0   0   0   0   0   182   asclogistic   SCF_selectivity_(females,_1997-2004)   
+16   [2005:2021]   15   15   0   0   0   0   0   0   0   0   0   0   0   0   182   asclogistic   SCF_selectivity_(females,_2005+)   
+17   [1948:1986]   16   16   0   0   0   0   0   0   0   0   0   0   0   0   182   asclogistic   GF.AllGear_selectivity_(males,_pre-1988)   
+18   [1987:1996]   17   17   0   0   0   0   0   0   0   0   0   0   0   0   182   asclogistic   GF.AllGear_selectivity_(males,_1988-1996)   
+19   [1997:2022]   18   18   0   0   0   0   0   0   0   0   0   0   0   0   182   asclogistic   GF.AllGear_selectivity_(males,_1997+)   
+20   [1948:1986]   19   19   0   0   0   0   0   0   0   0   0   0   0   0   182   asclogistic   GF.AllGear_selectivity_(females,_pre-1988)   
+21   [1987:1996]   20   20   0   0   0   0   0   0   0   0   0   0   0   0   182   asclogistic   GF.AllGear_selectivity_(females,_1988-1996)   
+22   [1997:2022]   21   21   0   0   0   0   0   0   0   0   0   0   0   0   182   asclogistic   GF.AllGear_selectivity_(females,_1997+)   
+23   [1948:1996]   22   22   0   0   0   0   0   0   0   0   0   0   0   0   0   ascnormal   RKF_selectivity_(males,_pre-1997)   
+24   [1997:2004]   23   23   0   0   0   0   0   0   0   0   0   0   0   0   0   ascnormal   RKF_selectivity_(males,_1997-2004)   
+25   [2005:2020]   24   24   0   0   0   0   0   0   0   0   0   0   0   0   0   ascnormal   RKF_selectivity_(males,_2005+)   
+26   [1948:1996]   25   25   0   0   0   0   0   0   0   0   0   0   0   0   0   ascnormal   RKF_selectivity_(females,_pre-1997)   
+27   [1997:2004]   26   26   0   0   0   0   0   0   0   0   0   0   0   0   0   ascnormal   RKF_selectivity_(females,_1997-2004)   
+28   [2005:2020]   27   27   0   0   0   0   0   0   0   0   0   0   0   0   0   ascnormal   RKF_selectivity_(females,_2005+)   
+29   [2005:2009]   28   28   0   0   0   0   0   0   0   0   0   0   0   0   182   asclogistic   TCF_retention_(2005-2009)   
+30   [2013:2015;2017:2018;2020:2022]   29   29   0   0   0   0   0   0   0   0   0   0   0   0   182   asclogistic   TCF_retention_(2013+)   
+31   [2013]   0   0   0   0   0   0   0   0   0   0   0   0   1   0   0   nonparametric   BSFRF_availability_(males_2013)   
+32   [2014]   0   0   0   0   0   0   0   0   0   0   0   0   2   0   0   nonparametric   BSFRF_availability_(males_2014)   
+33   [2015]   0   0   0   0   0   0   0   0   0   0   0   0   3   0   0   nonparametric   BSFRF_availability_(males_2015)   
+34   [2016]   0   0   0   0   0   0   0   0   0   0   0   0   4   0   0   nonparametric   BSFRF_availability_(males_2016)   
+35   [2017]   0   0   0   0   0   0   0   0   0   0   0   0   5   0   0   nonparametric   BSFRF_availability_(males_2017)   
+36   [2013]   0   0   0   0   0   0   0   0   0   0   0   0   6   0   0   nonparametric   BSFRF_availability_(females_2013)   
+37   [2014]   0   0   0   0   0   0   0   0   0   0   0   0   7   0   0   nonparametric   BSFRF_availability_(females_2014)   
+38   [2015]   0   0   0   0   0   0   0   0   0   0   0   0   8   0   0   nonparametric   BSFRF_availability_(females_2015)   
+39   [2016]   0   0   0   0   0   0   0   0   0   0   0   0   9   0   0   nonparametric   BSFRF_availability_(females_2016)   
+40   [2017]   0   0   0   0   0   0   0   0   0   0   0   0   10   0   0   nonparametric   BSFRF_availability_(females_2017)   
+41   [2013:2017]   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   constant   BSFRF_selectivity_(assumed)   
+PARAMETERS
+pS1   #1st input to selectivity function
+   29  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+1   ON   80   180   179   ARITHMETIC   -1   OFF   1   none   none      none      size_at_1_for_NMFS_survey_selectivity_(males,_pre-1982)      #no prior params. no prior consts. 
+2   ON   80   180   179   ARITHMETIC   -1   OFF   1   none   none      none      size_at_1_for_NMFS_survey_selectivity_(males,_1982+)      #no prior params. no prior consts. 
+3   ON   70   130   129.9   ARITHMETIC   -1   OFF   1   none   none      none      size_at_1_for_NMFS_survey_selectivity_(females,_pre-1982)      #no prior params. no prior consts. 
+4   ON   70   130   129.9   ARITHMETIC   -1   OFF   1   none   none      none      size_at_1_for_NMFS_survey_selectivity_(females,_1982+)      #no prior params. no prior consts. 
+5   ON   85   160   139.035708898   ARITHMETIC   1   OFF   1   none   none      none      z50_for_TCF_retention_(pre-1991)      #no prior params. no prior consts. 
+6   ON   85   160   138.548709017   ARITHMETIC   1   OFF   1   none   none      none      z50_for_TCF_retention_(1991-1996)      #no prior params. no prior consts. 
+7   ON   4   5   4.5   ARITHMETIC   -1   OFF   1   none   none      none      DUMMY_VALUE      #no prior params. no prior consts. 
+8   ON   4   5   4.83870096075   ARITHMETIC   1   OFF   1   none   none      none      ln(z50)_for_TCF_selectivity_(males)      #no prior params. no prior consts. 
+9   ON   80   150   92.8853180272   ARITHMETIC   1   OFF   1   none   none      none      z50_for_TCF_selectivity_(females)      #no prior params. no prior consts. 
+10   ON   80   180   160.11262377   ARITHMETIC   2   OFF   1   none   none      none      ascending_z-at-1_for_SCF_selectivity_(males,_pre-1997)      #no prior params. no prior consts. 
+11   ON   80   180   119.339665447   ARITHMETIC   2   OFF   1   none   none      none      ascending_z-at-1_for_SCF_selectivity_(males,_1997-2004)      #no prior params. no prior consts. 
+12   ON   80   180   124.976413077   ARITHMETIC   2   OFF   1   none   none      none      ascending_z-at-1_for_SCF_selectivity_(males,_2005+)      #no prior params. no prior consts. 
+13   ON   50   150   81.0818165403   ARITHMETIC   2   OFF   1   none   none      none      ascending_z50_for_SCF_selectivity_(females,_pre-1997)      #no prior params. no prior consts. 
+14   ON   50   120   72.6882452673   ARITHMETIC   2   OFF   1   none   none      none      ascending_z50_for_SCF_selectivity_(females,_1997-2004)      #no prior params. no prior consts. 
+15   ON   50   120   101.568990391   ARITHMETIC   2   OFF   1   none   none      none      ascending_z50_for_SCF_selectivity_(females,_2005+)      #no prior params. no prior consts. 
+16   ON   40   180   61.2738754471   ARITHMETIC   2   OFF   1   none   none      none      z50_for_GF.AllGear_selectivity_(males,_pre-1987)      #no prior params. no prior consts. 
+17   ON   40   180   72.5727174901   ARITHMETIC   2   OFF   1   none   none      none      z50_for_GF.AllGear_selectivity_(males,_1987-1996)      #no prior params. no prior consts. 
+18   ON   40   180   98.5132042375   ARITHMETIC   2   OFF   1   none   none      none      z50_for_GF.AllGear_selectivity_(males,_1997+)      #no prior params. no prior consts. 
+19   ON   25   180   43.4710315396   ARITHMETIC   2   OFF   1   none   none      none      z50_for_GF.AllGear_selectivity_(females,_pre-1987)      #no prior params. no prior consts. 
+20   ON   25   180   40.2483082024   ARITHMETIC   2   OFF   1   none   none      none      z50_for_GF.AllGear_selectivity_(females,_1987-1996)      #no prior params. no prior consts. 
+21   ON   25   180   87.4850671071   ARITHMETIC   2   OFF   1   none   none      none      z50_for_GF.AllGear_selectivity_(females,_1997+)      #no prior params. no prior consts. 
+22   ON   95   180   179.9   ARITHMETIC   -3   OFF   1   none   none      none      size_at_1_for_RKF_selectivity_(males,_pre-1997)      #no prior params. no prior consts. 
+23   ON   95   180   179.9   ARITHMETIC   -3   OFF   1   none   none      none      size_at_1_for_RKF_selectivity_(males,_1997-2004)      #no prior params. no prior consts. 
+24   ON   95   180   179.9   ARITHMETIC   -3   OFF   1   none   none      none      size_at_1_for_RKF_selectivity_(males,_2005+)      #no prior params. no prior consts. 
+25   ON   100   140   139.9   ARITHMETIC   -3   OFF   1   none   none      none      size_at_1_for_RKF_selectivity_(females,_pre-1997)      #no prior params. no prior consts. 
+26   ON   100   140   137.118278291   ARITHMETIC   3   OFF   1   none   none      none      size_at_1_for_RKF_selectivity_(females,_1997-2004)      #no prior params. no prior consts. 
+27   ON   100   140   135.21466647   ARITHMETIC   3   OFF   1   none   none      none      size_at_1_for_RKF_selectivity_(females,_2005+)      #no prior params. no prior consts. 
+28   ON   85   160   137.637735867   ARITHMETIC   1   OFF   1   none   none      none      z50_for_TCF_retention_(2005-2009)      #no prior params. no prior consts. 
+29   ON   85   160   125.130776915   ARITHMETIC   1   OFF   1   none   none      none      z50_for_TCF_retention_(2013+)      #no prior params. no prior consts. 
+pS2   #2nd input to selectivity function
+   29  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+1   ON   10   100   65.7025830177   ARITHMETIC   1   OFF   1   none   none      none      width_for_NMFS_survey_selectivity_(males,_pre-1982)      #no prior params. no prior consts. 
+2   ON   10   100   90.1549652995   ARITHMETIC   1   OFF   1   none   none      none      width_for_NMFS_survey_selectivity_(males,_1982+)      #no prior params. no prior consts. 
+3   ON   10   100   41.588460304   ARITHMETIC   1   OFF   1   none   none      none      width_for_NMFS_survey_selectivity_(females,_pre-1982)      #no prior params. no prior consts. 
+4   ON   10   100   84.7274394598   ARITHMETIC   1   OFF   1   none   none      none      width_for_NMFS_survey_selectivity_(females,_1982+)      #no prior params. no prior consts. 
+5   ON   0.2   1   0.710709112006   ARITHMETIC   1   OFF   1   none   none      none      slope_for_TCF_retention_(pre-1991)      #no prior params. no prior consts. 
+6   ON   0.2   2   1.00273691164   ARITHMETIC   1   OFF   1   none   none      none      slope_for_TCF_retention_(1997+)      #no prior params. no prior consts. 
+7   ON   0.05   0.75   0.12160065231   ARITHMETIC   1   OFF   1   none   none      none      slope_for_TCF_selectivity_(males,_pre-1997)      #no prior params. no prior consts. 
+8   ON   0.1   0.4   0.171823957737   ARITHMETIC   1   OFF   1   none   none      none      slope_for_TCF_selectivity_(males,_1997+)      #no prior params. no prior consts. 
+9   ON   0.05   0.75   0.19349125806   ARITHMETIC   1   OFF   1   none   none      none      slope_for_TCF_selectivity_(females)      #no prior params. no prior consts. 
+10   ON   1   50   32.6190166025   ARITHMETIC   2   OFF   1   none   none      none      ascending_width_for_SCF_selectivity_(males,_pre-1997)      #no prior params. no prior consts. 
+11   ON   1   50   15.8962256161   ARITHMETIC   2   OFF   1   none   none      none      ascending_width_for_SCF_selectivity_(males,_1997-2004)      #no prior params. no prior consts. 
+12   ON   1   50   14.5364369444   ARITHMETIC   2   OFF   1   none   none      none      ascending_width_for_SCF_selectivity_(males,_2005+)      #no prior params. no prior consts. 
+13   ON   0.05   0.5   0.134528092863   ARITHMETIC   2   OFF   1   none   none      none      slope_for_SCF_selectivity_(females,_pre-1997)      #no prior params. no prior consts. 
+14   ON   0.05   0.5   0.318025410767   ARITHMETIC   2   OFF   1   none   none      none      slope_for_SCF_selectivity_(females,_1997-2004)      #no prior params. no prior consts. 
+15   ON   0.05   0.5   0.0955210139938   ARITHMETIC   2   OFF   1   none   none      none      slope_for_SCF_selectivity_(females,_2005+)      #no prior params. no prior consts. 
+16   ON   0.01   0.5   0.0867041255203   ARITHMETIC   2   OFF   1   none   none      none      slope_for_GF.AllGear_selectivity_(males,_pre-1987)      #no prior params. no prior consts. 
+17   ON   0.01   0.5   0.0436234919643   ARITHMETIC   2   OFF   1   none   none      none      slope_for_GF.AllGear_selectivity_(males,_1987-1996)      #no prior params. no prior consts. 
+18   ON   0.01   0.5   0.0583852076216   ARITHMETIC   2   OFF   1   none   none      none      slope_for_GF.AllGear_selectivity_(males,_1997+)      #no prior params. no prior consts. 
+19   ON   0.01   0.5   0.135598364262   ARITHMETIC   2   OFF   1   none   none      none      slope_for_GF.AllGear_selectivity_(females,_pre-1987)      #no prior params. no prior consts. 
+20   ON   0.01   0.5   0.164860997372   ARITHMETIC   2   OFF   1   none   none      none      slope_for_GF.AllGear_selectivity_(females,_1987-1996)      #no prior params. no prior consts. 
+21   ON   0.01   0.5   0.0640885047616   ARITHMETIC   2   OFF   1   none   none      none      slope_for_GF.AllGear_selectivity_(females,_1997+)      #no prior params. no prior consts. 
+22   ON   5   100   19.8701604064   ARITHMETIC   3   OFF   1   none   none      none      width_for_RKF_selectivity_(males,_pre-1997)      #no prior params. no prior consts. 
+23   ON   5   100   27.7854883155   ARITHMETIC   3   OFF   1   none   none      none      width_for_RKF_selectivity_(males,_1997-2004)      #no prior params. no prior consts. 
+24   ON   5   100   27.3370873751   ARITHMETIC   3   OFF   1   none   none      none      width_for_RKF_selectivity_(males,_2005+)      #no prior params. no prior consts. 
+25   ON   5   100   17.9900500049   ARITHMETIC   3   OFF   1   none   none      none      width_for_RKF_selectivity_(males,_pre-1997)      #no prior params. no prior consts. 
+26   ON   5   100   19.0940508986   ARITHMETIC   3   OFF   1   none   none      none      width_for_RKF_selectivity_(males,_1997-2004)      #no prior params. no prior consts. 
+27   ON   5   100   18.0478317384   ARITHMETIC   3   OFF   1   none   none      none      width_for_RKF_selectivity_(males,_2005+)      #no prior params. no prior consts. 
+28   ON   0.2   2   1.99   ARITHMETIC   -1   OFF   1   none   none      none      slope_for_TCF_retention_(2005-2009)      #no prior params. no prior consts. 
+29   ON   0.2   2   0.334542044485   ARITHMETIC   1   OFF   1   none   none      none      slope_for_TCF_retention_(2013+)      #no prior params. no prior consts. 
+pS3   #3rd input to selectivity function
+   3  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+1   ON   0   1   0.001   ARITHMETIC   -2   OFF   1   none   none      none      scaled_increment_for_descending_z-at-1_for_SCF_selectivity_(males,_pre-1997)      #no prior params. no prior consts. 
+2   ON   0   1   0.001   ARITHMETIC   -2   OFF   1   none   none      none      scaled_increment_for_descending_z-at-1_for_SCF_selectivity_(males,_1997-2004)      #no prior params. no prior consts. 
+3   ON   0   1   0.001   ARITHMETIC   -2   OFF   1   none   none      none      scaled_increment_for_descending_z-at-1_for_SCF_selectivity_(males,_2005+)      #no prior params. no prior consts. 
+pS4   #4th input to selectivity function
+   3  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+1   ON   1   30   1.1   ARITHMETIC   -2   OFF   1   none   none      none      descending_width_for_SCF_selectivity_(males,_pre-1997)      #no prior params. no prior consts. 
+2   ON   1   30   19.9293441515   ARITHMETIC   2   OFF   1   none   none      none      descending_width_for_SCF_selectivity_(males,_1997-2004)      #no prior params. no prior consts. 
+3   ON   1   30   13.2617616356   ARITHMETIC   2   OFF   1   none   none      none      descending_width_for_SCF_selectivity_(males,_2005+)      #no prior params. no prior consts. 
+pS5   #5th input to selectivity function
+   0  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+
+pS6   #6th input to selectivity function
+   0  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+
+pDevsS1   #devs to 1st input to selectivity function
+   1  #number of bounded parameters
+#     index index   read     read            lower upper initial  param        resample  prior   prior  prior   prior
+#id   type  block  phases?  values? jitter?  bound bound value   scale  phase  values?  weight  type   params  consts  label
+1   YEAR   [1991:1996;2005:2009;2013:2015;2017:2018;2020:2022]   TRUE   TRUE   ON   -0.5   0.5   0   ARITHMETIC   2   OFF   0   none   none      none      ln(z50_devs)_for_TCF_selectivity_(males,_1991+)      #no prior params. no prior consts. 
+#--id + phases and/or id + initial values:
+1    2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+1    0.107243350234 0.0850572372862 0.123584532203 0.12420586744 0.0992473108471 0.202913026694 -0.0299151239446 -0.0149508712419 -0.0809106576654 0.0359750561104 0.152330453995 -0.00969620250001 -0.0638867054806 -0.0988705267023 -0.0659724579489 -0.110830602268 -0.164909222262 -0.152261033034 -0.138268436725
+pDevsS2   #devs to 2nd input to selectivity function
+   0  #number of bounded parameters
+#     index index   read     read            lower upper initial  param        resample  prior   prior  prior   prior
+#id   type  block  phases?  values? jitter?  bound bound value   scale  phase  values?  weight  type   params  consts  label
+
+pDevsS3   #devs to 3rd input to selectivity function
+   0  #number of bounded parameters
+#     index index   read     read            lower upper initial  param        resample  prior   prior  prior   prior
+#id   type  block  phases?  values? jitter?  bound bound value   scale  phase  values?  weight  type   params  consts  label
+
+pDevsS4   #devs to 4th input to selectivity function
+   0  #number of bounded parameters
+#     index index   read     read            lower upper initial  param        resample  prior   prior  prior   prior
+#id   type  block  phases?  values? jitter?  bound bound value   scale  phase  values?  weight  type   params  consts  label
+
+pDevsS5   #devs to 5th input to selectivity function
+   0  #number of bounded parameters
+#     index index   read     read            lower upper initial  param        resample  prior   prior  prior   prior
+#id   type  block  phases?  values? jitter?  bound bound value   scale  phase  values?  weight  type   params  consts  label
+
+pDevsS6   #devs to 6th input to selectivity function
+   0  #number of bounded parameters
+#     index index   read     read            lower upper initial  param        resample  prior   prior  prior   prior
+#id   type  block  phases?  values? jitter?  bound bound value   scale  phase  values?  weight  type   params  consts  label
+
+pvNPSel   #non-parametric selectivity functions
+   10  #number of bounded parameters
+#     index index   read     read            lower upper initial  param        resample  prior   prior  prior   prior
+#id   type  block  phases?  values? jitter?  bound bound value   scale  phase  values?  weight  type   params  consts  label
+1   SIZE   [1:32]   TRUE   TRUE   OFF   -15   15   0   ARITHMETIC   -1   OFF   1   none   none      none      BSFRF_availability_(males,_2013)      #no prior params. no prior consts. 
+2   SIZE   [1:32]   TRUE   TRUE   OFF   -15   15   0   ARITHMETIC   -1   OFF   1   none   none      none      BSFRF_availability_(males,_2014)      #no prior params. no prior consts. 
+3   SIZE   [1:32]   TRUE   TRUE   OFF   -15   15   0   ARITHMETIC   -1   OFF   1   none   none      none      BSFRF_availability_(males,_2015)      #no prior params. no prior consts. 
+4   SIZE   [1:32]   TRUE   TRUE   OFF   -15   15   0   ARITHMETIC   -1   OFF   1   none   none      none      BSFRF_availability_(males,_2016)      #no prior params. no prior consts. 
+5   SIZE   [1:32]   TRUE   TRUE   OFF   -15   15   0   ARITHMETIC   -1   OFF   1   none   none      none      BSFRF_availability_(males,_2017)      #no prior params. no prior consts. 
+6   SIZE   [1:21]   TRUE   TRUE   OFF   -15   15   0   ARITHMETIC   -1   OFF   1   none   none      none      BSFRF_availability_(females,_2013)      #no prior params. no prior consts. 
+7   SIZE   [1:21]   TRUE   TRUE   OFF   -15   15   0   ARITHMETIC   -1   OFF   1   none   none      none      BSFRF_availability_(females,_2014)      #no prior params. no prior consts. 
+8   SIZE   [1:21]   TRUE   TRUE   OFF   -15   15   0   ARITHMETIC   -1   OFF   1   none   none      none      BSFRF_availability_(females,_2015)      #no prior params. no prior consts. 
+9   SIZE   [1:21]   TRUE   TRUE   OFF   -15   15   0   ARITHMETIC   -1   OFF   1   none   none      none      BSFRF_availability_(females,_2016)      #no prior params. no prior consts. 
+10   SIZE   [1:21]   TRUE   TRUE   OFF   -15   15   0   ARITHMETIC   -1   OFF   1   none   none      none      BSFRF_availability_(females,_2017)      #no prior params. no prior consts. 
+#--id + phases and/or id + initial values:
+1    -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+1    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+2    -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+2    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+3    -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+3    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+4    -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+4    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+5    -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+5    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+6    -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+6    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+7    -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+7    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+8    -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+8    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+9    -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+9    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+10    -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+10    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+pvCubSplns   #cubic spline selectivity functions
+   0  #number of bounded parameters
+#     index index   read     read            lower upper initial  param        resample  prior   prior  prior   prior
+#id   type  block  phases?  values? jitter?  bound bound value   scale  phase  values?  weight  type   params  consts  label
+
+
+#-------------------------------
+# Fisheries parameters  
+#-------------------------------
+fisheries   #process name
+PARAMETER_COMBINATIONS
+35   #number of parameter combinations
+#id  FISHERY   YEAR_BLOCK   SEX   MATURITY_STATE   SHELL_CONDITION   pHM   pLnC   pDC1   pDC2   pDC3   pDC4   pDevsLnC   pLnEffX   pLgtRet   idx.SelFcn   idx.RetFcn   useEffX   label   
+1   1   [1948:1964]   MALE   ALL_MATURITY   ALL_SHELL   1   1   0   0   0   0   0   0   0   7   5   0   TCF:_males_pre-1965   
+2   1   [1965:1984;1987:1990]   MALE   ALL_MATURITY   ALL_SHELL   1   2   0   0   0   0   1   0   1   7   5   0   TCF:_males_1965-1990   
+3   1   [1991:1996]   MALE   ALL_MATURITY   ALL_SHELL   1   2   0   0   0   0   1   0   1   8   6   0   TCF:_males_1991-1996   
+4   1   [2005:2009]   MALE   ALL_MATURITY   ALL_SHELL   1   2   0   0   0   0   1   0   2   9   29   0   TCF:_males_2005-2009   
+5   1   [2013:2015;2017:2018;2020:2022]   MALE   ALL_MATURITY   ALL_SHELL   1   2   0   0   0   0   1   0   3   9   30   0   TCF:_males_2013+   
+6   1   [1948:1964]   FEMALE   ALL_MATURITY   ALL_SHELL   1   1   0   1   0   0   0   0   0   10   0   0   TCF:_females_pre-1965   
+7   1   [1965:1984;1987:1996;2005:2009;2013:2015;2017:2018;2020:2022]   FEMALE   ALL_MATURITY   ALL_SHELL   1   2   0   1   0   0   1   0   0   10   0   0   TCF:_females_1965+   
+8   2   [1948:1977]   MALE   ALL_MATURITY   ALL_SHELL   1   3   0   0   0   0   0   0   0   11   0   0   SCF:_males_pre-1978   
+9   2   [1978:1989]   MALE   ALL_MATURITY   ALL_SHELL   1   0   0   0   0   0   0   0   0   11   0   1   SCF:_males_1978-1996   
+10   2   [1990:1996]   MALE   ALL_MATURITY   ALL_SHELL   1   4   0   0   0   0   2   0   0   11   0   0   SCF:_males_1978-1996   
+11   2   [1997:2004]   MALE   ALL_MATURITY   ALL_SHELL   1   4   0   0   0   0   2   0   0   12   0   0   SCF:_males_1997-2004   
+12   2   [2005:2021]   MALE   ALL_MATURITY   ALL_SHELL   1   4   0   0   0   0   2   0   0   13   0   0   SCF:_males_2005+   
+13   2   [1948:1977]   FEMALE   ALL_MATURITY   ALL_SHELL   1   3   0   2   0   0   0   0   0   14   0   0   SCF:_females_pre-1978   
+14   2   [1978:1989]   FEMALE   ALL_MATURITY   ALL_SHELL   1   0   0   0   0   0   0   0   0   14   0   2   SCF:_females_1978-1996   
+15   2   [1990:1996]   FEMALE   ALL_MATURITY   ALL_SHELL   1   4   0   2   0   0   2   0   0   14   0   0   SCF:_females_1978-1996   
+16   2   [1997:2004]   FEMALE   ALL_MATURITY   ALL_SHELL   1   4   0   2   0   0   2   0   0   15   0   0   SCF:_females_1997-2004   
+17   2   [2005:2021]   FEMALE   ALL_MATURITY   ALL_SHELL   1   4   0   2   0   0   2   0   0   16   0   0   SCF:_females_2005+   
+18   3   [1948:1972]   MALE   ALL_MATURITY   ALL_SHELL   2   6   0   0   0   0   0   0   0   17   0   0   GTF:_males_pre-1973   
+19   3   [1973:1986]   MALE   ALL_MATURITY   ALL_SHELL   2   6   0   0   0   0   3   0   0   17   0   0   GTF:_males_1973:1986   
+20   3   [1987:1996]   MALE   ALL_MATURITY   ALL_SHELL   2   6   0   0   0   0   3   0   0   18   0   0   GTF:_males_1987:1996   
+21   3   [1997:2022]   MALE   ALL_MATURITY   ALL_SHELL   2   6   0   0   0   0   3   0   0   19   0   0   GTF:_males_1997+   
+22   3   [1948:1972]   FEMALE   ALL_MATURITY   ALL_SHELL   2   6   0   3   0   0   0   0   0   20   0   0   GTF:_females_pre-1973   
+23   3   [1973:1986]   FEMALE   ALL_MATURITY   ALL_SHELL   2   6   0   3   0   0   3   0   0   20   0   0   GTF:_males_1973:1986   
+24   3   [1987:1996]   FEMALE   ALL_MATURITY   ALL_SHELL   2   6   0   3   0   0   3   0   0   21   0   0   GTF:_males_1987:1996   
+25   3   [1997:2022]   FEMALE   ALL_MATURITY   ALL_SHELL   2   6   0   3   0   0   3   0   0   22   0   0   GTF:_males_1997+   
+26   4   [1948:1952]   MALE   ALL_MATURITY   ALL_SHELL   1   7   0   0   0   0   0   0   0   23   0   0   RKF:_males_pre-1952   
+27   4   [1953:1989]   MALE   ALL_MATURITY   ALL_SHELL   1   0   0   0   0   0   0   0   0   23   0   3   RKF:_males_1953-1991   
+28   4   [1990:1993;1996]   MALE   ALL_MATURITY   ALL_SHELL   1   8   0   0   0   0   4   0   0   23   0   0   RKF:_males_1992-1996   
+29   4   [1997:2004]   MALE   ALL_MATURITY   ALL_SHELL   1   8   0   0   0   0   4   0   0   24   0   0   RKF:_males_1997-2004   
+30   4   [2005:2020]   MALE   ALL_MATURITY   ALL_SHELL   1   8   0   0   0   0   4   0   0   25   0   0   RKF:_males_2005+   
+31   4   [1948:1952]   FEMALE   ALL_MATURITY   ALL_SHELL   1   7   0   4   0   0   0   0   0   26   0   0   RKF:_females_pre-1952   
+32   4   [1953:1989]   FEMALE   ALL_MATURITY   ALL_SHELL   1   0   0   0   0   0   0   0   0   26   0   4   RKF:_females_1953-1991   
+33   4   [1990:1993;1996]   FEMALE   ALL_MATURITY   ALL_SHELL   1   8   0   4   0   0   4   0   0   26   0   0   RKF:_females_1992-1996   
+34   4   [1997:2004]   FEMALE   ALL_MATURITY   ALL_SHELL   1   8   0   4   0   0   4   0   0   27   0   0   RKF:_females_1997-2004   
+35   4   [2005:2020]   FEMALE   ALL_MATURITY   ALL_SHELL   1   8   0   4   0   0   4   0   0   28   0   0   RKF:_females_2005+   
+PARAMETERS
+pHM   #handling mortality (0-1)
+   2  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+1   OFF   0   1   0.321   ARITHMETIC   -1   OFF   1   none   none      none      handling_mortality_for_pot_fisheries      #no prior params. no prior consts. 
+2   OFF   0   1   0.8   ARITHMETIC   -1   OFF   1   none   none      none      handling_mortality_for_groundfish_trawl_fisheries      #no prior params. no prior consts. 
+pLnC   #ln-scale base mean capture rate (mature male crab)
+   8  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+1   OFF   -10   2   -2.995732274   ARITHMETIC   -1   OFF   1   none   none      none      TCF:_base_capture_rate,_pre-1965_(=0.05)      #no prior params. no prior consts. 
+2   ON   -10   2   -1.50142908858   ARITHMETIC   1   OFF   1   none   none      none      TCF:_base_capture_rate,_1965+      #no prior params. no prior consts. 
+3   OFF   -10   2   -4.605170186   ARITHMETIC   -2   OFF   1   none   none      none      SCF:_base_capture_rate,_pre-1978_(=0.01)      #no prior params. no prior consts. 
+4   ON   -10   2   -3.75209792002   ARITHMETIC   2   OFF   1   none   none      none      SCF:_base_capture_rate,_1992+      #no prior params. no prior consts. 
+5   OFF   -10   2   -4.180723944   ARITHMETIC   -2   OFF   0   none   none      none      DUMMY_CAPTURE_RATE      #no prior params. no prior consts. 
+6   ON   -10   2   -5.00753371045   ARITHMETIC   2   OFF   1   none   none      none      GTF:_base_capture_rate,_ALL_YEARS      #no prior params. no prior consts. 
+7   OFF   -10   2   -3.912023005   ARITHMETIC   -2   OFF   1   none   none      none      RKF:_base_capture_rate,_pre-1953_(=0.02)      #no prior params. no prior consts. 
+8   ON   -10   2   -4.75010889471   ARITHMETIC   2   OFF   1   none   none      none      RKF:_base_capture_rate,_1992+      #no prior params. no prior consts. 
+pDC1   #ln-scale capture rate offset 1
+   0  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+
+pDC2   #ln-scale capture rate offset 2
+   4  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+1   ON   -5   0   -2.75727699463   ARITHMETIC   1   OFF   1   none   none      none      TCF:_female_offset      #no prior params. no prior consts. 
+2   ON   -5   0   -2.68202562502   ARITHMETIC   2   OFF   1   none   none      none      SCF:_female_offset      #no prior params. no prior consts. 
+3   ON   -5   0   -1.04513615408   ARITHMETIC   2   OFF   1   none   none      none      GTF:_female_offset      #no prior params. no prior consts. 
+4   ON   -5   0   -2.39927210415   ARITHMETIC   2   OFF   1   none   none      none      RKF:_female_offset      #no prior params. no prior consts. 
+pDC3   #ln-scale capture rate offset 3
+   0  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+
+pDC4   #ln-scale capture rate offset 4
+   0  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+
+pDevsLnC   #ln-scale annual capture rate devs
+   4  #number of bounded parameters
+#     index index   read     read            lower upper initial  param        resample  prior   prior  prior   prior
+#id   type  block  phases?  values? jitter?  bound bound value   scale  phase  values?  weight  type   params  consts  label
+1   YEAR   [1965:1984;1987:1996;2005:2009;2013:2015;2017:2018;2020:2022]   TRUE   TRUE   ON   -5   5   0   ARITHMETIC   1   OFF   0   normal    0 1      none      TCF:_1965-1984,_1987-1996,_2005-2009,_2013-2015,_2017-2018      #prior params are mean, stdv. no prior consts. 
+2   YEAR   [1990:2021]   TRUE   TRUE   ON   -5   5   0   ARITHMETIC   2   OFF   0   normal    0 1      none      SCF:_1992+      #prior params are mean, stdv. no prior consts. 
+3   YEAR   [1973:2022]   TRUE   TRUE   ON   -5   5   0   ARITHMETIC   2   OFF   0   normal    0 1      none      GF.AllGear:_1973+      #prior params are mean, stdv. no prior consts. 
+4   YEAR   [1990:1993;1996:2020]   TRUE   TRUE   ON   -5   5   0   ARITHMETIC   2   OFF   0   normal    0 1      none      RKF:_1992+      #prior params are mean, stdv. no prior consts. 
+#--id + phases and/or id + initial values:
+1    1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+1    -1.30252462648 -1.09337812023 0.74736465179 1.32296199072 2.47038610663 4.12681410999 4.63034748686 2.0745883789 0.0876678507363 -0.246991600049 -0.11488675406 0.638204458573 1.3732790344 1.59726548891 2.01429474041 1.81930137198 0.208228483577 -0.915615395563 -2.34073465788 -1.0268835361 -1.38086240311 -0.422090089258 0.761831853205 1.51845092493 1.82826180165 2.15733591145 1.7105435764 0.955318833457 0.366217340332 0.297649714403 -2.36221421644 -1.74412825193 -1.92080784213 -2.07886883396 -2.10416351661 -1.95307103928 -0.677299018056 -0.371214849648 -2.07566033741 -1.91712296477 -2.11935103081 -2.44834490535 -2.09010012236
+2    2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+2    1.49957625948 1.7485235894 0.73768611139 1.12060088045 0.548108431708 0.471365198121 1.31208143934 1.08190160182 0.148981628183 -1.45995908093 -0.711903297271 -0.258029412944 -1.54277056661 -2.65986811264 -1.97060119955 -0.00938909615571 0.135616051114 0.171305778888 -0.457583391391 -0.0735269659881 0.0265144456287 0.573499311188 0.274087854547 0.20007203616 1.03790910695 0.837165632385 0.66377034903 0.042719047967 0.0476624028531 0.358784641963 -1.62222468116 -2.27207599382
+3    2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+3    1.49535079973 1.82923065307 0.9887997067 0.459545742307 0.131222991993 -0.152879380699 0.436856380607 0.0706040793333 -0.102606403093 -1.03612546329 -0.301315020994 -0.0231384280868 -0.509514685971 -0.243893323113 -0.356501500165 -0.852204246638 -0.563788020405 -0.190143885725 0.643198985023 0.900746945876 0.612971580265 1.04586051697 0.954863117672 1.13000965281 1.5828053355 1.44486169327 0.91886849597 0.957337887179 1.17977426435 0.47497826253 -0.0696596060309 0.220572974481 -0.110753433887 -0.137634331357 -0.0478355452051 -0.383884907035 -0.757295231613 -1.09497062648 -0.788079239223 -1.2689238679 -0.703294991984 -0.618062076803 -0.750999245985 -0.652693744614 -1.21767634081 -0.907360137652 -0.778204019525 -0.847286909861 -0.861264898884 -1.15047062347
+4    2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+4    3.77328338267 3.4512272999 3.24331526922 4.16362711496 2.20549662787 0.951162349744 0.700332852833 0.282520337432 0.062839285157 -0.529862516591 -0.339270727134 -0.636838890794 -0.957772636918 -1.31916428792 -1.81757988747 -1.2710520494 0.112302742361 -0.359249097992 -2.02520749087 -2.46789770698 -1.4307845182 -0.398218838392 0.262390181453 -0.147353620117 -0.182070644399 0.032552150345 -0.668375718815 -1.89739994975 -2.79295101155
+pLnEffX   #ln-scale effort extrapolation parameters
+   0  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+
+pLgtRet   #logit-scale retained fraction parameters
+   3  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+1   ON   0   15   14.9   ARITHMETIC   -3   OFF   1   none   none      none      TCF:_logit-scale_max_retention_(pre-1997)      #no prior params. no prior consts. 
+2   ON   0   15   14.9   ARITHMETIC   -3   OFF   1   none   none      none      TCF:_logit-scale_max_retention_(2005-2009)      #no prior params. no prior consts. 
+3   ON   0   15   14.9   ARITHMETIC   -3   OFF   1   none   none      none      TCF:_logit-scale_max_retention_(2013+)      #no prior params. no prior consts. 
+
+#-------------------------------
+# Surveys parameters  
+#-------------------------------
+surveys   #process name
+PARAMETER_COMBINATIONS
+24   #number of parameter combinations
+#id  SURVEY   YEAR_BLOCK   SEX   MATURITY_STATE   SHELL_CONDITION   pQ   pDQ1   pDQ2   pDQ3   pDQ4   pLnXCV   pA   idx.AvlFcn   idx.SelFcn   label   
+1   1   [1975:1981]   MALE   ALL_MATURITY   ALL_SHELL   1   0   0   0   0   0   0   0   1   NMFS_(males_only):_pre-1982   
+2   1   [1982:2023]   MALE   ALL_MATURITY   ALL_SHELL   2   0   0   0   0   0   0   0   2   NMFS_(males_only):_1982+   
+3   2   [1975:1981]   FEMALE   ALL_MATURITY   ALL_SHELL   3   0   0   0   0   0   0   0   3   NMFS_(females_only):_pre-1982   
+4   2   [1982:2023]   FEMALE   ALL_MATURITY   ALL_SHELL   4   0   0   0   0   0   0   0   4   NMFS_(females_only):_1982+   
+5   3   [2013]   MALE   ALL_MATURITY   ALL_SHELL   2   0   0   0   0   0   0   -1   2   NMFS_SBS:_males_2013   
+6   3   [2014]   MALE   ALL_MATURITY   ALL_SHELL   2   0   0   0   0   0   0   -2   2   NMFS_SBS:_males_2014   
+7   3   [2015]   MALE   ALL_MATURITY   ALL_SHELL   2   0   0   0   0   0   0   -3   2   NMFS_SBS:_males_2015   
+8   3   [2016]   MALE   ALL_MATURITY   ALL_SHELL   2   0   0   0   0   0   0   -4   2   NMFS_SBS:_males_2016   
+9   3   [2017]   MALE   ALL_MATURITY   ALL_SHELL   2   0   0   0   0   0   0   -5   2   NMFS_SBS:_males_2017   
+10   4   [2013]   FEMALE   ALL_MATURITY   ALL_SHELL   4   0   0   0   0   0   0   -6   4   NMFS_SBS:_females_2013   
+11   4   [2014]   FEMALE   ALL_MATURITY   ALL_SHELL   4   0   0   0   0   0   0   -7   4   NMFS_SBS:_females_2014   
+12   4   [2015]   FEMALE   ALL_MATURITY   ALL_SHELL   4   0   0   0   0   0   0   -8   4   NMFS_SBS:_females_2015   
+13   4   [2016]   FEMALE   ALL_MATURITY   ALL_SHELL   4   0   0   0   0   0   0   -9   4   NMFS_SBS:_females_2016   
+14   4   [2017]   FEMALE   ALL_MATURITY   ALL_SHELL   4   0   0   0   0   0   0   -10   4   NMFS_SBS:_females_2017   
+15   5   [2013]   MALE   ALL_MATURITY   ALL_SHELL   5   0   0   0   0   0   0   -1   41   BSFRF_SBS:_males_2013   
+16   5   [2014]   MALE   ALL_MATURITY   ALL_SHELL   5   0   0   0   0   0   0   -2   41   BSFRF_SBS:_males_2014   
+17   5   [2015]   MALE   ALL_MATURITY   ALL_SHELL   5   0   0   0   0   0   0   -3   41   BSFRF_SBS:_males_2015   
+18   5   [2016]   MALE   ALL_MATURITY   ALL_SHELL   5   0   0   0   0   0   0   -4   41   BSFRF_SBS:_males_2016   
+19   5   [2017]   MALE   ALL_MATURITY   ALL_SHELL   5   0   0   0   0   0   0   -5   41   BSFRF_SBS:_males_2017   
+20   6   [2013]   FEMALE   ALL_MATURITY   ALL_SHELL   5   0   0   0   0   0   0   -6   41   BSFRF_SBS:_females_2013   
+21   6   [2014]   FEMALE   ALL_MATURITY   ALL_SHELL   5   0   0   0   0   0   0   -7   41   BSFRF_SBS:_females_2014   
+22   6   [2015]   FEMALE   ALL_MATURITY   ALL_SHELL   5   0   0   0   0   0   0   -8   41   BSFRF_SBS:_females_2015   
+23   6   [2016]   FEMALE   ALL_MATURITY   ALL_SHELL   5   0   0   0   0   0   0   -9   41   BSFRF_SBS:_females_2016   
+24   6   [2017]   FEMALE   ALL_MATURITY   ALL_SHELL   5   0   0   0   0   0   0   -10   41   BSFRF_SBS:_females_2017   
+PARAMETERS
+pQ   #base catchability (e.g. mature male crab)
+   5  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+1   ON   0.01   1.1   0.472583975415   LOG   5   OFF   1   none   none      none      NMFS_trawl_survey:_males,_1975-1981      #no prior params. no prior consts. 
+2   ON   0.01   1.1   0.483926047122   LOG   5   OFF   1   normal    0.88 0.05      none      NMFS_trawl_survey:_males,_1982+      #prior params are mean, stdv. no prior consts. 
+3   ON   0.01   1.1   0.315238103576   LOG   5   OFF   1   none   none      none      NMFS_trawl_survey:_females,_1975-1981      #no prior params. no prior consts. 
+4   ON   0.01   1.1   0.248957542401   LOG   5   OFF   1   normal    0.88 0.05      none      NMFS_trawl_survey:_females,_1982+      #prior params are mean, stdv. no prior consts. 
+5   OFF   0.5   1.5   1   LOG   -5   OFF   1   none   none      none      BSFRF_SBS      #no prior params. no prior consts. 
+pDQ1   #offset 1 for ln-scale catchability
+   0  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+
+pDQ2   #offset 2 for ln-scale catchability
+   0  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+
+pDQ3   #offset 3 for ln-scale catchability
+   0  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+
+pDQ4   #offset 4 for ln-scale catchability
+   0  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+
+pLnXCV   #ln-scale cv for extra uncertainty
+   0  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+
+pA   #max availability
+   0  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+
+
+#-------------------------------
+# DirichletMultinomial-related parameters  
+#-------------------------------
+DirichletMultinomial   #process name
+PARAMETER_COMBINATIONS
+2   #number of parameter combinations
+#id  FLEET   pLnDirMul   label   
+1   3   1   BSFRF_SBS_(males_only)   
+2   4   2   BSFRF_SBS_(females_only)   
+PARAMETERS
+pLnDirMul   #ln-scale Dirichlet-Multinomial parameter
+   2  #number of bounded parameters
+#           lower  upper  initial param        resample  prior   prior  prior   prior
+#id jitter? bounds bounds  value  scale  phase  values?  weight  type   params  consts  label
+1   OFF   -5   11   0.930875286147   ARITHMETIC   5   OFF   0   none   none      none      ln(theta)_parameter_for_BSFRF_SBS_M      #no prior params. no prior consts. 
+2   OFF   -5   11   2.5226968418   ARITHMETIC   5   OFF   0   none   none      none      ln(theta)_parameter_for_BSFRF_SBS_F      #no prior params. no prior consts. 
+
+#-------------------------------
+# MSE-related parameters  
+#-------------------------------
+MSE   #process name
+PARAMETER_COMBINATIONS
+0   #number of parameter combinations
+
+
