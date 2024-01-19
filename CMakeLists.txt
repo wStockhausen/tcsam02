@@ -1,11 +1,33 @@
+#--set minimum required cmake version
 cmake_minimum_required(VERSION 3.26)
 
+set(CMAKE_VERBOSE_MAKEFILE TRUE)
+
+message(" Using CMAKE version ${CMAKE_VERSION}")
+
+#--create the project
 project(
     tcsam02
     LANGUAGES CXX
-    VERSION 2017.06.06
+    VERSION 2023.03.07
     DESCRIPTION "CMake script to build tcsam02, the assessment model for Tanner crab"
 )
+
+#--print some informative messages
+message("  Host:    '${CMAKE_HOST_SYSTEM_NAME}'")
+message("  C:       '${CMAKE_C_COMPILER}'")
+message("  C++:     '${CMAKE_CXX_COMPILER}'")
+message("  Source:  '${PROJECT_SOURCE_DIR}'")
+message("  Binary:  '${PROJECT_BINARY_DIR}'")
+message("  Version: '${PROJECT_VERSION}'")
+
+#--set some host-specific commands
+set(CP "cp")
+if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Windows")
+    set(CP "copy")
+endif()
+
+message(" --Copy command: '${CP}'")
 
 #--set some local variables
 set(ADMB_HOME "/Users/williamstockhausen/Work/Programming/admb/build/admb")
@@ -58,7 +80,7 @@ include_directories(
 #----copy tpl to _build folder
 add_custom_command(
     OUTPUT ${TPL}.tpl
-    COMMAND cp  ${TPL_BASE} ${TPL}.tpl        
+    COMMAND ${CP}  ${TPL_BASE} ${TPL}.tpl        
     DEPENDS "${TPL_BASE}"
             "${TPL_PERSONAL}"
     COMMENT "Copying ${TPL}.tpl from ${TPL_BASE}."
@@ -73,11 +95,6 @@ add_custom_command(
 
 #--add command to compile and create executable
 add_executable(${TPL} ${TPL}.cpp ${TPL}.htp)
-#--add _build folder to target-specific include folder
-# target_include_directories(${TPL}
-#     "."
-#     "../${${TPL}_INCLUDE}"
-# )
 #--add preprocessor flags (no -D) for target
 target_compile_definitions(${TPL} 
     PUBLIC USE_ADMB_CONTRIBS
@@ -91,7 +108,7 @@ target_compile_options(${TPL}
 #--add compiler features
 target_compile_features(${TPL} PUBLIC cxx_std_14)
 #--add target include directories 
-#--NOTE: (${GMACS_INCLUDE} already in global include_directories)
+#--NOTE: (${${TPL}_INCLUDE} already in global include_directories)
 # target_include_directories(${TPL} PUBLIC xxx)
 #--add additional sources to target 
 #--TODO?: could move this to CMakeLists file in ${GMACS_SRC}??
