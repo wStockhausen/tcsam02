@@ -14,29 +14,30 @@ project(
 )
 
 #--print some informative messages
-message("  Host:    '${CMAKE_HOST_SYSTEM_NAME}'")
-message("  C:       '${CMAKE_C_COMPILER}'")
-message("  C++:     '${CMAKE_CXX_COMPILER}'")
+message("  Project: '${PROJECT_NAME}'")
 message("  Source:  '${PROJECT_SOURCE_DIR}'")
 message("  Binary:  '${PROJECT_BINARY_DIR}'")
 message("  Version: '${PROJECT_VERSION}'")
-
-#--set some host-specific commands
-set(CP "cp")
-if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Windows")
-    set(CP "copy")
-endif()
-
-message(" --Copy command: '${CP}'")
+message("  Host:    '${CMAKE_HOST_SYSTEM_NAME}'")
+message("  C:       '${CMAKE_C_COMPILER}'")
+message("  C++:     '${CMAKE_CXX_COMPILER}'")
 
 #--set some local variables
-set(ADMB_HOME "/Users/williamstockhausen/Work/Programming/admb/build/admb")
-set(WTSADMB_HOME "/Users/williamstockhausen/Work/StockAssessments-Crab/AssessmentModelDevelopment/VS_Code/wtsADMB")
 set(TPL "tcsam02")
 set(TPL_BASE "../${TPL}.tpl")
 set(${TPL}_INCLUDE "include")
 set(${TPL}_SRC "src")
+set(ADMB_HOME "$ENV{ADMB_HOME}")
+set(WTSADMB_HOME "$ENV{WTSADMB_HOME}")
 set(myCXX_FLAGS "-DUSE_ADMB_CONTRIBS")
+
+#--set some host-specific commands
+set(CP "cp")
+if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Windows")
+    set(CP "${RToolsUsr}/bin/cp")
+endif()
+
+message(" --Copy command: '${CP}'")
 
 #--add external executables; set associated locations
 add_executable(tpl2cpp IMPORTED)
@@ -69,7 +70,7 @@ set_property(
 #--add "global" include folders
 #----relative paths are interpreted as relative to the current source folder
 include_directories(
-    "_build"
+    "${PROJECT_BINARY_DIR}"         #--for tcsam02.htp
     "${WTSADMB_HOME}/include"
     "${ADMB_HOME}/include"
     "${ADMB_HOME}/include/contrib"
@@ -80,10 +81,9 @@ include_directories(
 #----copy tpl to _build folder
 add_custom_command(
     OUTPUT ${TPL}.tpl
-    COMMAND ${CP}  ${TPL_BASE} ${TPL}.tpl        
-    DEPENDS "${TPL_BASE}"
-            "${TPL_PERSONAL}"
-    COMMENT "Copying ${TPL}.tpl from ${TPL_BASE}."
+    COMMAND ${CP} ${PROJECT_SOURCE_DIR}/${TPL}.tpl ${PROJECT_BINARY_DIR}/${TPL}.tpl        
+    DEPENDS ${PROJECT_SOURCE_DIR}/${TPL}.tpl
+    COMMENT "Copying ${TPL}.tpl from ${PROJECT_SOURCE_DIR}/${TPL}.tpl to ${PROJECT_BINARY_DIR}/${TPL}.tpl."
 )
 #----run tpl2cpp in _build folder to create ${TPL}.cpp and ${TPL}.htp files there
 add_custom_command(
