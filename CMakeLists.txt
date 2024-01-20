@@ -1,5 +1,5 @@
 #--set minimum required cmake version
-cmake_minimum_required(VERSION 3.26)
+cmake_minimum_required(VERSION 3.24)
 
 set(CMAKE_VERBOSE_MAKEFILE TRUE)
 
@@ -34,7 +34,7 @@ set(myCXX_FLAGS "-DUSE_ADMB_CONTRIBS")
 #--set some host-specific commands
 set(CP "cp")
 if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Windows")
-    set(CP "${RToolsUsr}/bin/cp")
+    set(CP "$ENV{RToolsUsr}/bin/cp")
 endif()
 
 message(" --Copy command: '${CP}'")
