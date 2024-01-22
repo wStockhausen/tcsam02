@@ -31,6 +31,9 @@ set(ADMB_HOME "$ENV{ADMB_HOME}")
 set(WTSADMB_HOME "$ENV{WTSADMB_HOME}")
 set(myCXX_FLAGS "-DUSE_ADMB_CONTRIBS")
 
+message("ADMB_HOME:    ${ADMB_HOME}")
+message("WTSADMB_HOME: ${WTSADMB_HOME}")
+
 #--set some host-specific commands
 set(CP "cp")
 if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Windows")
