@@ -12,3 +12,5 @@
 /oldExecutables/
 .DS_Store
 testing/run/
+README.html
+/README_files/

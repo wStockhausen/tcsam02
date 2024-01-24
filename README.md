@@ -12,49 +12,71 @@ for use in the September 2017 Tanner crab assessment and has been used in subseq
 
 
 ## Required libraries
-The admb and wtsADMB C++ libraries are required to compile TCSAM02. The relevant ADMB library can be found at http://www.admb-project.org. The
-current version of TCSAM02 uses ADMB version 12. wtsADMB is a library of ADMB-RELATED C++ functions available as soure code on GitHub
-at https://github.com/wStockhausen/wtsADMB. 
+The admb and wtsADMB C++ libraries are required to compile TCSAM02. The relevant ADMB library can be found at http://www.admb-project.org. The current version of TCSAM02 uses ADMB version 13.1. wtsADMB is a library of ADMB-RELATED C++ functions available as soure code on GitHub at https://github.com/wStockhausen/wtsADMB. 
 
+## Installation
+
+### OSX or linux
+
+Follow the installation instructions for ADMB (http://www.admb-project.org) and wtsADMB (https://github.com/wStockhausen/wtsADMB) to install these required libraries (and associated header files) prior to creating tcsam02. 
+
+After installation, create environment variables ADMB_HOME and WTSADMB_HOME with the paths to the parent folder of the "include" and "lib" directories for each installation. 
+
+### on Windows
+
+If you don't already have RTools installed on your machine, download and install it. Add the "bin" folder that contains the "g++" executable to the Windows search path. Also, create an environment variable "RToolsUsr" that contains the path to the "usr" folder in the RTools distribution. Then install ADMB and wtsADMB as above (and create the associated environment variables), making sure the RTools compiler is the one used for compilation in both cases.
+
+## Using CMake 
+
+On Windows, an executable version of cmake comes with the RTools installation (in the same folder as g++.exe). On OSX or linux, download and install a version from https://cmake.org/download/.
+
+To create an executable version of tcsam02 open a command prompt (Windows) or terminal window (OSX or linux), change to the top folder in the tcsam02 directory tree (the one with tcsam02.tpl) and enter the following commands:
+
+    * cmake --S . --build _build
+    * cmake --build _build
+
+These will create the "_build" folder, copy tcsam02.tpl into it, create tcsam02.cpp and tcsam02.htp in it by running tpl2cpp, and compile the executable. Assuming all goes well, an executable version of tcsam02 ("tcsam02" or "tcsam02.exe") will be created in the _build folder. [Note: you can replace "_build" in the above with another folder name of your choosing].
 
 ## Setting up TCSAM02 as a Netbeans Project
+
 Netbeans should be configured with the C++ modules installed. 
-1. Use Team/git/clone to clone the repository into TopFolder/tcsam02, where "TopFolder" is an arbitrary directory.
-2. Create a new Netbeans C++ application called "tcsam02" in the directory TopFolder (so TopFolder/tcsam02 will be
-the top-level folder in the Netbeans project). Using the Project Creator:
-    * create a "new" C++ application project in TopFolder
-    * uncheck the "Create Main File" option
-    * use "tcsam02" as the project name
-    * save the project
-3. Open the "tcsam02" project in Netbeans.
-    * edit nbproject/configurations.xml to replace "tcsam02-Makefile.mk" with "Makefile" in both instances
-    * delete "tcsam02-Makefile.mk"
-    * Note that "Makefile" is now under the "Important Files" icon in the Project view
-    * edit the Makefile variables PLATFORM and ADMB_HOME_WIN or ADMB_HOME_MAC under "#Environment" to conform to your ADMB installation
-    * add tcsam02.tpl to the "Important Files"
-    * right-click the Makefile under "Important Files", Select "Make Target" and run the .tpl2cpp target (may need to "Add" it first)
-    * assuming the tpl2cpp ran successfully (if not, check your path to tpl2cpp.exe), the files tcsam02.htp and tcsam02.cpp will have been created
-        * add tcsam02.htp to the "Header Files" (right click the icon, select "Add existing file")
-        * add tcsam02.cpp to the "Source Files" (right click the icon, select "Add existing file")
-    * add the files under the "include" subfolder to the "Header Files" (right click the icon, select "Add existing file")
-    * add the files under the "src" subfolder to the "Source Files" (right click the icon, select "Add existing file")
-4. Right-click the "tcsam02" project icon, select "Properties", and set up  the compiler and 
-linker options per your system.
-    * Windows (64-bit ADMB, MinGW toolset, for non-optimized compilation)
-        * Under "Build/C++ Compiler", 
-            * "Include Directories": add ".", "include", and the paths to the wtsADMB include directory, the ADMB include directory, and the ADMB include/contrib directory
-            * "Additional Options": add "-std=c++11 -O3 -D_FILE_OFFSET_BITS=64" (no quotes)
-        * Under Linker", file paths under "Libraries" should point to the libwtsadmb.a and libadmb-contrib.a libraries
-    * OSX (64-bit ADMB, GNU toolset, for non-optimized compilation)
-        * Under "Build/C++ Compiler", 
-            * "Include Directories": add ".", "include", and the paths to the wtsADMB include directory, the ADMB include directory, and the ADMB include/contrib directory
-            * "Additional Options": none
-        * Under Linker", 
-            * file paths under "Libraries" should point to the libwtsadmb.a and libadmb-contrib.a libraries
-            * "Additional Options": add "-g" (no quotes) to include debugging symbols
+
+    1. Use Team/git/clone to clone the repository into TopFolder/tcsam02, where "TopFolder" is an arbitrary directory.
+    2. Create a new Netbeans C++ application called "tcsam02" in the directory TopFolder (so TopFolder/tcsam02 will be the top-level folder in the Netbeans project). Using the Project Creator:
+        * create a "new" C++ application project in TopFolder
+        * uncheck the "Create Main File" option
+        * use "tcsam02" as the project name
+        * save the project
+    3. Open the "tcsam02" project in Netbeans.
+        * edit nbproject/configurations.xml to replace "tcsam02-Makefile.mk" with "Makefile" in both instances
+        * delete "tcsam02-Makefile.mk"
+        * Note that "Makefile" is now under the "Important Files" icon in the Project view
+        * edit the Makefile variables PLATFORM and ADMB_HOME_WIN or ADMB_HOME_MAC under "#Environment" to conform to your ADMB installation
+        * add tcsam02.tpl to the "Important Files"
+        * right-click the Makefile under "Important Files", Select "Make Target" and run the .tpl2cpp target (may need to "Add" it first)
+        * assuming the tpl2cpp ran successfully (if not, check your path to tpl2cpp.exe), the files tcsam02.htp and tcsam02.cpp will have been created
+            * add tcsam02.htp to the "Header Files" (right click the icon, select "Add existing file")
+            * add tcsam02.cpp to the "Source Files" (right click the icon, select "Add existing file")
+        * add the files under the "include" subfolder to the "Header Files" (right click the icon, select "Add existing file")
+        * add the files under the "src" subfolder to the "Source Files" (right click the icon, select "Add existing file")
+    4. Right-click the "tcsam02" project icon, select "Properties", and set up  the compiler and linker options per your system.
+        * Windows (64-bit ADMB, MinGW toolset, for non-optimized compilation)
+            * Under "Build/C++ Compiler", 
+                * "Include Directories": add ".", "include", and the paths to the wtsADMB include directory, the ADMB include directory, and the ADMB include/contrib directory
+                * "Additional Options": add "-std=c++11 -O3 -D_FILE_OFFSET_BITS=64" (no quotes)
+            * Under Linker", file paths under "Libraries" should point to the libwtsadmb.a and libadmb-contrib.a libraries
+        * OSX (64-bit ADMB, GNU toolset, for non-optimized compilation)
+            * Under "Build/C++ Compiler", 
+                * "Include Directories": add ".", "include", and the paths to the wtsADMB include directory, the ADMB include directory, and the ADMB include/contrib directory
+                * "Additional Options": none
+            * Under Linker", 
+                * file paths under "Libraries" should point to the libwtsadmb.a and libadmb-contrib.a libraries
+                * "Additional Options": add "-g" (no quotes) to include debugging symbols
 
 ## TCSAM02 commandline options
+
 ### file options
+
 * -configFile filename : flag to specify full path to model configuration file
 * -pin filename : flag to specify pin file for initial parameter values 
 * -binp fnPin : flag to use binary pin file fnPin to set parameter values
@@ -62,6 +84,7 @@ linker options per your system.
 * -mcpin filename : flag to specify pin file for running NUTS mcmc
 
 ### run configuration options
+
 * -mceval : flag to run in mceval mode (i.e., mcevalOn=1)
 * -runAlt : flag to run alternative pop dy equations
 * -calcOFL : flag to calculate OFL-related values after final phase
@@ -73,6 +96,7 @@ linker options per your system.
 * -resample : flag to turn on resampling for initial parameter values
 
 ### commandline flags to print debugging info
+
 * -ctrDebugParams ctr : flag to print diagnostic information related to parameters starting at counter ctr
 * -debugModelConfig : flag to print diagnostic information related to OFL calculations
 * -debugModelDatasets : flag to print diagnostic information related to OFL calculations
