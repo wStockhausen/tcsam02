@@ -13,6 +13,9 @@
 //      EffXtrapScenarios
 //      ProjectionScenarios
 //      ModelOptions
+//      ProjectionOptions
+//      SimOptions
+//      CatchDataSimOptions
 //**********************************************************************
 using namespace std;
 
@@ -623,7 +626,7 @@ void CatchDataSimOptions::read(cifstream & is){
         rpt::echo<<is.get_file_name()<<endl;
     }
     is>>name;      if (debug) rpt::echo<<name<<tb;
-    is>>rngSeed;   if (debug) rpt::echo<<rngSeed<<tb;
+    is>>rngFlag;   if (debug) rpt::echo<<rngFlag<<tb;
     is>>expFacAbd; if (debug) rpt::echo<<expFacAbd<<tb;
     is>>expFacBio; if (debug) rpt::echo<<expFacBio<<tb;
     is>>expFacZCs; if (debug) rpt::echo<<expFacZCs<<endl;
@@ -631,11 +634,11 @@ void CatchDataSimOptions::read(cifstream & is){
 }
 void CatchDataSimOptions::write(ostream & os){
     if (debug) rpt::echo<<"starting CatchDataSimOptions::write() "<<endl;
-    os<<name<<tb<<rngSeed<<tb<<expFacAbd<<tb<<expFacBio<<tb<<expFacZCs;
+    os<<name<<tb<<rngFlag<<tb<<expFacAbd<<tb<<expFacBio<<tb<<expFacZCs;
 }
 void CatchDataSimOptions::writeToR(ostream & os){
     if (debug) rpt::echo<<"starting CatchDataSimOptions::writeToR() "<<endl;
-    os<<"list(name="<<name<<cc<<"rngSeed="<<rngSeed<<"expFacAbd="<<expFacAbd<<cc<<
+    os<<"list(name="<<name<<cc<<"rngFlag="<<rngFlag<<"expFacAbd="<<expFacAbd<<cc<<
             "expFacBio="<<expFacBio<<cc<<"expFacZCs="<<expFacZCs<<")";
 }
 //--------------------------------------------------------------------------------
@@ -711,48 +714,54 @@ void SimOptions::read(cifstream& is){
             is>>(*ppIdxCatch[i]);
         }
     }
-    is>>grwRngSeed;  if (debug) rpt::echo<<"grwRngSeed = "<<grwRngSeed<<endl;
+    is>>grwSimData;  if (debug) rpt::echo<<"grwSimData = "<<grwSimData<<endl;
+    is>>grwRngFlag;  if (debug) rpt::echo<<"grwRngFlag = "<<grwRngFlag<<endl;
     is>>grwMultFac;  if (debug) rpt::echo<<"grwMultFac = "<<grwMultFac<<endl;
-    is>>modRngSeed;  if (debug) rpt::echo<<"modRngSeed = "<<modRngSeed<<endl;
+    is>>modSimData;  if (debug) rpt::echo<<"modSimData = "<<modSimData<<endl;
+    is>>modRngFlag;  if (debug) rpt::echo<<"modRngSeed = "<<modRngFlag<<endl;
     is>>modDivFac;   if (debug) rpt::echo<<"modDivFac  = "<<modDivFac<<endl;
 }
 void SimOptions::write(std::ostream& os){
     if (debug) rpt::echo<<"#--starting SimOptions::write()"<<std::endl;
     os<<"#--Simulation Options"<<endl;
-    os<<"#--RNG seed: 0 = use default"<<endl;
+    os<<"#--RNG seed: 0 = no stochasticity added; otherwise add observation noise"<<endl;
     os<<"#--expansion factors:"<<endl;
     os<<"#---- =0: no observation noise added"<<endl;
     os<<"#---- >0: multiply CV"<<endl;
     os<<"#---- <0: replace CV"<<endl;
     os<<"#--retained catch fishery data"<<endl;
-    os<<nRetCatch<<tb<<"#--number of fleets";
+    os<<nRetCatch<<tb<<"#--number of fleets"<<endl;
     if (nRetCatch){
         if (debug) rpt::echo<<"#-------Retained Catch SimOptions---------"<<std::endl;
         for (int i=0;i<nRetCatch;i++) os<<(*ppRetCatch[i])<<endl;
     }
     os<<"#--total catch fishery data"<<endl;
-    os<<nTotCatch<<tb<<"#--number of fleets";
+    os<<nTotCatch<<tb<<"#--number of fleets"<<endl;
     if (nTotCatch){
         if (debug) rpt::echo<<"#-------Total Catch SimOptions---------"<<std::endl;
         for (int i=0;i<nTotCatch;i++) os<<(*ppTotCatch[i])<<endl;
     }
     os<<"#--discard catch fishery data"<<endl;
-    os<<nDscCatch<<tb<<"#--number of fleets";
+    os<<nDscCatch<<tb<<"#--number of fleets"<<endl;
     if (nDscCatch){
         if (debug) rpt::echo<<"#-------Discard Catch SimOptions---------"<<std::endl;
         for (int i=0;i<nDscCatch;i++) os<<(*ppDscCatch[i])<<endl;
     }
     os<<"#--index catch data"<<endl;
-    os<<nIdxCatch<<tb<<"#--number of fleets";
+    os<<nIdxCatch<<tb<<"#--number of fleets"<<endl;
     if (nIdxCatch){
         if (debug) rpt::echo<<"#-------Index Catch SimOptions---------"<<std::endl;
+        os<<"#                   catch abundance     catch biomass     size comps"<<endl;
+        os<<"# fleet  RNG flag   expansion factor    expansion factor  expansion factor"<<endl;
         for (int i=0;i<nIdxCatch;i++) os<<(*ppIdxCatch[i])<<endl;
     }
     os<<"#----Growth data"<<endl;
-    os<<grwRngSeed<<tb<<"#--RNG seed (0: don't reset seed)"<<endl;
-    os<<grwMultFac   <<tb<<"#--observation noise scale factor (CV multiplier)"<<endl;
+    os<<grwSimData<<tb<<"#--flag to simulate growth data (0: use original, 1: base values on model-estimated growth)"<<endl;
+    os<<grwRngFlag<<tb<<"#--RNG flag (0: don't add observation noise; otherwise, add noise)"<<endl;
+    os<<grwMultFac<<tb<<"#--observation noise scale factor (CV multiplier)"<<endl;
     os<<"#----Maturity ogive data"<<endl;
-    os<<modRngSeed<<tb<<"#--RNG seed (0: don't reset seed)"<<endl;
+    os<<modSimData<<tb<<"#--flag to simulate maturity ogive data (0: use original, 1: base values on model-estimated growth)"<<endl;
+    os<<modRngFlag<<tb<<"#--RNG flag (0: don't add observation noise; otherwise, add noise)"<<endl;
     os<<modDivFac   <<tb<<"#--observation noise scale factor (reduces input sample sizes)"<<endl;
     if (debug) rpt::echo<<"#--finished SimOptions::write()"<<std::endl;
 }
@@ -803,8 +812,8 @@ void SimOptions::writeToR(std::ostream& os){
     }
     os<<"),"<<endl;
     //
-    os<<tb<<"grw=list(rngSeed ="<<grwRngSeed<<cc<<"multFac ="<<grwMultFac<<")"<<cc<<endl;
-    os<<tb<<"mod=list(rngSeed ="<<modRngSeed<<cc<<"divFac ="<<modDivFac<<")"<<endl;
+    os<<tb<<"grw=list(simFlag="<<grwSimData<<cc<<"rngFlag ="<<grwRngFlag<<cc<<"multFac ="<<grwMultFac<<")"<<cc<<endl;
+    os<<tb<<"mod=list(simFlag="<<modSimData<<cc<<"rngFlag ="<<modRngFlag<<cc<<"divFac =" <<modDivFac<< ")"<<endl;
     os<<")";
     if (debug) rpt::echo<<"#--finished SimOptions::writeToR()"<<std::endl;
 }
@@ -812,7 +821,7 @@ void SimOptions::writeToR(std::ostream& os){
 //          ModelOptions
 //--------------------------------------------------------------------------------
 int ModelOptions::debug = 0;
-const adstring ModelOptions::VERSION = "2023.03.07";
+const adstring ModelOptions::VERSION = "2024.08.07";
 
 ModelOptions::ModelOptions(ModelConfiguration& mc){
     ptrMC=&mc;
@@ -853,6 +862,11 @@ ModelOptions::ModelOptions(ModelConfiguration& mc){
     optsGrowthPDF.allocate(0,1);
     optsGrowthPDF(0) = "use gamma probability distribution (like TCSAM2013)"; 
     optsGrowthPDF(1) = "use cumulative gamma distribution (like Gmacs)";
+    
+    //growth likelihood options
+    optsGrowthLL.allocate(0,1);
+    optsGrowthLL(0) = "use full likelihood"; 
+    optsGrowthLL(1) = "use likelihood relative to perfect data fit (can't use when estimating pGrBeta)";
     
     //penalty options for prM2M parameters/ogives smoothness
     optsPenSmthPrM2M.allocate(0,1);
@@ -957,6 +971,11 @@ void ModelOptions::read(cifstream & is) {
     cout<<optGrowthPDF<<tb<<"#"<<optsGrowthPDF(optGrowthPDF)<<endl;
     is>>maxGrowthZBEx;
     cout<<maxGrowthZBEx<<tb<<"#max extent of size bins for growth probabilities"<<endl;
+            
+    //growth likelihood options
+    cout<<"##Growth likelihood options:"<<endl;
+    is>>optGrowthLL;
+    cout<<optGrowthLL<<tb<<"#"<<optsGrowthLL(optGrowthLL)<<endl;
             
     //likelihood penalty options for mean growth approaching negative increments
     cout<<"##Options for likelihood penalties on negative growth increments"<<endl;
@@ -1192,8 +1211,17 @@ void ModelOptions::write(ostream & os) {
     os<<optGrowthPDF<<tb<<"#selected option"<<endl;
     os<<"#------"<<endl;
     os<<maxGrowthZBEx<<tb<<"#max extent of size bins for growth probabilities"<<endl;
+    os<<endl;
 
-    //likelihood penalty options for mean growth approaching negative increments
+    //growth likelihood options
+    os<<"#----Growth likelihood options"<<endl;
+    for (int o=optsGrowthLL.indexmin();o<=optsGrowthLL.indexmax();o++) {
+        os<<"#"<<o<<" - "<<optsGrowthLL(o)<<endl;
+    }
+    os<<optGrowthLL<<tb<<"#selected option"<<endl;
+    os<<endl;
+
+     //likelihood penalty options for mean growth approaching negative increments
     os<<"#----Options for likelihood penalties on negative growth increments"<<endl;
     os<<minGrowthCW <<tb<<"#min pre-molt CW to apply penalty on approaching negative growth increments"<<endl;
     os<<maxGrowthCW <<tb<<"#min pre-molt CW to apply penalty on approaching negative growth increments"<<endl;
@@ -1323,7 +1351,7 @@ void ModelOptions::write(ostream & os) {
     os<<"#------    MCMC projection options "<<endl;
     os<<(*ptrProjOptsMCMC);
     
-    //projection options
+    //simulation options
     os<<"#----Simulation Options"<<endl;
     os<<(*ptrSimOpts);
     

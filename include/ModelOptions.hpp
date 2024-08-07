@@ -471,7 +471,7 @@ class CatchDataSimOptions{
 public:
     static int debug; //debugging flag
     adstring name;    //fleet name
-    long rngSeed;     //seed for random number generator 
+    long rngFlag;     //flag to use random number generator 
     double expFacAbd; //expansion factor for catch abundance data
     double expFacBio; //expansion factor for catch biomass data
     double expFacZCs; //expansion factor for size composition data
@@ -505,12 +505,16 @@ public:
     CatchDataSimOptions** ppDscCatch;
     CatchDataSimOptions** ppIdxCatch;
     
-    /** random number generator flag for growth data */
-    int grwRngSeed;//--if not 0, reset rng seed to this when generating random numbers
+    /**  flag to simulate growth data (1) or keep input data (0)*/
+    int grwSimData; 
+    /** flag to add stochasticity to simulated growth data */
+    int grwRngFlag;
     /* CV multiplier for growth data */
     double grwMultFac;
-    /** random number generator flag for maturity ogive data */
-    int modRngSeed;//--if not 0, reset rng seed to this when generating random numbers
+    /**  flag to simulate maturity ogive data (1) or keep input data (0)*/
+    int modSimData; 
+    /** flag to add stochasticity to simulated  maturity ogive data data */
+    int modRngFlag;
     /* sample size divisor for maturity ogive data */
     double modDivFac;
     /**
@@ -581,6 +585,11 @@ public:
         adstring_array optsGrowthPDF;  
         /** selected option for growth pdf */
         int optGrowthPDF;   
+        
+        /** labels for growth likelihood options */
+        adstring_array optsGrowthLL;  
+        /** selected option for growth likelihood option */
+        int optGrowthLL;   
         
         /** max extent of size bins for growth probabilities */
         int maxGrowthZBEx;

@@ -117,8 +117,10 @@ class IndexBlock;
          * @param iSeed - flag (!=0) to add random noise
          * @param expFac - cv expansion factor (re-scales or replaces cv's)
          * @param newC_xmsy - d4_array with new catch data
+         * @param debug - integer debugging level
+         * @param cout - ostream to write debugging info to
          */
-        void replaceCatchData(random_number_generator& rng,int iSeed,double expFac,d4_array& newC_xmsy);
+        void replaceCatchData(random_number_generator& rng,int iSeed,double expFac,d4_array& newC_xmsy,int debug,ostream& cout);
         /**
          * Update catch data C_xmsy with data for new year 
          * Also modifies inpC_xmsyc to reflect new data.
@@ -321,8 +323,15 @@ class IndexBlock;
          * @param iSeed - flag (!=0) to add random noise
          * @param expFac - error expansion factor (divides sample sizes)
          * @param newNatZ_yxmsz - d5_array with new numbers-at-size data
+         * @param debug - integer debugging level
+         * @param cout - ostream to write debugging info to
          */
-        void replaceSizeFrequencyData(random_number_generator& rng,int iSeed,double expFac,const d5_array& newNatZ_xmsyz);
+        void replaceSizeFrequencyData(random_number_generator& rng,
+                                      int iSeed,
+                                      double expFac,
+                                      const d5_array& newNatZ_xmsyz,
+                                      int debug,
+                                      ostream& cout);
         /**
          * Update catch-at-size data NatZ_xmsyz with new data for year y. 
          * Also modifies inpNatZ_xmsyc to reflect new data.
@@ -509,8 +518,15 @@ class IndexBlock;
          * @param ptrMOs - pointer to ModelOptions object
          * @param newNatZ_yxmsz - d5_array of catch-at-size by sex/maturity/shell condition/year
          * @param wAtZ_xmz - d3_array of weight-at-size by sex/maturity
+         * @param debug - integer debugging level
+         * @param cout - ostream to write debugging info to
          */
-        virtual void replaceCatchData(random_number_generator& rng, CatchDataSimOptions* ptrCDSOs, const d5_array& newNatZ_yxmsz, const d3_array& wAtZ_xmz);
+        virtual void replaceCatchData(random_number_generator& rng, 
+                                      CatchDataSimOptions* ptrCDSOs, 
+                                      const d5_array& newNatZ_yxmsz, 
+                                      const d3_array& wAtZ_xmz,
+                                      int debug,
+                                      ostream& cout);
         /**
          * Adds a new year of catch data based on dvar4_array newNatZ_xmsz to existing data.
          * 
@@ -772,7 +788,8 @@ class IndexBlock;
          * Replace existing growth data with new values based on randomization.
          * 
          * @param rng - random_number_generator object
-         * @param ptrMOs - pointer to ModelOptions object
+         * @param ptrSOs - pointer to SimOptions object
+         * @param optGrowthParam - integer flag indicating growth parameters type
          * @param grA_xy - matrix of estimated "a" parameters for mean growth, by xy
          * @param grB_xy - matrix of estimated "b" parameters for mean growth, by xy
          * @param grBeta_xy - matrix of estimated scale ("beta") parameters for growth, by xy
@@ -786,7 +803,8 @@ class IndexBlock;
          * @details Modifies column 5 of inpData_xcn (i.e., the observed postmolt sizes)
          */
         void replaceGrowthData(random_number_generator& rng,
-                                ModelOptions* ptrMOs,
+                                SimOptions* ptrSOs,
+                                int optGrowthParam,
                                 dvar_matrix& grA_xy, 
                                 dvar_matrix& grB_xy,
                                 dvar_matrix& grBeta_xy,

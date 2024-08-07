@@ -210,12 +210,17 @@ void CatchData::setMaxYear(int mxYr){
  * Replaces catch data based on newNatZ_yxmsz.
  * 
  * @param rng - random number generator object
- * @param ptrCDSOs - pointer to CatchDataSumOptions object
+ * @param ptrCDSOs - pointer to CatchDataSimOptions object
  * @param newNatZ_yxmsz - POINTER to d5_array of catch-at-size by sex/maturity/shell condition/year
  * @param wAtZ_xmz - weight-at-size by sex/maturity
  */
-void CatchData::replaceCatchData(random_number_generator& rng,CatchDataSimOptions* ptrCDSOs,const d5_array& newNatZ_yxmsz, const d3_array& wAtZ_xmz){
-    cout<<"***Replacing catch data for "<<name<<endl;
+void CatchData::replaceCatchData(random_number_generator& rng,
+                                 CatchDataSimOptions* ptrCDSOs,
+                                 const d5_array& newNatZ_yxmsz, 
+                                 const d3_array& wAtZ_xmz,
+                                 int debug,
+                                 ostream& cout){
+    if (debug) cout<<"***Replacing catch data for "<<name<<endl;
     int mnY = newNatZ_yxmsz.indexmin();
     int mxY = newNatZ_yxmsz.indexmax();
     if (hasN) {
@@ -230,7 +235,7 @@ void CatchData::replaceCatchData(random_number_generator& rng,CatchDataSimOption
                 }
             }                
         }
-        ptrN->replaceCatchData(rng,ptrCDSOs->rngSeed,ptrCDSOs->expFacBio,newN_yxms);
+        ptrN->replaceCatchData(rng,ptrCDSOs->rngFlag,ptrCDSOs->expFacAbd,newN_yxms,debug,cout);
         if (debug) cout<<"replaced abundance data"<<endl;
     }
     if (hasB){
@@ -244,14 +249,15 @@ void CatchData::replaceCatchData(random_number_generator& rng,CatchDataSimOption
                 }
             }
         }
-        ptrB->replaceCatchData(rng,ptrCDSOs->rngSeed,ptrCDSOs->expFacBio,newB_yxms);
+        ptrB->replaceCatchData(rng,ptrCDSOs->rngFlag,ptrCDSOs->expFacBio,newB_yxms,debug,cout);
         if (debug) cout<<"replaced biomass data"<<endl;
     }
     if (hasZFD){
         if (debug) cout<<"replacing n-at-size data"<<endl;
-        ptrZFD->replaceSizeFrequencyData(rng,ptrCDSOs->rngSeed,ptrCDSOs->expFacZCs,newNatZ_yxmsz);
+        ptrZFD->replaceSizeFrequencyData(rng,ptrCDSOs->rngFlag,ptrCDSOs->expFacZCs,newNatZ_yxmsz,debug,cout);
         if (debug) cout<<"replaced n-at-size data"<<endl;
     }
+    if (debug) cout<<"finished replacing catch data for "<<name<<endl;
 }
 
 /**
@@ -514,10 +520,13 @@ void FleetData::replaceIndexCatchData(random_number_generator& rng,
         int vi = 0;
         for (int v=1;v<=ptrSOs->nIdxCatch;v++) {
           if (debug) cout<<"v = "<<v<<tb<<"ptrSOs->ppIdxCatch[v-1]->name = "<<ptrSOs->ppIdxCatch[v-1]->name<<endl;
-          if (name==ptrSOs->ppIdxCatch[v-1]->name) vi=v;
-          break;
+          if (name==ptrSOs->ppIdxCatch[v-1]->name) {
+            vi=v;
+            break;
+          }
         }
         if (vi) {
+          if (debug) cout<<"Found vi = "<<vi<<tb<<"ptrSOs->ppIdxCatch[vi-1]->name = "<<ptrSOs->ppIdxCatch[vi-1]->name<<endl;
           if (ptrICD->hasZFD){
             //need to convert from model bins to data bins
             dvector zCDs = ptrICD->ptrZFD->zCs;         //data cutpoints
@@ -558,10 +567,10 @@ void FleetData::replaceIndexCatchData(random_number_generator& rng,
               }
             }
             if (debug) cout<<"FleetData::replaceIndexCatchData: got here 3"<<endl;
-            ptrICD->replaceCatchData(rng,ptrSOs->ppIdxCatch[vi-1],newNatZD_yxmsz,wAtZD_xmz);
+            ptrICD->replaceCatchData(rng,ptrSOs->ppIdxCatch[vi-1],newNatZD_yxmsz,wAtZD_xmz,debug,cout);
             if (debug) cout<<"FleetData::replaceIndexCatchData: got here 4"<<endl;
           } else {
-            ptrICD->replaceCatchData(rng,ptrSOs->ppIdxCatch[vi-1],newNatZ_yxmsz,wAtZ_xmz);
+            ptrICD->replaceCatchData(rng,ptrSOs->ppIdxCatch[vi-1],newNatZ_yxmsz,wAtZ_xmz,debug,cout);
           }
         }
         if (debug) cout<<"replaced index catch data"<<endl;
@@ -590,12 +599,16 @@ void FleetData::replaceFisheryCatchData(random_number_generator& rng,
     if (hasTCD) {
         if (debug) cout<<"replacing total catch data"<<endl;
         int vi = 0;
+        if (debug) cout<<"Checking "<<ptrSOs->nTotCatch<<" total catch sim options"<<endl;
         for (int v=1;v<=ptrSOs->nTotCatch;v++) {
           if (debug) cout<<"v = "<<v<<tb<<"ptrSOs->ppTotCatch[v-1]->name = "<<ptrSOs->ppTotCatch[v-1]->name<<endl;
-          if (name==ptrSOs->ppTotCatch[v-1]->name) vi=v;
-          break;
+          if (name==ptrSOs->ppTotCatch[v-1]->name) {
+            vi=v;
+            break;
+          }
         }
         if (vi) {//found a matching fleet name in ptrSOs->ppTotCatch[v]
+          if (debug) cout<<"Found vi = "<<vi<<tb<<"ptrSOs->ppTotCatch[v-1]->name = "<<ptrSOs->ppTotCatch[vi-1]->name<<endl;
           if (ptrTCD->hasZFD){
             //need to convert from model bins to data bins
             dvector zCDs = ptrTCD->ptrZFD->zCs;         //data cutpoints
@@ -633,23 +646,26 @@ void FleetData::replaceFisheryCatchData(random_number_generator& rng,
               }
             }
             if (debug) cout<<"FleetData::replaceFisheryCatchData got here 4"<<endl;
-            ptrTCD->replaceCatchData(rng,ptrSOs->ppTotCatch[vi-1],newCatZD_yxmsz,wAtZD_xmz);
+            ptrTCD->replaceCatchData(rng,ptrSOs->ppTotCatch[vi-1],newCatZD_yxmsz,wAtZD_xmz,debug,cout);
             if (debug) cout<<"FleetData::replaceFisheryCatchData got here 5"<<endl;
           } else {
-            ptrTCD->replaceCatchData(rng,ptrSOs->ppTotCatch[vi-1],newCatZ_yxmsz,wAtZ_xmz);
+            ptrTCD->replaceCatchData(rng,ptrSOs->ppTotCatch[vi-1],newCatZ_yxmsz,wAtZ_xmz,debug,cout);
           }
         }
         if (debug) cout<<"replaced total catch data"<<endl;
-    }
+    }//--has TCD
     if (hasRCD) {
         if (debug) cout<<"replacing retained catch data"<<endl;
         int vi = 0;
         for (int v=1;v<=ptrSOs->nRetCatch;v++) {
           if (debug) cout<<"v = "<<v<<tb<<"ptrSOs->ppRetCatch[v-1]->name = "<<ptrSOs->ppRetCatch[v-1]->name<<endl;
-          if (name==ptrSOs->ppRetCatch[v-1]->name) vi=v;
-          break;
+          if (name==ptrSOs->ppRetCatch[v-1]->name) {
+            vi=v;
+            break;
+          }
         }
         if (vi) {
+          if (debug) cout<<"Found vi = "<<vi<<tb<<"ptrSOs->ppRetCatch[vi-1]->name = "<<ptrSOs->ppRetCatch[vi-1]->name<<endl;
           if (ptrRCD->hasZFD){
             //need to convert from model bins to data bins
             dvector zCDs = ptrRCD->ptrZFD->zCs;         //data cutpoints
@@ -672,29 +688,29 @@ void FleetData::replaceFisheryCatchData(random_number_generator& rng,
               }
             }
             if (debug) cout<<"FleetData::replaceFisheryCatchData ret catch got here 2"<<endl;
-            ivector bnds = wts::getBounds(newCatZ_yxmsz);
-            d5_array newCatZD_yxmsz(bnds[1],bnds[2],bnds[3],bnds[4],bnds[5],bnds[6],bnds[7],bnds[8],1,nZBDs);
-            if (debug) cout<<"FleetData::replaceFisheryCatchData got here 3"<<endl;
+            ivector bnds = wts::getBounds(newRatZ_yxmsz);
+            d5_array newRatZD_yxmsz(bnds[1],bnds[2],bnds[3],bnds[4],bnds[5],bnds[6],bnds[7],bnds[8],1,nZBDs);
+            if (debug) cout<<"FleetData::replaceFisheryCatchData ret catch got here 3"<<endl;
             for (int y=bnds[1];y<=bnds[2];y++){
               for (int x=bnds[3];x<=bnds[4];x++){
                 for (int m=bnds[5];m<=bnds[6];m++){
                   for (int s=bnds[7];s<=bnds[8];s++){
                     if (debug) cout<<"y,x,m,s = "<<y<<tb<<x<<tb<<m<<tb<<s<<endl;
-                    newCatZD_yxmsz(y,x,m,s) = mZBtoZBDs * newCatZ_yxmsz(y,x,m,s);
-                    if (debug) cout<<"newCatZD_yxmsz(y,x,m,s) = "<<newCatZD_yxmsz(y,x,m,s)<<endl;
+                    newRatZD_yxmsz(y,x,m,s) = mZBtoZBDs * newRatZ_yxmsz(y,x,m,s);
+                    if (debug) cout<<"newRatZD_yxmsz(y,x,m,s) = "<<newRatZD_yxmsz(y,x,m,s)<<endl;
                   }
                 }
               }
             }
             if (debug) cout<<"FleetData::replaceFisheryCatchData ret catch got here 4"<<endl;
-            ptrRCD->replaceCatchData(rng,ptrSOs->ppRetCatch[vi-1],newCatZD_yxmsz,wAtZD_xmz);
-            if (debug) cout<<"FleetData::replaceFisheryCatchData got here 5"<<endl;
+            ptrRCD->replaceCatchData(rng,ptrSOs->ppRetCatch[vi-1],newRatZD_yxmsz,wAtZD_xmz,debug,cout);
+            if (debug) cout<<"FleetData::replaceFisheryCatchData ret catch got here 5"<<endl;
           } else {
-            ptrRCD->replaceCatchData(rng,ptrSOs->ppRetCatch[vi-1],newCatZ_yxmsz,wAtZ_xmz);
+            ptrRCD->replaceCatchData(rng,ptrSOs->ppRetCatch[vi-1],newRatZ_yxmsz,wAtZ_xmz,debug,cout);
           }
         }
         if (debug) cout<<"replaced retained catch data"<<endl;
-    }
+    }//--has RCD
     if (hasDCD) {
         if (debug) cout<<"replacing discard catch data"<<endl;
         ivector bnds = wts::getBounds(newCatZ_yxmsz);
@@ -713,11 +729,14 @@ void FleetData::replaceFisheryCatchData(random_number_generator& rng,
         int vi = 0;
         for (int v=1;v<=ptrSOs->nDscCatch;v++) {
           if (debug) cout<<"v = "<<v<<tb<<"ptrSOs->ppDscCatch[v-1]->name = "<<ptrSOs->ppDscCatch[v-1]->name<<endl;
-          if (name==ptrSOs->ppDscCatch[v-1]->name) vi=v;
-          break;
+          if (name==ptrSOs->ppDscCatch[v-1]->name) {
+            vi=v;
+            break;
+          }
         }
         if (debug) cout<<"FleetData::replaceFisheryCatchData got here 2"<<endl;
         if (vi) {
+          if (debug) cout<<"Found vi = "<<vi<<tb<<"ptrSOs->ppDscCatch[vi-1]->name = "<<ptrSOs->ppDscCatch[vi-1]->name<<endl;
           if (ptrDCD->hasZFD){
             //need to convert from model bins to data bins
             dvector zCDs = ptrDCD->ptrZFD->zCs;         //data cutpoints
@@ -754,14 +773,14 @@ void FleetData::replaceFisheryCatchData(random_number_generator& rng,
               }
             }
             if (debug) cout<<"FleetData::replaceFisheryCatchData got here 5"<<endl;
-            ptrDCD->replaceCatchData(rng,ptrSOs->ppDscCatch[vi-1],newDatZD_yxmsz,wAtZD_xmz);
+            ptrDCD->replaceCatchData(rng,ptrSOs->ppDscCatch[vi-1],newDatZD_yxmsz,wAtZD_xmz,debug,cout);
             if (debug) cout<<"FleetData::replaceFisheryCatchData got here 6"<<endl;
           } else {
-            ptrDCD->replaceCatchData(rng,ptrSOs->ppDscCatch[vi-1],newDatZ_yxmsz,wAtZ_xmz);
+            ptrDCD->replaceCatchData(rng,ptrSOs->ppDscCatch[vi-1],newDatZ_yxmsz,wAtZ_xmz,debug,cout);
           }
         }
         if (debug) if (debug) cout<<"replaced discard catch data"<<endl;
-    }
+    }//--hasDCD
     if (debug) cout<<"Finished FleetData::replaceFisheryCatchData for fishery "<<this->name<<endl;
 }
 /**

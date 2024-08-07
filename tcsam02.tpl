@@ -790,6 +790,23 @@
 //                  the devs are not defined. Thus, the years for which a parameter combination is defined does not have 
 //                  to match the years for which the associated devs are defined. Put another way, the devs can be applied to 
 //                  multiple parameter combinations defined for different time intervals.
+//-2024-08-05: 1. Corrected logic when using `fitSimData`. iSimDataSeed is now used (correctly) to re-initialize 
+//                  the random number generator `rngSimData`, the RNG used to simulate data (see `createSimData` function). 
+//                  Previously, it erroneously re-initialized `rng` (the RNG used for jittering) but not `rngSimData`. 
+//                  `rng` is no longer re-initialized using iSimDataSeed.
+//             2. `iSimDataSeed` is now specified as a separate commandline argument, not as value following '-fitSimData'. This 
+//                  allows setting a seed for simulated stochastic data written out 
+//                  (as 'ModelData.Sim.dat' using ptrSimMDS) at the end of a model run that does NOT fit to simulated data.
+//             2. Changed logic for writing out 'ModelData.Sim.init.dat' file. Now, file is only written out from 
+//                   PRELIMINARY_CALCS when `fitSimData` is true, and it writes out simulated data in `ptrMDS` (not, as previously, `ptrSimMDS`). 
+//                   `ptrSimMDS` is no longer calculated in PRELIMINARY_CALCS, only in the FINAL_SECTION.
+//-2024-08-06: 1. Corrected logic when replacing retained catch data via FleetData::replaceFisheryCatchData due to copy/paste error involving 
+//                   logic for replacing total catch data.
+//             2. Corrected "inf" output to R (R understands "Inf", not "inf") when effN is infinite due to sitation where modp = obsp. 
+//                   Output is now max(double).
+//-2024-08-07: 1. Added option to specify growth likelihood calc (full or relative to "perfect fit") in ModelOptions. 
+//                  Incremented MO version to 2024.08.07.
+//             2. Changes to simulating growth and maturity data (diagnostics, etc.)
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -808,7 +825,8 @@
 //  -jitter                        flag to turn on parameter jittering
 //  -resample                      flag to turn on parameter resampling
 //  -iSeed  val                    use val as random number generator (RNG) seed
-//  -fitSimData iSimDataSeed       flag to fit simulated data using RNG seed iSimDataSeed
+//  -fitSimData                    flag to fit simulated data using RNG seed iSimDataSeed
+//  -iSimDataSeed val              use val as RNG seed for rngSimData
 //  -mseMode type                  flag to use mseMode (type = "mseOpModMode" or "mseEstModMode")
 //  -optInitNs val                 val to use as option for initial N's calculation (overrides ModelOptions value)
 ///////----flags to print debugging info-----
@@ -1119,6 +1137,12 @@ DATA_SECTION
     //fitSimData
     if ((on=option_match(ad_comm::argc,ad_comm::argv,"-fitSimData"))>-1) {
         fitSimData=1;
+        rpt::echo<<"#Fit to simulated data turned 'ON'. "<<endl;
+        rpt::echo<<"#-------------------------------------------"<<endl;
+        flg = 1;
+    }
+    //iSimDataSeed
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-iSimDataSeed"))>-1) {
         if (on+1<argc) {
             iSimDataSeed=atoi(ad_comm::argv[on+1]);
         } else {
@@ -1126,8 +1150,8 @@ DATA_SECTION
             cout<<"Enter random number seed (0 -> deterministic) for data simulation: ";
             cin>>iSimDataSeed;
         }
-        if (iSimDataSeed) rng.reinitialize(iSimDataSeed);
-        rpt::echo<<"#Simulating data to fit using "<<iSimDataSeed<<endl;
+        if (iSimDataSeed) rngSimData.reinitialize(iSimDataSeed);
+        rpt::echo<<"#Simulating data using "<<iSimDataSeed<<endl;
         rpt::echo<<"#-------------------------------------------"<<endl;
         flg = 1;
     }
@@ -1815,6 +1839,21 @@ DATA_SECTION
         phsGrA = -1;
         phsGrB = -1;
         phsGrBeta = -1;
+    }
+
+    //--check LL option appropriateness
+    {
+      int check = 0;
+      for (int i=phsGrBeta.indexmin();i<=phsGrBeta.indexmax();i++)
+        if (phsGrBeta[i]>0) check++;
+      if (check && (ptrMOs->optGrowthLL>0)) {
+        //--pGrBeta may be estimated, but LL option requires it to be fixed.
+        cout<<endl<<endl<<"----------------------------"<<endl;
+        cout<<"EXITING!!"<<endl;
+        cout<<"pGrBeta is estimated but growth LL option is 1."<<endl;
+        cout<<"----------------------------"<<endl<<endl;
+        exit(-1);
+      }
     }
  END_CALCS    
         
@@ -3196,10 +3235,28 @@ PRELIMINARY_CALCS_SECTION
                 PRINT2B1("creating stochastic sim data to fit in model")
                 createSimData(ptrMDS,dbgLevel,rpt::echo);//stochastic if iSimDataSeed<>0
                 {
+                    PRINT2B1("writing stochastic sim data being fit in model run to 'ModelData.Sim.init.dat'")
+                    ofstream echo2; echo2.open("ModelData.Sim.init.dat", ios::trunc);
+                    echo2.precision(12);
+                    writeSimData(echo2,0,rpt::echo,ptrMDS);
+                    echo2.close();
+                    PRINT2B1("finished writing model sim data to file")
                     PRINT2B1("re-writing data to R")
                     ofstream echo1; echo1.open("ModelData.R", ios::trunc);
                     echo1.precision(12);
                     ReportToR_Data(echo1,0,cout);
+                }
+            } else {
+                int dbgLevel=0;
+                PRINT2B1("creating stochastic sim data corresponding to initial parameter values")
+                createSimData(ptrSimMDS,dbgLevel,rpt::echo);//stochastic if iSimDataSeed<>0
+                {
+                    PRINT2B1("writing stochastic sim data being fit in model run to 'ModelData.Sim.init.dat'")
+                    ofstream echo2; echo2.open("ModelData.Sim.init.dat", ios::trunc);
+                    echo2.precision(12);
+                    writeSimData(echo2,0,rpt::echo,ptrSimMDS);
+                    echo2.close();
+                    PRINT2B1("finished writing model sim data to file")
                 }
             }
 
@@ -3220,17 +3277,6 @@ PRELIMINARY_CALCS_SECTION
                 PRINT2B1("Finished writing model fits to R")
             }
 
-            {
-                PRINT2B1("writing deterministic model sim data to file (line 3208)")
-                int dbgLevel = 1000;
-                createSimData(ptrSimMDS,dbgLevel,rpt::echo);//deterministic
-                ofstream echo1; echo1.open("ModelData.Sim.init.dat", ios::trunc);
-                echo1.precision(12);
-                writeSimData(echo1,0,rpt::echo,ptrSimMDS);
-                echo1.close();
-                PRINT2B1("finished writing model sim data to file")
-            }
-            
             {
                 PRINT2B1("writing cohort progression to R")
                 ofstream echo1; echo1.open("CohortProgression.init.R", ios::trunc);
@@ -5673,7 +5719,7 @@ FUNCTION dvar3_array calcEqNatZ(dvar_vector& R_z,dvar3_array& S1_msz, dvar_matri
 // * @return 5d array of cohort abundance by yxmsz (n_yxmsz)
 // */
 FUNCTION d5_array calcCohortProgression(int yr, int nzp, int includeM, int includeF, int debug, ostream& cout)
-    debug=100;
+    //debug=100;
     if (debug) {
         cout<<endl<<endl<<"#------------------------"<<endl;
         cout<<"starting calcCohortProgression(...)"<<endl;
@@ -7016,16 +7062,25 @@ FUNCTION void calcObjFun(int debug, ostream& cout)
         calcNLLs_ChelaHeightData(debug,cout);   objFunV[k++] = value(objFun);
         calcNLLs_MaturityOgiveData(debug,cout); objFunV[k++] = value(objFun);
         if ((debug>=dbgObjFun)||(debug<0)){
-            PRINT2B2("after initialization. objFun =",objFunV[0])
-            PRINT2B2("after calcPenalties.  objFun =",objFunV[1])
-            PRINT2B2("after calcAllPriors.  objFun =",objFunV[2])
-            PRINT2B2("after calcNLLs_Recruitment.        objFun =",objFunV[3])
-            PRINT2B2("after calcNLLs_ExtrapolatedEffort. objFun =",objFunV[4])
-            PRINT2B2("after calcNLLs_Fisheries.          objFun =",objFunV[5])
-            PRINT2B2("after calcNLLs_Surveys.            objFun =",objFunV[6])
-            PRINT2B2("after calcNLLs_GrowthData.         objFun =",objFunV[7])
-            PRINT2B2("after calcNLLs_ChelaHeightData.    objFun =",objFunV[8])    
-            PRINT2B2("after calcNLLs_MaturityOgiveData.  objFun =",objFunV[9])    
+            PRINT2B2("after initialization.              objFun = ",objFunV[0])
+            PRINT2B2("after calcPenalties.               objFun = ",objFunV[1])
+            PRINT2B2("                                   delta  = ",objFunV[1]-objFunV[0])
+            PRINT2B2("after calcAllPriors.               objFun = ",objFunV[2])
+            PRINT2B2("                                   delta  = ",objFunV[2]-objFunV[1])
+            PRINT2B2("after calcNLLs_Recruitment.        objFun = ",objFunV[3])
+            PRINT2B2("                                   delta  = ",objFunV[3]-objFunV[2])
+            PRINT2B2("after calcNLLs_ExtrapolatedEffort. objFun = ",objFunV[4])
+            PRINT2B2("                                   delta  = ",objFunV[4]-objFunV[3])
+            PRINT2B2("after calcNLLs_Fisheries.          objFun = ",objFunV[5])
+            PRINT2B2("                                   delta  = ",objFunV[5]-objFunV[4])
+            PRINT2B2("after calcNLLs_Surveys.            objFun = ",objFunV[6])
+            PRINT2B2("                                   delta  = ",objFunV[6]-objFunV[5])
+            PRINT2B2("after calcNLLs_GrowthData.         objFun = ",objFunV[7])
+            PRINT2B2("                                   delta  = ",objFunV[7]-objFunV[6])
+            PRINT2B2("after calcNLLs_ChelaHeightData.    objFun = ",objFunV[8])    
+            PRINT2B2("                                   delta  = ",objFunV[8]-objFunV[7])
+            PRINT2B2("after calcNLLs_MaturityOgiveData.  objFun = ",objFunV[9])    
+            PRINT2B2("                                   delta  = ",objFunV[9]-objFunV[8])
             PRINT2B2("*pobjfun = ",*objective_function_value::pobjfun)
             PRINT2B1("----Finished calcObjFun()")
         }
@@ -7491,46 +7546,73 @@ FUNCTION void calcNLLs_GrowthData(int debug, ostream& cout)
                         PRINT2B1("Terminating model run. Please correct.")
                         ad_exit(-1);
                     }
-                    /* multiplicative scale factor, by observation */
-                    dvar_vector ibeta_n = 1.0/grBeta_xy(x)(year_n);
+                    //the following is predicated on gamma pdf f(x;alpha,beta) using 
+                    //  alpha = location (shape) parameter 
+                    //  beta  = scale parameter
+                    // where 
+                    //  f(x;alpha,beta) = (beta^(-alpha))/lnGamma(alpha) * x^(alpha-1) * e^(-x/beta)
+                    // Note:
+                    //   E[x] = alpha * beta
+                    //   V[x] = alpha * beta^2
+                    //   mode[f] = (alpha-1)*beta
+                    //
+                    /* expected molt increment */
+                    dvar_vector mnMI_n = mnZ_n - zpre_n;//--E[x]
+                    /* scale factor (1/rate), by observation */
+                    dvar_vector beta_n  = grBeta_xy(x)(year_n);//--i.e., beta
+                    dvar_vector ibeta_n = 1.0/beta_n;          //--i.e., 1/beta
                     /* location factor, by observation */
-                    dvar_vector alpha_n = elem_prod(mnZ_n-zpre_n,ibeta_n);
-                    dvar_vector nlls_n(1,nObs); nlls_n.initialize();
-                    nlls_n = -wts::log_gamma_density(incZ_n,alpha_n,ibeta_n);
-                    dvariable nll = sum(nlls_n);
+                    dvar_vector alpha_n = elem_div(mnMI_n,beta_n);//alpha=E[x]/beta
+                    dvar_vector nlls_n(1,nObs);  nlls_n.initialize();
+                    dvar_vector nllsB_n(1,nObs); nllsB_n.initialize();
+                    //--data nll (wts::log_gamma_density is defined in terms of mu=1/beta)
+                    nlls_n  = -wts::log_gamma_density(incZ_n,        alpha_n,                 ibeta_n);
+                    //--as a reference NLL, want the NLL when the data is fit perfectly, under assumption that pGrBeta is fixed (not estimated).
+                    //--perfect fit occurs when mean = data (or, equivalently, E[x]=x), thus when alpha = x/beta
+                    nllsB_n = nlls_n - (-wts::log_gamma_density(incZ_n,elem_div(incZ_n,beta_n),ibeta_n));
+                    dvariable nll  = sum(nlls_n); //full nll (must use if grBeta is estimated)
+                    dvariable nllB = sum(nllsB_n);//nll as offset from best possible fit given data (can't use if pGrBeta estimated)
                     if (isnan(value(nll))){
-                        dvar_vector zscrs = elem_div((zpst_n-mnZ_n),sqrt(elem_prod(mnZ_n,grBeta_xy(x)(year_n))));
+                        dvar_vector var   = elem_prod(mnMI_n,beta_n);           //--V = E[x]/beta, but x here is growth increment (not mean post-molt size)
+                        dvar_vector zscrs = elem_div((zpst_n-mnZ_n),sqrt(var));//--note: pre-molt sizes cancel out in numerator
                         ofstream os("GrowthData.NLLs.NanReport.dat");
                         os.precision(12);
                         os<<"phase = "<<current_phase()<<endl;
                         os<<"sex   = "<<tcsam::getSexType(x)<<endl;
                         os<<"nll   = "<<nll<<endl;
                         os<<"nObs  = "<<nObs<<endl;
-                        os<<"year  grA   zGrA    grB    zGrB   zpre_n  zpst_n  mnZ_n   incZ   mnInc  ibeta_n alpha_n nll_n  zscr"<<endl;
+                        os<<"year  grA   zGrA    grB    zGrB   zpre_n  zpst_n  mnZ_n   incZ   mnInc  beta_n  ibeta_n alpha_n nll_n  nllB_n  zscr"<<endl;
                         for (int n=1;n<=nObs;n++){
                             os<<year_n(n)<<tb<<
                                     grA_xy(x)(year_n(n))<<tb<<zGrA_xy(x)(year_n(n))<<tb<<
                                     grB_xy(x)(year_n(n))<<tb<<zGrB_xy(x)(year_n(n))<<tb<<
                                     zpre_n(n)<<tb<<zpst_n(n)<<tb<<mnZ_n(n)<<tb<<
-                                    zpst_n(n)-zpre_n(n)<<tb<<mnZ_n(n)-zpre_n(n)<<tb<<
-                                    ibeta_n(n)<<tb<<alpha_n(n)<<tb<<nlls_n(n)<<tb<<zscrs(n)<<endl;
+                                    zpst_n(n)-zpre_n(n)<<tb<<mnZ_n(n)-zpre_n(n)<<tb<<beta_n(n)<<
+                                    ibeta_n(n)<<tb<<alpha_n(n)<<tb<<nlls_n(n)<<tb<<nllsB_n(n)<<tb<<zscrs(n)<<endl;
                         }
                         os.close();
                         exit(-1);
                     }
-                    objFun += wgt*nll;
+                    dvariable use_nll = nll;                   //--must use if grBeta is estimated
+                    if (ptrMOs->optGrowthLL==1) use_nll = nllB;//can use if grBeta is fixed
+                    objFun += wgt*use_nll;
                     if (debug<0) {
-                        dvar_vector zscrs = elem_div((zpst_n-mnZ_n),sqrt(elem_prod(mnZ_n,grBeta_xy(x)(year_n))));
-                        cout<<tcsam::getSexType(x)<<"=list(type='gamma',wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl;
+                        dvar_vector var   = elem_prod(mnMI_n,beta_n);          //--V=E[x]*beta, but x here is growth increment, not post-molt size
+                        dvar_vector zscrs = elem_div((zpst_n-mnZ_n),sqrt(var));//--note: pre-molt sizes cancel out in numerator
+                        cout<<tcsam::getSexType(x)<<"=list(type='gamma',wgt="<<wgt<<cc<<"nll="<<use_nll<<cc<<"objfun="<<wgt*use_nll<<cc<<endl;
                         cout<<"years="; wts::writeToR(cout,year_n);         cout<<cc<<endl;
                         cout<<"zPre=";  wts::writeToR(cout,value(zpre_n));  cout<<cc<<endl;
                         cout<<"zPst=";  wts::writeToR(cout,value(zpst_n));  cout<<cc<<endl;
                         cout<<"grA=";   wts::writeToR(cout,value(grA_xy(x)(year_n))); cout<<cc<<endl;
                         cout<<"grB=";   wts::writeToR(cout,value(grB_xy(x)(year_n))); cout<<cc<<endl;
-                        cout<<"mnZ =";  wts::writeToR(cout,value(mnZ_n));   cout<<cc<<endl;
+                        cout<<"mnZ=";   wts::writeToR(cout,value(mnZ_n));             cout<<cc<<endl;
+                        cout<<"mdZ=";   wts::writeToR(cout,value(mnZ_n-beta_n));      cout<<cc<<endl;
+                        cout<<"vrZ=";   wts::writeToR(cout,value(var));     cout<<cc<<endl;
+                        cout<<"beta=";  wts::writeToR(cout,value(beta_n));  cout<<cc<<endl;
                         cout<<"ibeta="; wts::writeToR(cout,value(ibeta_n)); cout<<cc<<endl;
                         cout<<"alpha="; wts::writeToR(cout,value(alpha_n)); cout<<cc<<endl;
                         cout<<"nlls=";  wts::writeToR(cout,value(nlls_n));  cout<<cc<<endl;
+                        cout<<"nllBs=";  wts::writeToR(cout,value(nllsB_n));cout<<cc<<endl;
                         cout<<"zscrs="; wts::writeToR(cout,value(zscrs));   cout<<cc<<endl;
                         cout<<"rmse="<<sqrt(value(norm2(zscrs))/zscrs.size())<<"),"<<endl;
                     }
@@ -7818,7 +7900,11 @@ FUNCTION void calcMultinomialNLL(SizeFrequencyData* ptrZFD, dvar_vector& mod, dv
         dvector nlls = -ss*(elem_prod(obs,log(vmod+smlVal)-log(obs+smlVal)));
         dvector zscrs = elem_div(obs-vmod,sqrt(elem_prod((vmod+smlVal),1.0-(vmod+smlVal))/ss));//pearson residuals
         double effN = 0.0;
-        if ((ss>0)&&(norm2(obs-vmod)>0)) effN = (vmod*(1.0-vmod))/norm2(obs-vmod);
+        //if ((ss>0)&&(norm2(obs-vmod)>0)) effN = (vmod*(1.0-vmod))/norm2(obs-vmod);
+        if (ss>0){
+          effN = std::numeric_limits<double>::max();
+          if (norm2(obs-vmod)>0) effN = (vmod*(1.0-vmod))/norm2(obs-vmod);
+        }
         if (debug<0){
             cout<<"list(nll.type='multinomial',yr="<<yr<<cc<<"wgt="<<ptrZFD->llWgt<<cc<<"nll="<<nll<<cc<<"objfun="<<ptrZFD->llWgt*nll<<cc<<"ss="<<ss<<cc<<"effN="<<effN<<cc<<endl; 
             adstring dzbs = "size=c("+ptrZFD->qcsvZBs+")";
@@ -7854,8 +7940,12 @@ FUNCTION void calcMultinomialPNLL(SizeFrequencyData* ptrZFD, dvar_vector& mod, d
         for (int i=idx.indexmin();i<=idx.indexmax();i++) nlls[idx[i]]  = -ss*obs[idx[i]]*(log(vmod[idx[i]])-log(obs[idx[i]]));
         for (int i=idx.indexmin();i<=idx.indexmax();i++) zscrs[idx[i]] = (obs[idx[i]]-vmod[idx[i]])/sqrt(vmod[idx[i]]*(1.0-vmod[idx[i]])/ss);//pearson residuals
         double effN = 0.0;
-        if ((ss>0)&&(norm2(obs-vmod)>0)) effN = (vmod*(1.0-vmod))/norm2(obs-vmod);
-        if (debug<0){
+        //if ((ss>0)&&(norm2(obs-vmod)>0)) effN = (vmod*(1.0-vmod))/norm2(obs-vmod);
+        if (ss>0){
+        effN = std::numeric_limits<double>::max();
+        if (norm2(obs-vmod)>0) effN = (vmod*(1.0-vmod))/norm2(obs-vmod);
+      }
+       if (debug<0){
             cout<<"list(nll.type='multinomialp',yr="<<yr<<cc<<"wgt="<<ptrZFD->llWgt<<cc<<"nll="<<nll<<cc<<"objfun="<<ptrZFD->llWgt*nll<<cc<<"ss="<<ss<<cc<<"effN="<<effN<<cc<<endl; 
             adstring dzbs = "size=c("+ptrZFD->qcsvZBs+")";
             cout<<"nlls=";  wts::writeToR(cout,nlls, dzbs); cout<<cc<<endl;
@@ -7921,7 +8011,9 @@ FUNCTION void calcDirichletNLL(dvariable& theta, SizeFrequencyData* ptrZFD, dvar
         dvector nlls  = 0.0*vmod;
         dvector zscrs = 0.0*vmod;
         if (ss>0) {
-            effN  = (vmod*(1.0-vmod))/norm2(obsp-vmod);
+            //effN  = (vmod*(1.0-vmod))/norm2(obsp-vmod);
+            effN = std::numeric_limits<double>::max();
+            if (norm2(obsp-vmod)>0) effN = (vmod*(1.0-vmod))/norm2(obsp-vmod);
             nlls  = -( gammln(n+1.0)-sum(gammln(n*obsp+1.0)) )
                     -value( (gammln(thn)-gammln(n+thn)) + gammln(n*obsp+thn*modp) - gammln(thn*modp) );
             zscrs = elem_div(obsp-vmod,sqrt(elem_prod(vmod,1.0-vmod)/nEff));//pearson residuals using nEff, not n (i.e., not ss)
@@ -7975,7 +8067,9 @@ FUNCTION void calcDirichletPNLL(dvariable& theta, SizeFrequencyData* ptrZFD, dva
         dvector nlls  = 0.0*vmod;
         dvector zscrs = 0.0*vmod;
         if (ss>0) {
-            effN  = (vmod*(1.0-vmod))/norm2(obs-vmod);
+            //effN  = (vmod*(1.0-vmod))/norm2(obs-vmod);
+            effN = std::numeric_limits<double>::max();
+            if (norm2(obs-vmod)>0) effN = (vmod*(1.0-vmod))/norm2(obs-vmod);
             nlls  = -value( (gammln(thn)-gammln(n+thn)) );
             for (int i=mod.indexmin();i<=mod.indexmax();i++){
                 if (mod[i]>0) nlls[i] -= value(gammln(n*obs[i]+thn*mod[i]) - gammln(thn*mod[i]));
@@ -10044,8 +10138,9 @@ FUNCTION void writeMCMCtoR(ofstream& mcmc)
 FUNCTION void createSimData(ModelDatasets* ptrSim, int debug, ostream& cout)
     if (debug){
         cout<<"createSimData: simulating model results as data"<<endl;
-        AggregateCatchData::debug=100;
-        SizeFrequencyData::debug=100;
+        // FleetData::debug=100;
+        // AggregateCatchData::debug=100;
+        // SizeFrequencyData::debug=100;
     }
 //    d6_array vn_vyxmsz,vcN_fyxmsz,vrmN_fyxmsz;
 //    cout<<"got here 1a"<<endl;
@@ -10057,31 +10152,36 @@ FUNCTION void createSimData(ModelDatasets* ptrSim, int debug, ostream& cout)
     if (debug) cout<<"createSimData: got here 1"<<endl;
     for (int f=1;f<=nFsh;f++) {
         if (debug) cout<<"createSimData: fishery f: "<<f<<endl;
+        if (debug) {cout<<"SimOpts:"<<endl; ptrMOs->ptrSimOpts->write(cout); cout<<endl;}
         (ptrSim->ppFsh[f-1])->replaceFisheryCatchData(rngSimData,
                                                       ptrMOs->ptrSimOpts,
                                                       wts::value(cpN_fyxmsz(f)),
                                                       wts::value(rmN_fyxmsz(f)),
-                                                      ptrSim->ptrBio->wAtZ_xmz);
+                                                      ptrSim->ptrBio->wAtZ_xmz,
+                                                      debug,cout);
     }
     for (int v=1;v<=nSrv;v++) {
         if (debug) cout<<"createSimData: survey v: "<<v<<endl;
-        cout<<wts::value(n_vyxmsz(v))<<endl;
+        if (debug) {cout<<"wts::value(n_vyxmsz(v)):"<<endl; cout<<wts::value(n_vyxmsz(v))<<endl;}
         (ptrSim->ppSrv[v-1])->replaceIndexCatchData(rngSimData,
                                                     ptrMOs->ptrSimOpts,
                                                     wts::value(n_vyxmsz(v)),
-                                                    ptrSim->ptrBio->wAtZ_xmz);
+                                                    ptrSim->ptrBio->wAtZ_xmz,
+                                                    debug,cout);
     }
     for (int g=1;g<=ptrSim->nGrw;g++){
         if (debug) cout<<"createSimData: growth data g: "<<g<<endl;
-        (ptrSim->ppGrw[g-1])->replaceGrowthData(rngSimData,ptrMOs,
+        (ptrSim->ppGrw[g-1])->replaceGrowthData(rngSimData,
+                                                ptrMOs->ptrSimOpts,
+                                                ptrMOs->optGrowthParam,
                                                 grA_xy,grB_xy,grBeta_xy,
                                                 zGrA_xy,zGrB_xy,
                                                 debug,cout);
     }
-    for (int o=0;o<ptrSim->nMOD;o++){
+    for (int o=1;o<=ptrSim->nMOD;o++){
         if (debug) cout<<"createSimData: maturity ogive data o: "<<o<<endl;
-        MaturityOgiveData* pMOD = ptrSim->ppMOD[o];
-        int v = mapD2MMOd(o+1);//
+        MaturityOgiveData* pMOD = ptrSim->ppMOD[o-1];
+        int v = mapD2MMOd(o);//
         if (debug) cout<<tb<<"v= "<<v<<tb<<"survey: "<<ptrMC->lblsSrv[v]<<endl;
         pMOD->replaceMaturityOgiveData(rngSimData,ptrMOs->ptrSimOpts,wts::value(n_vyxmsz(v)),debug,cout);
     }
@@ -11957,6 +12057,9 @@ FINAL_SECTION
                 }
                 {
                     PRINT2B1("#----Writing sim data to file")
+                    int dbgLevel = 0;
+                    if (iSimDataSeed) rngSimData.reinitialize(iSimDataSeed);//make sure rngSimData is initialized to iSimDataSeed
+                    createSimData(ptrSimMDS,dbgLevel,rpt::echo);            //stochastic if iSimDataSeed<>0
                     ofstream echo1; echo1.open("ModelData.Sim.dat", ios::trunc);
                     echo1.precision(12);
                     writeSimData(echo1,0,cout,ptrSimMDS);

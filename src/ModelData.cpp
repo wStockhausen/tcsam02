@@ -138,18 +138,33 @@ void AggregateCatchData::aggregateData(void){
 }
 
 /****************************************************************
- * Replace catch data C_xmsy with new data. Units are MILLIONS for 
- * abundance data and 1000's mt for biomass data.
- * Also modifies inpC_xmsyc to reflect new data, but keeps original units.
- * Error-related quantities remain the same.
+ * Replace catch data C_xmsy and inpC_xmsyc with new values. Units are MILLIONS for 
+ * abundance data and 1000's mt for biomass data. 
+ * Associated  error-related quantities (cv's, sd's) remain unchanged.
  * Use flags remain the same.
  * 
  * @param rng - random number generator
  * @param iSeed - flag to add noise to data (if !=0)
  * @param expFac - error expansion factor (or replacement)
   * @param newC_yxms - d4_array of new catch data
+  * @param debug - integer debugging level
+  * @param cout - ostream to write debugging info to
+  * 
+  * @details The processing here proceeds as:
+  * 1. Use newC_yxms to create a new version of inpC_xmsyc, possibly adding stochasticity.
+  * 2. Use inpC_xmsyc to create C_xmsy. 
+  * 
+  * If `iSeed`<>0, stochasticity is added to the new input catch data `inpC_yxmsc`. The cv's with which 
+  * occurs depends on expFac: 
+  * If expFac < 0, then abs(expFac) is used as the cv. 
+  * If expFac > 0, expFac is used as a multiplier on the input cv (cv = expFac*cv)
  */
-void AggregateCatchData::replaceCatchData(random_number_generator& rng,int iSeed,double expFac,d4_array& newC_yxms){
+void AggregateCatchData::replaceCatchData(random_number_generator& rng,
+                                          int iSeed,
+                                          double expFac,
+                                          d4_array& newC_yxms,
+                                          int debug,
+                                          ostream& cout){
     if (debug) os<<"starting AggregateCatchData::replaceCatchData(d4_array& newC_yxms) on "<<name<<std::endl;
     //get conversion factor to millions (abundance) or thousands mt (biomass)
     double convFac = 1.0;
@@ -1138,8 +1153,15 @@ void SizeFrequencyData::aggregateRawNatZ(void){
  * @param iSeed - flag to add noise to data (if !=0)
  * @param expFac - error expansion factor
  * @param newNatZ_yxmsz - d5_array of numbers-at-size by yxmsz
+  * @param debug - integer debugging level
+  * @param cout - ostream to write debugging info to
  */
-void SizeFrequencyData::replaceSizeFrequencyData(random_number_generator& rng,int iSeed,double expFac,const d5_array& newNatZ_yxmsz){
+void SizeFrequencyData::replaceSizeFrequencyData(random_number_generator& rng,
+                                                 int iSeed,
+                                                 double expFac,
+                                                 const d5_array& newNatZ_yxmsz,
+                                                 int debug,
+                                                 ostream& cout){
     if (debug) std::cout<<"starting SizeFrequencyData::replaceSizeFrequencyData(...) for "<<name<<std::endl;
     
     //year limits on new data
@@ -1189,13 +1211,13 @@ void SizeFrequencyData::replaceSizeFrequencyData(random_number_generator& rng,in
                             //add stochastic component by resampling using input sample size
                             double n = sum(n_z);
                             if ((n>0)&&(inpSS_xmsy(x,m,s,y)>0)){
-                                cout<<"org n_z = "<<n_z<<endl;
+                                if (debug) cout<<"org n_z = "<<n_z<<endl;
                                 dvector p_z = n_z/n;
-                                cout<<"p_z = "<<p_z<<endl;
+                                if (debug) cout<<"p_z = "<<p_z<<endl;
                                 dvector pr_z = wts::rmvlogistic(p_z,inpSS_xmsy(x,m,s,y),rng);//resample
-                                cout<<"pr_z = "<<n_z<<endl;
+                                if (debug) cout<<"pr_z = "<<n_z<<endl;
                                 n_z = n*pr_z; //re-scale to original size
-                                cout<<"new n_z = "<<n_z<<endl;
+                                if (debug) cout<<"new n_z = "<<n_z<<endl;
                             }
                         }
                         inpNatZ_xmsyc(x,m,s,yctr)(1,LAST_COL-1) = oldInpNatZ_xmsyc(x,m,s,y)(1,LAST_COL-1);//old use flag, DM, year
