@@ -807,6 +807,7 @@
 //-2024-08-07: 1. Added option to specify growth likelihood calc (full or relative to "perfect fit") in ModelOptions. 
 //                  Incremented MO version to 2024.08.07.
 //             2. Changes to simulating growth and maturity data (diagnostics, etc.)
+//-2024-08-16: 1. Changed logic for handling commandline input for -iSimDataSeed when -fitSimData is specified. 
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -1134,27 +1135,6 @@ DATA_SECTION
         rpt::echo<<"#-------------------------------------------"<<endl;
         flg = 1;
     }
-    //fitSimData
-    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-fitSimData"))>-1) {
-        fitSimData=1;
-        rpt::echo<<"#Fit to simulated data turned 'ON'. "<<endl;
-        rpt::echo<<"#-------------------------------------------"<<endl;
-        flg = 1;
-    }
-    //iSimDataSeed
-    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-iSimDataSeed"))>-1) {
-        if (on+1<argc) {
-            iSimDataSeed=atoi(ad_comm::argv[on+1]);
-        } else {
-            cout<<"-------------------------------------------"<<endl;
-            cout<<"Enter random number seed (0 -> deterministic) for data simulation: ";
-            cin>>iSimDataSeed;
-        }
-        if (iSimDataSeed) rngSimData.reinitialize(iSimDataSeed);
-        rpt::echo<<"#Simulating data using "<<iSimDataSeed<<endl;
-        rpt::echo<<"#-------------------------------------------"<<endl;
-        flg = 1;
-    }
     //ctrDebugParams
     if ((on=option_match(ad_comm::argc,ad_comm::argv,"-ctrDebugParams"))>-1) {
         ctrDebugParams=atoi(ad_comm::argv[on+1]);
@@ -1184,6 +1164,39 @@ DATA_SECTION
         rpt::echo<<"#-------------------------------------------"<<endl;
         ofstream fs("jitterInfo.dat");
         fs<<"seed = "<<iSeed<<endl;
+        fs.close();
+        flg = 1;
+    }
+    //iSimDataSeed (=0 if commandline option not set)
+    //--check must come BEFORE check for fitSimData because iSimDataSeed is re-evaluated if -fitSimData is found
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-iSimDataSeed"))>-1) {
+        if (on+1<argc) {
+            iSimDataSeed=atoi(ad_comm::argv[on+1]);
+        }
+        if (iSimDataSeed) rngSimData.reinitialize(iSimDataSeed);
+        rpt::echo<<"#Simulating data using "<<iSimDataSeed<<endl;
+        rpt::echo<<"#-------------------------------------------"<<endl;
+        ofstream fs("simInfo.dat");
+        fs<<"seed = "<<iSimDataSeed<<endl;
+        fs.close();
+        flg = 1;
+    } 
+    //fitSimData (sets iSmiDataSeed to system time if -iSimDataSeed not found)
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-fitSimData"))>-1) {
+        fitSimData=1;
+        rpt::echo<<"#Fit to simulated data turned 'ON'. "<<endl;
+        rpt::echo<<"#-------------------------------------------"<<endl;
+        iSimDataSeed=(long)start;//--"arbitrary" seed
+        if ((on=option_match(ad_comm::argc,ad_comm::argv,"-iSimDataSeed"))>-1) {
+            if (on+1<argc) {
+                iSimDataSeed=atoi(ad_comm::argv[on+1]);//--reset from commandline, if given
+            }
+        } 
+        if (iSimDataSeed) rngSimData.reinitialize(iSimDataSeed);
+        rpt::echo<<"#Simulating data using "<<iSimDataSeed<<endl;
+        rpt::echo<<"#-------------------------------------------"<<endl;
+        ofstream fs("simInfo.dat");
+        fs<<"seed = "<<iSimDataSeed<<endl;
         fs.close();
         flg = 1;
     }
@@ -11339,6 +11352,17 @@ REPORT_SECTION
                     if (doOFL) fs<<cc<<"B0"<<cc<<"Bmsy"<<cc<<"Fmsy"<<cc<<"OFL"<<cc<<"curB";
                     fs<<endl;
                     fs<<iSeed<<cc<<value(objFun)<<cc<<maxGrad<<cc<<spB_yx(mxYr,MALE);
+                    if (doOFL) fs<<cc<<ptrOFLResults->B0<<cc<<ptrOFLResults->Bmsy<<cc<<ptrOFLResults->Fmsy<<cc<<ptrOFLResults->OFL<<cc<<spB_yx(mxYr,MALE);
+                    fs<<endl;
+                    fs.close();
+                }
+                if (option_match(ad_comm::argc,ad_comm::argv,"-fitSimData")>-1) {
+                    ofstream fs("simInfo.csv");
+                    fs.precision(20);
+                    fs<<"seed"<<cc<<"objfun"<<cc<<"maxGrad"<<cc<<"MMB";
+                    if (doOFL) fs<<cc<<"B0"<<cc<<"Bmsy"<<cc<<"Fmsy"<<cc<<"OFL"<<cc<<"curB";
+                    fs<<endl;
+                    fs<<iSimDataSeed<<cc<<value(objFun)<<cc<<maxGrad<<cc<<spB_yx(mxYr,MALE);
                     if (doOFL) fs<<cc<<ptrOFLResults->B0<<cc<<ptrOFLResults->Bmsy<<cc<<ptrOFLResults->Fmsy<<cc<<ptrOFLResults->OFL<<cc<<spB_yx(mxYr,MALE);
                     fs<<endl;
                     fs.close();
