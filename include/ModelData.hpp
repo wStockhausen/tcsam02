@@ -289,8 +289,10 @@ class IndexBlock;
         /* last set of iterative re-weighting factors */
         d3_array itrF_xms;
         
-        /* working use flags for size frequency data */
+        /* use flags for size frequency data valid AFTER aggregation */
         i4_array uf_xmsy;   
+        /* indicator map for aggregating model-predicted size frequencies from xms to XMS */
+        d6_array mAggMap_XMSxms;   
         /* working Dirichlet-Multinomial parameter indices for size frequency data */
         i4_array dm_xmsy;   
         /* working (possibly re-weighted) sample sizes for size frequency data */
@@ -308,6 +310,10 @@ class IndexBlock;
          * Destructor.
          */
         ~SizeFrequencyData(){}
+        /**
+         * Create the aggregator map
+         */
+        void createAggMap();
         /**
          * Set the maximum year in which to fit the data.
          * 
@@ -769,6 +775,8 @@ class IndexBlock;
         imatrix obsYears_xn;
         /** input data, by sex, c: year,pre-molt size, post-molt size, n: observations */
         d3_array inpData_xcn;  
+        /** "best" possible NLL values given the data and fixed scale, for reference */
+        dmatrix best_nll_xn;
     public:
         /**
          * Constructor.
@@ -778,6 +786,13 @@ class IndexBlock;
          * Destructor.
          */
         ~GrowthData();
+
+        double f(double r_, double x_);
+
+        dvector find_gamma_mle(double mi, double beta);
+
+        dvector find_gamma_mle(dvector& mi, dvector& beta);
+
         /**
          * Set the maximum year in which to fit the data.
          * 

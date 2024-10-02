@@ -56,7 +56,7 @@
     #ifdef PRINT2B2
         #undef PRINT2B2
     #endif
-    #define PRINT2B2(t,o) std::cout<<(t)<<(o)<<std::endl; rpt::echo<<(t)<<(o)<<std::endl;
+    #define PRINT2B2(t,o) std::cout<<(t)<<" "<<(o)<<std::endl; rpt::echo<<(t)<<" "<<(o)<<std::endl;
 
     //macros to print param_init_number_vector object representing devs vectors
     #ifdef PRINTDEVSp

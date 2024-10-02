@@ -808,6 +808,13 @@
 //                  Incremented MO version to 2024.08.07.
 //             2. Changes to simulating growth and maturity data (diagnostics, etc.)
 //-2024-08-16: 1. Changed logic for handling commandline input for -iSimDataSeed when -fitSimData is specified. 
+//-2024-09-09: 1. Added "diffs" (unscaled residuals) to fitted size comps, growth, chela heights, and male maturity ogives data 
+//-2024-10-01: 1. Number of changes to facilitate simulating data to fit in a model run, particularly with respect to growth data.
+//                  "Perfect" growth data values are based on the mean post-molt sizes, given the pre-molt sizes, through the 
+//                  corresponding shape and scale parameters for the gamma NLLs such that the shape parameters are at their 
+//                  MLE's given the simulated molt increment values.
+//             2. Changes to size comp aggregation and fitting code to correctly accommodate input data that are partially 
+//                  "turned off".
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -830,6 +837,7 @@
 //  -iSimDataSeed val              use val as RNG seed for rngSimData
 //  -mseMode type                  flag to use mseMode (type = "mseOpModMode" or "mseEstModMode")
 //  -optInitNs val                 val to use as option for initial N's calculation (overrides ModelOptions value)
+//  -print1stDerivs                flag to print detailed derivatives at first objective function evaluation
 ///////----flags to print debugging info-----
 //  -debugModelConfig
 //  -debugModelParams
@@ -914,9 +922,10 @@ GLOBALS_SECTION
     int doRetro       = 0;//flag to facilitate a retrospective model run
     int fitSimData    = 0;//flag to fit model to simulated data calculated in the PRELIMINARY_CALCs section
     int doOFL         = 0;///<flag (0/1) to do OFL calculations
-    int doProjections = 0;///<flag (0/1) to do multi-year projections
-    int doTAC         = 0;///<calculate TAC using harvest control rule indicated by value of doTAC
-    int doDynB0       = 0;//<flag to run dynamic B0 calculations after final phase
+    int doProjections  = 0;///<flag (0/1) to do multi-year projections
+    int doTAC          = 0;///<calculate TAC using harvest control rule indicated by value of doTAC
+    int doDynB0        = 0;//<flag to run dynamic B0 calculations after final phase
+    int print1stDerivs = 0;//<flag to print derivatives on first object function call
         
     int yRetro = 0; //number of years to decrement for retrospective model run
     int iSeed = -1; //default random number generator seed
@@ -1004,6 +1013,10 @@ DATA_SECTION
     int on = 0;
     int flg = 0;
     PRINT2B1("#------Reading command line options---------")
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-print1stDerivs"))>-1) {
+        print1stDerivs = 1;
+        rpt::echo<<"#--will print out derivatives for first objective function calculation--"<<endl;
+    }
 //    //admb optimization debugging (requires compiling and linking admb based on admb-12.3.wts_dbg)
 //    wts_dbg = 0;
 //    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-wts_dbg"))>-1) {
@@ -3089,10 +3102,11 @@ PRELIMINARY_CALCS_SECTION
         PRINT2B1("finished testing setAllVectorVectors()")
 
         {
-            PRINT2B1("writing data to R")
-            ofstream os; os.open("ModelData.R", ios::trunc);
+            PRINT2B1("writing input data to R")
+            ofstream os; os.open("ModelData.init.R", ios::trunc);
             os.precision(12);
-            ReportToR_Data(os,0,cout);
+            os<<"#--input data to be fit in model run"<<endl;
+            ReportToR_Data(ptrMDS,os,0,cout);
             PRINT2B1("finished writing data to R")
         }
 
@@ -3203,11 +3217,11 @@ PRELIMINARY_CALCS_SECTION
             if (doOFL&&debugOFL){
                 PRINT2B1("Testing cohort calculations1")
                 ofstream echoCP1; echoCP1.open("calcCohortProgression.init1.txt", ios::trunc);
-                ReportToR_CohortProgression(echoCP1,3,1,1,0,debugOFL,echoCP1);
+                ReportToR_CohortProgression(echoCP1,3,1,1,0,0,echoCP1);
                 echoCP1.close();
                 PRINT2B1("Testing cohort calculations2")
                 ofstream echoCP2; echoCP2.open("calcCohortProgression.init2.txt", ios::trunc);
-                ReportToR_CohortProgression(echoCP2,3,1,1,0,debugOFL,echoCP2);
+                ReportToR_CohortProgression(echoCP2,3,1,1,0,0,echoCP2);
                 echoCP2.close();
                 PRINT2B1("Testing OFL calculations 1")
                 ofstream echoOFL1; echoOFL1.open("calcOFL.init1.txt", ios::trunc);
@@ -3243,9 +3257,11 @@ PRELIMINARY_CALCS_SECTION
                 }
             }
 
+            if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
+
             if (fitSimData){
                 int dbgLevel = 0;
-                PRINT2B1("creating stochastic sim data to fit in model")
+                PRINT2B1("creating stochastic sim data in ptrMDS to fit in model")
                 createSimData(ptrMDS,dbgLevel,rpt::echo);//stochastic if iSimDataSeed<>0
                 {
                     PRINT2B1("writing stochastic sim data being fit in model run to 'ModelData.Sim.init.dat'")
@@ -3255,13 +3271,14 @@ PRELIMINARY_CALCS_SECTION
                     echo2.close();
                     PRINT2B1("finished writing model sim data to file")
                     PRINT2B1("re-writing data to R")
-                    ofstream echo1; echo1.open("ModelData.R", ios::trunc);
+                    ofstream echo1; echo1.open("ModelData.init.R", ios::trunc);
                     echo1.precision(12);
-                    ReportToR_Data(echo1,0,cout);
+                    echo1<<"#--simulated initial data to be fit in model run"<<endl;
+                    ReportToR_Data(ptrMDS,echo1,0,cout);
                 }
             } else {
                 int dbgLevel=0;
-                PRINT2B1("creating stochastic sim data corresponding to initial parameter values")
+                PRINT2B1("creating stochastic sim data in ptrSimMDS corresponding to initial parameter values")
                 createSimData(ptrSimMDS,dbgLevel,rpt::echo);//stochastic if iSimDataSeed<>0
                 {
                     PRINT2B1("writing stochastic sim data being fit in model run to 'ModelData.Sim.init.dat'")
@@ -3270,12 +3287,26 @@ PRELIMINARY_CALCS_SECTION
                     writeSimData(echo2,0,rpt::echo,ptrSimMDS);
                     echo2.close();
                     PRINT2B1("finished writing model sim data to file")
+                    PRINT2B1("writing simulated data to R based on input parameter values")
+                    ofstream echo1; echo1.open("ModelData.sim.init.R", ios::trunc);
+                    echo1.precision(12);
+                    echo1<<"#--simulated data based on initial model parameter values (not fit)"<<endl;
+                    ReportToR_Data(ptrSimMDS,echo1,0,cout);
                 }
             }
 
             {
+                PRINT2B1("#----writing alternative initial par file tcsam02_init.par1")
+                ofstream par1; par1.precision(12);
+                par1.open("tcsam02_init.par1", ios::trunc); 
+                writeParameters(par1,-1,0,0);
+                par1.close();
+                PRINT2B1("#------finished writing alternative initial par file")
+            }
+
+            {
                 PRINT2B1("--Testing calcObjFun()")
-                if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
+                if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);//--really need to run this again after above?
                 calcObjFun(dbgAll+100,rpt::echo);
                 PRINT2B2("--Finished testing calcObjFun(): ",value(objFun))
             }
@@ -3410,6 +3441,7 @@ PRELIMINARY_CALCS_SECTION
 
     PRINT2B1("#finished PRELIMINARY_CALCS_SECTION")
     PRINT2B1("#----------------------------------")
+    //exit(-1);
     
 // =============================================================================
 // =============================================================================
@@ -3486,6 +3518,31 @@ PROCEDURE_SECTION
     } else {
         if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
         calcObjFun(dbg,rpt::echo);
+        if (print1stDerivs && (ctrProcCalls<=-1)){
+          int nvar = initial_params::nvarcalc();
+          dvector gr(1,nvar);
+          gradcalc(nvar,gr);
+          int mxpar = get_maxpar(gr);
+          adstring mxparnm = get_maxparname(mxpar);
+          adstring_array parnms = get_param_names();
+          PRINT2B1("\n\n#--printing gradient info----")
+          PRINT2B2("num proc calls:",ctrProcCalls)
+          PRINT2B2("obj fun = ",value(objFun))
+          PRINT2B2("*pobjfun = ",*objective_function_value::pobjfun)
+          PRINT2B1("Initial gradients:")
+          PRINT2B2("par with max grad: ",mxparnm)
+          PRINT2B2("max grad value   : ",gr(mxpar))
+          for (int i=1;i<=nvar;i++) {
+            cout     <<i<<" "<<parnms[i]<<" "<<gr(i)<<endl;
+            rpt::echo<<i<<" "<<parnms[i]<<" "<<gr(i)<<endl;
+          }
+          PRINT2B1("#--printed gradient info----\n\n")
+        //--re-run it for 
+          PRINT2B1("#--recalculating the objective function----")
+          if (!runAlt) runPopDyMod(0,cout); else runAltPopDyMod(0,cout);
+          calcObjFun(dbg,rpt::echo);
+          PRINT2B1("#--recalculated the objective function----\n\n")
+        }
     }
     
     if ((!mseOpModMode)&&(ctrProcCallsInPhase==1)&&(!derivChecker)&&(!doHessStep)){
@@ -3547,6 +3604,71 @@ PROCEDURE_SECTION
         PRINT2B1("--END PROCEDURE_SECTION----------------")
     }
             
+//-------------------------------------------------------------------------------------
+FUNCTION adstring get_maxparname(const int index)
+  if (initial_params::num_initial_params){
+    adstring_array pars;
+    pars = get_param_names();
+    return pars(index);
+  }
+  else
+  {
+    adstring maxparname = "param[" + str(index) + "]";
+    return maxparname;
+  }
+//-------------------------------------------------------------------------------------
+FUNCTION int get_maxpar(const dvector& g)
+  int min = g.indexmin();
+  int max = g.indexmax();
+
+  int maxpar = min;
+  double gmax = fabs(g(min));
+
+  for (int i = min + 1; i <= max; ++i)
+  {
+    double v = fabs(g(i));
+    if (v > gmax)
+    {
+      gmax = v;
+      maxpar = i;
+    }
+  }
+  return maxpar;
+
+//-------------------------------------------------------------------------------------
+//**
+// * Get names of active parameters
+// */
+FUNCTION adstring_array get_param_names(void)
+  int debug = 0;
+  //define and allocate adstring array
+  int nvar = initial_params::nvarcalc(); // get the number of active parameters
+  if (debug) cout<<"--num initial params = "<< initial_params::num_initial_params <<endl;
+  if (debug) cout<<"--num active  params = "<<nvar<<endl;
+  adstring_array par_names;
+  if (nvar>0){
+    par_names.allocate(1,nvar);
+
+    //loop over parameters and vectors and create names
+    int kk = 0;
+    for (int i = 0; i < initial_params::num_initial_params; ++i) {
+      initial_params* varptr = initial_params::varsptr[i];
+      if (withinbound(0,varptr->phase_start,initial_params::current_phase)) {
+	int jmax = varptr->size_count();
+	for (int j = 1; j <= jmax; ++j) {
+	  kk++;
+	  par_names[kk] = varptr->label();
+	  if (jmax > 1) par_names[kk] += "["+str(j)+"]";//might have to do something similar to alternative above if this doesn't work
+	}//--j loop
+      }//--if
+    }//--i loop
+    if (nvar!=kk) cerr<<"Error in initial_params::get_param_names: number of parameters does not match"<<endl;
+  } else {
+    if (debug) cout<<"--initial_params::get_param_names(): Model appears to be autodiff only."<<endl;
+    par_names.allocate();
+  }
+  return(par_names);
+
 //-------------------------------------------------------------------------------------
 FUNCTION void runAltPopDyMod(int debug, ostream& cout)
     if (debug>=dbgPopDy) cout<<"starting runAltPopDyMod()"<<endl;
@@ -4101,10 +4223,10 @@ FUNCTION dvar4_array applyFshMort(dvar4_array& n0_xmsz, int y, int debug, ostrea
                     rmN_fyxmsz(f,y,x,m,s) = elem_prod(elem_prod(rmF_fyxmsz(f,y,x,m,s),tfF_z),n0_xmsz(x,m,s)); //retained mortality in fishery f (numbers)
                     dmN_fyxmsz(f,y,x,m,s) = elem_prod(elem_prod(dmF_fyxmsz(f,y,x,m,s),tfF_z),n0_xmsz(x,m,s)); //discards mortality in fishery f (numbers)
                     dsN_fyxmsz(f,y,x,m,s) = cpN_fyxmsz(f,y,x,m,s)-rmN_fyxmsz(f,y,x,m,s);//discarded catch (NOT mortality) in fishery f (numbers)                    
-                }
-            }
-        }
-    }
+                }//--f
+            }//--s
+        }//--m
+    }//--x
     if (debug>dbgApply) cout<<"finished applyFshMort("<<y<<")"<<endl;
     RETURN_ARRAYS_DECREMENT();
     return n1_xmsz;
@@ -4660,6 +4782,7 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
     
     double zGrA = 0.0;
     double zGrB = 0.0;
+    double dzB  = ptrMC->zCutPts(2)-ptrMC->zCutPts(1);
     
     mnGrZ_cz.initialize();
     prGr_czz.initialize();
@@ -4729,7 +4852,7 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
         dvar_vector mnIs = mnZs - zBs;              //mean molt increments
         dvariable invBeta = 1.0/grBeta;             //inverse scale for gamma density function
         dvar_vector alIs = mnIs*invBeta;            //gamma density alpha (location) parameters
-        dvar_vector mnpIs = mnZs - (zBs - 2.5);     //mean molt increment (adjusted to start of size bin)
+        dvar_vector mnpIs = mnZs - (zBs - dzB/2.0);     //mean molt increment (adjusted to start of size bin)
         dvar_vector alpIs = mnpIs*invBeta;          //gamma density alpha (location) parameters
         //check all mean molt increments are > 0
         if (isnan(value(sum(sqrt(mnIs))))){
@@ -4754,7 +4877,7 @@ FUNCTION void calcGrowth(int debug, ostream& cout)
         if (ptrMOs->optGrowthPDF==0) {
             //old style (TCSAM2013)
             for (int z=1;z<=nZBs;z++){//pre-molt growth bin
-                dvector dpZs =  zBs(z,nZBs) - (zBs(z)-2.5);//realized growth increments (note non-neg. growth only)
+                dvector dpZs =  zBs(z,nZBs) - (zBs(z)-dzB/2.0);//realized growth increments (note non-neg. growth only)
                 dvar_vector prs  = elem_prod(pow(dpZs,alpIs(z)-1.0),exp(-dpZs/grBeta)); //pr(dZ|z): use exp like TCSAM2013
                 int mxIZ = min(nZBs,z+maxZBEx-1);//limit growth range
                 prGr_zz(z)(z,mxIZ) = prs(z,mxIZ);
@@ -6877,7 +7000,8 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     //Apply diminishing penalties to variances of F-devs
     {
         if (debug<0) cout<<"penFDevs=list("<<endl;
-        double penWgt = 1.0/log(1.0+square(ptrMOs->cvFDevsPen));
+        double penWgt = 0.0;
+        if (ptrMOs->cvFDevsPen>0) penWgt = 1.0/log(1.0+square(ptrMOs->cvFDevsPen));
         if (ptrMOs->phsDecrFDevsPen<=current_phase()){
             double scl = max(1.0,(double)(ptrMOs->phsZeroFDevsPen-ptrMOs->phsDecrFDevsPen));
             penWgt *= max(0.0,(double)(ptrMOs->phsZeroFDevsPen-current_phase()))/scl;
@@ -7075,6 +7199,9 @@ FUNCTION void calcObjFun(int debug, ostream& cout)
         calcNLLs_ChelaHeightData(debug,cout);   objFunV[k++] = value(objFun);
         calcNLLs_MaturityOgiveData(debug,cout); objFunV[k++] = value(objFun);
         if ((debug>=dbgObjFun)||(debug<0)){
+            int prcs = std::cout.precision(); std::cout.precision(15);
+            int prcr = rpt::echo.precision(); rpt::echo.precision(15);
+            k = 0;
             PRINT2B2("after initialization.              objFun = ",objFunV[0])
             PRINT2B2("after calcPenalties.               objFun = ",objFunV[1])
             PRINT2B2("                                   delta  = ",objFunV[1]-objFunV[0])
@@ -7096,6 +7223,7 @@ FUNCTION void calcObjFun(int debug, ostream& cout)
             PRINT2B2("                                   delta  = ",objFunV[9]-objFunV[8])
             PRINT2B2("*pobjfun = ",*objective_function_value::pobjfun)
             PRINT2B1("----Finished calcObjFun()")
+            std::cout.precision(prcs); rpt::echo.precision(prcr);
         }
     } else {
         //run the derivative checker on an intermediate
@@ -7365,6 +7493,7 @@ FUNCTION void calcNLLs_MaturityOgiveData(int debug, ostream& cout)
                 int nzscrs = 0;
                 dvar_vector modPM_n(1,nObs);  modPM_n.initialize();
                 dvar_vector nlls_n(1,nObs);   nlls_n.initialize();
+                dvector diffs_n(1,nObs);      diffs_n.initialize();
                 dvector zscrs_n(1,nObs);      zscrs_n.initialize();
                 if (debug>dbgObjFun) cout<<"n"<<tb<<"y"<<tb<<"z"<<tb<<"iz"<<tb<<"ss"<<tb<<"obsPM"<<tb<<"modPM"<<tb<<"nll"<<tb<<"zscr"<<endl;
                 for (int n=1;n<=nObs;n++){
@@ -7379,6 +7508,7 @@ FUNCTION void calcNLLs_MaturityOgiveData(int debug, ostream& cout)
                                 if (obsPM_n(n)<1.0) nlls_n(n) -= ss_n(n)*(1.0-obsPM_n(n))*(log(1.0-modPM_n(n))-log(1.0-obsPM_n(n)));
                                 if (debug>dbgObjFun) cout<<nlls_n(n)<<tb;
                                 double modPMv = value(modPM_n(n));
+                                diffs_n(n) = (obsPM_n(n)-modPMv);
                                 zscrs_n(n) = (obsPM_n(n)-modPMv)/sqrt(modPMv*(1.0-modPMv)/ss_n(n));
                                 nzscrs++;
                                 if (debug>dbgObjFun) cout<<zscrs_n(n)<<endl;
@@ -7400,6 +7530,7 @@ FUNCTION void calcNLLs_MaturityOgiveData(int debug, ostream& cout)
                     cout<<"obsPM="; wts::writeToR(cout,obsPM_n);         cout<<cc<<endl;
                     cout<<"modPM="; wts::writeToR(cout,value(modPM_n));  cout<<cc<<endl;
                     cout<<"nlls=";  wts::writeToR(cout,value(nlls_n));   cout<<cc<<endl;
+                    cout<<"diffs="; wts::writeToR(cout,diffs_n);         cout<<cc<<endl;
                     cout<<"zscrs="; wts::writeToR(cout,zscrs_n);         cout<<cc<<endl;
                     cout<<"rmse="<<sqrt(norm2(zscrs_n)/nzscrs)<<"),"<<endl;
                 }
@@ -7448,6 +7579,7 @@ FUNCTION void calcNLLs_ChelaHeightData(int debug, ostream& cout)
 
                 dvar_vector modPM(1,nObs);  modPM.initialize();
                 dvar_vector nlls_n(1,nObs); nlls_n.initialize();
+                dvector diffs_n(1,nObs);    diffs_n.initialize();
                 dvector zscrs_n(1,nObs);    zscrs_n.initialize();
                 for (int n=1;n<=nObs;n++){
                     //cout<<"n="<<n<<tb<<"obsIZ="<<tb<<obsIZ(n)<<tb;
@@ -7462,6 +7594,7 @@ FUNCTION void calcNLLs_ChelaHeightData(int debug, ostream& cout)
                             if (obsPM(n)<1.0) nlls_n(n) -= ss_n(n)*(1.0-obsPM(n))*(log(1.0-modPM(n))-log(1.0-obsPM(n)));
                             //cout<<nlls_n(n)<<tb;
                             double modPMv = value(modPM(n));
+                            diffs_n(n) = (obsPM(n)-modPMv);
                             zscrs_n(n) = (obsPM(n)-modPMv)/sqrt(modPMv*(1.0-modPMv)/ss_n(n));
                             //cout<<"zscrs_n(n)="<<zscrs_n(n)<<endl;
                         }
@@ -7480,6 +7613,7 @@ FUNCTION void calcNLLs_ChelaHeightData(int debug, ostream& cout)
                     cout<<"obsPM="; wts::writeToR(cout,obsPM);           cout<<cc<<endl;
                     cout<<"modPM="; wts::writeToR(cout,value(modPM));    cout<<cc<<endl;
                     cout<<"nlls=";  wts::writeToR(cout,value(nlls_n));   cout<<cc<<endl;
+                    cout<<"diffs="; wts::writeToR(cout,diffs_n);         cout<<cc<<endl;
                     cout<<"zscrs="; wts::writeToR(cout,zscrs_n);         cout<<cc<<endl;
                     cout<<"rmse="<<sqrt(norm2(zscrs_n)/zscrs_n.size())<<"),"<<endl;
                 }
@@ -7508,7 +7642,7 @@ FUNCTION void calcNLLs_GrowthData(int debug, ostream& cout)
     for (int i=0;i<ptrMDS->nGrw;i++){
         GrowthData* pGD = ptrMDS->ppGrw[i];
         if ((pGD->llWgt>0.0)||(debug<0)){
-            if (debug<0) cout<<"`"<<ptrMDS->ppGrw[i]->name<<"`=list("<<endl;
+            if (debug<0) cout<<"`"<<pGD->name<<"`=list("<<endl;
             for (int x=1;x<=nSXs;x++){
                 int nObs = pGD->nObs_x(x);
                 if (nObs>0) {
@@ -7520,7 +7654,7 @@ FUNCTION void calcNLLs_GrowthData(int debug, ostream& cout)
                     dvar_vector zpre_n = pGD->inpData_xcn(x,2);
                     if(debug>dbgObjFun) cout<<"zpre_n = "<<zpre_n<<endl;
                     /* post-molt size, by observation */
-                    dvar_vector zpst_n = ptrMDS->ppGrw[i]->inpData_xcn(x,3);
+                    dvar_vector zpst_n = pGD->inpData_xcn(x,3);
                     if(debug>dbgObjFun) cout<<"zpst_n = "<<zpst_n<<endl;
                     /* molt increment, by observation */
                     dvar_vector incZ_n = zpst_n - zpre_n;
@@ -7579,15 +7713,16 @@ FUNCTION void calcNLLs_GrowthData(int debug, ostream& cout)
                     dvar_vector nlls_n(1,nObs);  nlls_n.initialize();
                     dvar_vector nllsB_n(1,nObs); nllsB_n.initialize();
                     //--data nll (wts::log_gamma_density is defined in terms of mu=1/beta)
-                    nlls_n  = -wts::log_gamma_density(incZ_n,        alpha_n,                 ibeta_n);
+                    nlls_n  = -wts::log_gamma_density(incZ_n,alpha_n,ibeta_n);
                     //--as a reference NLL, want the NLL when the data is fit perfectly, under assumption that pGrBeta is fixed (not estimated).
-                    //--perfect fit occurs when mean = data (or, equivalently, E[x]=x), thus when alpha = x/beta
-                    nllsB_n = nlls_n - (-wts::log_gamma_density(incZ_n,elem_div(incZ_n,beta_n),ibeta_n));
+                    //--"perfect" fit occurs when NLL = -MLE, which occurs when molt increment = mode.
+                    //--mode = x = (alpha-1)*beta, so alpha = x/beta+1, where x = molt increment.
+                    nllsB_n = nlls_n - (-wts::log_gamma_density(incZ_n,elem_div(incZ_n,beta_n)+1.0,ibeta_n));
                     dvariable nll  = sum(nlls_n); //full nll (must use if grBeta is estimated)
                     dvariable nllB = sum(nllsB_n);//nll as offset from best possible fit given data (can't use if pGrBeta estimated)
                     if (isnan(value(nll))){
                         dvar_vector var   = elem_prod(mnMI_n,beta_n);           //--V = E[x]/beta, but x here is growth increment (not mean post-molt size)
-                        dvar_vector zscrs = elem_div((zpst_n-mnZ_n),sqrt(var));//--note: pre-molt sizes cancel out in numerator
+                        dvar_vector zscrs = elem_div((zpst_n-mnZ_n),sqrt(var));//--note: pre-molt sizes cancel out in numerator; TODO: use mode, not mean here??
                         ofstream os("GrowthData.NLLs.NanReport.dat");
                         os.precision(12);
                         os<<"phase = "<<current_phase()<<endl;
@@ -7611,7 +7746,8 @@ FUNCTION void calcNLLs_GrowthData(int debug, ostream& cout)
                     objFun += wgt*use_nll;
                     if (debug<0) {
                         dvar_vector var   = elem_prod(mnMI_n,beta_n);          //--V=E[x]*beta, but x here is growth increment, not post-molt size
-                        dvar_vector zscrs = elem_div((zpst_n-mnZ_n),sqrt(var));//--note: pre-molt sizes cancel out in numerator
+                        dvar_vector diffs = (zpst_n-(mnZ_n-beta_n));           //--note: diff relative to MODE, not mean; pre-molt sizes cancel out in numerator
+                        dvar_vector zscrs = elem_div(diffs,sqrt(var));         //--note: using mode, not mean here
                         cout<<tcsam::getSexType(x)<<"=list(type='gamma',wgt="<<wgt<<cc<<"nll="<<use_nll<<cc<<"objfun="<<wgt*use_nll<<cc<<endl;
                         cout<<"years="; wts::writeToR(cout,year_n);         cout<<cc<<endl;
                         cout<<"zPre=";  wts::writeToR(cout,value(zpre_n));  cout<<cc<<endl;
@@ -7624,8 +7760,13 @@ FUNCTION void calcNLLs_GrowthData(int debug, ostream& cout)
                         cout<<"beta=";  wts::writeToR(cout,value(beta_n));  cout<<cc<<endl;
                         cout<<"ibeta="; wts::writeToR(cout,value(ibeta_n)); cout<<cc<<endl;
                         cout<<"alpha="; wts::writeToR(cout,value(alpha_n)); cout<<cc<<endl;
-                        cout<<"nlls=";  wts::writeToR(cout,value(nlls_n));  cout<<cc<<endl;
-                        cout<<"nllBs=";  wts::writeToR(cout,value(nllsB_n));cout<<cc<<endl;
+                        if (ptrMOs->optGrowthLL!=1) 
+                          cout<<"nlls=";  wts::writeToR(cout,value(nlls_n));  cout<<cc<<endl;
+                        if (ptrMOs->optGrowthLL==1) 
+                          cout<<"nlls=";  wts::writeToR(cout,value(nllsB_n));cout<<cc<<endl;
+                        cout<<"nllPs="; wts::writeToR(cout,value(nlls_n));  cout<<cc<<endl; //--unreferenced nlls
+                        cout<<"nllBs="; wts::writeToR(cout,value(nllsB_n)); cout<<cc<<endl; //nlls referenced to MLE
+                        cout<<"diffs="; wts::writeToR(cout,value(diffs));   cout<<cc<<endl;
                         cout<<"zscrs="; wts::writeToR(cout,value(zscrs));   cout<<cc<<endl;
                         cout<<"rmse="<<sqrt(value(norm2(zscrs))/zscrs.size())<<"),"<<endl;
                     }
@@ -7666,13 +7807,16 @@ FUNCTION void calcNorm2NLL(double wgt, dvar_vector& mod, dvar_vector& xcv_y, dve
     int y;
     double rmse = 0.0; int cnt = 0;
     dvariable nll = 0.0;
+    dvar_vector diffs(1,yrs.size());//z-scores, with index corresponding to observed years
+    diffs.initialize();
     dvar_vector zscr(1,yrs.size());//z-scores, with index corresponding to observed years
     zscr.initialize();
     if (sum(sdobs_y)>0){
         for (int i=1;i<=yrs.size();i++){
             y = yrs(i);
             if ((mod.indexmin()<=y)&&(y<=mod.indexmax())) {
-                zscr[i] = (obs[i]-mod[y]); 
+                diffs[i] = (obs[i]-mod[y]); 
+                zscr[i]  = (obs[i]-mod[y]); 
                 cnt += useFlgs[i];
             }
         }
@@ -7697,6 +7841,7 @@ FUNCTION void calcNorm2NLL(double wgt, dvar_vector& mod, dvar_vector& xcv_y, dve
             cout<<"mod=";   wts::writeToR(cout,value(mod), modyrs); cout<<cc<<endl;
             cout<<"sdobs="; wts::writeToR(cout,sdobs_y,    obsyrs); cout<<cc<<endl;
             cout<<"stdv="; wts::writeToR(cout,stdv,        obsyrs); cout<<cc<<endl;
+            cout<<"diffs="; wts::writeToR(cout,value(diffs),obsyrs); cout<<cc<<endl;
             cout<<"zscrs="; wts::writeToR(cout,value(zscr),obsyrs); cout<<cc<<endl;
             cout<<"useFlgs="; wts::writeToR(cout,useFlgs, obsyrs); cout<<cc<<endl;
             cout<<"rmse="<<rmse<<")";
@@ -7707,6 +7852,7 @@ FUNCTION void calcNorm2NLL(double wgt, dvar_vector& mod, dvar_vector& xcv_y, dve
             cout<<"modyrs  = "<<modyrs<<endl;
             cout<<"mod     = "<<value(mod)<<endl;
             cout<<"stdv    = "<<sdobs_y<<endl;
+            cout<<"diffs   = "<<value(diffs)<<endl;
             cout<<"zscrs   = "<<value(zscr)<<endl;
             cout<<"useFlgs = "<<useFlgs<<endl;
             cout<<"rmse    = "<<rmse<<endl;
@@ -7738,6 +7884,8 @@ FUNCTION void calcNormalNLL(double wgt, const dvar_vector& mod, const dvar_vecto
     dvariable nll = 0.0;
     if (debug>=dbgAll) cout<<"sdobs_y("<<sdobs_y.indexmin()<<cc<<sdobs_y.indexmax()<<") = "<<sdobs_y<<endl;    
     dvar_vector stdv = sdobs_y;    //obs sd, with index corresponding to observed years;
+    dvar_vector diffs(1,yrs.size());//obs-mod, with index corresponding to observed years
+    diffs.initialize();
     dvar_vector zscr(1,yrs.size());//z-scores, with index corresponding to observed years
     zscr.initialize();
     if (sum(sdobs_y)>0){
@@ -7762,6 +7910,7 @@ FUNCTION void calcNormalNLL(double wgt, const dvar_vector& mod, const dvar_vecto
         for (int i=1;i<=yrs.size();i++){
             y = yrs(i);
             if ((mod.indexmin()<=y)&&(y<=mod.indexmax())) {
+                diffs[i]  = (obs[i]-mod[y]); 
                 zscr[i]   = (obs[i]-mod[y])/stdv[i]; 
                 nll_stdv += useFlgs[i]*log(stdv[i]);
                 cnt      += useFlgs[i];
@@ -7784,6 +7933,7 @@ FUNCTION void calcNormalNLL(double wgt, const dvar_vector& mod, const dvar_vecto
             cout<<"sdobs="; wts::writeToR(cout,sdobs_y,     obsyrs); cout<<cc<<endl;
             if (allocated(xcv_y)) {cout<<"xcv="; wts::writeToR(cout,value(xcv_y),modyrs); cout<<cc<<endl;}
             cout<<"stdv=";  wts::writeToR(cout,value(stdv), obsyrs); cout<<cc<<endl;
+            cout<<"diffs="; wts::writeToR(cout,value(diffs), obsyrs); cout<<cc<<endl;
             cout<<"zscrs="; wts::writeToR(cout,value(zscr), obsyrs); cout<<cc<<endl;
             cout<<"useFlgs="; wts::writeToR(cout,useFlgs, obsyrs); cout<<cc<<endl;
             cout<<"rmse="<<rmse<<")";
@@ -7793,6 +7943,7 @@ FUNCTION void calcNormalNLL(double wgt, const dvar_vector& mod, const dvar_vecto
             cout<<"obs     = "<<obs<<endl;
             cout<<"modyrs  = "<<modyrs<<endl;
             cout<<"mod     = "<<value(mod)<<endl;
+            cout<<"diffs   = "<<value(diffs)<<endl;
             cout<<"zscrs   = "<<value(zscr)<<endl;
             cout<<"useFlgs = "<<useFlgs<<endl;
             cout<<"rmse    = "<<rmse<<endl;
@@ -7824,6 +7975,8 @@ FUNCTION void calcLognormalNLL(double wgt, const dvar_vector& mod, const dvar_ve
     double rmse = 0.0; int cnt = 0;
     if (debug>=dbgAll) cout<<"sdobs_y("<<sdobs_y.indexmin()<<cc<<sdobs_y.indexmax()<<") = "<<sdobs_y<<endl;    
     dvar_vector stdv = sdobs_y;    //ln-scale std deviations of observations, with index corresponding to observed years
+    dvar_vector diffs(1,yrs.size());//obs-mod, with index corresponding to observed years
+    diffs.initialize();
     dvar_vector zscr(1,yrs.size());//z-scores, with index corresponding to observed years
     zscr.initialize();
     if (sum(sdobs_y)>0){
@@ -7853,6 +8006,7 @@ FUNCTION void calcLognormalNLL(double wgt, const dvar_vector& mod, const dvar_ve
         for (int i=1;i<=yrs.size();i++){
             y = yrs(i);
             if ((mod.indexmin()<=y)&&(y<=mod.indexmax())) {
+                diffs[i]  = (log(obs[i]+smlVal)-log(mod[y]+smlVal)); 
                 zscr[i]   = (log(obs[i]+smlVal)-log(mod[y]+smlVal))/stdv[i]; 
                 nll_stdv += useFlgs[i]*log(stdv[i]);
                 cnt      += useFlgs[i];
@@ -7874,6 +8028,7 @@ FUNCTION void calcLognormalNLL(double wgt, const dvar_vector& mod, const dvar_ve
             cout<<"sdobs="; wts::writeToR(cout,sdobs_y,     obsyrs); cout<<cc<<endl;
             if (allocated(xcv_y)) {cout<<"xcv="; wts::writeToR(cout,value(xcv_y),modyrs); cout<<cc<<endl;}
             cout<<"stdv=";  wts::writeToR(cout,value(stdv), obsyrs); cout<<cc<<endl;
+            cout<<"diffs="; wts::writeToR(cout,value(diffs), obsyrs); cout<<cc<<endl;
             cout<<"zscrs="; wts::writeToR(cout,value(zscr), obsyrs); cout<<cc<<endl;
             cout<<"useFlgs="; wts::writeToR(cout,useFlgs, obsyrs); cout<<cc<<endl;
             cout<<"rmse="<<rmse<<")";
@@ -7883,6 +8038,7 @@ FUNCTION void calcLognormalNLL(double wgt, const dvar_vector& mod, const dvar_ve
             cout<<"obs     = "<<obs<<endl;
             cout<<"modyrs  = "<<modyrs<<endl;
             cout<<"mod     = "<<value(mod)<<endl;
+            cout<<"diffs   = "<<value(diffs)<<endl;
             cout<<"zscrs   = "<<value(zscr)<<endl;
             cout<<"useFlgs = "<<useFlgs<<endl;
             cout<<"rmse    = "<<rmse<<endl;
@@ -7912,6 +8068,7 @@ FUNCTION void calcMultinomialNLL(SizeFrequencyData* ptrZFD, dvar_vector& mod, dv
         dvector vmod = value(mod);
         dvector nlls = -ss*(elem_prod(obs,log(vmod+smlVal)-log(obs+smlVal)));
         dvector zscrs = elem_div(obs-vmod,sqrt(elem_prod((vmod+smlVal),1.0-(vmod+smlVal))/ss));//pearson residuals
+        dvector diffs = obs-vmod;
         double effN = 0.0;
         //if ((ss>0)&&(norm2(obs-vmod)>0)) effN = (vmod*(1.0-vmod))/norm2(obs-vmod);
         if (ss>0){
@@ -7924,6 +8081,7 @@ FUNCTION void calcMultinomialNLL(SizeFrequencyData* ptrZFD, dvar_vector& mod, dv
             cout<<"nlls=";  wts::writeToR(cout,nlls, dzbs); cout<<cc<<endl;
             cout<<"obs=";   wts::writeToR(cout,obs,  dzbs); cout<<cc<<endl;
             cout<<"mod=";   wts::writeToR(cout,vmod, dzbs); cout<<cc<<endl;
+            cout<<"diffs="; wts::writeToR(cout,diffs,dzbs); cout<<cc<<endl;
             cout<<"zscrs="; wts::writeToR(cout,zscrs,dzbs); cout<<endl;
             cout<<")";
         }
@@ -7931,6 +8089,7 @@ FUNCTION void calcMultinomialNLL(SizeFrequencyData* ptrZFD, dvar_vector& mod, dv
              cout<<"yr = "    <<yr<<tb<<"ss = "<<ss<<endl;
              cout<<"obs    = "<<obs <<endl;
              cout<<"mod    = "<<vmod<<endl;
+             cout<<"diffs  = "<<diffs<<endl;
              cout<<"zscrs  = "<<zscrs<<endl;
              cout<<"nlls   = "<<nlls<<endl;
              cout<<"effN   = "<<effN<<endl;
@@ -7949,6 +8108,7 @@ FUNCTION void calcMultinomialPNLL(SizeFrequencyData* ptrZFD, dvar_vector& mod, d
     if ((debug<0)||(debug>=dbgAll)){
         dvector vmod = value(mod);
         dvector nlls = 0.0*vmod;
+        dvector diffs = obs-vmod;
         dvector zscrs = 0.0*vmod;
         for (int i=idx.indexmin();i<=idx.indexmax();i++) nlls[idx[i]]  = -ss*obs[idx[i]]*(log(vmod[idx[i]])-log(obs[idx[i]]));
         for (int i=idx.indexmin();i<=idx.indexmax();i++) zscrs[idx[i]] = (obs[idx[i]]-vmod[idx[i]])/sqrt(vmod[idx[i]]*(1.0-vmod[idx[i]])/ss);//pearson residuals
@@ -7964,6 +8124,7 @@ FUNCTION void calcMultinomialPNLL(SizeFrequencyData* ptrZFD, dvar_vector& mod, d
             cout<<"nlls=";  wts::writeToR(cout,nlls, dzbs); cout<<cc<<endl;
             cout<<"obs=";   wts::writeToR(cout,obs,  dzbs); cout<<cc<<endl;
             cout<<"mod=";   wts::writeToR(cout,vmod, dzbs); cout<<cc<<endl;
+            cout<<"diffs="; wts::writeToR(cout,diffs,dzbs); cout<<cc<<endl;
             cout<<"zscrs="; wts::writeToR(cout,zscrs,dzbs); cout<<endl;
             cout<<")";
         }
@@ -7971,6 +8132,7 @@ FUNCTION void calcMultinomialPNLL(SizeFrequencyData* ptrZFD, dvar_vector& mod, d
              cout<<"yr = "    <<yr<<tb<<"ss = "<<ss<<endl;
              cout<<"obs    = "<<obs <<endl;
              cout<<"mod    = "<<vmod<<endl;
+             cout<<"diffs  = "<<diffs<<endl;
              cout<<"zscrs  = "<<zscrs<<endl;
              cout<<"nlls   = "<<nlls<<endl;
              cout<<"effN   = "<<effN<<endl;
@@ -8022,6 +8184,7 @@ FUNCTION void calcDirichletNLL(dvariable& theta, SizeFrequencyData* ptrZFD, dvar
         double nEff   = value(1.0/(1.0+theta) + n*(theta/(1.0+theta)));
         double effN   = 0.0;
         dvector nlls  = 0.0*vmod;
+        dvector diffs = obs-vmod;
         dvector zscrs = 0.0*vmod;
         if (ss>0) {
             //effN  = (vmod*(1.0-vmod))/norm2(obsp-vmod);
@@ -8038,6 +8201,7 @@ FUNCTION void calcDirichletNLL(dvariable& theta, SizeFrequencyData* ptrZFD, dvar
             cout<<"nlls=";  wts::writeToR(cout,nlls, dzbs); cout<<cc<<endl;
             cout<<"obs=";   wts::writeToR(cout,obsp, dzbs); cout<<cc<<endl;
             cout<<"mod=";   wts::writeToR(cout,vmod, dzbs); cout<<cc<<endl;
+            cout<<"diffs="; wts::writeToR(cout,diffs,dzbs); cout<<cc<<endl;
             cout<<"zscrs="; wts::writeToR(cout,zscrs,dzbs); cout<<endl;
             cout<<")";
         }
@@ -8045,6 +8209,7 @@ FUNCTION void calcDirichletNLL(dvariable& theta, SizeFrequencyData* ptrZFD, dvar
             cout<<"yr = "<<yr<<tb<<"ss = "<<ss<<endl;
             cout<<"obs    = "<<obsp<<endl;
             cout<<"mod    = "<<vmod<<endl;
+            cout<<"diffs  = "<<diffs<<endl;
             cout<<"zscrs  = "<<zscrs<<endl;
             cout<<"nlls   = "<<nlls<<endl;
             cout<<"effN   = "<<effN<<endl;
@@ -8078,6 +8243,7 @@ FUNCTION void calcDirichletPNLL(dvariable& theta, SizeFrequencyData* ptrZFD, dva
         double nEff   = value(1.0/(1.0+theta) + n*(theta/(1.0+theta)));
         double effN   = 0.0;
         dvector nlls  = 0.0*vmod;
+        dvector diffs = obs-vmod;
         dvector zscrs = 0.0*vmod;
         if (ss>0) {
             //effN  = (vmod*(1.0-vmod))/norm2(obs-vmod);
@@ -8096,6 +8262,7 @@ FUNCTION void calcDirichletPNLL(dvariable& theta, SizeFrequencyData* ptrZFD, dva
             cout<<"nlls=";  wts::writeToR(cout,nlls, dzbs); cout<<cc<<endl;
             cout<<"obs=";   wts::writeToR(cout,obs, dzbs); cout<<cc<<endl;
             cout<<"mod=";   wts::writeToR(cout,vmod, dzbs); cout<<cc<<endl;
+            cout<<"diffs="; wts::writeToR(cout,diffs,dzbs); cout<<cc<<endl;
             cout<<"zscrs="; wts::writeToR(cout,zscrs,dzbs); cout<<endl;
             cout<<")";
         }
@@ -8103,6 +8270,7 @@ FUNCTION void calcDirichletPNLL(dvariable& theta, SizeFrequencyData* ptrZFD, dva
             cout<<"yr = "<<yr<<tb<<"ss = "<<ss<<endl;
             cout<<"obs    = "<<obs<<endl;
             cout<<"mod    = "<<vmod<<endl;
+            cout<<"diffs  = "<<diffs<<endl;
             cout<<"zscrs  = "<<zscrs<<endl;
             cout<<"nlls   = "<<nlls<<endl;
             cout<<"effN   = "<<effN<<endl;
@@ -8616,7 +8784,12 @@ FUNCTION void calcNLLs_AggregateCatch(AggregateCatchData* ptrAB, dvar5_array& mA
 
 //-------------------------------------------------------------------------------------
 //Calculate catch size frequencies components to objective function
+//*
+//* @param ptrZFD - pointer to observed size frequency distribution
+//* @param mAyxmsz - model-predicted abundance by yxmsz
+//*
 FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_yxmsz, int debug, ostream& cout)
+    //debug = 1000;
     if (debug>=dbgNLLs) cout<<"Starting calcNLLs_CatchNatZ()"<<endl;
     d5_array effWgtComps_xmsyn;
     if (debug>=dbgNLLs) cout<<"fit type = "<<tcsam::getFitType(ptrZFD->optFit)<<endl;
@@ -8641,8 +8814,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
     if (debug>=dbgNLLs){
       cout<<"##############"<<endl;
       cout<<"In calcNLLs_CatchNatZ(). mZBtoZBDs = "<<endl;
-      cout<<"j  zCDs[j] zCDs[j+1]  "<<zCs<<endl;
-      for (int j=1;j<=nZBDs;j++) {cout<<j<<tb<<zCDs[j]<<tb<<zCDs[j+1]<<tb<<mZBtoZBDs(j)<<endl;}
+      //cout<<"j  zCDs[j] zCDs[j+1]  "<<zCs<<endl;
+      //for (int j=1;j<=nZBDs;j++) {cout<<j<<tb<<zCDs[j]<<tb<<zCDs[j+1]<<tb<<mZBtoZBDs(j)<<endl;}
       cout<<"##############"<<endl;
     }
     dvector     oP_z;//observed size comp (aggregated,tail-compressed, normalized)[need to allocate as appropriate]
@@ -8653,135 +8826,203 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
     dvar_vector mP_zpp(1,nZBDs);//intermediate vector for "extended" model comps [don't need to reallocate as size is always nZBDs]
     if (debug<0) cout<<"list("<<endl;
     if (ptrZFD->optFit==tcsam::FIT_BY_TOT){
+        if (debug>=dbgNLLs) cout<<"FIT_BY_TOT"<<endl;
         effWgtComps_xmsyn.allocate(tcsam::ALL_SXs,tcsam::ALL_SXs,
-                               tcsam::ALL_MSs,tcsam::ALL_MSs,
-                               tcsam::ALL_SCs,tcsam::ALL_SCs,
-                               mny,mxy,1,3);
+                                   tcsam::ALL_MSs,tcsam::ALL_MSs,
+                                   tcsam::ALL_SCs,tcsam::ALL_SCs,
+                                   mny,mxy,1,3);
         oP_z.allocate(1,nZBDs);
         mP_z.allocate(1,nZBDs);
         for (int iy=1;iy<=yrs.size();iy++) {
             y = yrs[iy];
-            if (debug>=dbgNLLs) cout<<"y = "<<y<<endl;
+            if (debug>=dbgNLLs) cout<<endl<<"#---------"<<endl<<"y = "<<y<<endl;
             if ((mny<=y)&&(y<=mxy)) {
+                int X = ALL_SXs; int M = ALL_MSs; int S = ALL_SCs;
                 nT = sum(mA_yxmsz(y));//=0 if not calculated
-                if ((value(nT)>0)&&(ptrZFD->uf_xmsy(ALL_SXs,ALL_MSs,ALL_SCs,iy)>0)){
+                if (debug>=dbgNLLs) {
+                  cout<<"nT = "<<nT<<endl;
+                  cout<<"uf("<<tcsam::getSexType(X)<<", "<<tcsam::getMaturityType(M)<<", "<<tcsam::getShellType(S)<<") = "<<ptrZFD->uf_xmsy(X,M,S,iy)<<endl;
+                }
+                int cnt = 0;//--counter for number of aggregations
+                if ((value(nT)>0)&&(ptrZFD->uf_xmsy(X,M,S,iy)>0)){
                     //get observed size comp (aggregated and tail compressed) and normalize it
-                    ss   = ptrZFD->ss_xmsy(ALL_SXs,ALL_MSs,ALL_SCs,iy);      //sample size
-                    oP_z = ptrZFD->tcdNatZ_xmsyz(ALL_SXs,ALL_MSs,ALL_SCs,iy);//--tail-compressed already
-                    if (sum(oP_z)>0) oP_z /= sum(oP_z);                      //--normalize to sum to 1
+                    ss   = ptrZFD->ss_xmsy(X,M,S,iy);      //sample size
+                    oP_z = ptrZFD->tcdNatZ_xmsyz(X,M,S,iy);//--tail-compressed already
                     //calculate model size comp
-                    //--aggregate model size comp to ALL_SXs,ALL_MSs,ALL_SC
+                    //--aggregate model size comp to X,M,S
                     mP_zp.initialize();
-                    for (int x=1;x<=nSXs;x++){
-                        for (int m=1;m<=nMSs;m++) {
-                            for (int s=1;s<=nSCs;s++) {
-                                mP_zp += mZBtoZBDs*mA_yxmsz(y,x,m,s);//collapse model size bins to data size bins
+                    for (int x=1;x<=ALL_SXs;x++){
+                        for (int m=1;m<=ALL_MSs;m++) {
+                            for (int s=1;s<=ALL_SCs;s++) {
+                              if (debug>=dbgNLLs) 
+                                cout<<"  inpUF_xmsy("<<tcsam::getSexType(x)<<", "<<tcsam::getMaturityType(m)<<", "<<tcsam::getShellType(s)<<", iy) = "<<ptrZFD->inpUF_xmsy(x,m,s,iy)<<endl;
+                              if ((ptrZFD->inpUF_xmsy(x,m,s,iy)>0)){
+                                //--x,m,s input data included in aggregation, so determine model categories included
+                                for (int xp=1;xp<=nSXs;xp++){
+                                  for (int mp=1;mp<=nMSs;mp++){
+                                    for (int sp=1;sp<=nSCs;sp++){
+                                      if (debug>=dbgNLLs) 
+                                        cout<<"    mAggMap("<<tcsam::getSexType(x)<<", "<<tcsam::getMaturityType(m)<<", "<<tcsam::getShellType(s)<< ","
+                                                            <<tcsam::getSexType(xp)<<", "<<tcsam::getMaturityType(mp)<<", "<<tcsam::getShellType(sp)<<") = "<<
+                                                  ptrZFD->mAggMap_XMSxms(x,m,s,xp,mp,sp)<<endl;
+                                      if ((ptrZFD->mAggMap_XMSxms(x,m,s,xp,mp,sp)>0)){
+                                        cnt++;
+                                        mP_zp += mZBtoZBDs*mA_yxmsz(y,xp,mp,sp);//collapse model size bins to data size bins
+                                        if (debug>=dbgNLLs) cout<<"      agg = "<<cnt<<"  adding: "<<mZBtoZBDs*mA_yxmsz(y,xp,mp,sp)<<endl;
+                                      }
+                                    }//--sp
+                                  }//--mp
+                                }//--xp
+                              } else { 
+                                //--(ptrZFD->inpUF_xmsy(x,m,s,iy)<0)
+                                if (debug>=dbgNLLs) cout<<"    --skipping this one"<<endl;
+                              }
                             }//--s
                         }//--m
                     }//--x
                     //--do tail compression on model size comp
-                    int imn = ptrZFD->tc_xmsyc(ALL_SXs,ALL_MSs,ALL_SCs,iy)(1);
-                    int imx = ptrZFD->tc_xmsyc(ALL_SXs,ALL_MSs,ALL_SCs,iy)(2);
+                    int imn = ptrZFD->tc_xmsyc(X,M,S,iy)(1);
+                    int imx = ptrZFD->tc_xmsyc(X,M,S,iy)(2);
                     if (debug>=dbgNLLs) {
-                        cout<<"x,m,s,y = "<<tcsam::getSexType(ALL_SXs)<<cc<<tcsam::getMaturityType(ALL_MSs)<<cc<<tcsam::getShellType(ALL_SCs)<<cc<<y<<endl;
+                        cout<<"#--Final aggregated values:"<<endl;
+                        cout<<"X,M,S,y = "<<tcsam::getSexType(X)<<cc<<tcsam::getMaturityType(M)<<cc<<tcsam::getShellType(S)<<cc<<y<<endl;
                         cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
                     }
                     mP_z.initialize();
                     mP_z(imn)         += sum(mP_zp(1,imn));
                     mP_z(imn+1,imx-1) += mP_zp(imn+1,imx-1);
                     mP_z(imx)         += sum(mP_zp(imx,nZBDs));
-                    //--normalize model size comp
-                    mP_z /= nT;
+                    //--normalize size comps
+                    if (sum(oP_z)>0) oP_z /= sum(oP_z);
+                    if (sum(mP_z)>0) mP_z /= sum(mP_z);
                     if (debug>=dbgNLLs){
                         cout<<"ss = "<<ss<<endl;
                         cout<<"oP_Z = "<<oP_z<<endl;
                         cout<<"mP_z = "<<mP_z<<endl;
+                        cout<<"#----"<<endl;
                     }
                     if (debug<0) {
                         cout<<"'"<<y<<"'=list(";
                         cout<<"fit.type='"<<tcsam::getFitType(ptrZFD->optFit)<<"'"<<cc;
                         cout<<"y="<<y<<cc;
-                        cout<<"x='"<<tcsam::getSexType(ALL_SXs)<<"'"<<cc;
-                        cout<<"m='"<<tcsam::getMaturityType(ALL_MSs)<<"'"<<cc;
-                        cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc<<endl;
+                        cout<<"x='"<<tcsam::getSexType(X)<<"'"<<cc;
+                        cout<<"m='"<<tcsam::getMaturityType(M)<<"'"<<cc;
+                        cout<<"s='"<<tcsam::getShellType(S)<<"'"<<cc<<endl;
                         cout<<"zBs="; wts::writeToR(cout,ptrZFD->zBs); cout<<cc<<endl;
                         cout<<"fit=";
                     }
                     //calculate likelihood contribution
-                    idm  = (int) ptrZFD->dm_xmsy(ALL_SXs,ALL_MSs,ALL_SCs,iy); //index to Dirichlet-Multinomial parameter
+                    idm  = (int) ptrZFD->dm_xmsy(X,M,S,iy); //index to Dirichlet-Multinomial parameter
                     calcNLL_ZC(ptrZFD,mP_z,oP_z,idm,ss,y,debug,cout);
-                    effWgtComps_xmsyn(tcsam::ALL_SXs,tcsam::ALL_MSs,tcsam::ALL_SCs,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
+                    effWgtComps_xmsyn(X,M,S,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
                     if (debug<0) cout<<")"<<cc<<endl;
                 }//value(nT)>0
             } //if ((mny<=y)&&(y<=mxy))
         } //loop over iy
         //FIT_BY_TOT
+        exit(-1);
     } else
     if (ptrZFD->optFit==tcsam::FIT_BY_X){
+        if (debug>=dbgNLLs) cout<<"FIT_BY_X"<<endl;
         effWgtComps_xmsyn.allocate(1,nSXs,
-                               tcsam::ALL_MSs,tcsam::ALL_MSs,
-                               tcsam::ALL_SCs,tcsam::ALL_SCs,
-                               mny,mxy,1,3);
+                                   tcsam::ALL_MSs,tcsam::ALL_MSs,
+                                   tcsam::ALL_SCs,tcsam::ALL_SCs,
+                                   mny,mxy,1,3);
         oP_z.allocate(1,nZBDs);
         mP_z.allocate(1,nZBDs);
         for (int iy=1;iy<=yrs.size();iy++) {
             y = yrs[iy];
             if (debug>=dbgNLLs) cout<<"y = "<<y<<endl;
             if ((mny<=y)&&(y<=mxy)) {
-                for (int x=1;x<=nSXs;x++) {
-                    nT = sum(mA_yxmsz(y,x));//=0 if not calculated
-                    if ((value(nT)>0)&&(ptrZFD->uf_xmsy(x,ALL_MSs,ALL_SCs,iy)>0)){
+                for (int X=1;X<=nSXs;X++) {
+                    int M = ALL_MSs; int S = ALL_SCs;
+                    nT = sum(mA_yxmsz(y,X));//=0 if not calculated
+                    if (debug>=dbgNLLs) {
+                      cout<<"nT = "<<nT<<endl;
+                      cout<<"uf("<<tcsam::getSexType(X)<<", "<<tcsam::getMaturityType(M)<<", "<<tcsam::getShellType(S)<<") = "<<ptrZFD->uf_xmsy(X,M,S,iy)<<endl;
+                    }
+                    int cnt = 0;//--counter for number of aggregations
+                    if ((value(nT)>0)&&(ptrZFD->uf_xmsy(X,M,S,iy)>0)){
                         //get observed size comp (aggregated and tail compressed) and normalize it
-                        ss   = ptrZFD->ss_xmsy(x,ALL_MSs,ALL_SCs,iy);      //sample size
-                        oP_z = ptrZFD->tcdNatZ_xmsyz(x,ALL_MSs,ALL_SCs,iy);//--tail-compressed already
-                        if (sum(oP_z)>0) oP_z /= sum(oP_z);                //--normalize to sum to 1
+                        ss   = ptrZFD->ss_xmsy(X,M,S,iy);      //sample size
+                        oP_z = ptrZFD->tcdNatZ_xmsyz(X,M,S,iy);//--tail-compressed already
                         //calculate model size comp
-                        //--aggregate model size comp to x,ALL_MSs,ALL_SC
+                        //--aggregate model size comp to x,ALL_MSs,ALL_SC across categories included in data aggregation
                         mP_zp.initialize();
-                        for (int m=1;m<=nMSs;m++) {
-                            for (int s=1;s<=nSCs;s++) {
-                                mP_zp += mZBtoZBDs*mA_yxmsz(y,x,m,s);//collapse model size bins to data size bins
+                        int x = X;
+                        for (int m=1;m<=ALL_MSs;m++) {
+                            for (int s=1;s<=ALL_SCs;s++) {
+                              if (debug>=dbgNLLs) cout<<"  inpUF_xmsy("<<tcsam::getSexType(x)<<", "<<tcsam::getMaturityType(m)<<", "<<tcsam::getShellType(s)<<", iy) = "<<ptrZFD->inpUF_xmsy(X,m,s,iy)<<endl;
+                              if ((ptrZFD->inpUF_xmsy(x,m,s,iy)>0)){
+                                //--X,m,s input data included in aggregation, so determine model categories included
+                                for (int xp=1;xp<=nSXs;xp++){
+                                  for (int mp=1;mp<=nMSs;mp++){
+                                    for (int sp=1;sp<=nSCs;sp++){
+                                      if (debug>=dbgNLLs) 
+                                        cout<<"    mAggMap("<<tcsam::getSexType(x)<<", "<<tcsam::getMaturityType(m)<<", "<<tcsam::getShellType(s)<< ","
+                                                            <<tcsam::getSexType(xp)<<", "<<tcsam::getMaturityType(mp)<<", "<<tcsam::getShellType(sp)<<") = "<<
+                                                  ptrZFD->mAggMap_XMSxms(x,m,s,xp,mp,sp)<<endl;
+                                      if ((ptrZFD->mAggMap_XMSxms(x,m,s,xp,mp,sp)>0)){
+                                        cnt++;
+                                        mP_zp += mZBtoZBDs*mA_yxmsz(y,xp,mp,sp);//collapse model size bins to data size bins
+                                        if (debug>=dbgNLLs) cout<<"      agg = "<<cnt<<"  adding: "<<mZBtoZBDs*mA_yxmsz(y,xp,mp,sp)<<endl;
+                                      }
+                                    }//--sp
+                                  }//--mp
+                                }//--xp
+                              } else { 
+                                //--(ptrZFD->inpUF_xmsy(x,m,s,iy)<0)
+                                if (debug>=dbgNLLs) cout<<"    --skipping this one"<<endl;
+                              }
                             }//--s
                         }//--m
+                        if (debug>=dbgNLLs) cout<<"#--number of aggregations = "<<cnt<<endl;
                         //--do tail compression on model size comp
-                        int imn = ptrZFD->tc_xmsyc(x,ALL_MSs,ALL_SCs,iy)(1);
-                        int imx = ptrZFD->tc_xmsyc(x,ALL_MSs,ALL_SCs,iy)(2);
+                        int imn = ptrZFD->tc_xmsyc(X,M,S,iy)(1);
+                        int imx = ptrZFD->tc_xmsyc(X,M,S,iy)(2);
                         if (debug>=dbgNLLs) {
-                            cout<<"x,m,s,y = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(ALL_MSs)<<cc<<tcsam::getShellType(ALL_SCs)<<cc<<y<<endl;
+                            cout<<"#--Final aggregated values:"<<endl;
+                            cout<<"x,m,s,y = "<<tcsam::getSexType(X)<<cc<<tcsam::getMaturityType(M)<<cc<<tcsam::getShellType(S)<<cc<<y<<endl;
                             cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
                         }
                         mP_z.initialize();
                         mP_z(imn)         += sum(mP_zp(1,imn));
                         mP_z(imn+1,imx-1) += mP_zp(imn+1,imx-1);
                         mP_z(imx)         += sum(mP_zp(imx,nZBDs));
-                        //--normalize model size comp
-                        mP_z /= nT;
+                        //--normalize size comps
+                        if (sum(oP_z)>0) oP_z /= sum(oP_z);
+                        if (sum(mP_z)>0) mP_z /= sum(mP_z);
                         if (debug>=dbgNLLs){
                             cout<<"ss = "<<ss<<endl;
                             cout<<"oP_Z = "<<oP_z<<endl;
                             cout<<"mP_z = "<<mP_z<<endl;
+                            cout<<"#----"<<endl;
                         }
                         if (debug<0) {
                             cout<<"'"<<y<<"'=list(";
                             cout<<"fit.type='"<<tcsam::getFitType(ptrZFD->optFit)<<"'"<<cc;
                             cout<<"y="<<y<<cc;
-                            cout<<"x='"<<tcsam::getSexType(x)<<"'"<<cc;
-                            cout<<"m='"<<tcsam::getMaturityType(ALL_MSs)<<"'"<<cc;
-                            cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc<<endl;
+                            cout<<"x='"<<tcsam::getSexType(X)<<"'"<<cc;
+                            cout<<"m='"<<tcsam::getMaturityType(M)<<"'"<<cc;
+                            cout<<"s='"<<tcsam::getShellType(S)<<"'"<<cc<<endl;
                             cout<<"zBs="; wts::writeToR(cout,ptrZFD->zBs); cout<<cc<<endl;
                             cout<<"fit=";
                         }
-                        idm = (int) ptrZFD->dm_xmsy(x,ALL_MSs,ALL_SCs,iy);
+                        idm = (int) ptrZFD->dm_xmsy(X,M,S,iy);
                         calcNLL_ZC(ptrZFD,mP_z,oP_z,idm,ss,y,debug,cout);
-                        effWgtComps_xmsyn(x,tcsam::ALL_MSs,tcsam::ALL_SCs,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
+                        effWgtComps_xmsyn(X,M,S,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
                         if (debug<0) cout<<")"<<cc<<endl;
-                    }//nT>0
+                    } else {
+                      //--((value(nT)>0)&&(ptrZFD->uf_xmsy(X,M,S,iy)>0)) is FALSE
+                      if (debug>=dbgNLLs) cout<<"--skipping this one"<<endl;
+                    }
                 }//x
             } //if ((mny<=y)&&(y<=mxy))
         } //loop over iy
         //FIT_BY_X
     } else 
     if (ptrZFD->optFit==tcsam::FIT_BY_XM){
+        if (debug>=dbgNLLs) cout<<"FIT_BY_XM"<<endl;
         effWgtComps_xmsyn.allocate(1,nSXs,
                                    1,nMSs,
                                    tcsam::ALL_SCs,tcsam::ALL_SCs,
@@ -8792,61 +9033,97 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
             y = yrs[iy];
             if (debug>=dbgNLLs) cout<<"y = "<<y<<endl;
             if ((mny<=y)&&(y<=mxy)) {
-                for (int x=1;x<=nSXs;x++) {
-                    for (int m=1;m<=nMSs;m++){
-                        nT = sum(mA_yxmsz(y,x,m));//=0 if not calculated
-                        if ((value(nT)>0)&&(ptrZFD->uf_xmsy(x,m,ALL_SCs,iy)>0)){
+                for (int X=1;X<=nSXs;X++) {
+                    for (int M=1;M<=nMSs;M++){
+                        int S = ALL_SXs;
+                        nT = sum(mA_yxmsz(y,X,M));//=0 if not calculated
+                        if (debug>=dbgNLLs) 
+                          cout<<"nT, uf("<<tcsam::getSexType(X)<<", "<<tcsam::getMaturityType(M)<<", "<<tcsam::getShellType(S)<<") = "<<endl<<
+                                nT<<" "<<ptrZFD->uf_xmsy(X,M,S,iy)<<endl;
+                        int cnt = 0;//--counter for number of aggregations
+                        if ((value(nT)>0)&&(ptrZFD->uf_xmsy(X,M,S,iy)>0)){
                             //get observed size comp (aggregated and tail compressed) and normalize it
-                            ss   = ptrZFD->ss_xmsy(x,m,ALL_SCs,iy);      //sample size
-                            oP_z = ptrZFD->tcdNatZ_xmsyz(x,m,ALL_SCs,iy);//--tail-compressed already
+                            ss   = ptrZFD->ss_xmsy(X,M,S,iy);      //sample size
+                            oP_z = ptrZFD->tcdNatZ_xmsyz(X,M,S,iy);//--tail-compressed already
                             if (sum(oP_z)>0) oP_z /= sum(oP_z);          //--normalize to sum to 1
                             if (debug>=dbgNLLs){
                                 cout<<"ss = "<<ss<<endl;
                                 cout<<"oP_Z = "<<oP_z<<endl;
                             }
                             //calculate model size comp
-                            //--aggregate model size comp to x,m,ALL_SC
+                            //--aggregate model size comp to X,M,S
                             mP_zp.initialize();//model size comp.
-                            for (int s=1;s<=nSCs;s++) {
-                                mP_zp += mZBtoZBDs*mA_yxmsz(y,x,m,s);//collapse model size bins to data size bins
+                            int x = X; int m = M;
+                            for (int s=1;s<=ALL_SCs;s++) {
+                              if (debug>=dbgNLLs) cout<<"  inpUF_xmsy("<<tcsam::getSexType(x)<<", "<<tcsam::getMaturityType(m)<<", "<<tcsam::getShellType(s)<<", iy) = "<<ptrZFD->inpUF_xmsy(X,m,s,iy)<<endl;
+                              if ((ptrZFD->inpUF_xmsy(x,m,s,iy)>0)){
+                                //--x(=X),m(=M)M,s input data included in aggregation, so determine model categories included
+                                for (int xp=1;xp<=nSXs;xp++){
+                                  for (int mp=1;mp<=nMSs;mp++){
+                                    for (int sp=1;sp<=nSCs;sp++){
+                                      if (debug>=dbgNLLs) 
+                                        cout<<"    mAggMap("<<tcsam::getSexType(x)<<", "<<tcsam::getMaturityType(m)<<", "<<tcsam::getShellType(s)<< ","
+                                                            <<tcsam::getSexType(xp)<<", "<<tcsam::getMaturityType(mp)<<", "<<tcsam::getShellType(sp)<<") = "<<
+                                                  ptrZFD->mAggMap_XMSxms(x,m,s,xp,mp,sp)<<endl;
+                                      if ((ptrZFD->mAggMap_XMSxms(x,m,s,xp,mp,sp)>0)){
+                                        cnt++;
+                                        mP_zp += mZBtoZBDs*mA_yxmsz(y,xp,mp,sp);//collapse model size bins to data size bins
+                                        if (debug>=dbgNLLs) cout<<"      agg = "<<cnt<<"  adding: "<<mZBtoZBDs*mA_yxmsz(y,xp,mp,sp)<<endl;
+                                      }
+                                    }//--sp
+                                  }//--mp
+                                }//--xp
+                              } else { 
+                                //--(ptrZFD->inpUF_xmsy(x,m,s,iy)<0)
+                                if (debug>=dbgNLLs) cout<<"    --skipping this one"<<endl;
+                              }
                             }//--s
-                            if (debug>=dbgNLLs) cout<<"mP_zp = "<<mP_zp<<endl;
-                            //--do tail compression on model size comp
-                            int imn = ptrZFD->tc_xmsyc(x,m,ALL_SCs,iy)(1);
-                            int imx = ptrZFD->tc_xmsyc(x,m,ALL_SCs,iy)(2);
                             if (debug>=dbgNLLs) {
-                                cout<<"x,m,s,y = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(ALL_SCs)<<cc<<y<<endl;
+                              cout<<"#--number of aggregations = "<<cnt<<endl;
+                              cout<<"mP_zp = "<<mP_zp<<endl;
+                            }
+                            //--do tail compression on model size comp
+                            int imn = ptrZFD->tc_xmsyc(X,M,S,iy)(1);
+                            int imx = ptrZFD->tc_xmsyc(X,M,S,iy)(2);
+                            if (debug>=dbgNLLs) {
+                                cout<<"x,m,s,y = "<<tcsam::getSexType(X)<<cc<<tcsam::getMaturityType(M)<<cc<<tcsam::getShellType(S)<<cc<<y<<endl;
                                 cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
                             }
                             mP_z.initialize();
                             mP_z(imn)         += sum(mP_zp(1,imn));
                             mP_z(imn+1,imx-1) += mP_zp(imn+1,imx-1);
                             mP_z(imx)         += sum(mP_zp(imx,nZBDs));
-                            //--normalize model size comp
-                            mP_z /= nT;
+                            //--normalize size comps
+                            if (sum(oP_z)>0) oP_z /= sum(oP_z);
+                            if (sum(mP_z)>0) mP_z /= sum(mP_z);
                             if (debug>=dbgNLLs) cout<<"mP_z = "<<mP_z<<endl;
                             if (debug<0) {
                                 cout<<"'"<<y<<"'=list(";
                                 cout<<"fit.type='"<<tcsam::getFitType(ptrZFD->optFit)<<"'"<<cc;
                                 cout<<"y="<<y<<cc;
-                                cout<<"x='"<<tcsam::getSexType(x)<<"'"<<cc;
-                                cout<<"m='"<<tcsam::getMaturityType(m)<<"'"<<cc;
-                                cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc<<endl;
+                                cout<<"x='"<<tcsam::getSexType(X)<<"'"<<cc;
+                                cout<<"m='"<<tcsam::getMaturityType(M)<<"'"<<cc;
+                                cout<<"s='"<<tcsam::getShellType(S)<<"'"<<cc<<endl;
                                 cout<<"zBs="; wts::writeToR(cout,ptrZFD->zBs); cout<<cc<<endl;
                                 cout<<"fit=";
                             }
-                            idm = (int) ptrZFD->dm_xmsy(x,m,ALL_SCs,iy);
+                            idm = (int) ptrZFD->dm_xmsy(X,M,S,iy);
                             calcNLL_ZC(ptrZFD,mP_z,oP_z,idm,ss,y,debug,cout);
                             effWgtComps_xmsyn(x,m,tcsam::ALL_SCs,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
                             if (debug<0) cout<<")"<<cc<<endl;
-                        }//nT>0
-                    }//m
-                }//x
+                        } else {
+                          //--((value(nT)>0)&&(ptrZFD->uf_xmsy(X,M,S,iy)>0)) is FALSE
+                          if (debug>=dbgNLLs) cout<<"--skipping this one"<<endl;
+                        }
+                    }//M
+                }//X
             } //if ((mny<=y)&&(y<=mxy))
         } //loop over iy
         //FIT_BY_XM
     } else 
     if (ptrZFD->optFit==tcsam::FIT_BY_XS){
+        std::cout<<"#---"<<endl<<"FIT_BY_XS in calcNLLs_CatchNatZ() not fully implemented yet."<<endl<<"#---"<<endl;
+        exit(-1);
         effWgtComps_xmsyn.allocate(1,nSXs,
                                tcsam::ALL_MSs,tcsam::ALL_MSs,
                                1,nSCs,
@@ -8861,15 +9138,19 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                     for (int s=1;s<=nSCs;s++){
                         nT.initialize();
                         for (int m=1;m<=nMSs;m++) nT += sum(mA_yxmsz(y,x,m,s));//=0 if not calculated
+                        cout<<"nT, uf("<<tcsam::getSexType(x)<<", "<<tcsam::getMaturityType(ALL_MSs)<<", "<<tcsam::getShellType(s)<<") = "<<endl<<
+                               nT<<" "<<ptrZFD->uf_xmsy(x,ALL_MSs,s,iy)<<endl;
+                        int cnt = 0;//--counter for number of aggregations
                         if ((value(nT)>0)&&(ptrZFD->uf_xmsy(x,ALL_MSs,s,iy)>0)){
                             //get observed size comp (aggregated and tail compressed) and normalize it
                             ss   = ptrZFD->ss_xmsy(x,ALL_MSs,s,iy);      //sample size
                             oP_z = ptrZFD->tcdNatZ_xmsyz(x,ALL_MSs,s,iy);//--tail-compressed already
-                            if (sum(oP_z)>0) oP_z /= sum(oP_z);          //--normalize to sum to 1
                             //calculate model size comp
                             //--aggregate model size comp to x,ALL_MSs,s
                             mP_zp.initialize();
                             for (int m=1;m<=nMSs;m++) {
+                              if ((ptrZFD->mAggMap_XMSxms(x,ALL_MSs,s,x,m,s)>0)&&
+                                  (ptrZFD->inpUF_xmsy(x,m,s,iy)>0))
                                 mP_zp += mZBtoZBDs*mA_yxmsz(y,x,m,s);//collapse model size bins to data size bins
                             }//--m
                             //--do tail compression on model size comp
@@ -8883,8 +9164,9 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             mP_z(imn)         += sum(mP_zp(1,imn));
                             mP_z(imn+1,imx-1) += mP_zp(imn+1,imx-1);
                             mP_z(imx)         += sum(mP_zp(imx,nZBDs));
-                            //--normalize model size comp
-                            mP_z /= nT;
+                            //--normalize size comps
+                            if (sum(oP_z)>0) oP_z /= sum(oP_z);
+                            if (sum(mP_z)>0) mP_z /= sum(mP_z);
                             if (debug>=dbgNLLs){
                                 cout<<"ss = "<<ss<<endl;
                                 cout<<"oP_Z = "<<oP_z<<endl;
@@ -8912,6 +9194,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
         //FIT_BY_XS
     } else 
     if (ptrZFD->optFit==tcsam::FIT_BY_XMS){
+        std::cout<<"#---"<<endl<<"FIT_BY_XMS in calcNLLs_CatchNatZ() not fully implemented yet."<<endl<<"#---"<<endl;
+        exit(-1);
         effWgtComps_xmsyn.allocate(1,nSXs,1,nMSs,1,nSCs,mny,mxy,1,3);
         oP_z.allocate(1,nZBDs);
         mP_z.allocate(1,nZBDs);
@@ -8923,15 +9207,20 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                     for (int m=1;m<=nMSs;m++){
                         for (int s=1;s<=nSCs;s++) {
                             nT = sum(mA_yxmsz(y,x,m,s));//=0 if not calculated
+                            if (debug>=dbgNLLs) 
+                              cout<<"nT, uf("<<tcsam::getSexType(x)<<", "<<tcsam::getMaturityType(m)<<", "<<tcsam::getShellType(s)<<") = "<<endl<<
+                                    nT<<" "<<ptrZFD->uf_xmsy(x,m,s,iy)<<endl;
+                            int cnt = 0;//--counter for number of aggregations
                             if ((value(nT)>0)&&(ptrZFD->uf_xmsy(x,m,s,iy)>0)){
                                 //get observed size comp (aggregated and tail compressed) and normalize it
                                 ss   = ptrZFD->ss_xmsy(x,m,s,iy);      //sample size
                                 oP_z = ptrZFD->tcdNatZ_xmsyz(x,m,s,iy);//--tail-compressed already
-                                if (sum(oP_z)>0) oP_z /= sum(oP_z);                      //--normalize to sum to 1
                                 //calculate model size comp
                                 //--aggregate model size comp to ALL_SXs,ALL_MSs,ALL_SC
                                 mP_zp.initialize();//model size comp.
-                                mP_zp += mZBtoZBDs*mA_yxmsz(y,x,m,s);//collapse model size bins to data size bins
+                                if ((ptrZFD->mAggMap_XMSxms(x,m,s,x,m,s)>0)&&
+                                  (ptrZFD->inpUF_xmsy(x,m,s,iy)>0))
+                                  mP_zp += mZBtoZBDs*mA_yxmsz(y,x,m,s);//collapse model size bins to data size bins
                                 //--do tail compression on model size comp
                                 int imn = ptrZFD->tc_xmsyc(x,m,s,iy)(1);
                                 int imx = ptrZFD->tc_xmsyc(x,m,s,iy)(2);
@@ -8942,8 +9231,9 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 mP_z(imn)         += sum(mP_zp(1,imn));
                                 mP_z(imn+1,imx-1) += mP_zp(imn+1,imx-1);
                                 mP_z(imx)         += sum(mP_zp(imx,nZBDs));
-                                //--normalize model size comp
-                                mP_z /= nT;
+                                //--normalize size comps
+                                if (sum(oP_z)>0) oP_z /= sum(oP_z);
+                                if (sum(mP_z)>0) mP_z /= sum(mP_z);
                                 if (debug>=dbgNLLs){
                                     cout<<"ss = "<<ss<<endl;
                                     cout<<"oP_Z = "<<oP_z<<endl;
@@ -8972,10 +9262,11 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
         //FIT_BY_XMS
     } else 
     if (ptrZFD->optFit==tcsam::FIT_BY_XE){
+        if (debug>=dbgNLLs) cout<<"FIT_BY_XE"<<endl;
         effWgtComps_xmsyn.allocate(tcsam::ALL_SXs,tcsam::ALL_SXs,
-                               tcsam::ALL_MSs,tcsam::ALL_MSs,
-                               tcsam::ALL_SCs,tcsam::ALL_SCs,
-                               mny,mxy,1,3);
+                                   tcsam::ALL_MSs,tcsam::ALL_MSs,
+                                   tcsam::ALL_SCs,tcsam::ALL_SCs,
+                                   mny,mxy,1,3);
         oP_z.allocate(1,nSXs*nZBDs);
         mP_z.allocate(1,nSXs*nZBDs);
         for (int iy=1;iy<=yrs.size();iy++) {
@@ -8988,29 +9279,58 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                     oP_z.initialize();//observed size comp.
                     mP_z.initialize();//model size comp.
                     if (debug>=dbgNLLs) cout<<"dims(mPz) = "<<mP_z.indexmin()<<tb<<mP_z.indexmax()<<endl;
-                    for (int x=1;x<=nSXs;x++) {
-                        if (ptrZFD->uf_xmsy(x,ALL_MSs,ALL_SCs,iy)>0){
-                            int mnz = 1+(x-1)*nZBDs;
-                            int mxz = x*nZBDs;
-                            if (debug>=dbgNLLs) cout<<"x, mnz, mxz = "<<x<<tb<<mnz<<tb<<mxz<<endl;
-                            //get observed size comp (aggregated and tail compressed) and normalize it
-                            ss    += ptrZFD->ss_xmsy(x,ALL_MSs,ALL_SCs,iy);      //sample size
-                            oP_zp  = ptrZFD->tcdNatZ_xmsyz(x,ALL_MSs,ALL_SCs,iy);//--tail-compressed already
+                    int M = ALL_MSs; int S = ALL_SCs;
+                    for (int X=1;X<=nSXs;X++) {
+                        if (debug>=dbgNLLs) {
+                           cout<<"nT = "<<nT<<endl;
+                           cout<<"uf("<<tcsam::getSexType(X)<<", "<<tcsam::getMaturityType(M)<<", "<<tcsam::getShellType(S)<<") = "<<ptrZFD->uf_xmsy(X,M,S,iy)<<endl;
+                        }
+                        int cnt = 0;//--counter for number of aggregations
+                        if (ptrZFD->uf_xmsy(X,M,S,iy)>0){
+                            int mnz = 1+(X-1)*nZBDs;
+                            int mxz = X*nZBDs;
+                            if (debug>=dbgNLLs) cout<<"X, mnz, mxz = "<<tcsam::getSexType(X)<<tb<<mnz<<tb<<mxz<<endl;
+                            //get observed size comp (aggregated and tail compressed)
+                            ss    += ptrZFD->ss_xmsy(X,M,S,iy);      //sample size
+                            oP_zp  = ptrZFD->tcdNatZ_xmsyz(X,M,S,iy);//--tail-compressed already
                             oP_z(mnz,mxz).shift(1) += oP_zp;
 
                             //calculate model size comp
-                            //--aggregate model size comp to x,ALL_MSs,ALL_SC
+                            //--aggregate model size comp to X,M,S
                             mP_zpp.initialize();
-                            for (int m=1;m<=nMSs;m++) {
-                                for (int s=1;s<=nSCs;s++) {
-                                    mP_zpp += mZBtoZBDs*mA_yxmsz(y,x,m,s);//collapse model size bins to data size bins
+                            int x = X;
+                            for (int m=1;m<=ALL_MSs;m++) {
+                              for (int s=1;s<=ALL_SCs;s++) {
+                                if (debug>=dbgNLLs) cout<<"  inpUF_xmsy("<<tcsam::getSexType(x)<<", "<<tcsam::getMaturityType(m)<<", "<<tcsam::getShellType(s)<<", iy) = "<<ptrZFD->inpUF_xmsy(X,m,s,iy)<<endl;
+                                if ((ptrZFD->inpUF_xmsy(x,m,s,iy)>0)){
+                                  //--x,m,s input data included in aggregation, so determine model categories included
+                                  for (int xp=1;xp<=nSXs;xp++){
+                                    for (int mp=1;mp<=nMSs;mp++){
+                                      for (int sp=1;sp<=nSCs;sp++){
+                                        if (debug>=dbgNLLs) 
+                                          cout<<"    mAggMap("<<tcsam::getSexType(x)<<", "<<tcsam::getMaturityType(m)<<", "<<tcsam::getShellType(s)<< ","
+                                                              <<tcsam::getSexType(xp)<<", "<<tcsam::getMaturityType(mp)<<", "<<tcsam::getShellType(sp)<<") = "<<
+                                                    ptrZFD->mAggMap_XMSxms(x,m,s,xp,mp,sp)<<endl;
+                                        if ((ptrZFD->mAggMap_XMSxms(x,m,s,xp,mp,sp)>0)){
+                                          cnt++;
+                                          mP_zpp += mZBtoZBDs*mA_yxmsz(y,xp,mp,sp);//collapse model size bins to data size bins
+                                          if (debug>=dbgNLLs) cout<<"      agg = "<<cnt<<"  adding: "<<mZBtoZBDs*mA_yxmsz(y,xp,mp,sp)<<endl;
+                                        }
+                                      }//--sp
+                                    }//--mp
+                                  }//--xp
+                                } else { 
+                                  //--(ptrZFD->inpUF_xmsy(x,m,s,iy)<0)
+                                  if (debug>=dbgNLLs) cout<<"    --skipping this one"<<endl;
+                                }
                                 }//--s
                             }//--m
+                            if (debug>=dbgNLLs) cout<<"#--number of aggregations = "<<cnt<<endl;
                             //--do tail compression on model size comp
-                            int imn = ptrZFD->tc_xmsyc(x,ALL_MSs,ALL_SCs,iy)(1);
-                            int imx = ptrZFD->tc_xmsyc(x,ALL_MSs,ALL_SCs,iy)(2);
+                            int imn = ptrZFD->tc_xmsyc(X,M,S,iy)(1);
+                            int imx = ptrZFD->tc_xmsyc(X,M,S,iy)(2);
                             if (debug>=dbgNLLs) {
-                                cout<<"x,m,s,y = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(ALL_MSs)<<cc<<tcsam::getShellType(ALL_SCs)<<cc<<y<<endl;
+                                cout<<"X,M,S,y = "<<tcsam::getSexType(X)<<cc<<tcsam::getMaturityType(M)<<cc<<tcsam::getShellType(S)<<cc<<y<<endl;
                                 cout<<"imn,imx = "<<imn<<cc<<imx<<endl;
                             }
                             mP_zp.initialize();
@@ -9019,33 +9339,35 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             mP_zp(imx)         += sum(mP_zpp(imx,nZBDs));
                             mP_z(mnz,mxz).shift(1) += mP_zp;
                         }
-                    }//x
+                        if (debug>=dbgNLLs) cout<<"#--number of aggregations = "<<cnt<<endl;
+                    }//--X
+                    //normalize size comps
                     if (sum(oP_z)>0) oP_z /= sum(oP_z);
-                    mP_z /= nT;//normalize model size comp
+                    if (sum(mP_z)>0) mP_z /= sum(mP_z);
                     if (debug>=dbgNLLs){
                         cout<<"ss = "<<ss<<endl;
                         cout<<"oP_Z = "<<oP_z<<endl;
                         cout<<"mP_z = "<<mP_z<<endl;
                     }
-                    for (int x=1;x<=nSXs;x++) {
-                        int mnz = 1+(x-1)*nZBDs;
-                        int mxz = x*nZBDs;
-                        dvar_vector mPt = mP_z(mnz,mxz);
-                        dvector oPt = oP_z(mnz,mxz);
-                        if (debug<0) {
-                            cout<<"'"<<y<<"'=list(";
-                            cout<<"fit.type='"<<tcsam::getFitType(ptrZFD->optFit)<<"'"<<cc;
-                            cout<<"y="<<y<<cc;
-                            cout<<"x='"<<tcsam::getSexType(x)<<"'"<<cc;
-                            cout<<"m='"<<tcsam::getMaturityType(ALL_MSs)<<"'"<<cc;
-                            cout<<"s='"<<tcsam::getShellType(ALL_SCs)<<"'"<<cc<<endl;
-                            cout<<"zBs="; wts::writeToR(cout,ptrZFD->zBs); cout<<cc<<endl;
-                            cout<<"fit=";
-                        }
-                        idm = (int) ptrZFD->dm_xmsy(x,ALL_MSs,ALL_SCs,iy);      //index to Dirichlet-Multinomial parameter
-                        calcNLL_ZC(ptrZFD,mPt,oPt,idm,ss,y,debug,cout);
-                        if (debug<0) cout<<")"<<cc<<endl;
-                    }//x
+                    for (int X=1;X<=nSXs;X++) {
+                      int mnz = 1+(X-1)*nZBDs;
+                      int mxz = X*nZBDs;
+                      dvar_vector mPt = mP_z(mnz,mxz);
+                      dvector oPt = oP_z(mnz,mxz);
+                      if (debug<0) {
+                        cout<<"'"<<y<<"'=list(";
+                        cout<<"fit.type='"<<tcsam::getFitType(ptrZFD->optFit)<<"'"<<cc;
+                        cout<<"y="<<y<<cc;
+                        cout<<"x='"<<tcsam::getSexType(X)<<"'"<<cc;
+                        cout<<"m='"<<tcsam::getMaturityType(M)<<"'"<<cc;
+                        cout<<"s='"<<tcsam::getShellType(S)<<"'"<<cc<<endl;
+                        cout<<"zBs="; wts::writeToR(cout,ptrZFD->zBs); cout<<cc<<endl;
+                        cout<<"fit=";
+                      }
+                      idm = (int) ptrZFD->dm_xmsy(X,M,S,iy);      //index to Dirichlet-Multinomial parameter
+                      calcNLL_ZC(ptrZFD,mPt,oPt,idm,ss,y,debug,cout);
+                      if (debug<0) cout<<")"<<cc<<endl;
+                    }//--X
                     effWgtComps_xmsyn(tcsam::ALL_SXs,tcsam::ALL_MSs,tcsam::ALL_SCs,y) = calcEffWgtComponents(ss, oP_z, mP_z, debug, cout);
                 }//nT>0
             } //if ((mny<=y)&&(y<=mxy))
@@ -9053,6 +9375,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
         //FIT_BY_XE
     } else
     if (ptrZFD->optFit==tcsam::FIT_BY_X_ME){
+        std::cout<<"#---"<<endl<<"FIT_BY_X_ME in calcNLLs_CatchNatZ() not fully implemented yet."<<endl<<"#---"<<endl;
+        exit(-1);
         effWgtComps_xmsyn.allocate(1,nSXs,
                                tcsam::ALL_MSs,tcsam::ALL_MSs,
                                tcsam::ALL_SCs,tcsam::ALL_SCs,
@@ -9070,6 +9394,9 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                         oP_z.initialize();//observed size comp.
                         mP_z.initialize();//model size comp.
                         for (int m=1;m<=nMSs;m++) {
+                            cout<<"nT, uf("<<tcsam::getSexType(x)<<", "<<tcsam::getMaturityType(m)<<", "<<tcsam::getShellType(ALL_SCs)<<") = "<<endl<<
+                                  nT<<" "<<ptrZFD->uf_xmsy(x,m,ALL_SCs,iy)<<endl;
+                            int cnt = 0;//--counter for number of aggregations
                             if (ptrZFD->uf_xmsy(x,m,ALL_SCs,iy)>0){
                                 int mnz = 1+(m-1)*nZBDs;
                                 int mxz = m*nZBDs;
@@ -9082,6 +9409,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 //--aggregate model size comp to x,m,ALL_SC
                                 mP_zpp.initialize();
                                 for (int s=1;s<=nSCs;s++) {
+                                  if ((ptrZFD->mAggMap_XMSxms(x,m,ALL_SCs,x,m,s)>0)&&
+                                      (ptrZFD->inpUF_xmsy(x,m,s,iy)>0))
                                     mP_zpp += mZBtoZBDs*mA_yxmsz(y,x,m,s);//collapse model size bins to data size bins
                                 }//--s
                                 //--do tail compression on model size comp
@@ -9098,8 +9427,9 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 mP_z(mnz,mxz).shift(1) += mP_zp;
                             }
                         }//m
+                        //normalize size comps
                         if (sum(oP_z)>0) oP_z /= sum(oP_z);
-                         mP_z /= nT;//normalize model size comp
+                         if (sum(mP_z)>0) mP_z /= sum(mP_z);
                         if (debug>=dbgNLLs){
                             cout<<"ss = "<<ss<<endl;
                             cout<<"oP_Z = "<<oP_z<<endl;
@@ -9133,10 +9463,12 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
         //FIT_BY_X_ME
     } else
     if (ptrZFD->optFit==tcsam::FIT_BY_X_SE){
+        std::cout<<"#---"<<endl<<"FIT_BY_X_SE in calcNLLs_CatchNatZ() not fully implemented yet."<<endl<<"#---"<<endl;
+        exit(-1);
         effWgtComps_xmsyn.allocate(1,nSXs,
-                               tcsam::ALL_MSs,tcsam::ALL_MSs,
-                               tcsam::ALL_SCs,tcsam::ALL_SCs,
-                               mny,mxy,1,3);
+                                   tcsam::ALL_MSs,tcsam::ALL_MSs,
+                                   tcsam::ALL_SCs,tcsam::ALL_SCs,
+                                   mny,mxy,1,3);
         oP_z.allocate(1,nSCs*nZBDs);
         mP_z.allocate(1,nSCs*nZBDs);
         for (int iy=1;iy<=yrs.size();iy++) {
@@ -9150,6 +9482,9 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                         oP_z.initialize();//observed size comp.
                         mP_z.initialize();//model size comp.
                         for (int s=1;s<=nSCs;s++) {
+                            cout<<"nT, uf("<<tcsam::getSexType(x)<<", "<<tcsam::getMaturityType(ALL_MSs)<<", "<<tcsam::getShellType(s)<<") = "<<endl<<
+                                   nT<<" "<<ptrZFD->uf_xmsy(x,ALL_MSs,s,iy)<<endl;
+                            int cnt = 0;//--counter for number of aggregations
                             if (ptrZFD->uf_xmsy(x,ALL_MSs,s,iy)>0){
                                 int mnz = 1+(s-1)*nZBDs;
                                 int mxz = s*nZBDs;
@@ -9162,6 +9497,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 //--aggregate model size comp to x,ALL_MSs,s
                                 mP_zpp.initialize();
                                 for (int m=1;m<=nMSs;m++) {
+                                  if ((ptrZFD->mAggMap_XMSxms(x,ALL_MSs,s,x,m,s)>0)&&
+                                      (ptrZFD->inpUF_xmsy(x,m,s,iy)>0))
                                     mP_zpp += mZBtoZBDs*mA_yxmsz(y,x,m,s);//collapse model size bins to data size bins
                                 }//--m
                                 //--do tail compression on model size comp
@@ -9178,8 +9515,9 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 mP_z(mnz,mxz).shift(1) += mP_zp;
                             }
                         }//s
+                        //normalize size comps
                         if (sum(oP_z)>0) oP_z /= sum(oP_z);
-                         mP_z /= nT;//normalize model size comp
+                         if (sum(mP_z)>0) mP_z /= sum(mP_z);
                         if (debug>=dbgNLLs){
                             cout<<"ss = "<<ss<<endl;
                             cout<<"oP_Z = "<<oP_z<<endl;
@@ -9212,10 +9550,12 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
         //FIT_BY_X_SE
     } else
     if (ptrZFD->optFit==tcsam::FIT_BY_XME){
+        std::cout<<"#---"<<endl<<"FIT_BY_XME in calcNLLs_CatchNatZ() not fully implemented yet."<<endl<<"#---"<<endl;
+        exit(-1);
         effWgtComps_xmsyn.allocate(tcsam::ALL_SXs,tcsam::ALL_SXs,
-                                    tcsam::ALL_MSs,tcsam::ALL_MSs,
-                                    tcsam::ALL_SCs,tcsam::ALL_SCs,
-                                    mny,mxy,1,3);
+                                   tcsam::ALL_MSs,tcsam::ALL_MSs,
+                                   tcsam::ALL_SCs,tcsam::ALL_SCs,
+                                   mny,mxy,1,3);
         oP_z.allocate(1,nSXs*nMSs*nZBDs);
         mP_z.allocate(1,nSXs*nMSs*nZBDs);
         for (int iy=1;iy<=yrs.size();iy++) {
@@ -9229,6 +9569,9 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                     mP_z.initialize();//model size comp.
                     for (int x=1;x<=nSXs;x++) {
                         for (int m=1;m<=nMSs;m++) {
+                            cout<<"nT, uf("<<tcsam::getSexType(x)<<", "<<tcsam::getMaturityType(m)<<", "<<tcsam::getShellType(ALL_SCs)<<") = "<<endl<<
+                                   nT<<" "<<ptrZFD->uf_xmsy(x,m,ALL_SCs,iy)<<endl;
+                            int cnt = 0;//--counter for number of aggregations
                             if (ptrZFD->uf_xmsy(x,m,ALL_SCs,iy)>0){
                                 int mnz = 1+(m-1)*nZBDs+(x-1)*nMSs*nZBDs;
                                 int mxz = mnz+nZBDs-1;
@@ -9241,6 +9584,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 //--aggregate model size comp to x,ALL_MSs,ALL_SC
                                 mP_zpp.initialize();
                                 for (int s=1;s<=nSCs;s++) {
+                                  if ((ptrZFD->mAggMap_XMSxms(x,m,ALL_SCs,x,m,s)>0)&&
+                                      (ptrZFD->inpUF_xmsy(x,m,s,iy)>0))
                                     mP_zpp += mZBtoZBDs*mA_yxmsz(y,x,m,s);//collapse model size bins to data size bins
                                 }//--s
                                 //--do tail compression on model size comp
@@ -9258,8 +9603,9 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             }
                         }//--m
                     }//--x
+                    //normalize size comps
                     if (sum(oP_z)>0) oP_z /= sum(oP_z);
-                     mP_z /= nT;//normalize model size comp
+                     if (sum(mP_z)>0) mP_z /= sum(mP_z);
                     if (debug>=dbgNLLs){
                         cout<<"ss = "<<ss<<endl;
                         cout<<"oP_Z = "<<oP_z<<endl;
@@ -9293,6 +9639,8 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
         //FIT_BY_XME
     } else 
     if (ptrZFD->optFit==tcsam::FIT_BY_XM_SE){
+        std::cout<<"#---"<<endl<<"FIT_BY_XM_SE in calcNLLs_CatchNatZ() not fully implemented yet."<<endl<<"#---"<<endl;
+        exit(-1);
         effWgtComps_xmsyn.allocate(1,nSXs,
                                    1,nMSs,
                                    tcsam::ALL_SCs,tcsam::ALL_SCs,
@@ -9311,6 +9659,9 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                             oP_z.initialize();//observed size comp.
                             mP_z.initialize();//model size comp.
                             for (int s=1;s<=nSCs;s++) {
+                                cout<<"nT, uf("<<tcsam::getSexType(x)<<", "<<tcsam::getMaturityType(m)<<", "<<tcsam::getShellType(s)<<") = "<<endl<<
+                                       nT<<" "<<ptrZFD->uf_xmsy(x,m,s,iy)<<endl;
+                                int cnt = 0;//--counter for number of aggregations
                                 if (ptrZFD->uf_xmsy(x,m,s,iy)>0){
                                     int mnz = 1+(s-1)*nZBDs;
                                     int mxz = s*nZBDs;
@@ -9322,7 +9673,9 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                     //calculate model size comp
                                     //--aggregate model size comp to x,m,s
                                     mP_zpp.initialize();
-                                    mP_zpp += mZBtoZBDs*mA_yxmsz(y,x,m,s);//collapse model size bins to data size bins
+                                    if ((ptrZFD->mAggMap_XMSxms(x,m,s,x,m,s)>0)&&
+                                        (ptrZFD->inpUF_xmsy(x,m,s,iy)>0))
+                                      mP_zpp += mZBtoZBDs*mA_yxmsz(y,x,m,s);//collapse model size bins to data size bins
                                     //--do tail compression on model size comp
                                     int imn = ptrZFD->tc_xmsyc(x,m,s,iy)(1);
                                     int imx = ptrZFD->tc_xmsyc(x,m,s,iy)(2);
@@ -9337,8 +9690,9 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                     mP_z(mnz,mxz).shift(1) += mP_zp;
                                 }
                             }//s
+                            //normalize size comps
                             if (sum(oP_z)>0) oP_z /= sum(oP_z);
-                             mP_z /= nT;//normalize model size comp
+                             if (sum(mP_z)>0) mP_z /= sum(mP_z);
                             if (debug>=dbgNLLs){
                                 cout<<"ss = "<<ss<<endl;
                                 cout<<"oP_Z = "<<oP_z<<endl;
@@ -9372,10 +9726,12 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
         //FIT_BY_XM_SE
     } else 
     if (ptrZFD->optFit==tcsam::FIT_BY_X_MSE){
+        std::cout<<"#---"<<endl<<"FIT_BY_X_MSE in calcNLLs_CatchNatZ() not fully implemented yet."<<endl<<"#---"<<endl;
+        exit(-1);
         effWgtComps_xmsyn.allocate(1,nSXs,
-                               tcsam::ALL_MSs,tcsam::ALL_MSs,
-                               tcsam::ALL_SCs,tcsam::ALL_SCs,
-                               mny,mxy,1,3);
+                                   tcsam::ALL_MSs,tcsam::ALL_MSs,
+                                   tcsam::ALL_SCs,tcsam::ALL_SCs,
+                                   mny,mxy,1,3);
         oP_z.allocate(1,nMSs*nSCs*nZBDs);
         mP_z.allocate(1,nMSs*nSCs*nZBDs);
         for (int iy=1;iy<=yrs.size();iy++) {
@@ -9390,6 +9746,9 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                         mP_z.initialize();//model size comp.
                         for (int m=1;m<=nMSs;m++) {
                             for (int s=1;s<=nSCs;s++) {
+                                cout<<"nT, uf("<<tcsam::getSexType(x)<<", "<<tcsam::getMaturityType(m)<<", "<<tcsam::getShellType(s)<<") = "<<endl<<
+                                       nT<<" "<<ptrZFD->uf_xmsy(x,m,s,iy)<<endl;
+                                int cnt = 0;//--counter for number of aggregations
                                 if (ptrZFD->uf_xmsy(x,m,s,iy)>0){
                                     int mnz = 1+(s-1)*nZBDs+(m-1)*nSCs*nZBDs;
                                     int mxz =       s*nZBDs+(m-1)*nSCs*nZBDs;
@@ -9401,7 +9760,9 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                     //calculate model size comp
                                     //--aggregate model size comp to x,m,s
                                     mP_zpp.initialize();
-                                    mP_zpp += mZBtoZBDs*mA_yxmsz(y,x,m,s);//collapse model size bins to data size bins
+                                    if ((ptrZFD->mAggMap_XMSxms(x,ALL_MSs,ALL_SCs,x,m,s)>0)&&
+                                        (ptrZFD->inpUF_xmsy(x,m,s,iy)>0))
+                                      mP_zpp += mZBtoZBDs*mA_yxmsz(y,x,m,s);//collapse model size bins to data size bins
                                     //--do tail compression on model size comp
                                     int imn = ptrZFD->tc_xmsyc(x,m,s,iy)(1);
                                     int imx = ptrZFD->tc_xmsyc(x,m,s,iy)(2);
@@ -9417,8 +9778,9 @@ FUNCTION d5_array calcNLLs_CatchNatZ(SizeFrequencyData* ptrZFD, dvar5_array& mA_
                                 }
                             }//s
                         }//m
+                        //normalize size comps
                         if (sum(oP_z)>0) oP_z /= sum(oP_z);
-                         mP_z /= nT;//normalize model size comp
+                         if (sum(mP_z)>0) mP_z /= sum(mP_z);
                         if (debug>=dbgNLLs){
                             cout<<"ss = "<<ss<<endl;
                             cout<<"oP_Z = "<<oP_z<<endl;
@@ -10164,6 +10526,8 @@ FUNCTION void createSimData(ModelDatasets* ptrSim, int debug, ostream& cout)
 //    if (nFsh) vrmN_fyxmsz = wts::value(rmN_fyxmsz); //--drop derivative info from model-predicted fishery retained abundance
     if (debug) cout<<"createSimData: got here 1"<<endl;
     for (int f=1;f<=nFsh;f++) {
+      int olddebug = debug;
+      if (f==1) debug=1;
         if (debug) cout<<"createSimData: fishery f: "<<f<<endl;
         if (debug) {cout<<"SimOpts:"<<endl; ptrMOs->ptrSimOpts->write(cout); cout<<endl;}
         (ptrSim->ppFsh[f-1])->replaceFisheryCatchData(rngSimData,
@@ -10172,6 +10536,7 @@ FUNCTION void createSimData(ModelDatasets* ptrSim, int debug, ostream& cout)
                                                       wts::value(rmN_fyxmsz(f)),
                                                       ptrSim->ptrBio->wAtZ_xmz,
                                                       debug,cout);
+      debug=olddebug;
     }
     for (int v=1;v<=nSrv;v++) {
         if (debug) cout<<"createSimData: survey v: "<<v<<endl;
@@ -10670,9 +11035,9 @@ FUNCTION void setAllVectorVectors(int debug, ostream& cout)
 
 //-------------------------------------------------------------------------------------
 //Write data to file as R list
-FUNCTION void ReportToR_Data(ostream& os, int debug, ostream& cout)
+FUNCTION void ReportToR_Data(ModelDatasets* ptr, ostream& os, int debug, ostream& cout)
     if (debug) cout<<"Starting ReportToR_Data(...)"<<endl;
-    ptrMDS->writeToR(os,"data",0);
+    ptr->writeToR(os,"data",0);
     if (debug) cout<<"Finished ReportToR_Data(...)"<<endl;
 
 //-------------------------------------------------------------------------------------
@@ -10873,7 +11238,7 @@ FUNCTION void ReportToR_ModelResults(ostream& os, int debug, ostream& cout)
 // */
 FUNCTION void ReportToR_CohortProgression(ostream& os, int nzp, int includeM, int includeF, int xtra, int debug, ostream& cout)
     if (debug) cout<<"Starting ReportToR_CohortProgression(...)"<<endl;
-    d5_array n_yxmsz = calcCohortProgression(mxYr,nzp,includeM,includeF,debug,cout);
+    d5_array n_yxmsz = calcCohortProgression(mxYr,nzp,includeM,includeF,0,cout);
     int ny = n_yxmsz.indexmax();
     if (xtra){
         if (debug) cout<<"printing xtra info"<<endl;
@@ -11430,7 +11795,7 @@ BETWEEN_PHASES_SECTION
     }
     ctrProcCallsInPhase=0;//reset in-phase counter
         
-    PRINT2B1("#---END BETWEEN_PHASES_SECTION")
+    PRINT2B1("#--END BETWEEN_PHASES_SECTION------\n\n")
 
 //----------------------------------------------------------------------
 //re-weight survey size comps
@@ -12080,14 +12445,27 @@ FINAL_SECTION
                     PRINT2B1("finished writing final MPI")
                 }
                 {
+                    PRINT2B1("writing final data to R")
+                    ofstream echo1; echo1.open("ModelData.final.R", ios::trunc);
+                    echo1.precision(12);
+                    echo1<<"#--final model data"<<endl;
+                    ReportToR_Data(ptrMDS,echo1,0,cout);
+                }
+                {
                     PRINT2B1("#----Writing sim data to file")
                     int dbgLevel = 0;
                     if (iSimDataSeed) rngSimData.reinitialize(iSimDataSeed);//make sure rngSimData is initialized to iSimDataSeed
                     createSimData(ptrSimMDS,dbgLevel,rpt::echo);            //stochastic if iSimDataSeed<>0
-                    ofstream echo1; echo1.open("ModelData.Sim.dat", ios::trunc);
-                    echo1.precision(12);
-                    writeSimData(echo1,0,cout,ptrSimMDS);
+                    ofstream echo2; echo2.open("ModelData.Sim.dat", ios::trunc);
+                    echo2.precision(12);
+                    writeSimData(echo2,0,cout,ptrSimMDS);
                     PRINT2B2("obj fun = ",value(objFun))
+                    PRINT2B1("#----Finished writing sim data to file")
+                    PRINT2B1("writing simulated data to R")
+                    ofstream echo1; echo1.open("ModelData.sim.final.R", ios::trunc);
+                    echo1.precision(12);
+                    echo1<<"#--final simulated model data (i.e., after parameter estimatation)"<<endl;
+                    ReportToR_Data(ptrSimMDS,echo1,0,cout);
                     PRINT2B1(" ")
                 }
 

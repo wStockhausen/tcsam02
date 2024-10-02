@@ -92,6 +92,59 @@ void GrowthData::setMaxYear(int mxYr){
     }
 }
 
+double GrowthData::f(double r_, double x_){
+  double val = wts::digamma(r_)-log(x_);
+  //cout<<tb<<"r_ = "<<r_<<tb<<"x_ = "<<x_<<tb<<"digamma(r_) = "<<wts::digamma(r_)<<tb<<"log(x_) = "<<log(x_)<<tb<<"f = "<<val<<endl;
+  return(val);
+}
+
+dvector GrowthData::find_gamma_mle(double mi, double beta){
+  int ctr = 0;
+  double x   = mi/beta;
+  double rg  = mi/beta + 1.0;//--mode as a function of molt increment
+  double r0 = max(rg-10,1.0); double f0 = this->f(r0,x);
+  double r1 = rg+10;          double f1 = this->f(r1,x);
+  double rm = 0.5*(r0+r1);    double fm = this->f(rm,x);
+  while (abs(fm)>0.00001){
+    //cout<<"ctr = "<<ctr<<"; r0 = "<<r0<<"; rm = "<<rm<<"; r1 = "<<r1<<"; f0 = "<<f0<<"; fm = "<<fm<<"; f1 = "<<f1<<endl;
+    if (f0*fm<0) {
+      //--r0 and rm bracket the r which gives f(r) = 0;
+      r1 = rm; f1 = f(r1,x);
+    } else if (fm*f1<0) {
+      //--rm and r1 bracket the r which gives f(r) = 0;
+      r0 = rm; f0 = f(r0,x);
+    } else {
+      cout<<"Not bracketing a zero!"<<endl;
+      cout<<"ctr = "<<ctr<<"; r0 = "<<r0<<"; rm = "<<rm<<"; r1 = "<<r1<<"; f0 = "<<f0<<"; fm = "<<fm<<"; f1 = "<<f1<<endl;
+      exit(-1);
+    }
+    rm = 0.5*(r0+r1); fm = f(rm,x);
+    ctr++;
+    if (ctr>20) {
+      cout<<"counter > 20!!"<<endl;
+      cout<<"r0 = "<<r0<<"; rm = "<<rm<<"; r1 = "<<r1<<"; f0 = "<<f0<<"; fm = "<<fm<<"; f1 = "<<f1<<endl;
+      exit(-1);
+    }
+  }
+  dvector v(1,2);
+  v(1) = ctr;
+  v(2) = rm;
+  return(v);
+}
+
+dvector GrowthData::find_gamma_mle(dvector& mi, dvector& beta){
+  int n_mn = mi.indexmin();
+  int n_mx = mi.indexmax();
+  dvector rm(n_mn,n_mx);
+  rm.initialize();
+  for (int i=n_mn;i<=n_mx;i++){
+    dvector v = find_gamma_mle(mi(i),beta(i));
+    rm(i) = v(2);
+    cout<<i<<tb<<(int) v(1)<<tb<<"mi = "<<mi(i)<<tb<<"beta = "<<beta(i)<<tb<<"alpha = "<<rm(i)<<endl;
+  }
+  return(rm);
+}
+
 /**
  * Replace existing growth data with new values based on randomization.
  * 
@@ -109,8 +162,8 @@ void GrowthData::setMaxYear(int mxYr){
  * 
  * @details Modifies column 5 of inpData_xcn (i.e., the observed postmolt sizes). 
  * If ptrSOs->grwSimData = 0, the input growth data is unchanged.
- * If ptrSOs->grwRngFlag = 0, then the result is the median post-molt size given 
- * the pre-molt size and model parameters for growth; 
+ * If ptrSOs->grwRngFlag = 0, then the post-molt sizes, given 
+ * the pre-molt size, should be consistent with the mean growth parameters estimated at the growth-specific MLE; 
  * otherwise, a random value for the post-molt size is drawn for each observation. 
  */
 void GrowthData::replaceGrowthData(random_number_generator& rng,
@@ -122,105 +175,125 @@ void GrowthData::replaceGrowthData(random_number_generator& rng,
                                     dmatrix& zGrA_xy,
                                     dmatrix& zGrB_xy,
                                     int debug, ostream& cout){
-    debug=10;
-    if (debug) {
-      cout<<"Starting GrowthData::replaceGrowthData(...)"<<endl;
-      cout<<"ptrSOs->grwSimData = "<<ptrSOs->grwSimData<<endl;
-    }
-    if (ptrSOs->grwSimData){
-      double rfacGrw = ptrSOs->grwMultFac*ptrSOs->grwMultFac;//variance (?!!) inflation factor
-      if (debug) cout<<"rfacGrw = "<<rfacGrw<<endl;
-        for (int x=1;x<=nSXs;x++){
-            if (debug) cout<<"sex = "<<tb<<x<<tb<<"optGrowthParam = "<<optGrowthParam<<endl;
-            ivector year_n = obsYears_xn(x);
-            dvector zpre_n = inpData_xcn(x,2);    //--premolt size
-            dvector zpst_n = 1.0*inpData_xcn(x,3);//--original post-molt size
-            //--pdf(x,alpha,beta) = (beta^(-alpha))/Gamma(alpha) * x^(alpha-1) * exp(-x/beta)
-            //--alpha = shape parameter
-            //--beta  = scale parameter (1/rate)
-            //--mean  = E[x] = alpha*beta -> alpha=E[x]/beta
-            //--mode  = (alpha-1)*beta = E[x] - beta for alpha > 1
-            //--var   = alpha*(beta^)2 = E[x]*beta
-            //--beta  = V[x]/E[x] = E[x]*CV^2
-            //--alpha = E[x]/beta = (E[x]^2)/V[x] = 1/CV^2
-            //to scale variance (V) by factor f (V' = f*V), keeping same mean (E[x]):
-            //--alpha' = alpha/f
-            //--beta'  = beta*f
-            dvector mnZ_n;
-            if (optGrowthParam==0){
-                mnZ_n = value(
-                          mfexp(grA_xy(x)(year_n)+elem_prod(grB_xy(x)(year_n),log(zpre_n)))
-                        );
-            } else if (optGrowthParam==1){
-                mnZ_n = value(
+  debug=10;
+  if (debug) {
+    cout<<"Starting GrowthData::replaceGrowthData(...)"<<endl;
+    cout<<"ptrSOs->grwSimData = "<<ptrSOs->grwSimData<<endl;
+  }
+  best_nll_xn.deallocate();
+  best_nll_xn.allocate(1,nSXs);
+
+  if (ptrSOs->grwSimData){
+    double rfacGrw = ptrSOs->grwMultFac*ptrSOs->grwMultFac;//variance (?!!) inflation factor
+    if (debug) cout<<"rfacGrw = "<<rfacGrw<<endl;
+    for (int x=1;x<=nSXs;x++){
+      if (debug) cout<<"sex = "<<tb<<x<<tb<<"optGrowthParam = "<<optGrowthParam<<endl;
+      ivector year_n = obsYears_xn(x);
+      dvector zpre_n = inpData_xcn(x,2);    //--premolt size
+      dvector zpst_n = 1.0*inpData_xcn(x,3);//--original post-molt size
+      //--pdf(x,alpha,beta) = (beta^(-alpha))/Gamma(alpha) * x^(alpha-1) * exp(-x/beta)
+      //--alpha = shape parameter
+      //--beta  = scale parameter (1/rate)
+      //--mean  = E[x] = alpha*beta -> alpha=E[x]/beta
+      //--mode  = (alpha-1)*beta = E[x] - beta for alpha > 1
+      //--var   = alpha*(beta^)2 = E[x]*beta
+      //--beta  = V[x]/E[x] = E[x]*CV^2
+      //--alpha = E[x]/beta = (E[x]^2)/V[x] = 1/CV^2
+      //to scale variance (V) by factor f (V' = f*V), keeping same mean (E[x]):
+      //--alpha' = alpha/f
+      //--beta'  = beta*f
+      dvector mnZ_n;
+      if (optGrowthParam==0){
+        mnZ_n = value(
+                  mfexp(grA_xy(x)(year_n)+elem_prod(grB_xy(x)(year_n),log(zpre_n)))
+                );
+      } else if (optGrowthParam==1){
+        mnZ_n = value(
+                  elem_prod(
+                      grA_xy(x)(year_n),
+                      mfexp(
                           elem_prod(
-                              grA_xy(x)(year_n),
-                              mfexp(
-                                  elem_prod(
-                                      elem_div(log(elem_div( grB_xy(x)(year_n), grA_xy(x)(year_n))),
-                                              log(elem_div(zGrB_xy(x)(year_n),zGrA_xy(x)(year_n)))),
-                                      log(elem_div(zpre_n,zGrA_xy(x)(year_n)))
-                                  )
-                              )
+                              elem_div(log(elem_div( grB_xy(x)(year_n), grA_xy(x)(year_n))),
+                                        log(elem_div(zGrB_xy(x)(year_n),zGrA_xy(x)(year_n)))),
+                              log(elem_div(zpre_n,zGrA_xy(x)(year_n)))
                           )
-                        );
-            } else if (optGrowthParam==2){
-                mnZ_n = value(
+                      )
+                  )
+                );
+      } else if (optGrowthParam==2){
+        mnZ_n = value(
+                  elem_prod(
+                      grA_xy(x)(year_n),
+                      mfexp(
                           elem_prod(
-                              grA_xy(x)(year_n),
-                              mfexp(
-                                  elem_prod(
-                                      grB_xy(x)(year_n),
-                                      log(elem_div(zpre_n,zGrA_xy(x)(year_n)))
-                                  )
-                              )
+                              grB_xy(x)(year_n),
+                              log(elem_div(zpre_n,zGrA_xy(x)(year_n)))
                           )
-                        );
-            } else {
-                //throw error
-                PRINT2B1(" ")
-                PRINT2B1("#---------------------")
-                PRINT2B2("Unknown growth parameterization option",optGrowthParam)
-                PRINT2B1("Terminating model run. Please correct.")
-                ad_exit(-1);
-            }
-            /* variance-inflated scale factor, by observation */
-            dvector beta_n = value(grBeta_xy(x)(year_n)*rfacGrw);
-            //--to get perfect fit (min NLL, max MLE) 
-            //--set data to mode (MLE) = (alpha-1)*beta = E[x]-beta (rather than the mean E[x] as one for a normal dist)
-            //--note that "x" in the case above is the growth increment, and that 
-            //--postZ = preZ + incZ so 
-            //--mode(postZ) = preZ + mode(incZ) = preZ+E[incZ]-beta = E[postZ]-beta
-            inpData_xcn(x,3) = mnZ_n-beta_n;
-            if (ptrSOs->grwRngFlag){
-              //--add stochasticity
-              /* variance-inflated location factor, by observation */
-              dvector alpha_n = elem_div(mnZ_n-zpre_n,beta_n)/rfacGrw;
-              cout<<"year"<<tb<<"zpre"<<tb<<"grA"<<tb<<"grB"<<tb<<"zGrA"<<tb<<"zGrB"<<tb<<"mnZ"<<tb<<"grBeta"<<tb<<"rg_inc"<<tb<<"new zpst"<<tb<<"old zpst"<<endl;
-              for (int n=1;n<=nObs_x(x);n++){
-                  //--line 494 of qfc_sim.cpp
-                  //rgamma(shape,rate,rng): shape=alpha, rate=1/beta
-                  double rg_inc = ::rgamma(alpha_n(n),1.0/beta_n(n),rng);
-                  inpData_xcn(x,3,n) = zpre_n(n) + rg_inc;//--postmolt size
-                  if (debug) {
-                      int yn = year_n(n);
-                      cout<<yn<<tb<<zpre_n(n)<<tb<<grA_xy(x)(yn)<<tb<<grB_xy(x)(yn)<<zGrA_xy(x)(yn)<<tb<<zGrB_xy(x)(yn)<<tb<<mnZ_n(n)<<tb<<grBeta_xy(x)(yn)<<tb<<rg_inc<<tb<<inpData_xcn(x,3,n)<<tb<<zpst_n(n)<<endl;
-                  }
-              }//--n
-            } else {
-              //--no stochasticity
-              if (debug) {
-                cout<<"year"<<tb<<"zpre"<<tb<<"grA"<<tb<<"grB"<<tb<<"zGrA"<<tb<<"zGrB"<<tb<<"mnZ"<<tb<<"grBeta"<<tb<<"rg_inc"<<tb<<"new zpst"<<tb<<"old zpst"<<endl;
-                  for (int n=1;n<=nObs_x(x);n++){
-                      double rg_inc = inpData_xcn(x,3,n)-zpre_n(n);
-                      int yn = year_n(n);
-                      cout<<yn<<tb<<zpre_n(n)<<tb<<grA_xy(x)(yn)<<tb<<grB_xy(x)(yn)<<zGrA_xy(x)(yn)<<tb<<zGrB_xy(x)(yn)<<tb<<mnZ_n(n)<<tb<<grBeta_xy(x)(yn)<<tb<<rg_inc<<tb<<inpData_xcn(x,3,n)<<tb<<zpst_n(n)<<endl;
-                  }//--n
-              }//--debug
-            }//--(ptrSOs->grwRngFlag)
-        }//--x
-    }//--(ptrSOs->grwSimData)
-    if (debug) cout<<"Finished GrowthData::replaceGrowthData(...)"<<endl;
+                      )
+                  )
+                );
+      } else {
+        //throw error
+        PRINT2B1(" ")
+        PRINT2B1("#---------------------")
+        PRINT2B2("Unknown growth parameterization option",optGrowthParam)
+        PRINT2B1("Terminating model run. Please correct.")
+        ad_exit(-1);
+      }
+      /* variance-inflated scale factor, by observation */
+      dvector beta_n = value(grBeta_xy(x)(year_n)*rfacGrw);
+
+      //--To get perfect fit (min NLL, max MLE) 
+      //----want alpha to reflect mean molt increment, so alpha = E[x]/beta.
+      //--To change variance: want to keep mean same, but increase variance by rfacGrw (if rfacGrw not = 1)
+      //    E[x] = alpha*beta  V[x] = alpha*beta^2 = E[x] * beta so
+      //    V'[x] = rfacGrw * V[x] and E'[x] = E[x] requires 
+      //    beta' = rfacGrw * beta and alpha' = alpha/rfacGrw
+      //--No stochasticity:
+      //----set data to MLE given alpha_mle = mean molt increment and grBeta, which occurs when dLL/dalpha = 0, 
+      //----[NOT at the mode = (alpha-1)*beta = E[x]-beta (i.e., where dLL/dx = 0)].
+      //----dLL/dalpha = 0 occurs when 
+      //      0 = dln(LL)/dalpha = digamma(alpha_mle) - ln(x/beta) so 
+      //      x = beta * exp(digamma(apha_mle))
+      //--Add stochasticity:
+      //    x = draw from gamma(alpha',beta')
+      dvector mnMI_n = mnZ_n-zpre_n;//mean molt increments
+      beta_n  *= rfacGrw;//--multiply by rfacGrw to increase variance but keep same mean
+      //dvector alpha_n = find_gamma_mle(mnMI_n, beta_n);//find alpha that yields MLE for mean post-molt sizes and beta
+      dvector alpha_n = elem_div(mnMI_n,beta_n);
+      dvector mi_n = elem_prod(beta_n,exp(wts::digamma(alpha_n)));
+      //inpData_xcn(x,3) =  elem_prod(alpha_n,beta_n) + zpre_n;//observed post-molt size corresponding to alpha at MLE
+      inpData_xcn(x,3) =  mi_n + zpre_n;//observed post-molt size corresponding to alpha at MLE
+      if (ptrSOs->grwRngFlag){
+        cout<<"year"<<tb<<"zpre"<<tb<<"grA"<<tb<<"grB"<<tb<<"zGrA"<<tb<<"zGrB"<<tb<<"mnZ"<<tb<<"grBeta"<<tb<<"rg_inc"<<tb<<"new zpst"<<tb<<"old zpst"<<endl;
+        for (int n=1;n<=nObs_x(x);n++){
+          //--line 494 of qfc_sim.cpp
+          //rgamma(shape,rate,rng): shape=alpha, rate=1/beta
+          double rg_inc = ::rgamma(alpha_n(n),1.0/beta_n(n),rng);
+          inpData_xcn(x,3,n) = zpre_n(n) + rg_inc;//--postmolt size
+          if (debug) {
+            int yn = year_n(n);
+            cout<<yn<<tb<<zpre_n(n)<<tb<<grA_xy(x)(yn)<<tb<<grB_xy(x)(yn)<<zGrA_xy(x)(yn)<<tb<<zGrB_xy(x)(yn)<<tb<<mnZ_n(n)<<tb<<grBeta_xy(x)(yn)<<tb<<rg_inc<<tb<<inpData_xcn(x,3,n)<<tb<<zpst_n(n)<<endl;
+          }
+        }//--n
+      } else {
+        //--no stochasticity
+        if (debug) {
+          cout<<"year"<<tb<<"zpre"<<tb<<"grA"<<tb<<"grB"<<tb<<"zGrA"<<tb<<"zGrB"<<tb<<"mnZ"<<tb<<"grBeta"<<tb<<"rg_inc"<<tb<<"new zpst"<<tb<<"old zpst"<<endl;
+          for (int n=1;n<=nObs_x(x);n++){
+              double rg_inc = inpData_xcn(x,3,n)-zpre_n(n);
+              int yn = year_n(n);
+              cout<<yn<<tb<<zpre_n(n)<<tb<<grA_xy(x)(yn)<<tb<<grB_xy(x)(yn)<<zGrA_xy(x)(yn)<<tb<<zGrB_xy(x)(yn)<<tb<<mnZ_n(n)<<tb<<grBeta_xy(x)(yn)<<tb<<rg_inc<<tb<<inpData_xcn(x,3,n)<<tb<<zpst_n(n)<<endl;
+          }//--n
+        }//--debug
+      }//--(ptrSOs->grwRngFlag)
+      dvector ibeta_n = 1.0/beta_n;
+      best_nll_xn(x).allocate(1,nObs_x(x));
+      //best_nll_xn(x) = -wts::log_gamma_density(mnMI_n,alpha_n,ibeta_n);
+      best_nll_xn(x) = -wts::log_gamma_density(mi_n,alpha_n,ibeta_n);
+    }//--x
+  }//--(ptrSOs->grwSimData)
+  if (debug) cout<<"Finished GrowthData::replaceGrowthData(...)"<<endl;
 }
 
 /**

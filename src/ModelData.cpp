@@ -230,7 +230,7 @@ void AggregateCatchData::replaceCatchData(random_number_generator& rng,
                     if (expFac>0) cv = expFac*oldCV_xmsy(x,m,s,y);
                     if (llType==tcsam::LL_LOGNORMAL){
                         sd = sqrt(log(1.0 + square(cv)));
-                        v *= exp(wts::drawSampleNormal(rng,0.0,sd)-0.5*sd*sd);
+                        v *= exp(wts::drawSampleNormal(rng,0.0,sd)); //don't want to bias correct here;
                     } else {
                         sd = cv*v;
                         v += wts::drawSampleNormal(rng,0.0,sd);
@@ -466,7 +466,7 @@ void AggregateCatchData::setMaxYear(int mxYr){
     }//--iy
     
     int old_debug = debug;
-    debug = 1;
+    //debug = 1;
     aggregateData();
     debug = old_debug;
     
@@ -866,6 +866,52 @@ int SizeFrequencyData::setDM(int x,int m,int s,int y,int dm,int inpDM){
 }
 
 /**
+ * Create map for aggregating model-predicted size comps
+ * 
+ * Modifies mAggMap_XMSxms. 
+ * mAggMap_XMSxms(X,M,S,x,m,s) is 1 if the model-predicted value at x,m,s 
+ * should be included in the aggregation for X,M,S.
+ * 
+ * 
+ */
+void SizeFrequencyData::createAggMap(void){
+  int olddebug=debug;
+  debug=0;
+  if (debug) rpt::echo<<"Starting SizeFrequencyData::createAggMap() for "<<name<<endl;
+  int nSXs = tcsam::nSXs; int ALL_SXs = tcsam::ALL_SXs;
+  int nMSs = tcsam::nMSs; int ALL_MSs = tcsam::ALL_MSs;
+  int nSCs = tcsam::nSCs; int ALL_SCs = tcsam::ALL_SCs;
+  mAggMap_XMSxms.deallocate();
+  mAggMap_XMSxms.allocate(1,ALL_SXs,1,ALL_MSs,1,ALL_SCs,1,ALL_SXs,1,ALL_MSs,1,ALL_SCs);
+  for (int ix=1;ix<=ALL_SXs;ix++){
+    for (int im=1;im<=ALL_MSs;im++) {
+      for (int is=1;is<=ALL_SCs;is++){
+        for (int mx=1;mx<=ALL_SXs;mx++){
+          int x = 0;
+          if ((ix==mx)||(ix==ALL_SXs)) x = mx;
+          for (int mm=1;mm<=ALL_MSs;mm++){
+            int m = 0;
+            if ((im==mm)||(im==ALL_MSs)) m = mm;
+            for (int ms=1;ms<=ALL_SCs;ms++){
+              int s = 0;
+              if ((is==ms)||(is==ALL_SCs)) s = ms;
+              double chk = (double)((x>0)&&(m>0)&&(s>0));
+              mAggMap_XMSxms(ix,im,is,mx,mm,ms) = chk;
+              if (debug) {
+                adstring chkstr = "FALSE";
+                if (chk) chkstr = "TRUE";
+                rpt::echo<<ix<<" "<<im<<" "<<is<<" "<<mx<<" "<<mm<<" "<<ms<<" "<<chkstr<<endl;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  if (debug) rpt::echo<<"Finished SizeFrequencyData::createAggMap() for "<<name<<endl;
+  debug=olddebug;
+}
+/**
  * Calculate aggregated size compositions from raw size comps prior to tail compression.
  * 
  * Aggregation is done according to value of optFit.
@@ -875,13 +921,13 @@ int SizeFrequencyData::setDM(int x,int m,int s,int y,int dm,int inpDM){
  */
 void SizeFrequencyData::aggregateRawNatZ(void){
     int olddebug=debug;
-    debug=1;
+    //debug=1;
     if (debug) {
       rpt::echo<<"Starting aggregateRawNatZ() for "<<name<<endl;
       std::cout<<"Starting aggregateRawNatZ() for "<<name<<endl;
     }
     
-    //working use flags
+    //use flags for size frequency data valid AFTER aggregation
     uf_xmsy.deallocate();
     uf_xmsy.allocate(1,tcsam::ALL_SXs,1,tcsam::ALL_MSs,1,tcsam::ALL_SCs,1,ny);
     uf_xmsy.initialize();
@@ -904,7 +950,10 @@ void SizeFrequencyData::aggregateRawNatZ(void){
     int nMSs = tcsam::nMSs; int ALL_MSs = tcsam::ALL_MSs;
     int nSCs = tcsam::nSCs; int ALL_SCs = tcsam::ALL_SCs;
     
-    if (debug>1){
+    //create map for aggregating model-predicted size comps
+    createAggMap();
+
+    if (debug>10){
         rpt::echo<<"aggNatZ_xmsyz.initialize():"<<endl;
         for (int iy=1;iy<=ny;iy++){
             for (int x=1;x<=ALL_SXs;x++){
@@ -926,9 +975,12 @@ void SizeFrequencyData::aggregateRawNatZ(void){
     
     if (debug) rpt::echo<<"optFit = "<<tcsam::getFitType(optFit)<<std::endl;
     if (optFit==tcsam::FIT_BY_TOT){
+      //debug = 1;
+      rpt::echo<<"Starting aggregateRawNatZ() for "<<name<<endl;
+      if (debug) rpt::echo<<"optFit = "<<tcsam::getFitType(optFit)<<std::endl;
         for (int iy=1;iy<=yrs.size();iy++) {
             y = yrs[iy];
-            if (debug) rpt::echo<<"y = "<<iy<<tb<<yrs[iy]<<endl;
+            if (debug) rpt::echo<<"#------"<<"y = "<<iy<<tb<<yrs[iy]<<endl;
             uf = 0;
             dm = 0;
             ss = 0;
@@ -936,21 +988,25 @@ void SizeFrequencyData::aggregateRawNatZ(void){
             for (int x=1;x<=ALL_SXs;x++){
                 for (int m=1;m<=ALL_MSs;m++) {
                     for (int s=1;s<=ALL_SCs;s++) {
+                      if (debug) rpt::echo<<"#--"<<yrs[iy]<<tb<<tcsam::getSexType(x)<<tb<<tcsam::getMaturityType(m)<<tb<<tcsam::getShellType(s)<<endl;
+                      if (inpUF_xmsy(x,m,s,iy)>0){
                         uf   += inpUF_xmsy(x,m,s,iy);
                         dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
                         ss   += inpSS_xmsy(x,m,s,iy);
-//                        oP_z += rawNatZ_xmsyz(x,m,s,iy);
-                        if (debug) rpt::echo<<"ModelConfiguration::maxZBs[x] = "<<ModelConfiguration::maxZBs[x]<<endl;
+                        if (debug>5) rpt::echo<<"ModelConfiguration::maxZBs[x] = "<<ModelConfiguration::maxZBs[x]<<endl;
                         double mxZCm = ModelConfiguration::zCutPts[ModelConfiguration::maxZBs[x]+1];//righthand cut line
-                        if (debug) rpt::echo<<"mxZCm = "<<mxZCm<<endl;
+                        if (debug>5) rpt::echo<<"mxZCm = "<<mxZCm<<endl;
                         int mxZB = nZCs-1;//--index of largest size bin
                         for (int z=1;z<nZCs-1;z++){
                           if ((zCs[z]<=mxZCm)&&(mxZCm<zCs[z+1])) mxZB = z;
                         }
-                        if (debug) rpt::echo<<"mxZB = "<<mxZB<<tb<<"mxZ = "<<zCs[mxZB+1]<<endl;
-                        if (debug) rpt::echo<<yrs[iy]<<tb<<tcsam::getSexType(x)<<tb<<tcsam::getMaturityType(m)<<tb<<tcsam::getShellType(s)<<tb<<rawNatZ_xmsyz(x,m,s,iy)<<std::endl;
+                        if (debug>5) rpt::echo<<"mxZB = "<<mxZB<<tb<<"mxZ = "<<zCs[mxZB+1]<<endl;
+                        if (debug) rpt::echo<<tb<<tb<<rawNatZ_xmsyz(x,m,s,iy)<<std::endl;
                         for (int z=1;   z<mxZB; z++) oP_z[z]    += rawNatZ_xmsyz(x,m,s,iy,z);
                         for (int z=mxZB;z<=nZBs;z++) oP_z[mxZB] += rawNatZ_xmsyz(x,m,s,iy,z);
+                      } else {
+                        if (debug) rpt::echo<<tb<<tb<<"use flag = 0; skipping this factor combination."<<endl;
+                      }
                     }
                 }
             }
@@ -959,10 +1015,11 @@ void SizeFrequencyData::aggregateRawNatZ(void){
             ss_xmsy(ALL_SXs,ALL_MSs,ALL_SCs,iy) = ss;
             aggNatZ_xmsyz(ALL_SXs,ALL_MSs,ALL_SCs,iy) = oP_z;
             if (debug){
+                rpt::echo<<"#----"<<endl;
                 rpt::echo<<"y, x, m, s = "<<yrs[iy]<<cc<<tcsam::getSexType(ALL_SXs)<<cc<<tcsam::getMaturityType(ALL_MSs)<<cc<<tcsam::getShellType(ALL_SCs)<<std::endl;
                 rpt::echo<<"uf, dm, ss = "<<uf<<cc<<dm<<cc<<ss<<std::endl;
                 rpt::echo<<"oP_z                    = "<<oP_z<<endl;
-                rpt::echo<<"aggNatZ_xmsyz(x,m,s,iy) = "<<aggNatZ_xmsyz(ALL_SXs,ALL_MSs,ALL_SCs,iy)<<endl;
+                rpt::echo<<"aggNatZ_xmsyz(x,m,s,iy) = "<<aggNatZ_xmsyz(ALL_SXs,ALL_MSs,ALL_SCs,iy)<<endl<<"#------"<<endl;
             }
         } //loop over iy
         //FIT_BY_TOT
@@ -978,10 +1035,10 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                 oP_z.initialize();//observed size comp.
                 for (int m=1;m<=ALL_MSs;m++) {
                     for (int s=1;s<=ALL_SCs;s++) {
+                      if (inpUF_xmsy(x,m,s,iy)>0){
                         uf   += inpUF_xmsy(x,m,s,iy);
                         dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
                         ss   += inpSS_xmsy(x,m,s,iy);
-//                        oP_z += rawNatZ_xmsyz(x,m,s,iy);
                         if (debug) rpt::echo<<"ModelConfiguration::maxZBs[x] = "<<ModelConfiguration::maxZBs[x]<<endl;
                         double mxZCm = ModelConfiguration::zCutPts[ModelConfiguration::maxZBs[x]+1];
                         if (debug) rpt::echo<<"mxZCm = "<<mxZCm<<endl;
@@ -993,6 +1050,7 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                         if (debug) rpt::echo<<yrs[iy]<<tb<<tcsam::getSexType(x)<<tb<<tcsam::getMaturityType(m)<<tb<<tcsam::getShellType(s)<<tb<<rawNatZ_xmsyz(x,m,s,iy)<<std::endl;
                         for (int z=1;   z<mxZB; z++) oP_z[z]    += rawNatZ_xmsyz(x,m,s,iy,z);
                         for (int z=mxZB;z<=nZBs;z++) oP_z[mxZB] += rawNatZ_xmsyz(x,m,s,iy,z);
+                      }
                     }//--s
                 }//--m
                 uf_xmsy(x,ALL_MSs,ALL_SCs,iy) = uf;
@@ -1003,7 +1061,7 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                     rpt::echo<<"y, x, m, s = "<<yrs[iy]<<cc<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(ALL_MSs)<<cc<<tcsam::getShellType(ALL_SCs)<<std::endl;
                     rpt::echo<<"uf, dm, ss = "<<uf<<cc<<dm<<cc<<ss<<std::endl;
                     rpt::echo<<"oP_z                    = "<<oP_z<<endl;
-                    rpt::echo<<"aggNatZ_xmsyz(x,m,s,iy) = "<<aggNatZ_xmsyz(x,ALL_MSs,ALL_SCs,iy)<<endl;
+                    rpt::echo<<"aggNatZ_xmsyz(x,m,s,iy) = "<<aggNatZ_xmsyz(x,ALL_MSs,ALL_SCs,iy)<<endl<<"#---"<<endl;
                 }
             }//x
         } //loop over iy
@@ -1021,10 +1079,10 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                     ss = 0;
                     oP_z.initialize();//size comp. aggregated over s
                     for (int s=1;s<=ALL_SCs;s++) {
-                        uf   += inpUF_xmsy(x,m,s,iy);
-                        dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
+                      if (inpUF_xmsy(x,m,s,iy)>0){
+                        uf += inpUF_xmsy(x,m,s,iy);
+                        dm  = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
                         ss += inpSS_xmsy(x,m,s,iy);
-//                        oP_z += rawNatZ_xmsyz(x,m,s,iy);
                         if (debug) rpt::echo<<"ModelConfiguration::maxZBs[x] = "<<ModelConfiguration::maxZBs[x]<<endl;
                         double mxZCm = ModelConfiguration::zCutPts[ModelConfiguration::maxZBs[x]+1];
                         if (debug) rpt::echo<<"mxZCm = "<<mxZCm<<endl;
@@ -1035,6 +1093,7 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                         if (debug) rpt::echo<<"mxZB = "<<mxZB<<tb<<"mxZ = "<<zCs[mxZB+1]<<endl;
                         for (int z=1;   z<mxZB; z++) oP_z[z]    += rawNatZ_xmsyz(x,m,s,iy,z);
                         for (int z=mxZB;z<=nZBs;z++) oP_z[mxZB] += rawNatZ_xmsyz(x,m,s,iy,z);
+                      }
                     }//--s
                     uf_xmsy(x,m,ALL_SCs,iy) = uf;
                     dm_xmsy(x,m,ALL_SCs,iy) = dm;
@@ -1044,7 +1103,7 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                         rpt::echo<<"y, x, m, s = "<<yrs[iy]<<cc<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(ALL_SCs)<<std::endl;
                         rpt::echo<<"uf, dm, ss = "<<uf<<cc<<dm<<cc<<ss<<std::endl;
                         rpt::echo<<"oP_z                    = "<<oP_z<<endl;
-                        rpt::echo<<"aggNatZ_xmsyz(x,m,s,iy) = "<<aggNatZ_xmsyz(x,m,ALL_SCs,iy)<<endl;
+                        rpt::echo<<"aggNatZ_xmsyz(x,m,s,iy) = "<<aggNatZ_xmsyz(x,m,ALL_SCs,iy)<<endl<<"#---"<<endl;
                     }
                 }//m
             }//x
@@ -1062,10 +1121,10 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                     ss = 0;
                     oP_z.initialize();//size comp. aggregated over m
                     for (int m=1;m<=ALL_MSs;m++) {
+                      if (inpUF_xmsy(x,m,s,iy)>0){
                         uf   += inpUF_xmsy(x,m,s,iy);
                         dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
                         ss += inpSS_xmsy(x,m,s,iy);
-//                        oP_z += rawNatZ_xmsyz(x,m,s,iy);
                         if (debug) rpt::echo<<"ModelConfiguration::maxZBs[x] = "<<ModelConfiguration::maxZBs[x]<<endl;
                         double mxZCm = ModelConfiguration::zCutPts[ModelConfiguration::maxZBs[x]+1];
                         if (debug) rpt::echo<<"mxZCm = "<<mxZCm<<endl;
@@ -1076,6 +1135,7 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                         if (debug) rpt::echo<<"mxZB = "<<mxZB<<tb<<"mxZ = "<<zCs[mxZB+1]<<endl;
                         for (int z=1;   z<mxZB; z++) oP_z[z]    += rawNatZ_xmsyz(x,m,s,iy,z);
                         for (int z=mxZB;z<=nZBs;z++) oP_z[mxZB] += rawNatZ_xmsyz(x,m,s,iy,z);
+                      }
                     }//--m
                     uf_xmsy(x,ALL_MSs,s,iy) = uf;
                     dm_xmsy(x,ALL_MSs,s,iy) = dm;
@@ -1084,7 +1144,7 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                     if (debug){
                         rpt::echo<<"x, m, s = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(ALL_MSs)<<cc<<tcsam::getShellType(s)<<std::endl;
                         rpt::echo<<"uf, dm, ss = "<<uf<<cc<<dm<<cc<<ss<<std::endl;
-                        rpt::echo<<"aggNatZ_xmsyz(x,m,s,iy) = "<<oP_z<<endl;
+                        rpt::echo<<"aggNatZ_xmsyz(x,m,s,iy) = "<<oP_z<<endl<<"#---"<<endl;
                     }
                 }//s
             }//x
@@ -1105,7 +1165,6 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                             uf   += inpUF_xmsy(x,m,s,iy);
                             dm    = setDM(x,m,s,y,dm,inpDM_xmsy(x,m,s,iy));
                             ss += inpSS_xmsy(x,m,s,iy);
-//                            oP_z += rawNatZ_xmsyz(x,m,s,iy);
                             if (debug) rpt::echo<<"ModelConfiguration::maxZBs[x] = "<<ModelConfiguration::maxZBs[x]<<endl;
                             double mxZCm = ModelConfiguration::zCutPts[ModelConfiguration::maxZBs[x]+1];
                             if (debug) rpt::echo<<"mxZCm = "<<mxZCm<<endl;
@@ -1123,7 +1182,7 @@ void SizeFrequencyData::aggregateRawNatZ(void){
                             if (debug){
                                 rpt::echo<<"x, m, s = "<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(s)<<std::endl;
                                 rpt::echo<<"uf, dm, ss = "<<uf<<cc<<dm<<cc<<ss<<std::endl;
-                                rpt::echo<<"aggNatZ_xmsyz(x,m,s,iy) = "<<oP_z<<endl;
+                                rpt::echo<<"aggNatZ_xmsyz(x,m,s,iy) = "<<oP_z<<endl<<"#---"<<endl;
                             }
                         }//s
                     }//m
@@ -1152,7 +1211,7 @@ void SizeFrequencyData::aggregateRawNatZ(void){
  * @param rng - random number generator
  * @param iSeed - flag to add noise to data (if !=0)
  * @param expFac - error expansion factor
- * @param newNatZ_yxmsz - d5_array of numbers-at-size by yxmsz
+ * @param newNatZ_yxmsz - d5_array of numbers-at-size by yxmsz (x: 1->nSXs; m: 1->nMSs; s: 1->nSCs)
   * @param debug - integer debugging level
   * @param cout - ostream to write debugging info to
  */
