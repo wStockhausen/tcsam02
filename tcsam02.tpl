@@ -12408,7 +12408,8 @@ FINAL_SECTION
     PRINT2B1(" ")
     PRINT2B1("#--Starting FINAL_SECTION")
         
-    if ((!derivChecker)&&(!doHessStep)){        
+//    if ((!derivChecker)&&(!doHessStep)){        
+    if ((!derivChecker)){        
         if (!mseMode){
             PRINT2B1("#--mseMode is OFF")
             if (mcevalOn) {
