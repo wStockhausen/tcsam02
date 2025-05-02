@@ -1444,6 +1444,17 @@ DATA_SECTION
     PRINT2B2("#Reading model parameters info file ",ptrMC->fnMPI)
     if (debugModelParamsInfo) {
         ModelParametersInfo::debug=1;
+        ParameterGroupInfo::debug   = 1;
+        RecruitmentInfo::debug      = 1;
+        InitialNatZInfo::debug      = 1;
+        NaturalMortalityInfo::debug = 1;
+        GrowthInfo::debug           = 1;
+        Molt2MaturityInfo::debug    = 1;
+        SelectivityInfo::debug      = 1;
+        FisheriesInfo::debug        = 1;
+        SurveysInfo::debug          = 1;
+        MSE_Info::debug             = 1;
+        DirichletMultinomialInfo::debug = 1;    
     }
     ptrMPI = new ModelParametersInfo(*ptrMC);
     ad_comm::change_datafile_name(ptrMC->fnMPI);
