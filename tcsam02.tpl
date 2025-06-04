@@ -815,6 +815,7 @@
 //                  MLE's given the simulated molt increment values.
 //             2. Changes to size comp aggregation and fitting code to correctly accommodate input data that are partially 
 //                  "turned off".
+//-2025-06-02: 1. Added `maxNumProcCalls` flag to allow exiting after making maxNumProcCalls PROCEDURE_SECTION calls
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -869,6 +870,8 @@ GLOBALS_SECTION
     adstring modVer = tcsam::VERSION; 
     
     time_t start,finish;
+
+    int maxNumProcCalls = -1;//max number of procedure calls before exiting (-1: no max)
     
     //model objects
     ModelConfiguration*  ptrMC; //ptr to model configuration object
@@ -1013,6 +1016,12 @@ DATA_SECTION
     int on = 0;
     int flg = 0;
     PRINT2B1("#------Reading command line options---------")
+    //set max number of procedure calls before exiting
+    if ((on=option_match(ad_comm::argc,ad_comm::argv,"-maxNumProcCalls"))>-1) {
+        maxNumProcCalls=atoi(ad_comm::argv[on+1]);
+        rpt::echo<<"maxNumProcCalls set to "<<maxNumProcCalls<<endl;
+        rpt::echo<<"#-------------------------------------------"<<endl;
+    }
     if ((on=option_match(ad_comm::argc,ad_comm::argv,"-print1stDerivs"))>-1) {
         print1stDerivs = 1;
         rpt::echo<<"#--will print out derivatives for first objective function calculation--"<<endl;
@@ -3610,11 +3619,31 @@ PROCEDURE_SECTION
 //     os1.close();
 //    }
 //
+    if ((maxNumProcCalls>0)&&(ctrProcCalls>=maxNumProcCalls)){
+      //write report as R file
+      ofstream rep("tcsam02.rep", ios::trunc);
+      rep.precision(12);
+      double maxGrad = 0.0;
+      ReportToR(rep,maxGrad,1,rpt::echo);//--writes tcsam02.rep file
+      rep.close();
+      //write parameter values to csv
+      ofstream os1("tcsam02.params.all.final.csv", ios::trunc);
+      os1.precision(12);
+      writeParameters(os1,0,0,current_phase());
+      os1.close();
+      //write parameter values to text file
+      ofstream par1; par1.precision(12);
+      par1.open("tcsam02.par1", ios::trunc); 
+      writeParameters(par1,-1,0,0);
+      par1.close();
+      exit(-1);
+    }
+            
     if (dbg>=dbgObjFun) {
         PRINT2B2("*pobjfun = ",*objective_function_value::pobjfun)
         PRINT2B1("--END PROCEDURE_SECTION----------------")
     }
-            
+
 //-------------------------------------------------------------------------------------
 FUNCTION adstring get_maxparname(const int index)
   if (initial_params::num_initial_params){
