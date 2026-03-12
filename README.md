@@ -1,14 +1,15 @@
 # TCSAM02
 
 ## Introduction
-TCSAM02 (Tanner Crab Stock Assessment Model, version 2) is the current (September 2020) 
+TCSAM02 (Tanner Crab Stock Assessment Model, version 2) is the currently accepted (as of September 2017) 
 modeling framework for the Bering Sea and Aleutian Islands Tanner crab assessment. It supersedes the
 TCSAM2013 modeling framework, which was used for the Tanner crab assessment from 
 September 2014 to May, 2017. The two modeling frameworks were demonstrated to
 produce identical ("exactly equivalent") results at the May 2017 Crab Plan Team (CPT)
 meeting. The TCSAM02 framework was subsequently recommended by the CPT, and 
 approved by the North Pacific Fishery Management Council's Science and Statistical Committee,
-for use in the September 2017 Tanner crab assessment and has been used in subsequent assessments.
+for use in the September 2017 Tanner crab assessment and has been used in subsequent assessments. Since then, it has 
+undergone sporadic development to add new features.
 
 
 ## Required libraries
@@ -32,12 +33,16 @@ On Windows, an executable version of cmake comes with the RTools installation (i
 
 To create an executable version of tcsam02 open a command prompt (Windows) or terminal window (OSX or linux), change to the top folder in the tcsam02 directory tree (the one with tcsam02.tpl) and enter the following commands:
 
-    * cmake --S . --build _build
+    * cmake -S . -B _build -G "Unix Makefiles"
     * cmake --build _build
 
-These will create the "_build" folder, copy tcsam02.tpl into it, create tcsam02.cpp and tcsam02.htp in it by running tpl2cpp, and compile the executable. Assuming all goes well, an executable version of tcsam02 ("tcsam02" or "tcsam02.exe") will be created in the _build folder. [Note: you can replace "_build" in the above with another folder name of your choosing].
+These will create a "\_build" folder, copy tcsam02.tpl into it, create tcsam02.cpp and tcsam02.htp in it by running tpl2cpp, and compile the executable. Assuming all goes well, an executable version of tcsam02 ("tcsam02" or "tcsam02.exe") will be created in the \_build folder. [Note: you can replace "_build" in the above with another folder name of your choosing]. 
+To recompile after editing TCSAM02 code, simply re-run the "cmake --build \_build" command. 
+If you update your software develpment kit (SDK--i.e., compiler, linker, etc), you may need to delete the "\_build" folder and re-run both commands to "pick up" changes to the SDK.
 
 ## Setting up TCSAM02 as a Netbeans Project
+
+(This may work for you but is no longer supported: VS Code is recommended as an editing environment).
 
 Netbeans should be configured with the C++ modules installed. 
 
@@ -69,7 +74,7 @@ Netbeans should be configured with the C++ modules installed.
             * Under "Build/C++ Compiler", 
                 * "Include Directories": add ".", "include", and the paths to the wtsADMB include directory, the ADMB include directory, and the ADMB include/contrib directory
                 * "Additional Options": none
-            * Under Linker", 
+            * Under "Linker", 
                 * file paths under "Libraries" should point to the libwtsadmb.a and libadmb-contrib.a libraries
                 * "Additional Options": add "-g" (no quotes) to include debugging symbols
 
@@ -81,7 +86,7 @@ Netbeans should be configured with the C++ modules installed.
 * -pin filename : flag to specify pin file for initial parameter values 
 * -binp fnPin : flag to use binary pin file fnPin to set parameter values
 * -ainp fnPin : flag to use ascii  pin file fnPin to set parameter values
-* -mcpin filename : flag to specify pin file for running NUTS mcmc
+* -mcpin filename : flag to specify pin file for running NUTS mcmc        (2026: no longer an option)
 
 ### run configuration options
 

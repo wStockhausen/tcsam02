@@ -42,6 +42,8 @@
  *             ability to estimate initial N's at size.
  * 20230307: Incremented tcsam::VERSION to "2023.03.07" reflecting implementation of
  *             ability to have smaller model size bins than data size bins
+ * 20260311: Incremented tcsam::VERSION to "2026.03.11" reflecting addition of the 
+ *             weight-at-size matrix to ReportToR output.
  */
 
 #pragma once
@@ -114,7 +116,7 @@ namespace tcsam{
     /* adstring indicating model name */
     const adstring MODEL = "tcsam02";
     /* adstring indicating model version */
-    const adstring VERSION = "2023.03.07";
+    const adstring VERSION = "2026.03.11";
     
     /* minimum debugging level that will print ALL debug info */
     const int dbgAll = 100;

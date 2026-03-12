@@ -1,17 +1,32 @@
+#--to "make" the model:
+## 1. run 'cmake -S . -B _build -G "Unix Makefiles"' from the command line in the folder with this file (no single quotes)
+## 2. run 'cmake --build _build' to create the executable in the _build folder
+## After editing the tpl or ther files, re-run step 2 to compile a new executable.
+## Note: After an SDK change, you may need to delete the _build folder and re-run steps 1 and 2.
+
 #--set minimum required cmake version
 cmake_minimum_required(VERSION 3.24)
-
-set(CMAKE_VERBOSE_MAKEFILE TRUE)
-
-message(" Using CMAKE version ${CMAKE_VERSION}")
 
 #--create the project
 project(
     tcsam02
     LANGUAGES CXX
-    VERSION 2023.03.07
+    VERSION 2026.03.11
     DESCRIPTION "CMake script to build tcsam02, the assessment model for Tanner crab"
 )
+
+set(CMAKE_VERBOSE_MAKEFILE TRUE)
+
+message(" Using CMAKE version ${CMAKE_VERSION}")
+
+#--set some local variables
+set(ADMB_HOME "$ENV{ADMB_HOME}")
+set(TPL "tcsam02")
+set(TPL_BASE "../${TPL}.tpl")
+set(${TPL}_INCLUDE "include")
+set(${TPL}_SRC "src")
+set(WTSADMB_HOME "$ENV{WTSADMB_HOME}")
+set(myCXX_FLAGS "-DUSE_ADMB_CONTRIBS")
 
 #--print some informative messages
 message("  Project: '${PROJECT_NAME}'")
@@ -21,16 +36,6 @@ message("  Version: '${PROJECT_VERSION}'")
 message("  Host:    '${CMAKE_HOST_SYSTEM_NAME}'")
 message("  C:       '${CMAKE_C_COMPILER}'")
 message("  C++:     '${CMAKE_CXX_COMPILER}'")
-
-#--set some local variables
-set(TPL "tcsam02")
-set(TPL_BASE "../${TPL}.tpl")
-set(${TPL}_INCLUDE "include")
-set(${TPL}_SRC "src")
-set(ADMB_HOME "$ENV{ADMB_HOME}")
-set(WTSADMB_HOME "$ENV{WTSADMB_HOME}")
-set(myCXX_FLAGS "-DUSE_ADMB_CONTRIBS")
-
 message("ADMB_HOME:    ${ADMB_HOME}")
 message("WTSADMB_HOME: ${WTSADMB_HOME}")
 
@@ -41,6 +46,20 @@ if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Windows")
 endif()
 
 message(" --Copy command: '${CP}'")
+
+set(CAT "cat")
+if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Windows")
+    set(CP "$ENV{RToolsUsr}/bin/cat")
+endif()
+
+message(" --Concatenate command: '${CAT}'")
+
+#--add directory-wide compile options (all compiler languages)
+add_compile_options(
+   -Wall
+   -Wno-unused-variable 
+   -Wno-unused-but-set-variable
+)
 
 #--add external executables; set associated locations
 add_executable(tpl2cpp IMPORTED)
@@ -88,6 +107,8 @@ add_custom_command(
     DEPENDS ${PROJECT_SOURCE_DIR}/${TPL}.tpl
     COMMENT "Copying ${TPL}.tpl from ${PROJECT_SOURCE_DIR}/${TPL}.tpl to ${PROJECT_BINARY_DIR}/${TPL}.tpl."
 )
+
+#--add target to create .ccp and .htp files from tpl (TODO?: add logic for tpl2rem)
 #----run tpl2cpp in _build folder to create ${TPL}.cpp and ${TPL}.htp files there
 add_custom_command(
     OUTPUT ${TPL}.cpp ${TPL}.htp
@@ -102,6 +123,7 @@ add_executable(${TPL} ${TPL}.cpp ${TPL}.htp)
 target_compile_definitions(${TPL} 
     PUBLIC USE_ADMB_CONTRIBS
     PUBLIC _USE_MATH_DEFINES
+    PUBLIC USE_ALT_CTL_FILE
 )
 #--add compiler flags for target
 target_compile_options(${TPL} 
@@ -109,7 +131,7 @@ target_compile_options(${TPL}
     PUBLIC -O3
 )
 #--add compiler features
-target_compile_features(${TPL} PUBLIC cxx_std_14)
+target_compile_features(${TPL} PUBLIC cxx_std_17)
 #--add target include directories 
 #--NOTE: (${${TPL}_INCLUDE} already in global include_directories)
 # target_include_directories(${TPL} PUBLIC xxx)

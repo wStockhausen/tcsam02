@@ -816,6 +816,7 @@
 //             2. Changes to size comp aggregation and fitting code to correctly accommodate input data that are partially 
 //                  "turned off".
 //-2025-06-02: 1. Added `maxNumProcCalls` flag to allow exiting after making maxNumProcCalls PROCEDURE_SECTION calls
+//-2026-03-11: 1. Added wAtZ to model processes section of ReportToR. Incremented tcsam::VERSION
 // =============================================================================
 // =============================================================================
 //--Commandline Options
@@ -1083,14 +1084,24 @@ DATA_SECTION
     if ((on=option_match(ad_comm::argc,ad_comm::argv,"-binp"))>-1) {
         usePin = 1;
         fnPin = ad_comm::argv[on+1];
-        rpt::echo<<"#Initial parameter values from pin file: "<<fnPin<<endl;
+        if (std::fstream(fnPin)){
+            //ad_comm::change_binfile_name(fnPin);
+            rpt::echo<<"#Initial parameter values from bin file: "<<fnPin<<endl;
+        } else {
+            rpt::echo<<"#Initial parameter values from bin file: tcsam02.bin"<<endl;
+        }
         rpt::echo<<"#-------------------------------------------"<<endl;
     }
     //parameter input file
     if ((on=option_match(ad_comm::argc,ad_comm::argv,"-ainp"))>-1) {
         usePin = 1;
         fnPin = ad_comm::argv[on+1];
-        rpt::echo<<"#Initial parameter values from pin file: "<<fnPin<<endl;
+        if (std::fstream(fnPin)){
+            ad_comm::change_pinfile_name(fnPin);
+            rpt::echo<<"#Initial parameter values from pin file: "<<fnPin<<endl;
+        } else {
+            rpt::echo<<"#Initial parameter values from pin file: tcsam02.pin"<<endl;
+        }
         rpt::echo<<"#-------------------------------------------"<<endl;
     }
     //mceval phase is on
@@ -1104,9 +1115,26 @@ DATA_SECTION
     if ((on=option_match(ad_comm::argc,ad_comm::argv,"-mcpin"))>-1) {
         usePin = 2;
         fnPin = ad_comm::argv[on+1];
-        rpt::echo<<"#Initial parameter values for running NUTS MCMC from pin file: "<<fnPin<<endl;
+        if (std::fstream(fnPin)){
+            ad_comm::change_pinfile_name(fnPin);
+            rpt::echo<<"#Initial parameter values for running NUTS MCMC from pin file: "<<fnPin<<endl;
+        } else {
+            rpt::echo<<"#Initial parameter values for running NUTS MCMC from pin file: tcsam02.pin"<<endl;
+        }
         rpt::echo<<"#-------------------------------------------"<<endl;
     }
+    // //parameter input file for running NUTS MCMC 
+    // if ((on=option_match(ad_comm::argc,ad_comm::argv,"-mcbin"))>-1) {
+    //     usePin = 2;
+    //     fnPin = ad_comm::argv[on+1];
+    //     if (std::fstream(fnPin)){
+    //         ad_comm::change_binfile_name(fnPin);
+    //         rpt::echo<<"#Initial parameter values for running NUTS MCMC from bin file: "<<fnPin<<endl;
+    //     } else {
+    //         rpt::echo<<"#Initial parameter values for running NUTS MCMC from bin file: tcsam02.pin"<<endl;
+    //     }
+    //     rpt::echo<<"#-------------------------------------------"<<endl;
+    // }
     //runAlt
     if ((on=option_match(ad_comm::argc,ad_comm::argv,"-runAlt"))>-1) {
         runAlt=1;
@@ -11094,6 +11122,7 @@ FUNCTION void ReportToR_ModelProcesses(ostream& os, int debug, ostream& cout)
 //    wts::adstring_matrix aM2M = tcsam::convertPCs(ptrMPI->ptrM2M);
 //    wts::adstring_matrix aGr  = tcsam::convertPCs(ptrMPI->ptrGrw);
     os<<"mp=list("<<endl;
+        os<<"wAtZ_xmz =", wts::writeToR(os,ptrMDS->ptrBio->wAtZ_xmz,xDms,mDms,zbDms); os<<cc<<endl;
         os<<"M_c      ="; wts::writeToR(os,value(M_c),     adstring("pc=1:"+str(npcNM )));      os<<cc<<endl;
         os<<"M_cz     ="; wts::writeToR(os,value(M_cz),    adstring("pc=1:"+str(npcNM )),zbDms);os<<cc<<endl;
         os<<"M_cy     ="; wts::writeToR(os,value(M_cy),    adstring("pc=1:"+str(npcNM )), yDms);os<<cc<<endl;
@@ -11106,7 +11135,7 @@ FUNCTION void ReportToR_ModelProcesses(ostream& os, int debug, ostream& cout)
         os<<"T_list=list("<<endl;
             os<<"mnZAM_cz   ="; wts::writeToR(os,value(mnGrZ_cz),adstring("pc=1:"+str(npcGrw )),zbDms);       os<<cc<<endl;
             os<<"T_czz      ="; wts::writeToR(os,value(prGr_czz),adstring("pc=1:"+str(npcGrw )),zbDms,zpDms); os<<cc<<endl;
-            os<<"mnZAM_yxsz =";  wts::writeToR(os,wts::value(mnGrZ_yxsz),ypDms,xDms,sDms,zbDms);              os<<cc<<endl;
+            os<<"mnZAM_yxsz ="; wts::writeToR(os,wts::value(mnGrZ_yxsz),ypDms,xDms,sDms,zbDms);               os<<cc<<endl;
             if (0){//TDODO: develop option to output
                 os<<"T_yxszz    =";  wts::writeToR(os,wts::value(prGr_yxszz),ypDms,xDms,sDms,zbDms,zpDms);    os<<endl;
             } else {
