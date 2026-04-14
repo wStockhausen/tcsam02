@@ -791,7 +791,10 @@ void MaturityOgiveData::read(cifstream & is){
     rpt::echo<<nZBs<<tb<<"#number of size bins"<<std::endl;
     cutpts.allocate(1,nZBs+1);
     is>>cutpts;
-    rpt::echo<<"#size bin cut points"<<std::endl<<cutpts<<std::endl;
+    rpt::echo<<"#MMOD size bin cut points: "<<std::endl<<cutpts<<std::endl;
+    zBs.allocate(1,nZBs);
+    for (int n=1;n<=nZBs;n++) zBs(n) = 0.5*(cutpts(n+1)+cutpts(n));
+    rpt::echo<<"#MMOD size bins: "<<std::endl<<zBs<<std::endl;
     is>>nObs;//number of observations
     rpt::echo<<nObs<<tb<<"#number of observations"<<std::endl;
     inpData_nc.allocate(1,nObs,1,5);

@@ -36,7 +36,7 @@
 //      FleetData
 //      GrowthData
 //      ChelaHeightData
-//      MaturtyOgiveData
+//      MaturityOgiveData
 //      ModelDatasets
 //**********************************************************************
 //forward definitions
@@ -962,10 +962,12 @@ class IndexBlock;
         int llType; 
         /** likelihood weight (i.e., multiplier) */
         double llWgt;   
-        /**number of size bins used */
-        int nZBs;
         /** cutpoints for the maturity ogives */
         dvector cutpts;
+        /** number of size bins used */
+        int nZBs;
+        /** size bins used */
+        dvector zBs;
         /** number of observations */
         int nObs;
         /** input data (columns: year,size,N,fraction mature) */

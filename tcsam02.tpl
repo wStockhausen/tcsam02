@@ -840,6 +840,7 @@
 //  -mseMode type                  flag to use mseMode (type = "mseOpModMode" or "mseEstModMode")
 //  -optInitNs val                 val to use as option for initial N's calculation (overrides ModelOptions value)
 //  -print1stDerivs                flag to print detailed derivatives at first objective function evaluation
+//  -maxNumProcCalls               max number of procedure section calls before exiting
 ///////----flags to print debugging info-----
 //  -debugModelConfig
 //  -debugModelParams
@@ -909,6 +910,7 @@ GLOBALS_SECTION
     //file streams and filenames
     long ctrMCMC = 0;    //counter for mcmc output
     std::ofstream mcmc;  //stream for mcmc output
+    std::ofstream popprog; //stream for intermediate N output
     
     //filenames
     adstring fnMCMC = "tcsam02.MCMC.R";
@@ -3265,11 +3267,11 @@ PRELIMINARY_CALCS_SECTION
             if (doOFL&&debugOFL){
                 PRINT2B1("Testing cohort calculations1")
                 ofstream echoCP1; echoCP1.open("calcCohortProgression.init1.txt", ios::trunc);
-                ReportToR_CohortProgression(echoCP1,3,1,1,0,0,echoCP1);
+                ReportToR_CohortProgression(echoCP1,mxYr,3,1,1,0,0,echoCP1);
                 echoCP1.close();
                 PRINT2B1("Testing cohort calculations2")
                 ofstream echoCP2; echoCP2.open("calcCohortProgression.init2.txt", ios::trunc);
-                ReportToR_CohortProgression(echoCP2,3,1,1,0,0,echoCP2);
+                ReportToR_CohortProgression(echoCP2,mxYr,3,1,1,0,0,echoCP2);
                 echoCP2.close();
                 PRINT2B1("Testing OFL calculations 1")
                 ofstream echoOFL1; echoOFL1.open("calcOFL.init1.txt", ios::trunc);
@@ -3373,7 +3375,7 @@ PRELIMINARY_CALCS_SECTION
                 PRINT2B1("writing cohort progression to R")
                 ofstream echo1; echo1.open("CohortProgression.init.R", ios::trunc);
                 echo1.precision(12);
-                ReportToR_CohortProgression(echo1,1,1,1,0,0,cout);
+                ReportToR_CohortProgression(echo1,mxYr,1,1,1,0,0,cout);
                 echo1.close();
                 PRINT2B1("finished writing cohort progression to file")
             }
@@ -4053,8 +4055,26 @@ FUNCTION void projectPopForZeroTAC(int debug, ostream& cout)
     if (debug>=dbgPopDy) cout<<"finished projectPopForZeroTAC()"<<endl;
     
 //-------------------------------------------------------------------------------------
+FUNCTION void writeToPopProg(ofstream& cout, int y, int ssn, dvar4_array& n_xmsz)
+  for (int x=1;x<=nSXs;x++){
+    for (int m=1;m<=nMSs;m++){
+      for (int s=1;s<=nSCs;s++){
+        cout<<y<<cc<<ssn<<cc<<tcsam::getSexType(x)<<cc<<tcsam::getMaturityType(m)<<cc<<tcsam::getShellType(s)<<
+                 cc<<wts::to_csv(value(n_xmsz(x,m,s)))<<endl;
+      }
+    }
+  }
+  cout.flush();
+
+//-------------------------------------------------------------------------------------
 FUNCTION void runPopDyMod(int debug, ostream& cout)
     if (debug>=dbgPopDy) cout<<"starting runPopDyMod()"<<endl;
+
+    //--TODO: add verbose check for writing to popprog
+    popprog.open("popprog.csv", ios::trunc); 
+    popprog<<"y,  ssn,  x,   m,   s,   "<<wts::to_csv(ModelConfiguration::zMidPts)<<endl;
+    popprog.width(15); popprog.precision(12);
+
     //initialize population model
     initPopDyMod(0, cout);
     
@@ -4065,6 +4085,7 @@ FUNCTION void runPopDyMod(int debug, ostream& cout)
     }
     doSurveys(mxYr+1,0,cout);//do final surveys
     
+    popprog.close();
     if (debug>=dbgPopDy) cout<<"finished runPopDyMod()"<<endl;
     
 //-------------------------------------------------------------------------------------
@@ -4106,6 +4127,8 @@ FUNCTION void initPopDyMod(int debug, ostream& cout)
         exit(-1);
     }
 
+    writeToPopProg(popprog,mnYr,1,n_yxmsz(mnYr));//--at start of mnYr
+    
     if (debug>=dbgPopDy) cout<<"finished initPopDyMod()"<<endl;
 
 //-------------------------------------------------------------------------------------
@@ -4128,24 +4151,33 @@ FUNCTION void runPopDyModOneYear(int y, int debug, ostream& cout)
         if (debug>=dbgPopDy) cout<<"Fishery occurs BEFORE molting/growth/maturity"<<endl;
         //apply natural mortality before fisheries
         n1_xmsz = applyNatMort(n_yxmsz(y),y,dtF_y(y),debug,cout);
+        writeToPopProg(popprog,y,2,n1_xmsz);//--abundance at START of y, "season" 2
+
         //conduct fisheries
         n2_xmsz = applyFshMort(n1_xmsz,y,debug,cout);
+        writeToPopProg(popprog,y,3,n2_xmsz);//--abundance at START of y, "season" 3
+
         //apply natural mortality from fisheries to molting/growth/maturity
         if (dtF_y(y)==dtM_y(y)) {
             n3_xmsz = n2_xmsz;
         } else {
             n3_xmsz = applyNatMort(n2_xmsz,y,dtM_y(y)-dtF_y(y),debug,cout);
         }
+        writeToPopProg(popprog,y,4,n3_xmsz);//--abundance at START of y, "season" 4
+
         //calc mature (spawning) biomass at time of mating, but BEFORE growth/maturity (TODO: does this make sense??)
         spB_yx(y) = calcSpB(n3_xmsz,y,debug,cout);
+
         //apply molting, growth and maturation
         n4_xmsz = applyMGM(n3_xmsz,y,debug,cout);
+        writeToPopProg(popprog,y,5,n4_xmsz);//--abundance at START of y, "season" 5
         //apply natural mortality to end of year
         if (dtM_y(y)==1.0) {
             n5_xmsz = n4_xmsz;
         } else {
             n5_xmsz = applyNatMort(n4_xmsz,y,1.0-dtM_y(y),debug,cout);
         }
+        writeToPopProg(popprog,y,6,n5_xmsz);//--abundance at START of y, "season" 6
     } else {              //fishery occurs AFTER molting/growth/maturity
         if (debug>=dbgPopDy) cout<<"Fishery occurs AFTER molting/growth/maturity"<<endl;
         //apply natural mortality before molting/growth/maturity
@@ -4181,6 +4213,8 @@ FUNCTION void runPopDyModOneYear(int y, int debug, ostream& cout)
     
     //add in recruits (NOTE: R_y(y) here corresponds to R_y(y+1) in TCSAM2013)
     for (int x=1;x<=nSXs;x++) n_yxmsz(y+1,x,IMMATURE,NEW_SHELL) += R_yxz(y,x);
+    writeToPopProg(popprog,y+1,1,n_yxmsz(y+1));//--abundance at START of y+1, "season" 1
+
     
     if (debug>=dbgPopDy){
         cout<<"----year = "<<y<<endl;
@@ -6869,7 +6903,7 @@ FUNCTION void calcPenalties(int debug, ostream& cout)
     dvector penWgtNonDecLgtPrM2M = ptrMOs->wgtPenNonDecPrM2M;
     fPenNonDecLgtPrM2M.initialize();
     if (debug<0) cout<<tb<<tb<<"nondecreasing=list(";//start of non-decreasing penalties list
-    int np;
+    int np = 0;
     if (ptrMOs->optPenNonDecPrM2M==0||ptrMOs->optPenNonDecPrM2M==1) np = npLgtPrM2M;
     else if (ptrMOs->optPenNonDecPrM2M==2||ptrMOs->optPenNonDecPrM2M==3) np = ptrMPI->ptrM2M->nPCs;
     for (int i=1;i<np;i++){
@@ -7545,21 +7579,38 @@ FUNCTION void calcNLLs_MaturityOgiveData(int debug, ostream& cout)
                  * all observed size bins */
                 int mny = n_vyxmsz(v).indexmin();
                 int mxy = n_vyxmsz(v).indexmax();
+                ivector ys(mny,mxy);
                 if (debug>dbgObjFun) cout<<"mny = "<<mny<<tb<<"mxy = "<<mxy<<endl;
-                dvar_matrix modPrMat_yzp(mny,mxy,1,pMOD->nZBs); modPrMat_yzp.initialize();
-                dvar_vector vmMat_z(1,nZBs);
-                dvar_vector vmTot_z(1,nZBs);
+                dvar_matrix modPrMat_yz(mny,mxy,1,nZBs); modPrMat_yz.initialize();
+                dvar_matrix vmImm_yz(mny,mxy,1,nZBs);    vmImm_yz.initialize();
+                dvar_matrix vmMat_yz(mny,mxy,1,nZBs);    vmMat_yz.initialize();
+                dvar_matrix vmTot_yz(mny,mxy,1,nZBs);    vmTot_yz.initialize();
+                int nObsZBs = pMOD->nZBs;
+                dvar_matrix modPrMat_yzp(mny,mxy,1,nObsZBs); modPrMat_yzp.initialize();
+                dvar_matrix vmImm_yzp(mny,mxy,1,nObsZBs);    vmImm_yzp.initialize();
+                dvar_matrix vmMat_yzp(mny,mxy,1,nObsZBs);    vmMat_yzp.initialize();
+                dvar_matrix vmTot_yzp(mny,mxy,1,nObsZBs);    vmTot_yzp.initialize();
                 for (int y=mny;y<=mxy;y++){
-                    vmMat_z  = n_vyxmsz(v,y,SEX,MATURE,NEW_SHELL);
-                    vmTot_z  = vmMat_z + n_vyxmsz(v,y,SEX,IMMATURE,NEW_SHELL);
-                    modPrMat_yzp(y) = elem_div(pMOD->zbRemapper*vmMat_z,
-                                               pMOD->zbRemapper*vmTot_z+1.0e-10);//small value added
+                    ys(y) = y;
+                    vmImm_yz(y)  = n_vyxmsz(v,y,SEX,IMMATURE,NEW_SHELL);    //--based on predicted survey abundance
+                    vmMat_yz(y)  = n_vyxmsz(v,y,SEX,MATURE,NEW_SHELL);      //--based on predicted survey abundance
+                    vmTot_yz(y)  = vmImm_yz(y) + vmMat_yz(y);               //--based on predicted survey abundance
+                    modPrMat_yz(y) = elem_div(vmMat_yz(y),
+                                               vmTot_yz(y)+1.0e-10);//small value added
+                    vmImm_yzp(y) = pMOD->zbRemapper*vmImm_yz(y);//--immature survey abundance mapped to observed size bins
+                    vmMat_yzp(y) = pMOD->zbRemapper*vmMat_yz(y);//--mature survey abundance mapped to observed size bins
+                    vmTot_yzp(y) = pMOD->zbRemapper*vmTot_yz(y);//--total survey abundance mapped to observed size bins
+                    modPrMat_yzp(y) = elem_div(vmMat_yzp(y),
+                                               vmTot_yzp(y)+1.0e-10);//small value added
                     if (debug>dbgObjFun) cout<<y<<tb<<modPrMat_yzp(y)<<endl;
                 }
                     
                 //compare model predictions with observations
                 int nzscrs = 0;
-                dvar_vector modPM_n(1,nObs);  modPM_n.initialize();
+                dvar_vector modIN_n(1,nObs);  modIN_n.initialize();//--predicted immature new shell abundance for observed size bin
+                dvar_vector modMN_n(1,nObs);  modMN_n.initialize();//--predicted mature new shell abundance for observed size bin
+                dvar_vector modTN_n(1,nObs);  modTN_n.initialize();//--predicted total new shell abundance for observed size bin
+                dvar_vector modPM_n(1,nObs);  modPM_n.initialize();//--predicted proportion mature for observed size bin
                 dvar_vector nlls_n(1,nObs);   nlls_n.initialize();
                 dvector diffs_n(1,nObs);      diffs_n.initialize();
                 dvector zscrs_n(1,nObs);      zscrs_n.initialize();
@@ -7569,7 +7620,10 @@ FUNCTION void calcNLLs_MaturityOgiveData(int debug, ostream& cout)
                         if (debug>dbgObjFun) cout<<n<<tb<<y_n(n)<<tb<<obsZ_n(n)<<tb<<obsIZ_n(n)<<tb<<ss_n(n)<<tb<<obsPM_n(n)<<tb;
     //                    if ((obsIZ(n)>0)&(obsIZ(n)<=nZBs)){
     //                        if (debug>dbgObjFun) cout<<y_n(n)<<tb;
-                            modPM_n(n) = modPrMat_yzp(y_n(n),obsIZ_n(n));
+                            modIN_n(n) = vmImm_yzp(y_n(n),obsIZ_n(n));    //--predicted immature new shell abundance for observed size bin
+                            modMN_n(n) = vmMat_yzp(y_n(n),obsIZ_n(n));    //--predicted mature new shell abundance for observed size bin
+                            modTN_n(n) = vmTot_yzp(y_n(n),obsIZ_n(n));    //--predicted total new shell abundance for observed size bin
+                            modPM_n(n) = modPrMat_yzp(y_n(n),obsIZ_n(n)); //--mature proportion for observed size bin
                             if (debug>dbgObjFun) cout<<modPM_n(n)<<tb;
                             if ((modPM_n(n)>0.0)&(modPM_n(n)<1.0)){
                                 if (obsPM_n(n)>0.0) nlls_n(n) -= ss_n(n)*obsPM_n(n)*(log(modPM_n(n))-log(obsPM_n(n)));
@@ -7591,15 +7645,35 @@ FUNCTION void calcNLLs_MaturityOgiveData(int debug, ostream& cout)
                     cout<<"fleet="<<qt<<ptrMC->lblsSrv[v]<<qt<<cc;
                     cout<<"sex="<<qt<<tcsam::getSexType(SEX)<<qt<<cc<<"type='binomial'"<<cc
                             <<"wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl;
-                    cout<<"y=";     wts::writeToR(cout,y_n);             cout<<cc<<endl;
-                    cout<<"n=";     wts::writeToR(cout,ss_n);            cout<<cc<<endl;
-                    cout<<"z=";     wts::writeToR(cout,obsZ_n);          cout<<cc<<endl;
-                    cout<<"i=";     wts::writeToR(cout,obsIZ_n);         cout<<cc<<endl;
-                    cout<<"obsPM="; wts::writeToR(cout,obsPM_n);         cout<<cc<<endl;
-                    cout<<"modPM="; wts::writeToR(cout,value(modPM_n));  cout<<cc<<endl;
-                    cout<<"nlls=";  wts::writeToR(cout,value(nlls_n));   cout<<cc<<endl;
-                    cout<<"diffs="; wts::writeToR(cout,diffs_n);         cout<<cc<<endl;
-                    cout<<"zscrs="; wts::writeToR(cout,zscrs_n);         cout<<cc<<endl;
+                    adstring zbpDms = "zbp=c("+wts::to_qcsv(pMOD->zBs)+")";
+                    cout<<"modBins=list("<<endl;
+                      cout<<"y="<<mny<<":"<<mxy<<cc<<endl;
+                      cout<<"zbs=";     wts::writeToR(cout,zBs);                 cout<<cc<<endl;
+                      cout<<"zbps=";    wts::writeToR(cout,pMOD->zBs);           cout<<cc<<endl; 
+                      //std::cout<<"(vmMat_yz) = " << wts::getBounds(value(vmMat_yz)) <<endl; //std::cout.flush();
+                      //wts::writeToR(std::cout,value(vmMat_yz),yDms,zbDms); std::cout.flush();
+                      cout<<"vmImm=";   wts::writeToR(cout,value(vmImm_yz),    ypDms,zbDms);  cout<<cc<<endl; 
+                      cout<<"vmMat=";   wts::writeToR(cout,value(vmMat_yz),    ypDms,zbDms);  cout<<cc<<endl; 
+                      cout<<"vmTot=";   wts::writeToR(cout,value(vmTot_yz),    ypDms,zbDms);  cout<<cc<<endl; 
+                      cout<<"vmPrMat="; wts::writeToR(cout,value(modPrMat_yz), ypDms,zbDms);  cout<<cc<<endl; 
+                      cout<<"vmImmP=";  wts::writeToR(cout,value(vmImm_yzp),   ypDms,zbpDms); cout<<cc<<endl; 
+                      cout<<"vmMatP=";  wts::writeToR(cout,value(vmMat_yzp),   ypDms,zbpDms); cout<<cc<<endl; 
+                      cout<<"vmTotP=";  wts::writeToR(cout,value(vmTot_yzp),   ypDms,zbpDms); cout<<cc<<endl; 
+                      cout<<"vmPrMatP=";wts::writeToR(cout,value(modPrMat_yzp),ypDms,zbpDms); cout<<cc<<endl; 
+                      cout<<"zbRemapper="; wts::writeToR(cout,pMOD->zbRemapper,zbpDms,zbDms); 
+                    cout<<")"<<cc<<endl;
+                    cout<<"y=";     wts::writeToR(cout,y_n);              cout<<cc<<endl;
+                    cout<<"n=";     wts::writeToR(cout,ss_n);             cout<<cc<<endl;
+                    cout<<"z=";     wts::writeToR(cout,obsZ_n);           cout<<cc<<endl;
+                    cout<<"i=";     wts::writeToR(cout,obsIZ_n);          cout<<cc<<endl;
+                    cout<<"obsPM="; wts::writeToR(cout,obsPM_n);          cout<<cc<<endl;
+                    cout<<"modImm=";wts::writeToR(cout,value(modIN_n));   cout<<cc<<endl;
+                    cout<<"modMat=";wts::writeToR(cout,value(modMN_n));   cout<<cc<<endl;
+                    cout<<"modTot=";wts::writeToR(cout,value(modTN_n));   cout<<cc<<endl;
+                    cout<<"modPM="; wts::writeToR(cout,value(modPM_n));   cout<<cc<<endl;
+                    cout<<"nlls=";  wts::writeToR(cout,value(nlls_n));    cout<<cc<<endl;
+                    cout<<"diffs="; wts::writeToR(cout,diffs_n);          cout<<cc<<endl;
+                    cout<<"zscrs="; wts::writeToR(cout,zscrs_n);          cout<<cc<<endl;
                     cout<<"rmse="<<sqrt(norm2(zscrs_n)/nzscrs)<<"),"<<endl;
                 }
             }//nObs>0
@@ -7905,12 +7979,12 @@ FUNCTION void calcNorm2NLL(double wgt, dvar_vector& mod, dvar_vector& xcv_y, dve
         if (debug<0){
             dvector stdv = 1.0+0.0*sdobs_y;//normal sd equivalent for norm2 function
             cout<<"list(nll.type='norm2',wgt="<<wgt<<cc<<"nll="<<nll<<cc<<"objfun="<<wgt*nll<<cc<<endl; 
-            cout<<"obs=";   wts::writeToR(cout,obs,        obsyrs); cout<<cc<<endl;
-            cout<<"mod=";   wts::writeToR(cout,value(mod), modyrs); cout<<cc<<endl;
-            cout<<"sdobs="; wts::writeToR(cout,sdobs_y,    obsyrs); cout<<cc<<endl;
-            cout<<"stdv="; wts::writeToR(cout,stdv,        obsyrs); cout<<cc<<endl;
+            cout<<"obs=";   wts::writeToR(cout,obs,        obsyrs);  cout<<cc<<endl;
+            cout<<"mod=";   wts::writeToR(cout,value(mod), modyrs);  cout<<cc<<endl;
+            cout<<"sdobs="; wts::writeToR(cout,sdobs_y,    obsyrs);  cout<<cc<<endl;
+            cout<<"stdv=";  wts::writeToR(cout,stdv,        obsyrs); cout<<cc<<endl;
             cout<<"diffs="; wts::writeToR(cout,value(diffs),obsyrs); cout<<cc<<endl;
-            cout<<"zscrs="; wts::writeToR(cout,value(zscr),obsyrs); cout<<cc<<endl;
+            cout<<"zscrs="; wts::writeToR(cout,value(zscr),obsyrs);  cout<<cc<<endl;
             cout<<"useFlgs="; wts::writeToR(cout,useFlgs, obsyrs); cout<<cc<<endl;
             cout<<"rmse="<<rmse<<")";
         }
@@ -8047,6 +8121,10 @@ FUNCTION void calcLognormalNLL(double wgt, const dvar_vector& mod, const dvar_ve
     diffs.initialize();
     dvar_vector zscr(1,yrs.size());//z-scores, with index corresponding to observed years
     zscr.initialize();
+    dvar_vector nlls(1,yrs.size());//nlls, with index corresponding to observed years
+    nlls.initialize();
+    //dvar_vector nllsp(1,yrs.size());//nlls, with index corresponding to observed years
+    //nllsp.initialize();
     if (sum(sdobs_y)>0){
         if (allocated(xcv_y)){
             dvar_vector cvsq_obs = mfexp(elem_prod(sdobs_y,sdobs_y))-1.0;//cv-squared for observations
@@ -8076,13 +8154,15 @@ FUNCTION void calcLognormalNLL(double wgt, const dvar_vector& mod, const dvar_ve
             if ((mod.indexmin()<=y)&&(y<=mod.indexmax())) {
                 diffs[i]  = (log(obs[i]+smlVal)-log(mod[y]+smlVal)); 
                 zscr[i]   = (log(obs[i]+smlVal)-log(mod[y]+smlVal))/stdv[i]; 
-                nll_stdv += useFlgs[i]*log(stdv[i]);
+                nlls[i]   = useFlgs[i]*(0.5*log(2*PI)+log(stdv[i])+ 0.5*zscr[i]*zscr[i]);
+                //nllsp[i]  = useFlgs[i]*dnorm(diffs[i],stdv[i]);//--NLL consistent w/ R -dnorm(log=TRUE)
+                nll_stdv += useFlgs[i]*log(stdv[i]);           //--note: missing 0.5*log(2*PI) constant
                 cnt      += useFlgs[i];
             }
         }
         if (cnt>0) {
             rmse   = sqrt(value(norm2(elem_prod(useFlgs,zscr)))/cnt);
-            nll     = nll_stdv + 0.5*norm2(elem_prod(useFlgs,zscr));
+            nll     = nll_stdv + 0.5*norm2(elem_prod(useFlgs,zscr));//--note: missing sum of 0.5*log(2*PI) constants
             objFun += wgt*nll;
         }
     }
@@ -8095,10 +8175,12 @@ FUNCTION void calcLognormalNLL(double wgt, const dvar_vector& mod, const dvar_ve
             cout<<"mod=";   wts::writeToR(cout,value(mod),  modyrs); cout<<cc<<endl;
             cout<<"sdobs="; wts::writeToR(cout,sdobs_y,     obsyrs); cout<<cc<<endl;
             if (allocated(xcv_y)) {cout<<"xcv="; wts::writeToR(cout,value(xcv_y),modyrs); cout<<cc<<endl;}
-            cout<<"stdv=";  wts::writeToR(cout,value(stdv), obsyrs); cout<<cc<<endl;
+            cout<<"stdv=";  wts::writeToR(cout,value(stdv), obsyrs);  cout<<cc<<endl;
             cout<<"diffs="; wts::writeToR(cout,value(diffs), obsyrs); cout<<cc<<endl;
-            cout<<"zscrs="; wts::writeToR(cout,value(zscr), obsyrs); cout<<cc<<endl;
-            cout<<"useFlgs="; wts::writeToR(cout,useFlgs, obsyrs); cout<<cc<<endl;
+            cout<<"zscrs="; wts::writeToR(cout,value(zscr), obsyrs);  cout<<cc<<endl;
+            cout<<"nlls=";  wts::writeToR(cout,value(nlls), obsyrs);  cout<<cc<<endl;
+            //cout<<"nllsp="; wts::writeToR(cout,value(nllsp),obsyrs);  cout<<cc<<endl;
+            cout<<"useFlgs="; wts::writeToR(cout,useFlgs, obsyrs);    cout<<cc<<endl;
             cout<<"rmse="<<rmse<<")";
         }
         if (debug>=dbgAll) {
@@ -8108,6 +8190,8 @@ FUNCTION void calcLognormalNLL(double wgt, const dvar_vector& mod, const dvar_ve
             cout<<"mod     = "<<value(mod)<<endl;
             cout<<"diffs   = "<<value(diffs)<<endl;
             cout<<"zscrs   = "<<value(zscr)<<endl;
+            cout<<"nlls    = "<<value(nlls)<<endl;
+            //cout<<"nllsp   = "<<value(nllsp)<<endl;
             cout<<"useFlgs = "<<useFlgs<<endl;
             cout<<"rmse    = "<<rmse<<endl;
             cout<<"nll     = "<<value(nll)<<tb<<"objFun = "<<wgt*nll<<endl;
@@ -10062,7 +10146,8 @@ FUNCTION void calcNLLs_ExtrapolatedEffort(int debug, ostream& cout)
             cout<<"obsEff=";  wts::writeToR(cout,obsEff_nxmsy(n),  xDms,mDms,sDms,yDms);cout<<cc<<endl;
             cout<<"prdEff=";  wts::writeToR(cout,prdEff_nxmsy(n),  xDms,mDms,sDms,yDms);cout<<cc<<endl;
             cout<<"zscores="; wts::writeToR(cout,zscrEffX_nxmsy(n),xDms,mDms,sDms,yDms);cout<<cc<<endl;
-            cout<<"nlls=";    wts::writeToR(cout,nllEffX_nxms(n),  xDms,mDms,sDms);cout<<endl;
+            cout<<"nlls=";    wts::writeToR(cout,nllEffX_nxms(n),               xDms,mDms,sDms);cout<<cc<<endl;
+            cout<<"objfun=";  wts::writeToR(cout,ptrCRAS->llWgt*nllEffX_nxms(n),xDms,mDms,sDms);cout<<endl;
             cout<<")"<<cc<<endl;
         }
     }//n
@@ -11296,6 +11381,7 @@ FUNCTION void ReportToR_ModelResults(ostream& os, int debug, ostream& cout)
 // * Write cohort progression quantities to file as R list.
 // * 
 // * @param os  - output stream to  write to
+// * @param yr - year from which to take model processes
 // * @param nzp - number of size bins to include for initial recruitment
 // * @param includeM - flag (0,1) to include natural mortality
 // * @param includeF - flag (0,1) to include fishing mortality
@@ -11305,20 +11391,21 @@ FUNCTION void ReportToR_ModelResults(ostream& os, int debug, ostream& cout)
 // * 
 // * @return 5d array of cohort abundance by yxmsz (n_yxmsz)
 // */
-FUNCTION void ReportToR_CohortProgression(ostream& os, int nzp, int includeM, int includeF, int xtra, int debug, ostream& cout)
+FUNCTION void ReportToR_CohortProgression(ostream& os, int yr, int nzp, int includeM, int includeF, int xtra, int debug, ostream& cout)
     if (debug) cout<<"Starting ReportToR_CohortProgression(...)"<<endl;
-    d5_array n_yxmsz = calcCohortProgression(mxYr,nzp,includeM,includeF,0,cout);
+    d5_array n_yxmsz = calcCohortProgression(yr,nzp,includeM,includeF,0,cout);
     int ny = n_yxmsz.indexmax();
     if (xtra){
         if (debug) cout<<"printing xtra info"<<endl;
-        dmatrix  prM2M_xz  = value(prM2M_yxz(mxYr));
-        d3_array mnZAM_xsz = value(mnGrZ_yxsz(mxYr));
+        dmatrix  prM2M_xz  = value(prM2M_yxz(yr));
+        d3_array mnZAM_xsz = value(mnGrZ_yxsz(yr));
         ivector pd3(1,3); pd3(1)=2; pd3(2)=1; pd3(3)=3;
         dmatrix mnZAM_xz   = wts::permuteDims(pd3,mnZAM_xsz)(NEW_SHELL);//new shelll same as old shell
-        d4_array  T_xszz   = wts::value(prGr_yxszz(mxYr));
+        d4_array  T_xszz   = wts::value(prGr_yxszz(yr));
         ivector pd4(1,4); pd4(1)=2; pd4(2)=1; pd4(3)=3; pd4(4)=4;
         d3_array T_xzz   = wts::permuteDims(pd4,T_xszz)(NEW_SHELL);//new shell same as old shell
         os<<"cohortprogression=list("<<endl;
+            os<<"yr = "<<yr<<cc<<endl;
             os<<"n_yxmsz  ="; wts::writeToR(os,n_yxmsz,adstring("y=0:"+str(ny)),xDms,mDms,sDms,zbDms); os<<cc<<endl;
             os<<"prM2M_xz ="; wts::writeToR(os,prM2M_xz,xDms,zbDms);    os<<cc<<endl;
             os<<"mnZAM_xz ="; wts::writeToR(os,mnZAM_xz,xDms,zbDms);    os<<cc<<endl;
@@ -11327,6 +11414,7 @@ FUNCTION void ReportToR_CohortProgression(ostream& os, int nzp, int includeM, in
     } else {
         if (debug) cout<<"not printing xtra info"<<endl;
         os<<"cohortprogression=list("<<endl;
+            os<<"yr = "<<yr<<cc<<endl;
             os<<"n_yxmsz="; wts::writeToR(os,n_yxmsz,adstring("y=0:"+str(ny)),xDms,mDms,sDms,zbDms); os<<endl;
         os<<")";
     }
@@ -11528,7 +11616,7 @@ FUNCTION void ReportToR(ostream& os, double maxGrad, int debug, ostream& cout)
         os<<tb<<"#end of modelfits"<<endl;
         
          //cohort projections (recruits by recruitment size distribution, M+F included, no extra info)
-        ReportToR_CohortProgression(os,0,1,1,0,debug,cout);
+        ReportToR_CohortProgression(os,mnYr,0,1,1,0,debug,cout);
         os<<tb<<"#end of cohortprogression"<<endl;
         
         //do OFL calculations
@@ -12590,17 +12678,29 @@ FINAL_SECTION
                 {
                     PRINT2B1("#----writing cohort progression to R")
                     ofstream echo1; echo1.precision(12);
-                    echo1.open("CohortProgression.noMF.R", ios::trunc);                
-                    ReportToR_CohortProgression(echo1,1,0,0,1,0,cout);
+                    echo1.open("CohortProgression.noMF.mnYr.R", ios::trunc);                
+                    ReportToR_CohortProgression(echo1,mnYr,1,0,0,1,0,cout);
                     echo1.close();
-                    echo1.open("CohortProgression.FnoM.R", ios::trunc);                
-                    ReportToR_CohortProgression(echo1,1,0,1,1,0,cout);
+                    echo1.open("CohortProgression.FnoM.mnYr.R", ios::trunc);                
+                    ReportToR_CohortProgression(echo1,mnYr,1,0,1,1,0,cout);
                     echo1.close();
-                    echo1.open("CohortProgression.MnoF.R", ios::trunc);                
-                    ReportToR_CohortProgression(echo1,1,1,0,1,0,cout);
+                    echo1.open("CohortProgression.MnoF.mnYr.R", ios::trunc);                
+                    ReportToR_CohortProgression(echo1,mnYr,1,1,0,1,0,cout);
                     echo1.close();
-                    echo1.open("CohortProgression.MF.R", ios::trunc);                
-                    ReportToR_CohortProgression(echo1,1,1,1,1,0,cout);
+                    echo1.open("CohortProgression.MF.mnYr.R", ios::trunc);                
+                    ReportToR_CohortProgression(echo1,mnYr,1,1,1,1,0,cout);
+                    echo1.close();
+                    echo1.open("CohortProgression.noMF.mxYr.R", ios::trunc);                
+                    ReportToR_CohortProgression(echo1,mxYr,1,0,0,1,0,cout);
+                    echo1.close();
+                    echo1.open("CohortProgression.FnoM.mxYr.R", ios::trunc);                
+                    ReportToR_CohortProgression(echo1,mxYr,1,0,1,1,0,cout);
+                    echo1.close();
+                    echo1.open("CohortProgression.MnoF.mxYr.R", ios::trunc);                
+                    ReportToR_CohortProgression(echo1,mxYr,1,1,0,1,0,cout);
+                    echo1.close();
+                    echo1.open("CohortProgression.MF.mxYr.R", ios::trunc);                
+                    ReportToR_CohortProgression(echo1,mxYr,1,1,1,1,0,cout);
                     echo1.close();
                     PRINT2B1("#----finished writing cohort progression to file")
                 }
