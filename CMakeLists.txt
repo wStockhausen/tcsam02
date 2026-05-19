@@ -49,7 +49,7 @@ message(" --Copy command: '${CP}'")
 
 set(CAT "cat")
 if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Windows")
-    set(CP "$ENV{RToolsUsr}/bin/cat")
+    set(CAT "$ENV{RToolsUsr}/bin/cat")
 endif()
 
 message(" --Concatenate command: '${CAT}'")
