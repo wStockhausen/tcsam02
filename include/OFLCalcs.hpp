@@ -21,6 +21,8 @@ class Equilibrium_Calculator {
         int nZBs;
         dmatrix I_z; //identity matrix for size classes
         PopProjector* pPP;//pointer to single-sex population projector
+        dvar3_array eqNatZF0m_msz; // numbers-at-size array at mating under no fishing mortality
+        dvar3_array eqNatZFMm_msz; // numbers-at-size array at mating Fmsy
         
     public:
         /**
@@ -53,9 +55,9 @@ class Equilibrium_Calculator {
          * 
          * @return equilibrium (longterm) population single-sex abundance on July 1 (as dvar3_array)
          */
-        dvar3_array calcEqNatZ(dvar_vector& R_z,dvar3_array& S1_msz, 
-                            dvar_matrix& Th_sz, dvar3_array& T_szz, 
-                            dvar3_array& S2_msz, ostream& cout);
+        dvar3_array calcEqNatZ(dvar_vector& R_z,   dvar3_array& S1_msz, 
+                               dvar_matrix& Th_sz, dvar3_array& T_szz, 
+                               dvar3_array& S2_msz,ostream& cout);
         /**
          * Calculate equilibrium unfished single-sex abundance on July 1 when 
          * longterm (average) single-sex recruitment is R.
@@ -86,6 +88,8 @@ class Equilibrium_Calculator {
          * @param cout - output stream for debug info
          * 
          * @return mature biomass-at-mating for unfished population (1000's t)
+         * 
+         * @details This function modifies this->eqNatF0m_msz.
          */
         dvariable calcEqMatureBiomassAtMatingF0(dvariable R, ostream& cout);
         /**
@@ -98,6 +102,8 @@ class Equilibrium_Calculator {
          * @param cout - output stream for debug info
          * 
          * @return equilibrium spawning biomass-at-mating 
+         * 
+         * @details This function modifies this->eqNatFMm_msz.
          */
         dvariable calcEqMatureBiomassAtMatingFM(dvariable R, dvariable dirF, ostream& cout);
 };
@@ -272,10 +278,14 @@ class OFLResults {
         dvariable curB;
         /** "final" size distribution from assessment model */
         dvar4_array finlNatZ_xmsz; 
-        /** unfished equilibrium size distribution */
+        /** unfished equilibrium size distribution on July 1 */
         dvar4_array eqNatZF0_xmsz;
-        /** fished equilibrium size distribution */
+        /** fished equilibrium size distribution on July 1 */
         dvar4_array eqNatZFM_xmsz;
+        /** unfished equilibrium size distribution at mating */
+        dvar4_array eqNatZF0m_xmsz;
+        /** fished equilibrium size distribution at mating **/
+        dvar4_array eqNatZFMm_xmsz;
         
         /** pointer to PopDyInfo for males */
         PopDyInfo* pPDIM;

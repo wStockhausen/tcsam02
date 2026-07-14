@@ -9,10 +9,10 @@
 using namespace tcsam;
 
 /** flags to print debug info */
-int Equilibrium_Calculator::debug = 0;
-int Tier3_Calculator::debug = 0;
-int OFL_Calculator::debug = 0;
-int OFLResults::debug = 0;
+int Equilibrium_Calculator::debug = 1;
+int Tier3_Calculator::debug = 1;
+int OFL_Calculator::debug = 1;
+int OFLResults::debug = 1;
 ////////////////////////////////////////////////////////////////////////////////
 //Equilibrium_Calculator
 ////////////////////////////////////////////////////////////////////////////////
@@ -27,6 +27,8 @@ Equilibrium_Calculator::Equilibrium_Calculator(PopProjector* pPPp){
     nSCs = pPP->pPI->nSCs;
     nZBs = pPP->pPI->nZBs;
     I_z = identity_matrix(1,nZBs);
+    eqNatZF0m_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
+    eqNatZFMm_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
 }
 /**
  * Copy constructor.
@@ -39,6 +41,8 @@ Equilibrium_Calculator::Equilibrium_Calculator(const Equilibrium_Calculator& o){
     nSCs = pPP->pPI->nSCs;
     nZBs = pPP->pPI->nZBs;
     I_z = identity_matrix(1,nZBs);
+    eqNatZF0m_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
+    eqNatZFMm_msz.allocate(1,nMSs,1,nSCs,1,nZBs);
 }
 /**
  * Calculate equilibrium (longterm) population abundance on July 1.
@@ -233,6 +237,8 @@ dvar3_array Equilibrium_Calculator::calcEqNatZFM(dvariable R, dvariable dirF, os
  * @param cout - output stream for debug info
  * 
  * @return mature biomass-at-mating for unfished population (1000's t)
+ * 
+ * @details This function modifies this->eqNatZF0m_msz.
  */
 dvariable Equilibrium_Calculator::calcEqMatureBiomassAtMatingF0(dvariable R, ostream& cout){
     RETURN_ARRAYS_INCREMENT();
@@ -244,12 +250,13 @@ dvariable Equilibrium_Calculator::calcEqMatureBiomassAtMatingF0(dvariable R, ost
     dvar3_array n_msz = calcEqNatZF0(R,cout);
     
     //advance to mating in unfished population
-    dvar3_array nm_msz = pPP->pPI->applyNM(pPP->dtM,n_msz,cout);
+    eqNatZF0m_msz = pPP->pPI->applyNM(pPP->dtM,n_msz,cout);
     
     //calculate mature biomass at time of mating
-    dvariable eqMB = pPP->pPI->calcMatureBiomass(nm_msz,cout);
+    dvariable eqMB = pPP->pPI->calcMatureBiomass(eqNatZF0m_msz,cout);
     if (debug) {
-        cout<<"eqMB = "<<eqMB<<endl;
+        cout<<"eqMB_F0 = "<<eqMB<<endl;
+        cout<<"eqNatZF0m_msz = "<<endl; wts::print(eqNatZF0m_msz,cout,1); cout<<endl;
         cout<<"finished double Equilibrium_Calculator::calcEqMatureBiomassAtMatingF0(double R)"<<endl;
     }
     RETURN_ARRAYS_DECREMENT();
@@ -266,6 +273,8 @@ dvariable Equilibrium_Calculator::calcEqMatureBiomassAtMatingF0(dvariable R, ost
  * @param cout - output stream for debug info
  * 
  * @return equilibrium spawning biomass-at-mating 
+ * 
+ * @details This function modifies this->eqNatZFMm_msz.
  */
 dvariable Equilibrium_Calculator::calcEqMatureBiomassAtMatingFM(dvariable R, dvariable dirF, ostream& cout){
     RETURN_ARRAYS_INCREMENT();
@@ -273,6 +282,7 @@ dvariable Equilibrium_Calculator::calcEqMatureBiomassAtMatingFM(dvariable R, dva
         cout<<"starting Equilibrium_Calculator::calcEqMatureBiomassAtMatingFM(double R, double dirF)"<<endl;
         cout<<"R = "<<R<<". dirF = "<<dirF<<endl;
     }
+
     //calculate equilibrium size distribution on July 1
     dvar3_array n_msz = calcEqNatZFM(R,dirF,cout);
     
@@ -288,29 +298,26 @@ dvariable Equilibrium_Calculator::calcEqMatureBiomassAtMatingFM(dvariable R, dva
         dvar3_array n2_msz = pPP->pCI->applyFM(dirF, n1_msz, cout);
         if (debug) {cout<<"n2_msz ="<<endl; wts::print(n2_msz,cout,1);}
         //apply natural mortality after fisheries but before molting/growth
-        dvar3_array n3_msz(1,nMSs,1,nSCs,1,nZBs);
+        
         if (pPP->dtF==pPP->dtM){
             if (debug) cout<<"dtF=dtM"<<endl;
-            n3_msz = n2_msz;
+            eqNatZFMm_msz = n2_msz;
         } else {
             if (debug) cout<<"dtF<dtM"<<endl;
-            n3_msz = pPP->pPI->applyNM(pPP->dtM-pPP->dtF,n2_msz,cout);
+            eqNatZFMm_msz = pPP->pPI->applyNM(pPP->dtM-pPP->dtF,n2_msz,cout);
         }
-        if (debug) {cout<<"n3_msz ="<<endl; wts::print(n3_msz,cout,1);}
-        
         //calculate mature biomass at mating
-        eqMB = pPP->pPI->calcMatureBiomass(n3_msz,cout);
+        eqMB = pPP->pPI->calcMatureBiomass(eqNatZFMm_msz,cout);
     } else { //fisheries occur AFTER molting/growth/maturity 
         if (debug) cout<<"dtF>dtM"<<endl;
         //apply natural mortality BEFORE molting/growth
-        dvar3_array n1_msz = pPP->pPI->applyNM(pPP->dtM,n_msz,cout);
-        if (debug) {cout<<"n1_msz ="<<endl; wts::print(n1_msz,cout,1);}
-        
+        eqNatZFMm_msz = pPP->pPI->applyNM(pPP->dtM,n_msz,cout);        
         //calculate mature biomass at mating
-        eqMB = pPP->pPI->calcMatureBiomass(n1_msz,cout);
+        eqMB = pPP->pPI->calcMatureBiomass(eqNatZFMm_msz,cout);
     }
     if (debug) {
-        cout<<"eqMB = "<<eqMB<<endl;
+        cout<<"eqMB_FM  = "<<eqMB<<endl;
+        cout<<"nFMm_msz = "<<endl; wts::print(eqNatZFMm_msz,cout,1);
         cout<<"finished Equilibrium_Calculator::calcEqMatureBiomassAtMatingFM(dvariable R, dvariable dirF)"<<endl;
     }
     RETURN_ARRAYS_DECREMENT();
@@ -354,7 +361,7 @@ dvariable Tier3_Calculator::calcB100(dvariable R, ostream& cout){
     if (debug) cout<<"starting dvariable Tier3_Calculator::calcB100(dvariable R)"<<endl;
     RETURN_ARRAYS_INCREMENT();
     //calculate mature biomass at time of mating
-    B100 = pEC->calcEqMatureBiomassAtMatingF0(R,cout);
+    B100 = pEC->calcEqMatureBiomassAtMatingF0(R,cout);//--also calculates pEC->eqNatZF0m_msz
     B0 = B100;
     if (debug) {
         cout<<"B100 = "<<B100<<endl;
@@ -418,8 +425,8 @@ dvariable Tier3_Calculator::calcFmsy(dvariable R, ostream& cout){
     int i=0;
     while ((i++ < maxIts)){
         mmbp = pEC->calcEqMatureBiomassAtMatingFM(R,FXX+dF,cout);
-        mmb  = pEC->calcEqMatureBiomassAtMatingFM(R,FXX,cout);
         mmbm = pEC->calcEqMatureBiomassAtMatingFM(R,FXX-dF,cout);
+        mmb  = pEC->calcEqMatureBiomassAtMatingFM(R,FXX,cout);
         dMMBdF = 0.5*(mmbp-mmbm)/dF;//derivative of mmb wrto F
         XXp   = mmb/B0;           //ratio of mmb for current FXX relative to unfished 
         dFXX  = (Bmsy - mmb)/dMMBdF;
@@ -431,6 +438,7 @@ dvariable Tier3_Calculator::calcFmsy(dvariable R, ostream& cout){
             cout<<"----FXX  = "<<FXX<<endl;
         }
     }//i loop
+    dvariable Bmsyp = pEC->calcEqMatureBiomassAtMatingFM(R,FXX,cout);//--also calculates pEC->eqNatZFMm_msz
     
     if (sfabs(value(dFXX))>0.00001){
         cout<<endl<<"-------ERROR!!-------"<<endl;
@@ -439,7 +447,10 @@ dvariable Tier3_Calculator::calcFmsy(dvariable R, ostream& cout){
     }
     
     if (debug) {
-        cout<<"Fmsy = "<<FXX<<endl;
+        cout<<"Fmsy  = "<<FXX<<endl;
+        cout<<"B0    = "<<pEC->calcEqMatureBiomassAtMatingF0(R,cout);
+        cout<<"Bmsy  = "<<Bmsy<<endl;
+        cout<<"Bmsyp = "<<Bmsyp<<endl;
         cout<<"finished Tier3_Calculator::calcFmsy(R)"<<endl;
     }
     RETURN_ARRAYS_DECREMENT();
@@ -762,18 +773,30 @@ OFLResults* OFL_Calculator::calcOFLResults(dvar_vector R, dvar4_array& n_xmsz, o
         res->pPDIF = new PopDyInfo(*(pTCF->pEC->pPP->pPI));
         res->pCIF  = new CatchInfo(*(pTCF->pEC->pPP->pCI));
     }
-    res->curB     = pTCM->pEC->pPP->pPI->calcMatureBiomass(n_xmsz(MALE),cout);
-    if (debug) cout<<"calcOFLResults: calculated curB"<<endl;
+    res->curB = pTCM->pEC->pPP->pPI->calcMatureBiomass(n_xmsz(MALE),cout);
+    if (debug) cout<<"calcOFLResults: calculated curB"<<endl<<endl;
         
     res->eqNatZF0_xmsz.allocate(1,tcsam::nSXs,
                                 1,tcsam::nMSs,
                                 1,tcsam::nSCs,
                                 1,pTCM->pEC->pPP->nZBs);
-    res->eqNatZF0_xmsz(MALE) = pTCM->pEC->calcEqNatZF0(R(MALE),cout);
-    if (debug) cout<<"calcOFLResults: calculated eq NatZ(MALE) for F=0"<<endl;
+    res->eqNatZF0_xmsz(MALE)  = pTCM->pEC->calcEqNatZF0(R(MALE),cout);
+    if (debug) cout<<"got here 784"<<endl;
+    pTCM->pEC->calcEqMatureBiomassAtMatingF0(R(MALE),cout);//--calculates pTCM->pEC->eqNatZF0m_msz
+    if (debug) cout<<"got here 786"<<endl;
+    res->eqNatZF0m_xmsz.allocate(1,tcsam::nSXs,
+                                 1,tcsam::nMSs,
+                                 1,tcsam::nSCs,
+                                 1,pTCM->pEC->pPP->nZBs);
+    res->eqNatZF0m_xmsz(MALE) = pTCM->pEC->eqNatZF0m_msz;
+    if (debug) cout<<"calcOFLResults: calculated eqNatZF0m_msz(MALE) for F=0"<<endl;
     if (tcsam::nSXs>1) {
-        res->eqNatZF0_xmsz(FEMALE) = pTCF->pEC->calcEqNatZF0(R(FEMALE),cout);
-        if (debug) cout<<"calcOFLResults: calculated eq NatZ(FEMALE) for F=0"<<endl;
+        if (debug) cout<<"calcOFLResults: calculating eq NatZ(FEMALE) for F=0"<<endl;
+        res->eqNatZF0_xmsz(FEMALE)  = pTCF->pEC->eqNatZF0m_msz;
+        res->eqNatZF0m_xmsz(FEMALE).allocate(pTCF->pEC->eqNatZF0m_msz);
+        pTCF->pEC->calcEqMatureBiomassAtMatingF0(R(FEMALE),cout);//--calculates pTCF->pEC->eqNatZF0m_msz
+        res->eqNatZF0m_xmsz(FEMALE) = pTCF->pEC->eqNatZF0m_msz;
+        if (debug) cout<<"calcOFLResults: calculated eq NatZ(FEMALE) for F=0"<<endl<<endl;
     }
             
     res->Fmsy = pTCM->calcFmsy(R(MALE),cout);//also calculates B0 and Bmsy
@@ -787,13 +810,18 @@ OFLResults* OFL_Calculator::calcOFLResults(dvar_vector R, dvar4_array& n_xmsz, o
                                 1,tcsam::nMSs,
                                 1,tcsam::nSCs,
                                 1,pTCM->pEC->pPP->nZBs);
-    if (debug) {
-        cout<<"calcOFLResults: allocated eq NatZ for F=Fmsy"<<endl;
-    }
-    res->eqNatZFM_xmsz(MALE) = pTCM->pEC->calcEqNatZFM(R(MALE),res->Fmsy,cout);
+    res->eqNatZFM_xmsz(MALE)  = pTCM->pEC->calcEqNatZFM(R(MALE),res->Fmsy,cout);
+    pTCM->pEC->calcEqMatureBiomassAtMatingFM(R(MALE),res->Fmsy,cout);//--calculates pTCM->pEC->eqNatZFMm_msz
+    res->eqNatZFMm_xmsz.allocate(1,tcsam::nSXs,
+                                 1,tcsam::nMSs,
+                                 1,tcsam::nSCs,
+                                 1,pTCM->pEC->pPP->nZBs);
+    res->eqNatZFMm_xmsz(MALE) = pTCM->pEC->eqNatZFMm_msz;
     if (debug) cout<<"calcOFLResults: calculated eq NatZ(MALE) for F=Fmsy"<<endl;
     if (tcsam::nSXs>1) {
-        res->eqNatZFM_xmsz(FEMALE) = pTCF->pEC->calcEqNatZFM(R(FEMALE),res->Fmsy,cout);
+        res->eqNatZFM_xmsz(FEMALE)  = pTCF->pEC->calcEqNatZFM(R(FEMALE),res->Fmsy,cout);
+        pTCF->pEC->calcEqMatureBiomassAtMatingFM(R(FEMALE),res->Fmsy,cout);//--calculates pTCF->pEC->eqNatZFMm_msz
+        res->eqNatZFMm_xmsz(FEMALE) = pTCF->pEC->eqNatZFMm_msz;
         if (debug) cout<<"calcOFLResults: calculated eq NatZ(FEMALE) for F=Fmsy"<<endl;
     }
             
@@ -842,14 +870,26 @@ OFLResults::OFLResults(const OFLResults& o){
     finlNatZ_xmsz.deallocate(); //final pop state in assessment model
     finlNatZ_xmsz.allocate(o.finlNatZ_xmsz);
     if (debug) std::cout<<"got here 0"<<endl;
-    eqNatZF0_xmsz.deallocate(); //unfished equilibrium size distribution
+
+    eqNatZF0_xmsz.deallocate(); //unfished equilibrium size distribution on July 1
     eqNatZF0_xmsz.allocate(o.eqNatZF0_xmsz);
     if (debug) std::cout<<"got here 1"<<endl;
-    eqNatZF0_xmsz = o.eqNatZF0_xmsz;
-    eqNatZFM_xmsz.deallocate(); //unfished equilibrium size distribution
-    eqNatZFM_xmsz.allocate(o.eqNatZF0_xmsz);
+    for (int x=1;x<=tcsam::nSXs;x++) eqNatZF0_xmsz(x) = 1.0*o.eqNatZF0_xmsz(x);
+
+    eqNatZFM_xmsz.deallocate(); //unfished equilibrium size distribution on July 1
+    eqNatZFM_xmsz.allocate(o.eqNatZFM_xmsz);
     if (debug) std::cout<<"got here 2"<<endl;
-    for (int x=1;x<=tcsam::nSXs;x++) eqNatZFM_xmsz(x) = 1.0*o.eqNatZF0_xmsz(x);
+    for (int x=1;x<=tcsam::nSXs;x++) eqNatZFM_xmsz(x) = 1.0*o.eqNatZFM_xmsz(x);
+
+    eqNatZF0m_xmsz.deallocate(); //unfished equilibrium size distribution at mating
+    eqNatZF0m_xmsz.allocate(o.eqNatZF0m_xmsz);
+    if (debug) std::cout<<"got here 1a"<<endl;
+    for (int x=1;x<=tcsam::nSXs;x++) eqNatZF0m_xmsz(x) = 1.0*o.eqNatZF0m_xmsz(x);
+
+    eqNatZFMm_xmsz.deallocate(); //unfished equilibrium size distribution at mating
+    eqNatZFMm_xmsz.allocate(o.eqNatZFMm_xmsz);
+    if (debug) std::cout<<"got here 2a"<<endl;
+    for (int x=1;x<=tcsam::nSXs;x++) eqNatZFMm_xmsz(x) = 1.0*o.eqNatZFMm_xmsz(x);
     
     pPDIM = new PopDyInfo(*(o.pPDIM));
     pPDIF = new PopDyInfo(*(o.pPDIF));
@@ -879,15 +919,27 @@ OFLResults& OFLResults::operator=(const OFLResults& o){
     finlNatZ_xmsz.deallocate(); //final pop state in assessment model
     finlNatZ_xmsz.allocate(o.finlNatZ_xmsz);
     if (debug) std::cout<<"got here 0"<<endl;
-    eqNatZF0_xmsz.deallocate(); //unfished equilibrium size distribution
+
+    eqNatZF0_xmsz.deallocate(); //unfished equilibrium size distribution on July 1
     eqNatZF0_xmsz.allocate(o.eqNatZF0_xmsz);
     if (debug) std::cout<<"got here 1"<<endl;
-    eqNatZF0_xmsz = o.eqNatZF0_xmsz;
-    eqNatZFM_xmsz.deallocate(); //unfished equilibrium size distribution
-    eqNatZFM_xmsz.allocate(o.eqNatZF0_xmsz);
+    for (int x=1;x<=tcsam::nSXs;x++) eqNatZF0_xmsz(x) = 1.0*o.eqNatZF0_xmsz(x);
+
+    eqNatZFM_xmsz.deallocate(); //unfished equilibrium size distribution on July 1
+    eqNatZFM_xmsz.allocate(o.eqNatZFM_xmsz);
     if (debug) std::cout<<"got here 2"<<endl;
-    for (int x=1;x<=tcsam::nSXs;x++) eqNatZFM_xmsz(x) = 1.0*o.eqNatZF0_xmsz(x);
-    
+    for (int x=1;x<=tcsam::nSXs;x++) eqNatZFM_xmsz(x) = 1.0*o.eqNatZFM_xmsz(x);
+
+    eqNatZF0m_xmsz.deallocate(); //unfished equilibrium size distribution at mating
+    eqNatZF0m_xmsz.allocate(o.eqNatZF0m_xmsz);
+    if (debug) std::cout<<"got here 1a"<<endl;
+    for (int x=1;x<=tcsam::nSXs;x++) eqNatZF0m_xmsz(x) = 1.0*o.eqNatZF0m_xmsz(x);
+
+    eqNatZFMm_xmsz.deallocate(); //unfished equilibrium size distribution at mating
+    eqNatZFMm_xmsz.allocate(o.eqNatZFMm_xmsz);
+    if (debug) std::cout<<"got here 2a"<<endl;
+    for (int x=1;x<=tcsam::nSXs;x++) eqNatZFMm_xmsz(x) = 1.0*o.eqNatZFMm_xmsz(x);
+   
     pPDIM = new PopDyInfo(*(o.pPDIM));
     pPDIF = new PopDyInfo(*(o.pPDIF));
     pCIM  = new CatchInfo(*(o.pCIM));
@@ -956,7 +1008,9 @@ void OFLResults::writeToR(ostream& os, ModelConfiguration* ptrMC, adstring name,
     if (tcsam::nSXs>1) {pPDIF->writeToR(os,ptrMC,"popDyInfoF",0); os<<cc<<endl;}
     pCIM->writeToR(os,ptrMC,"catchInfoM",0); os<<cc<<endl;
     if (tcsam::nSXs>1) {pCIF->writeToR(os,ptrMC,"catchInfoF",0); os<<cc<<endl;}
-    os<<"eqNatZF0_xmsz="; wts::writeToR(os,eqNatZF0_xmsz,xDms,mDms,sDms,zDms); os<<cc<<endl; 
-    os<<"eqNatZFM_xmsz="; wts::writeToR(os,eqNatZFM_xmsz,xDms,mDms,sDms,zDms); os<<endl;
+    os<<"eqNatZF0_xmsz=";  wts::writeToR(os,eqNatZF0_xmsz,xDms,mDms,sDms,zDms);  os<<cc<<endl; 
+    os<<"eqNatZFM_xmsz=";  wts::writeToR(os,eqNatZFM_xmsz,xDms,mDms,sDms,zDms);  os<<cc<<endl;
+    os<<"eqNatZF0m_xmsz="; wts::writeToR(os,eqNatZF0m_xmsz,xDms,mDms,sDms,zDms); os<<cc<<endl; 
+    os<<"eqNatZFMm_xmsz="; wts::writeToR(os,eqNatZFMm_xmsz,xDms,mDms,sDms,zDms); os<<endl;
     os<<")";
 }

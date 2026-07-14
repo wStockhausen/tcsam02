@@ -6180,7 +6180,7 @@ FUNCTION void calcOFL(int yrp, int debug, ostream& cout)
     if (debug) cout<<"created pPIM, pPIF."<<endl;
     
     //5. Determine fishery conditions for next year based on averages for recent years
-        int oflAvgPeriodYrs = 5;  //TODO: this should be an input
+        int oflAvgPeriodYrs = 5;  //default. Changed to ptrMOs->oflNumYrsForAvgCapRate(f) by f below 
         //assumption here is that ALL fisheries EXCEPT the first are bycatch fisheries
         //a. Calculate average handling mortality, retention curves and capture rates
         int ny;   //number of years fishery is active
